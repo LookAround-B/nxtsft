@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SaPortalRouteImport } from './routes/sa-portal'
 import { Route as PropertiesRouteImport } from './routes/properties'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PropertiesIdRouteImport } from './routes/properties.$id'
 
+const SaPortalRoute = SaPortalRouteImport.update({
+  id: '/sa-portal',
+  path: '/sa-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PropertiesRoute = PropertiesRouteImport.update({
   id: '/properties',
   path: '/properties',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
   '/properties': typeof PropertiesRouteWithChildren
+  '/sa-portal': typeof SaPortalRoute
   '/properties/$id': typeof PropertiesIdRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
   '/properties': typeof PropertiesRouteWithChildren
+  '/sa-portal': typeof SaPortalRoute
   '/properties/$id': typeof PropertiesIdRoute
 }
 export interface FileRoutesById {
@@ -61,19 +69,33 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
   '/properties': typeof PropertiesRouteWithChildren
+  '/sa-portal': typeof SaPortalRoute
   '/properties/$id': typeof PropertiesIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/contact' | '/properties' | '/properties/$id'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/contact'
+    | '/properties'
+    | '/sa-portal'
+    | '/properties/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/contact' | '/properties' | '/properties/$id'
+  to:
+    | '/'
+    | '/about'
+    | '/contact'
+    | '/properties'
+    | '/sa-portal'
+    | '/properties/$id'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/contact'
     | '/properties'
+    | '/sa-portal'
     | '/properties/$id'
   fileRoutesById: FileRoutesById
 }
@@ -82,10 +104,18 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   ContactRoute: typeof ContactRoute
   PropertiesRoute: typeof PropertiesRouteWithChildren
+  SaPortalRoute: typeof SaPortalRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sa-portal': {
+      id: '/sa-portal'
+      path: '/sa-portal'
+      fullPath: '/sa-portal'
+      preLoaderRoute: typeof SaPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/properties': {
       id: '/properties'
       path: '/properties'
@@ -141,6 +171,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   ContactRoute: ContactRoute,
   PropertiesRoute: PropertiesRouteWithChildren,
+  SaPortalRoute: SaPortalRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
