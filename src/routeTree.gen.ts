@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as UserPortalRouteImport } from './routes/user-portal'
 import { Route as SupervisorPortalRouteImport } from './routes/supervisor-portal'
 import { Route as SalesPortalRouteImport } from './routes/sales-portal'
-import { Route as SaPortalRouteImport } from './routes/sa-portal'
 import { Route as PropertiesRouteImport } from './routes/properties'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
@@ -35,11 +34,6 @@ const SupervisorPortalRoute = SupervisorPortalRouteImport.update({
 const SalesPortalRoute = SalesPortalRouteImport.update({
   id: '/sales-portal',
   path: '/sales-portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SaPortalRoute = SaPortalRouteImport.update({
-  id: '/sa-portal',
-  path: '/sa-portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PropertiesRoute = PropertiesRouteImport.update({
@@ -91,7 +85,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/properties': typeof PropertiesRouteWithChildren
-  '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
   '/user-portal': typeof UserPortalRoute
@@ -105,7 +98,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/properties': typeof PropertiesRouteWithChildren
-  '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
   '/user-portal': typeof UserPortalRoute
@@ -120,7 +112,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/properties': typeof PropertiesRouteWithChildren
-  '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
   '/user-portal': typeof UserPortalRoute
@@ -136,7 +127,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/properties'
-    | '/sa-portal'
     | '/sales-portal'
     | '/supervisor-portal'
     | '/user-portal'
@@ -150,7 +140,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/properties'
-    | '/sa-portal'
     | '/sales-portal'
     | '/supervisor-portal'
     | '/user-portal'
@@ -164,7 +153,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/properties'
-    | '/sa-portal'
     | '/sales-portal'
     | '/supervisor-portal'
     | '/user-portal'
@@ -179,7 +167,6 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   PropertiesRoute: typeof PropertiesRouteWithChildren
-  SaPortalRoute: typeof SaPortalRoute
   SalesPortalRoute: typeof SalesPortalRoute
   SupervisorPortalRoute: typeof SupervisorPortalRoute
   UserPortalRoute: typeof UserPortalRoute
@@ -206,13 +193,6 @@ declare module '@tanstack/react-router' {
       path: '/sales-portal'
       fullPath: '/sales-portal'
       preLoaderRoute: typeof SalesPortalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sa-portal': {
-      id: '/sa-portal'
-      path: '/sa-portal'
-      fullPath: '/sa-portal'
-      preLoaderRoute: typeof SaPortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/properties': {
@@ -294,7 +274,6 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   PropertiesRoute: PropertiesRouteWithChildren,
-  SaPortalRoute: SaPortalRoute,
   SalesPortalRoute: SalesPortalRoute,
   SupervisorPortalRoute: SupervisorPortalRoute,
   UserPortalRoute: UserPortalRoute,
@@ -302,3 +281,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
