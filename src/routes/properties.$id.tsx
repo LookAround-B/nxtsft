@@ -156,6 +156,30 @@ function PropertyDetail() {
               ))}
             </div>
 
+            {/* Exact address — gated */}
+            <div className="rounded-xl border border-border bg-white p-5 sm:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-display text-xl font-bold text-navy">Exact address</h2>
+                {!signedIn && <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-navy"><Lock className="h-3 w-3" /> Login required</span>}
+              </div>
+              {signedIn ? (
+                <p className="mt-3 text-sm leading-relaxed text-foreground/80 sm:text-base">
+                  Tower B, Plot 42, {p.locality}, {p.city} — 400050. RERA: <span className="font-mono text-xs">{p.rera}</span>
+                </p>
+              ) : (
+                <div className="relative mt-3 overflow-hidden rounded-lg border border-dashed border-border bg-secondary/60 p-5">
+                  <p className="select-none text-sm leading-relaxed text-foreground/40 blur-sm">
+                    Tower B, Plot 42, Pali Hill Road, Bandra West — 400050. Building marker: GPS 19.0599°N · 72.8295°E.
+                  </p>
+                  <div className="absolute inset-0 grid place-items-center bg-gradient-to-t from-white via-white/85 to-white/40">
+                    <Link to="/login" search={{ redirect: `/properties/${p.id}` } as never} className="inline-flex items-center gap-2 rounded-md bg-navy px-4 py-2 text-xs font-semibold text-white hover:opacity-90">
+                      <Lock className="h-3.5 w-3.5" /> Sign in to view exact address
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Description */}
             <div className="rounded-xl border border-border bg-white p-5 sm:p-6">
               <h2 className="font-display text-xl font-bold text-navy">About this property</h2>
@@ -236,8 +260,18 @@ function PropertyDetail() {
                 {p.pricePerSqft}/sqft
                 {p.purpose === "Sale" && ` · EMI ₹${estimateEMI(p.price)}/mo`}
               </div>
-              <button className="mt-5 w-full rounded-md bg-accent py-3 font-display text-sm font-bold text-accent-foreground hover:opacity-90">Schedule Site Visit</button>
-              <button className="mt-2 w-full rounded-md border border-white/20 py-3 font-display text-sm font-bold text-white hover:bg-white/5">Request Callback</button>
+              {signedIn ? (
+                <>
+                  <button className="mt-5 w-full rounded-md bg-accent py-3 font-display text-sm font-bold text-accent-foreground hover:opacity-90">Schedule Site Visit</button>
+                  <button className="mt-2 w-full rounded-md border border-white/20 py-3 font-display text-sm font-bold text-white hover:bg-white/5">Request Callback</button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" search={{ redirect: `/properties/${p.id}` } as never} className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-accent py-3 font-display text-sm font-bold text-accent-foreground hover:opacity-90"><Lock className="h-4 w-4" /> Sign in to Schedule Visit</Link>
+                  <Link to="/login" search={{ redirect: `/properties/${p.id}` } as never} className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-white/20 py-3 font-display text-sm font-bold text-white hover:bg-white/5"><Lock className="h-4 w-4" /> Sign in to Request Callback</Link>
+                  <p className="mt-3 text-center text-[11px] text-white/60">Free account · 30 second sign-in</p>
+                </>
+              )}
             </div>
 
             <div className="rounded-xl border border-border bg-white p-6">
@@ -260,19 +294,43 @@ function PropertyDetail() {
                   <div className="font-display font-bold text-navy">&lt; 30 min</div>
                 </div>
               </div>
-              <a href={`tel:${p.owner.phone.replace(/\s/g, "")}`} className="mt-4 block w-full rounded-md bg-navy py-2.5 text-center text-sm font-semibold text-white hover:opacity-90">📞 Call {p.owner.phone}</a>
-              <button className="mt-2 w-full rounded-md bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:opacity-90">💬 WhatsApp Agent</button>
+              {signedIn ? (
+                <>
+                  <a href={`tel:${p.owner.phone.replace(/\s/g, "")}`} className="mt-4 block w-full rounded-md bg-navy py-2.5 text-center text-sm font-semibold text-white hover:opacity-90">📞 Call {p.owner.phone}</a>
+                  <button className="mt-2 w-full rounded-md bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:opacity-90">💬 WhatsApp Agent</button>
+                </>
+              ) : (
+                <>
+                  <div className="mt-4 rounded-md border border-dashed border-border bg-secondary/60 px-3 py-2.5 text-center">
+                    <div className="select-none font-mono text-sm font-semibold text-foreground/40 blur-[5px]">+91 98xxx 88421</div>
+                  </div>
+                  <Link to="/login" search={{ redirect: `/properties/${p.id}` } as never} className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-navy py-2.5 text-sm font-semibold text-white hover:opacity-90"><Lock className="h-4 w-4" /> Sign in to view contact</Link>
+                  <p className="mt-2 text-center text-[11px] text-muted-foreground">Phone & WhatsApp unlocked after sign-in</p>
+                </>
+              )}
             </div>
 
-            <form className="rounded-xl border border-border bg-white p-6">
-              <div className="font-display text-base font-bold text-navy">Send an enquiry</div>
-              <div className="mt-3 space-y-2">
-                <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Your name" />
-                <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Phone (+91)" />
-                <textarea rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder={`I'm interested in ${p.title.split("—")[0].trim()}…`} />
+            <div className="rounded-xl border border-border bg-white p-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-display text-base font-bold text-navy">Send an enquiry</div>
+                {!signedIn && <Lock className="h-4 w-4 text-muted-foreground" />}
               </div>
-              <button type="button" className="mt-3 w-full rounded-md bg-accent py-2.5 text-sm font-semibold text-accent-foreground">Send enquiry</button>
-            </form>
+              {signedIn ? (
+                <form>
+                  <div className="mt-3 space-y-2">
+                    <input defaultValue={session?.name} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Your name" />
+                    <input defaultValue={session?.phone} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Phone (+91)" />
+                    <textarea rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder={`I'm interested in ${p.title.split("—")[0].trim()}…`} />
+                  </div>
+                  <button type="button" className="mt-3 w-full rounded-md bg-accent py-2.5 text-sm font-semibold text-accent-foreground">Send enquiry</button>
+                </form>
+              ) : (
+                <div className="mt-3">
+                  <p className="text-xs text-muted-foreground">Sign in to send a direct enquiry to {p.owner.name}. Your name and phone auto-fill from your profile.</p>
+                  <Link to="/login" search={{ redirect: `/properties/${p.id}` } as never} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-accent py-2.5 text-sm font-semibold text-accent-foreground hover:opacity-90"><Lock className="h-4 w-4" /> Sign in to enquire</Link>
+                </div>
+              )}
+            </div>
           </aside>
         </div>
 
