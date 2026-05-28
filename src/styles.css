@@ -73,31 +73,31 @@
 
 :root {
   --radius: 0.625rem;
-  /* Pastel palette: soft lavender, peach, mint, sky */
-  --background: oklch(0.985 0.012 80);
-  --foreground: oklch(0.32 0.05 280);
-  --navy: oklch(0.42 0.08 285);            /* deep dusty lavender (carries white text) */
-  --navy-deep: oklch(0.32 0.07 285);       /* deepest lavender */
-  --mid-blue: oklch(0.78 0.08 230);        /* pastel sky */
-  --brand-red: oklch(0.78 0.11 25);        /* pastel peach/coral */
-  --gold: oklch(0.88 0.09 95);             /* buttery pastel */
+  /* Modern blue & white palette */
+  --background: oklch(0.99 0.005 240);
+  --foreground: oklch(0.22 0.04 250);
+  --navy: oklch(0.32 0.12 255);            /* deep brand blue */
+  --navy-deep: oklch(0.24 0.11 258);       /* deepest navy */
+  --mid-blue: oklch(0.62 0.18 250);        /* vibrant action blue */
+  --brand-red: oklch(0.62 0.18 250);       /* alias to brand blue */
+  --gold: oklch(0.85 0.13 220);            /* sky accent */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.32 0.05 280);
+  --card-foreground: oklch(0.22 0.04 250);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.32 0.05 280);
-  --primary: oklch(0.58 0.09 285);
-  --primary-foreground: oklch(0.99 0.005 80);
-  --secondary: oklch(0.95 0.025 80);        /* pastel cream */
-  --secondary-foreground: oklch(0.4 0.07 285);
-  --muted: oklch(0.95 0.02 230);            /* soft mist */
-  --muted-foreground: oklch(0.5 0.04 280);
-  --accent: oklch(0.78 0.11 25);            /* peach */
-  --accent-foreground: oklch(0.28 0.06 30);
+  --popover-foreground: oklch(0.22 0.04 250);
+  --primary: oklch(0.32 0.12 255);
+  --primary-foreground: oklch(0.99 0.005 240);
+  --secondary: oklch(0.96 0.02 245);        /* pale blue-white */
+  --secondary-foreground: oklch(0.3 0.1 255);
+  --muted: oklch(0.96 0.015 240);           /* mist */
+  --muted-foreground: oklch(0.5 0.04 250);
+  --accent: oklch(0.62 0.18 250);           /* vibrant blue */
+  --accent-foreground: oklch(0.99 0.005 240);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.92 0.02 280);
-  --input: oklch(0.92 0.02 280);
-  --ring: oklch(0.78 0.11 25);
+  --border: oklch(0.91 0.018 245);
+  --input: oklch(0.91 0.018 245);
+  --ring: oklch(0.62 0.18 250);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
