@@ -4,6 +4,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap');
+
 /*
  * Design system definition.
  *
@@ -59,29 +61,42 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --font-display: "Poppins", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --color-navy: var(--navy);
+  --color-navy-deep: var(--navy-deep);
+  --color-mid-blue: var(--mid-blue);
+  --color-brand-red: var(--brand-red);
+  --color-gold: var(--gold);
 }
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --background: oklch(0.99 0.005 250);
+  --foreground: oklch(0.18 0.04 270);
+  --navy: oklch(0.22 0.06 275);
+  --navy-deep: oklch(0.17 0.05 275);
+  --mid-blue: oklch(0.32 0.11 260);
+  --brand-red: oklch(0.63 0.22 18);
+  --gold: oklch(0.78 0.15 75);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
+  --card-foreground: oklch(0.18 0.04 270);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.18 0.04 270);
+  --primary: oklch(0.22 0.06 275);
+  --primary-foreground: oklch(0.98 0.003 247);
+  --secondary: oklch(0.96 0.01 260);
+  --secondary-foreground: oklch(0.22 0.06 275);
+  --muted: oklch(0.96 0.01 260);
+  --muted-foreground: oklch(0.5 0.03 270);
+  --accent: oklch(0.63 0.22 18);
+  --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --border: oklch(0.91 0.015 260);
+  --input: oklch(0.91 0.015 260);
+  --ring: oklch(0.63 0.22 18);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -98,8 +113,13 @@
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
+  --background: oklch(0.13 0.04 270);
   --foreground: oklch(0.984 0.003 247.858);
+  --navy: oklch(0.22 0.06 275);
+  --navy-deep: oklch(0.13 0.04 270);
+  --mid-blue: oklch(0.4 0.13 260);
+  --brand-red: oklch(0.68 0.22 18);
+  --gold: oklch(0.82 0.15 75);
   --card: oklch(0.208 0.042 265.755);
   --card-foreground: oklch(0.984 0.003 247.858);
   --popover: oklch(0.208 0.042 265.755);
