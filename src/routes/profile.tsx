@@ -15,6 +15,7 @@ const roleStats: Record<Role, Array<[string, string]>> = {
   supervisor: [["Team Size", "8"], ["Open Leads", "62"], ["MTD Closed", "14"], ["Avg Response", "11 min"]],
   sales: [["Open Leads", "14"], ["Closed MTD", "4"], ["Target", "72%"], ["Commission", "₹1.24 L"]],
   user: [["Shortlisted", "6"], ["Site Visits", "3"], ["EMI Pre-approved", "₹1.8 Cr"], ["KYC", "Verified"]],
+  customer: [["Saved Homes", "9"], ["Visits Booked", "2"], ["Concierge Tier", "Gold"], ["KYC", "Verified"]],
 };
 
 const roleActions: Record<Role, Array<{ label: string; to: string; icon: string }>> = {
@@ -42,6 +43,11 @@ const roleActions: Record<Role, Array<{ label: string; to: string; icon: string 
     { label: "Open My Dashboard", to: "/user-portal", icon: "🏠" },
     { label: "Shortlist", to: "/user-portal", icon: "❤" },
     { label: "EMI Calculator", to: "/user-portal", icon: "🧮" },
+  ],
+  customer: [
+    { label: "Open Concierge", to: "/user-portal", icon: "✨" },
+    { label: "My Visits", to: "/user-portal", icon: "📅" },
+    { label: "Talk to advisor", to: "/contact", icon: "💬" },
   ],
 };
 
