@@ -14,6 +14,8 @@ import { Route as SupervisorPortalRouteImport } from './routes/supervisor-portal
 import { Route as SalesPortalRouteImport } from './routes/sales-portal'
 import { Route as SaPortalRouteImport } from './routes/sa-portal'
 import { Route as PropertiesRouteImport } from './routes/properties'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AdminPortalRouteImport } from './routes/admin-portal'
 import { Route as AboutRouteImport } from './routes/about'
@@ -43,6 +45,16 @@ const SaPortalRoute = SaPortalRouteImport.update({
 const PropertiesRoute = PropertiesRouteImport.update({
   id: '/properties',
   path: '/properties',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -76,6 +88,8 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/admin-portal': typeof AdminPortalRoute
   '/contact': typeof ContactRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
@@ -88,6 +102,8 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/admin-portal': typeof AdminPortalRoute
   '/contact': typeof ContactRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
@@ -101,6 +117,8 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin-portal': typeof AdminPortalRoute
   '/contact': typeof ContactRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
@@ -115,6 +133,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin-portal'
     | '/contact'
+    | '/login'
+    | '/profile'
     | '/properties'
     | '/sa-portal'
     | '/sales-portal'
@@ -127,6 +147,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin-portal'
     | '/contact'
+    | '/login'
+    | '/profile'
     | '/properties'
     | '/sa-portal'
     | '/sales-portal'
@@ -139,6 +161,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin-portal'
     | '/contact'
+    | '/login'
+    | '/profile'
     | '/properties'
     | '/sa-portal'
     | '/sales-portal'
@@ -152,6 +176,8 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminPortalRoute: typeof AdminPortalRoute
   ContactRoute: typeof ContactRoute
+  LoginRoute: typeof LoginRoute
+  ProfileRoute: typeof ProfileRoute
   PropertiesRoute: typeof PropertiesRouteWithChildren
   SaPortalRoute: typeof SaPortalRoute
   SalesPortalRoute: typeof SalesPortalRoute
@@ -194,6 +220,20 @@ declare module '@tanstack/react-router' {
       path: '/properties'
       fullPath: '/properties'
       preLoaderRoute: typeof PropertiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -251,6 +291,8 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdminPortalRoute: AdminPortalRoute,
   ContactRoute: ContactRoute,
+  LoginRoute: LoginRoute,
+  ProfileRoute: ProfileRoute,
   PropertiesRoute: PropertiesRouteWithChildren,
   SaPortalRoute: SaPortalRoute,
   SalesPortalRoute: SalesPortalRoute,
