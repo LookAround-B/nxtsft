@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type Role = "super-admin" | "admin" | "supervisor" | "sales" | "user";
+export type Role = "super-admin" | "admin" | "supervisor" | "sales" | "user" | "customer";
 
 export interface Session {
   role: Role;
@@ -18,6 +18,7 @@ export const ROLE_META: Record<Role, { label: string; portal: string; portalName
   supervisor: { label: "Supervisor", portal: "/supervisor-portal", portalName: "NestIQ Desk", demoEmail: "supervisor@nestiq.in", demoName: "Rahul Verma", city: "Pune", phone: "+91 98xxx 00003" },
   sales: { label: "Sales Rep", portal: "/sales-portal", portalName: "NestIQ Field", demoEmail: "priya@nestiq.in", demoName: "Priya Sharma", city: "Mumbai", phone: "+91 98xxx 12042" },
   user: { label: "Home Buyer", portal: "/user-portal", portalName: "NestIQ Home", demoEmail: "rohan@example.com", demoName: "Rohan Mehta", city: "Mumbai", phone: "+91 98xxx 11000" },
+  customer: { label: "Customer", portal: "/user-portal", portalName: "NestIQ Concierge", demoEmail: "ananya@example.com", demoName: "Ananya Gupta", city: "Delhi", phone: "+91 98xxx 11001" },
 };
 
 const STORAGE_KEY = "nestiq.session";

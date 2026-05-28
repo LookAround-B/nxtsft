@@ -14,7 +14,7 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-const ROLES: Role[] = ["super-admin", "admin", "supervisor", "sales", "user"];
+const ROLES: Role[] = ["super-admin", "admin", "supervisor", "sales", "user", "customer"];
 
 const roleColor: Record<Role, string> = {
   "super-admin": "from-blue-600 to-indigo-700",
@@ -22,6 +22,7 @@ const roleColor: Record<Role, string> = {
   supervisor: "from-cyan-500 to-blue-600",
   sales: "from-blue-500 to-violet-600",
   user: "from-sky-400 to-blue-500",
+  customer: "from-emerald-500 to-teal-600",
 };
 
 function LoginPage() {

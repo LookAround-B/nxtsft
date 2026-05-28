@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 export interface PortalNav {
   label: string;
@@ -28,9 +28,14 @@ const accentMap: Record<string, string> = {
 export function PortalShell({ brand, role, accent = "red", user, nav, basePath, children }: Props) {
   const loc = useLocation();
   const accentCls = accentMap[accent];
+  // Hash isn't sent to the server, so any hash-based active state must wait
+  // until after hydration to avoid SSR/client mismatch.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const currentHash = mounted ? (loc.hash ?? "") : "";
   return (
-    <div className="flex min-h-screen bg-[oklch(0.97_0.01_260)] text-foreground">
-      <aside className="hidden w-64 flex-shrink-0 flex-col bg-navy-deep text-white lg:flex">
+    <div className="flex h-screen overflow-hidden bg-[oklch(0.97_0.01_260)] text-foreground">
+      <aside className="sticky top-0 hidden h-screen w-64 flex-shrink-0 flex-col overflow-y-auto bg-navy-deep text-white lg:flex">
         <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
           <div className={`grid h-10 w-10 place-items-center rounded-lg font-display text-lg font-bold ${accentCls}`}>N</div>
           <div>
@@ -41,7 +46,6 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
         <nav className="flex-1 space-y-1 px-3 py-6">
           {nav.map((n) => {
             const [navPath, navHash = ""] = n.to.split("#");
-            const currentHash = loc.hash ?? "";
             const active = navPath === loc.pathname && navHash === currentHash;
             return (
               <Link
@@ -63,8 +67,8 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
         </div>
       </aside>
 
-      <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-white px-6 py-4">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-white px-4 py-3 sm:px-6 sm:py-4">
           <div>
             <div className="text-xs uppercase tracking-widest text-muted-foreground">{role} Portal</div>
             <div className="font-display text-xl font-bold text-navy">{brand}</div>
@@ -79,7 +83,9 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
             </div>
           </div>
         </header>
-        <main className="flex-1 px-6 py-8">{children}</main>
+        <main className="flex-1 overflow-y-auto px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-10">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        </main>
       </div>
     </div>
   );
