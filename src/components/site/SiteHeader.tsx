@@ -1,7 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { navLinks } from "@/data/static";
+import { useAuth } from "@/lib/auth";
 
 export function SiteHeader() {
+  const { session } = useAuth();
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
@@ -20,7 +22,14 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <Link to="/user-portal" className="hidden rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary md:inline-block">Sign in</Link>
+          {session ? (
+            <Link to="/profile" className="hidden items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary md:inline-flex">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">{session.initials}</span>
+              <span className="max-w-[120px] truncate">{session.name}</span>
+            </Link>
+          ) : (
+            <Link to="/login" className="hidden rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary md:inline-block">Sign in</Link>
+          )}
           <Link to="/properties" className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm transition hover:opacity-90">Browse Homes</Link>
         </div>
       </div>
