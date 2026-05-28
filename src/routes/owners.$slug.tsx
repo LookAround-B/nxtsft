@@ -5,6 +5,8 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { properties, ownerSlug } from "@/data/static";
 import { useAuth } from "@/lib/auth";
 
+type Listing = (typeof properties)[number];
+
 export const Route = createFileRoute("/owners/$slug")({
   component: OwnerPage,
   loader: ({ params }) => {
@@ -33,8 +35,8 @@ export const Route = createFileRoute("/owners/$slug")({
 function OwnerPage() {
   const { listings, owner } = Route.useLoaderData();
   const { session } = useAuth();
-  const totalValue = listings.reduce((s, p) => s + (p.purpose === "Sale" ? p.price : 0), 0);
-  const cities = Array.from(new Set(listings.map((p) => p.city)));
+  const totalValue = (listings as Listing[]).reduce((s, p) => s + (p.purpose === "Sale" ? p.price : 0), 0);
+  const cities = Array.from(new Set((listings as Listing[]).map((p) => p.city)));
 
   return (
     <div className="min-h-screen bg-background">
@@ -87,7 +89,7 @@ function OwnerPage() {
       <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6">
         <h2 className="font-display text-2xl font-bold text-navy sm:text-3xl">All listings by {owner.name.split(" ")[0]}</h2>
         <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {listings.map((p) => (
+          {(listings as Listing[]).map((p) => (
             <Link key={p.id} to="/properties/$id" params={{ id: p.id }} className="group overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img src={p.image} alt={p.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
