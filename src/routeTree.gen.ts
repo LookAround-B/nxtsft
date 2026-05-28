@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UserPortalRouteImport } from './routes/user-portal'
 import { Route as SupervisorPortalRouteImport } from './routes/supervisor-portal'
 import { Route as SalesPortalRouteImport } from './routes/sales-portal'
 import { Route as SaPortalRouteImport } from './routes/sa-portal'
@@ -19,6 +20,11 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PropertiesIdRouteImport } from './routes/properties.$id'
 
+const UserPortalRoute = UserPortalRouteImport.update({
+  id: '/user-portal',
+  path: '/user-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SupervisorPortalRoute = SupervisorPortalRouteImport.update({
   id: '/supervisor-portal',
   path: '/supervisor-portal',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
+  '/user-portal': typeof UserPortalRoute
   '/properties/$id': typeof PropertiesIdRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
+  '/user-portal': typeof UserPortalRoute
   '/properties/$id': typeof PropertiesIdRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
+  '/user-portal': typeof UserPortalRoute
   '/properties/$id': typeof PropertiesIdRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/sa-portal'
     | '/sales-portal'
     | '/supervisor-portal'
+    | '/user-portal'
     | '/properties/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/sa-portal'
     | '/sales-portal'
     | '/supervisor-portal'
+    | '/user-portal'
     | '/properties/$id'
   id:
     | '__root__'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/sa-portal'
     | '/sales-portal'
     | '/supervisor-portal'
+    | '/user-portal'
     | '/properties/$id'
   fileRoutesById: FileRoutesById
 }
@@ -144,10 +156,18 @@ export interface RootRouteChildren {
   SaPortalRoute: typeof SaPortalRoute
   SalesPortalRoute: typeof SalesPortalRoute
   SupervisorPortalRoute: typeof SupervisorPortalRoute
+  UserPortalRoute: typeof UserPortalRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/user-portal': {
+      id: '/user-portal'
+      path: '/user-portal'
+      fullPath: '/user-portal'
+      preLoaderRoute: typeof UserPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/supervisor-portal': {
       id: '/supervisor-portal'
       path: '/supervisor-portal'
@@ -235,6 +255,7 @@ const rootRouteChildren: RootRouteChildren = {
   SaPortalRoute: SaPortalRoute,
   SalesPortalRoute: SalesPortalRoute,
   SupervisorPortalRoute: SupervisorPortalRoute,
+  UserPortalRoute: UserPortalRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
