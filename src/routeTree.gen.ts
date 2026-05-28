@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SupervisorPortalRouteImport } from './routes/supervisor-portal'
+import { Route as SalesPortalRouteImport } from './routes/sales-portal'
 import { Route as SaPortalRouteImport } from './routes/sa-portal'
 import { Route as PropertiesRouteImport } from './routes/properties'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -21,6 +22,11 @@ import { Route as PropertiesIdRouteImport } from './routes/properties.$id'
 const SupervisorPortalRoute = SupervisorPortalRouteImport.update({
   id: '/supervisor-portal',
   path: '/supervisor-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SalesPortalRoute = SalesPortalRouteImport.update({
+  id: '/sales-portal',
+  path: '/sales-portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SaPortalRoute = SaPortalRouteImport.update({
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/sa-portal': typeof SaPortalRoute
+  '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
   '/properties/$id': typeof PropertiesIdRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/sa-portal': typeof SaPortalRoute
+  '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
   '/properties/$id': typeof PropertiesIdRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/sa-portal': typeof SaPortalRoute
+  '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
   '/properties/$id': typeof PropertiesIdRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/properties'
     | '/sa-portal'
+    | '/sales-portal'
     | '/supervisor-portal'
     | '/properties/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/properties'
     | '/sa-portal'
+    | '/sales-portal'
     | '/supervisor-portal'
     | '/properties/$id'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/properties'
     | '/sa-portal'
+    | '/sales-portal'
     | '/supervisor-portal'
     | '/properties/$id'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   PropertiesRoute: typeof PropertiesRouteWithChildren
   SaPortalRoute: typeof SaPortalRoute
+  SalesPortalRoute: typeof SalesPortalRoute
   SupervisorPortalRoute: typeof SupervisorPortalRoute
 }
 
@@ -140,6 +153,13 @@ declare module '@tanstack/react-router' {
       path: '/supervisor-portal'
       fullPath: '/supervisor-portal'
       preLoaderRoute: typeof SupervisorPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sales-portal': {
+      id: '/sales-portal'
+      path: '/sales-portal'
+      fullPath: '/sales-portal'
+      preLoaderRoute: typeof SalesPortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sa-portal': {
@@ -213,6 +233,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   PropertiesRoute: PropertiesRouteWithChildren,
   SaPortalRoute: SaPortalRoute,
+  SalesPortalRoute: SalesPortalRoute,
   SupervisorPortalRoute: SupervisorPortalRoute,
 }
 export const routeTree = rootRouteImport
