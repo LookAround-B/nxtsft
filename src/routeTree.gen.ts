@@ -21,6 +21,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PropertiesIndexRouteImport } from './routes/properties.index'
 import { Route as PropertiesIdRouteImport } from './routes/properties.$id'
+import { Route as OwnersSlugRouteImport } from './routes/owners.$slug'
 
 const UserPortalRoute = UserPortalRouteImport.update({
   id: '/user-portal',
@@ -82,6 +83,11 @@ const PropertiesIdRoute = PropertiesIdRouteImport.update({
   path: '/properties/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OwnersSlugRoute = OwnersSlugRouteImport.update({
+  id: '/owners/$slug',
+  path: '/owners/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
   '/user-portal': typeof UserPortalRoute
+  '/owners/$slug': typeof OwnersSlugRoute
   '/properties/$id': typeof PropertiesIdRoute
   '/properties/': typeof PropertiesIndexRoute
 }
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
   '/user-portal': typeof UserPortalRoute
+  '/owners/$slug': typeof OwnersSlugRoute
   '/properties/$id': typeof PropertiesIdRoute
   '/properties': typeof PropertiesIndexRoute
 }
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
   '/user-portal': typeof UserPortalRoute
+  '/owners/$slug': typeof OwnersSlugRoute
   '/properties/$id': typeof PropertiesIdRoute
   '/properties/': typeof PropertiesIndexRoute
 }
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/sales-portal'
     | '/supervisor-portal'
     | '/user-portal'
+    | '/owners/$slug'
     | '/properties/$id'
     | '/properties/'
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/sales-portal'
     | '/supervisor-portal'
     | '/user-portal'
+    | '/owners/$slug'
     | '/properties/$id'
     | '/properties'
   id:
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/sales-portal'
     | '/supervisor-portal'
     | '/user-portal'
+    | '/owners/$slug'
     | '/properties/$id'
     | '/properties/'
   fileRoutesById: FileRoutesById
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   SalesPortalRoute: typeof SalesPortalRoute
   SupervisorPortalRoute: typeof SupervisorPortalRoute
   UserPortalRoute: typeof UserPortalRoute
+  OwnersSlugRoute: typeof OwnersSlugRoute
   PropertiesIdRoute: typeof PropertiesIdRoute
   PropertiesIndexRoute: typeof PropertiesIndexRoute
 }
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PropertiesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/owners/$slug': {
+      id: '/owners/$slug'
+      path: '/owners/$slug'
+      fullPath: '/owners/$slug'
+      preLoaderRoute: typeof OwnersSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   SalesPortalRoute: SalesPortalRoute,
   SupervisorPortalRoute: SupervisorPortalRoute,
   UserPortalRoute: UserPortalRoute,
+  OwnersSlugRoute: OwnersSlugRoute,
   PropertiesIdRoute: PropertiesIdRoute,
   PropertiesIndexRoute: PropertiesIndexRoute,
 }

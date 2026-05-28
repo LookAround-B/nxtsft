@@ -1,9 +1,10 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import { Lock } from "lucide-react";
+import { toast } from "sonner";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { properties } from "@/data/static";
+import { properties, ownerSlug } from "@/data/static";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/properties/$id")({
@@ -262,8 +263,8 @@ function PropertyDetail() {
               </div>
               {signedIn ? (
                 <>
-                  <button className="mt-5 w-full rounded-md bg-accent py-3 font-display text-sm font-bold text-accent-foreground hover:opacity-90">Schedule Site Visit</button>
-                  <button className="mt-2 w-full rounded-md border border-white/20 py-3 font-display text-sm font-bold text-white hover:bg-white/5">Request Callback</button>
+                  <button onClick={() => toast.success("Site visit requested", { description: `${p.owner.name} will confirm a slot within 30 min.` })} className="mt-5 w-full rounded-md bg-accent py-3 font-display text-sm font-bold text-accent-foreground hover:opacity-90">Schedule Site Visit</button>
+                  <button onClick={() => toast.success("Callback requested", { description: `${p.owner.name} will call ${session?.phone} shortly.` })} className="mt-2 w-full rounded-md border border-white/20 py-3 font-display text-sm font-bold text-white hover:bg-white/5">Request Callback</button>
                 </>
               ) : (
                 <>
@@ -276,14 +277,14 @@ function PropertyDetail() {
 
             <div className="rounded-xl border border-border bg-white p-6">
               <div className="text-xs uppercase tracking-widest text-muted-foreground">Listed By</div>
-              <div className="mt-3 flex items-center gap-3">
+              <Link to="/owners/$slug" params={{ slug: ownerSlug(p.owner.name) }} className="mt-3 flex items-center gap-3 rounded-lg p-2 -mx-2 transition hover:bg-secondary/60">
                 <div className="grid h-14 w-14 place-items-center rounded-full bg-mid-blue text-white font-display text-lg font-bold">{p.owner.initials}</div>
                 <div>
                   <div className="font-display font-bold text-navy">{p.owner.name}</div>
-                  <div className="text-xs text-muted-foreground">{p.owner.role}</div>
+                  <div className="text-xs text-muted-foreground">{p.owner.role} <span className="text-accent">· View listings →</span></div>
                   <div className="mt-0.5 text-xs font-semibold text-accent">★ {p.owner.rating} · {p.owner.deals} deals</div>
                 </div>
-              </div>
+              </Link>
               <div className="mt-4 grid grid-cols-2 gap-2 text-center text-[11px]">
                 <div className="rounded-md bg-secondary px-3 py-2">
                   <div className="text-muted-foreground">Since</div>
@@ -297,7 +298,7 @@ function PropertyDetail() {
               {signedIn ? (
                 <>
                   <a href={`tel:${p.owner.phone.replace(/\s/g, "")}`} className="mt-4 block w-full rounded-md bg-navy py-2.5 text-center text-sm font-semibold text-white hover:opacity-90">📞 Call {p.owner.phone}</a>
-                  <button className="mt-2 w-full rounded-md bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:opacity-90">💬 WhatsApp Agent</button>
+                  <button onClick={() => toast.success("Opening WhatsApp…", { description: `Chat with ${p.owner.name} about ${p.title}.` })} className="mt-2 w-full rounded-md bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:opacity-90">💬 WhatsApp Agent</button>
                 </>
               ) : (
                 <>
@@ -322,7 +323,7 @@ function PropertyDetail() {
                     <input defaultValue={session?.phone} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Phone (+91)" />
                     <textarea rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder={`I'm interested in ${p.title.split("—")[0].trim()}…`} />
                   </div>
-                  <button type="button" className="mt-3 w-full rounded-md bg-accent py-2.5 text-sm font-semibold text-accent-foreground">Send enquiry</button>
+                  <button type="button" onClick={() => toast.success("Enquiry sent", { description: `${p.owner.name} usually responds in < 30 min.` })} className="mt-3 w-full rounded-md bg-accent py-2.5 text-sm font-semibold text-accent-foreground">Send enquiry</button>
                 </form>
               ) : (
                 <div className="mt-3">

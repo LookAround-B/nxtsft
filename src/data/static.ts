@@ -1,5 +1,7 @@
 const img = (id: string, w = 1400) => `https://images.unsplash.com/${id}?w=${w}&q=80&auto=format&fit=crop`;
 
+export const ownerSlug = (name: string) => name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
 export const properties = [
   {
     id: "p1",

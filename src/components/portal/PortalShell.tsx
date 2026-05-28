@@ -124,3 +124,12 @@ export function Badge({ children, tone = "default" }: { children: ReactNode; ton
   };
   return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${map[tone]}`}>{children}</span>;
 }
+
+/** Hook returning the current hash (without "#"), hydration-safe. */
+export function useActiveHash(): string {
+  const loc = useLocation();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return "";
+  return (loc.hash ?? "").replace(/^#/, "");
+}
