@@ -1,41 +1,42 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { toast } from "sonner";
-import { PortalShell, StatCard, Section, Badge, useActiveHash } from "@/components/portal/PortalShell";
-import { leads, teamMembers, activities } from "@/data/static";
-
-export const Route = createFileRoute("/supervisor-portal")({
-  head: () => ({ meta: [{ title: "NestIQ Desk — Supervisor" }] }),
-  component: Sup,
-});
+'use client';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import {
+  LayoutDashboard, Target, ArrowLeftRight,
+  TrendingUp, AlertTriangle,
+} from 'lucide-react';
+import { Activity as ActivityIcon, Calendar as CalendarIcon } from 'lucide-react';
+import { PortalShell, StatCard, Section, Badge } from '@/components/portal/PortalShell';
+import { useActiveHash } from '@/lib/use-active-hash';
+import { leads, teamMembers, activities } from '@/data/static';
 
 const nav = [
-  { label: "Team Dashboard", to: "/supervisor-portal", icon: "◆" },
-  { label: "Team Leads", to: "/supervisor-portal#leads", icon: "✦" },
-  { label: "Reassignment", to: "/supervisor-portal#reassign", icon: "⇄" },
-  { label: "Activity Monitor", to: "/supervisor-portal#activity", icon: "◉" },
-  { label: "Performance", to: "/supervisor-portal#performance", icon: "▲" },
-  { label: "Visit Calendar", to: "/supervisor-portal#calendar", icon: "▣" },
-  { label: "Escalations", to: "/supervisor-portal#escalations", icon: "!" },
+  { label: 'Team Dashboard',   to: '/supervisor-portal',             icon: <LayoutDashboard size={14} /> },
+  { label: 'Team Leads',       to: '/supervisor-portal#leads',       icon: <Target size={14} /> },
+  { label: 'Reassignment',     to: '/supervisor-portal#reassign',    icon: <ArrowLeftRight size={14} /> },
+  { label: 'Activity Monitor', to: '/supervisor-portal#activity',    icon: <ActivityIcon size={14} /> },
+  { label: 'Performance',      to: '/supervisor-portal#performance', icon: <TrendingUp size={14} /> },
+  { label: 'Visit Calendar',   to: '/supervisor-portal#calendar',    icon: <CalendarIcon size={14} /> },
+  { label: 'Escalations',      to: '/supervisor-portal#escalations', icon: <AlertTriangle size={14} /> },
 ];
 
-function Sup() {
+export default function SupervisorPortal() {
   const hash = useActiveHash();
   return (
-    <PortalShell brand="NestIQ Desk" role="Supervisor" accent="green" user={{ name: "Rahul Verma", initials: "RV" }} nav={nav} basePath="/supervisor-portal">
-      {render(hash)}
+    <PortalShell brand="NestIt Desk" role="Supervisor" accent="green" user={{ name: 'Rahul Verma', initials: 'RV' }} nav={nav} basePath="/supervisor-portal">
+      {renderTab(hash)}
     </PortalShell>
   );
 }
 
-function render(h: string) {
+function renderTab(h: string) {
   switch (h) {
-    case "leads": return <TeamLeads />;
-    case "reassign": return <Reassignment />;
-    case "activity": return <Activity />;
-    case "performance": return <Performance />;
-    case "calendar": return <Calendar />;
-    case "escalations": return <Escalations />;
+    case 'leads': return <TeamLeads />;
+    case 'reassign': return <Reassignment />;
+    case 'activity': return <ActivityMonitor />;
+    case 'performance': return <Performance />;
+    case 'calendar': return <VisitCalendar />;
+    case 'escalations': return <Escalations />;
     default: return <Dashboard />;
   }
 }
@@ -60,7 +61,7 @@ function Dashboard() {
           <div key={m.id} className="border-b border-border py-4 last:border-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-full bg-mid-blue text-white font-semibold">{m.name.split(" ").map((n) => n[0]).join("")}</div>
+                <div className="grid h-10 w-10 place-items-center rounded-full bg-mid-blue text-white font-semibold">{m.name.split(' ').map((n) => n[0]).join('')}</div>
                 <div>
                   <div className="font-semibold text-navy">{m.name}</div>
                   <div className="text-xs text-muted-foreground">{m.city} · {m.leadsOpen} open · {m.closedMTD} closed</div>
@@ -87,15 +88,15 @@ function TeamLeads() {
     <>
       <PageHead title="Team Leads" sub="Every lead across the team — comment or reassign." />
       <Section title="All Leads">
-        <div className="overflow-x-auto"><table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="py-2">Lead</th><th>Interest</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead>
+        <div className="overflow-x-auto"><table className="portal-table">
+          <thead><tr><th className="py-2">Lead</th><th>Interest</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>
             {leads.map((l) => (
-              <tr key={l.id} className="border-t border-border">
+              <tr>
                 <td className="py-3"><div className="font-semibold text-navy">{l.name}</div><div className="font-mono text-[10px] text-muted-foreground">{l.id}</div></td>
                 <td className="text-xs">{l.interest}</td>
                 <td className="text-xs">{l.owner}</td>
-                <td><Badge tone={l.status.toLowerCase() as "hot" | "warm" | "cold" | "new"}>{l.status}</Badge></td>
+                <td><Badge tone={l.status.toLowerCase() as 'hot' | 'warm' | 'cold' | 'new'}>{l.status}</Badge></td>
                 <td className="space-x-2"><button onClick={() => toast(`Comment added on ${l.id}`)} className="rounded-md border border-border px-3 py-1 text-xs font-semibold">+ Note</button><button onClick={() => toast.success(`${l.id} reassigned`)} className="rounded-md bg-mid-blue px-3 py-1 text-xs font-semibold text-white">Reassign</button></td>
               </tr>
             ))}
@@ -107,8 +108,8 @@ function TeamLeads() {
 }
 
 function Reassignment() {
-  const [from, setFrom] = useState("Priya Sharma");
-  const [to, setTo] = useState("Karan Joshi");
+  const [from, setFrom] = useState('Priya Sharma');
+  const [to, setTo] = useState('Karan Joshi');
   const [lead, setLead] = useState(leads[0].id);
   return (
     <>
@@ -125,7 +126,7 @@ function Reassignment() {
   );
 }
 
-function Activity() {
+function ActivityMonitor() {
   return (
     <>
       <PageHead title="Activity Monitor" sub="Every touchpoint by your team, live." />
@@ -161,13 +162,13 @@ function Performance() {
   );
 }
 
-function Calendar() {
+function VisitCalendar() {
   const slots = [
-    { day: "Today", time: "4:30 PM", rep: "Priya S.", prop: "Skyline Residences" },
-    { day: "Today", time: "6:00 PM", rep: "Karan J.", prop: "Green Acres Villa" },
-    { day: "Tomorrow", time: "11:00 AM", rep: "Priya S.", prop: "Marina Heights" },
-    { day: "Sat", time: "2:00 PM", rep: "Anita R.", prop: "Heritage Bungalow" },
-    { day: "Sat", time: "4:00 PM", rep: "Karan J.", prop: "Urban Studio" },
+    { day: 'Today', time: '4:30 PM', rep: 'Priya S.', prop: 'Skyline Residences' },
+    { day: 'Today', time: '6:00 PM', rep: 'Karan J.', prop: 'Green Acres Villa' },
+    { day: 'Tomorrow', time: '11:00 AM', rep: 'Priya S.', prop: 'Marina Heights' },
+    { day: 'Sat', time: '2:00 PM', rep: 'Anita R.', prop: 'Heritage Bungalow' },
+    { day: 'Sat', time: '4:00 PM', rep: 'Karan J.', prop: 'Urban Studio' },
   ];
   return (
     <>
@@ -186,9 +187,9 @@ function Calendar() {
 
 function Escalations() {
   const items = [
-    { id: "E-12", lead: "L-1031", note: "Stuck 6 days — no follow-up by Karan J.", level: "Medium" as const },
-    { id: "E-13", lead: "L-1024", note: "Negotiation stalled, client unresponsive", level: "High" as const },
-    { id: "E-14", lead: "L-1042", note: "Repeat site-visit no-show", level: "Low" as const },
+    { id: 'E-12', lead: 'L-1031', note: 'Stuck 6 days — no follow-up by Karan J.', level: 'Medium' as const },
+    { id: 'E-13', lead: 'L-1024', note: 'Negotiation stalled, client unresponsive', level: 'High' as const },
+    { id: 'E-14', lead: 'L-1042', note: 'Repeat site-visit no-show', level: 'Low' as const },
   ];
   return (
     <>
@@ -197,7 +198,7 @@ function Escalations() {
         {items.map((e) => (
           <div key={e.id} className="flex items-center justify-between border-b border-border py-3 last:border-0">
             <div><div className="font-semibold text-navy">{e.lead}</div><div className="text-xs text-muted-foreground">{e.note}</div></div>
-            <div className="flex items-center gap-2"><Badge tone={e.level === "High" ? "hot" : e.level === "Medium" ? "warm" : "cold"}>{e.level}</Badge><button onClick={() => toast.success(`Escalated ${e.lead} to Admin`)} className="rounded-md bg-amber-500 px-3 py-1 text-xs font-semibold text-white">Escalate</button></div>
+            <div className="flex items-center gap-2"><Badge tone={e.level === 'High' ? 'hot' : e.level === 'Medium' ? 'warm' : 'cold'}>{e.level}</Badge><button onClick={() => toast.success(`Escalated ${e.lead} to Admin`)} className="rounded-md bg-amber-500 px-3 py-1 text-xs font-semibold text-white">Escalate</button></div>
           </div>
         ))}
       </Section>

@@ -1,42 +1,42 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { toast } from "sonner";
-import { PortalShell, StatCard, Section, Badge, useActiveHash } from "@/components/portal/PortalShell";
-import { leads, activities, properties } from "@/data/static";
-
-export const Route = createFileRoute("/sales-portal")({
-  head: () => ({ meta: [{ title: "NestIQ Field — Sales Rep" }] }),
-  component: Sales,
-});
+'use client';
+import { toast } from 'sonner';
+import {
+  Target, FileText, ClipboardList, Phone,
+  Building, Wallet, LayoutGrid,
+} from 'lucide-react';
+import { PortalShell, StatCard, Section, Badge } from '@/components/portal/PortalShell';
+import { useActiveHash } from '@/lib/use-active-hash';
+import { leads, activities, properties } from '@/data/static';
 
 const nav = [
-  { label: "My Leads", to: "/sales-portal", icon: "✦" },
-  { label: "Lead Details", to: "/sales-portal#detail", icon: "▤" },
-  { label: "Activity Log", to: "/sales-portal#log", icon: "≡" },
-  { label: "Click-to-Call", to: "/sales-portal#call", icon: "☏" },
-  { label: "Site Visits", to: "/sales-portal#visits", icon: "▣" },
-  { label: "My Commission", to: "/sales-portal#commission", icon: "₹" },
-  { label: "Listings", to: "/sales-portal#listings", icon: "▦" },
+  { label: 'My Leads',      to: '/sales-portal',            icon: <Target size={14} /> },
+  { label: 'Lead Details',  to: '/sales-portal#detail',     icon: <FileText size={14} /> },
+  { label: 'Activity Log',  to: '/sales-portal#log',        icon: <ClipboardList size={14} /> },
+  { label: 'Click-to-Call', to: '/sales-portal#call',       icon: <Phone size={14} /> },
+  { label: 'Site Visits',   to: '/sales-portal#visits',     icon: <Building size={14} /> },
+  { label: 'My Commission', to: '/sales-portal#commission', icon: <Wallet size={14} /> },
+  { label: 'Listings',      to: '/sales-portal#listings',   icon: <LayoutGrid size={14} /> },
 ];
 
-function Sales() {
+export default function SalesPortal() {
   const h = useActiveHash();
   return (
-    <PortalShell brand="NestIQ Field" role="Sales Rep" accent="amber" user={{ name: "Priya Sharma", initials: "PS" }} nav={nav} basePath="/sales-portal">
-      {render(h)}
+    <PortalShell brand="NestIt Field" role="Sales Rep" accent="amber" user={{ name: 'Priya Sharma', initials: 'PS' }} nav={nav} basePath="/sales-portal">
+      {renderTab(h)}
     </PortalShell>
   );
 }
 
 const Head = ({ t, s }: { t: string; s?: string }) => (<div className="mb-6"><h2 className="font-display text-2xl font-bold text-navy">{t}</h2>{s && <p className="mt-1 text-sm text-muted-foreground">{s}</p>}</div>);
 
-function render(h: string) {
+function renderTab(h: string) {
   switch (h) {
-    case "detail": return <Detail />;
-    case "log": return <Log />;
-    case "call": return <Call />;
-    case "visits": return <Visits />;
-    case "commission": return <Commission />;
-    case "listings": return <Listings />;
+    case 'detail': return <Detail />;
+    case 'log': return <Log />;
+    case 'call': return <Call />;
+    case 'visits': return <Visits />;
+    case 'commission': return <Commission />;
+    case 'listings': return <Listings />;
     default: return <MyLeads />;
   }
 }
@@ -57,14 +57,14 @@ function MyLeads() {
           <div key={l.id} className="border-b border-border py-4 last:border-0">
             <div className="flex items-start justify-between">
               <div>
-                <div className="flex items-center gap-2"><span className="font-semibold text-navy">{l.name}</span><Badge tone={l.status.toLowerCase() as "hot" | "warm" | "cold" | "new"}>{l.status}</Badge></div>
+                <div className="flex items-center gap-2"><span className="font-semibold text-navy">{l.name}</span><Badge tone={l.status.toLowerCase() as 'hot' | 'warm' | 'cold' | 'new'}>{l.status}</Badge></div>
                 <div className="mt-1 text-xs text-muted-foreground">{l.interest} · {l.city} · ₹{(l.value / 100000).toFixed(1)}L</div>
                 <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">{l.id} · {l.lastActivity}</div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => toast.success(`Calling ${l.name}`)} className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white">☏ Call</button>
+                <button onClick={() => toast.success(`Calling ${l.name}`)} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white"><Phone size={12} /> Call</button>
                 <button onClick={() => toast.success(`WhatsApp opened for ${l.name}`)} className="rounded-md bg-mid-blue px-3 py-1.5 text-xs font-semibold text-white">WhatsApp</button>
-                <button onClick={() => toast("Note saved")} className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold">+ Note</button>
+                <button onClick={() => toast('Note saved')} className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold">+ Note</button>
               </div>
             </div>
           </div>
@@ -107,7 +107,7 @@ function Call() {
           {leads.slice(0, 5).map((l) => (
             <button key={l.id} onClick={() => toast.success(`Dialing ${l.phone}…`)} className="flex items-center justify-between rounded-lg border border-border p-4 text-left hover:border-accent">
               <div><div className="font-semibold text-navy">{l.name}</div><div className="font-mono text-xs text-muted-foreground">{l.phone}</div></div>
-              <span className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white">☏ Dial</span>
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white"><Phone size={12} /> Dial</span>
             </button>
           ))}
         </div>
@@ -118,9 +118,9 @@ function Call() {
 
 function Visits() {
   const slots = [
-    { day: "Today", time: "4:30 PM", lead: "Rohan Mehta", prop: "Skyline Residences", addr: "Bandra West, Mumbai" },
-    { day: "Tomorrow", time: "11:00 AM", lead: "Aisha Khan", prop: "Green Acres Villa", addr: "Whitefield, Bengaluru" },
-    { day: "Sat", time: "2:00 PM", lead: "Suresh Iyer", prop: "Heritage Bungalow", addr: "Greater Kailash, Delhi" },
+    { day: 'Today', time: '4:30 PM', lead: 'Rohan Mehta', prop: 'Skyline Residences', addr: 'Bandra West, Mumbai' },
+    { day: 'Tomorrow', time: '11:00 AM', lead: 'Aisha Khan', prop: 'Green Acres Villa', addr: 'Whitefield, Bengaluru' },
+    { day: 'Sat', time: '2:00 PM', lead: 'Suresh Iyer', prop: 'Heritage Bungalow', addr: 'Greater Kailash, Delhi' },
   ];
   return (
     <><Head t="Site Visits" s="Your scheduled tours." /><Section title="Upcoming">{slots.map((v, i) => (<div key={i} className="flex items-center justify-between border-b border-border py-3 last:border-0"><div><div className="font-semibold text-navy">{v.prop} — {v.lead}</div><div className="text-xs text-muted-foreground">{v.addr}</div></div><div className="flex items-center gap-2"><div className="text-right"><div className="font-display text-sm font-bold text-accent">{v.day}</div><div className="text-xs text-muted-foreground">{v.time}</div></div><button onClick={() => toast.success(`Reminder sent to ${v.lead}`)} className="rounded-md border border-border px-3 py-1 text-xs font-semibold">Remind</button></div></div>))}</Section></>
@@ -128,7 +128,7 @@ function Visits() {
 }
 
 function Commission() {
-  const rows = [["L-1019 Closed", "₹62L deal", "₹1.24L"], ["L-1011 Closed", "₹38L deal", "₹76K"], ["L-1007 Closed", "₹45L deal", "₹90K"]];
+  const rows = [['L-1019 Closed', '₹62L deal', '₹1.24L'], ['L-1011 Closed', '₹38L deal', '₹76K'], ['L-1007 Closed', '₹45L deal', '₹90K']];
   return (
     <>
       <Head t="My Commission" s="Payouts & history." />

@@ -1,38 +1,127 @@
-import { Link } from "@tanstack/react-router";
-import { navLinks } from "@/data/static";
-import { useAuth } from "@/lib/auth";
+'use client';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useState } from 'react';
+import { Menu, X } from 'lucide-react';
+import { navLinks } from '@/data/static';
+import { useAuth } from '@/lib/auth';
 
 export function SiteHeader() {
   const { session } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-navy text-gold font-display text-lg font-bold">N</div>
-          <div className="leading-tight">
-            <div className="font-display text-lg font-bold tracking-tight text-navy">NestIQ</div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">India ka Smart Ghar</div>
+    <>
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6">
+          {/* Logo */}
+          <Link href="/" className="group flex items-center gap-2.5">
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-navy text-white font-display text-lg font-black shadow-md shadow-navy/30 transition group-hover:scale-105 group-hover:shadow-navy/50">
+              N
+            </div>
+            <div className="leading-tight">
+              <div className="font-display text-[17px] font-black tracking-tight text-navy">NestIt</div>
+              <div className="text-[9px] uppercase tracking-[0.22em] text-muted-foreground">Smart Ghar · India</div>
+            </div>
+          </Link>
+
+          {/* Desktop nav */}
+          <nav className="hidden items-center gap-1 md:flex">
+            {navLinks.map((l) => {
+              const active = pathname === l.to;
+              return (
+                <Link
+                  key={l.to}
+                  href={l.to}
+                  className={`relative rounded-lg px-3 py-1.5 text-sm font-medium transition hover:bg-secondary hover:text-foreground ${active ? 'text-accent bg-accent/8 font-semibold' : 'text-foreground/70'}`}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            {session ? (
+              <Link
+                href="/profile"
+                className="hidden items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary md:inline-flex"
+              >
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
+                  {session.initials}
+                </span>
+                <span className="max-w-[110px] truncate">{session.name}</span>
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="hidden rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary md:inline-block"
+              >
+                Sign in
+              </Link>
+            )}
+            <Link
+              href="/properties"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm shadow-accent/25 transition hover:opacity-90 hover:shadow-md hover:shadow-accent/30"
+            >
+              Browse Homes
+            </Link>
+            {/* Mobile menu toggle */}
+            <button
+              onClick={() => setMobileOpen((v) => !v)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground/70 hover:bg-secondary md:hidden"
+              aria-label="Menu"
+            >
+              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
           </div>
-        </Link>
-        <nav className="hidden items-center gap-8 md:flex">
-          {navLinks.map((l) => (
-            <Link key={l.to} to={l.to} className="text-sm font-medium text-foreground/80 transition-colors hover:text-accent" activeProps={{ className: "text-accent" }}>
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-          {session ? (
-            <Link to="/profile" className="hidden items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary md:inline-flex">
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">{session.initials}</span>
-              <span className="max-w-[120px] truncate">{session.name}</span>
-            </Link>
-          ) : (
-            <Link to="/login" className="hidden rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary md:inline-block">Sign in</Link>
-          )}
-          <Link to="/properties" className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm transition hover:opacity-90">Browse Homes</Link>
         </div>
-      </div>
-    </header>
+
+        {/* Mobile drawer */}
+        {mobileOpen && (
+          <div className="animate-fade-up border-t border-border bg-background px-5 py-4 md:hidden">
+            <nav className="space-y-1">
+              {navLinks.map((l) => {
+                const active = pathname === l.to;
+                return (
+                  <Link
+                    key={l.to}
+                    href={l.to}
+                    onClick={() => setMobileOpen(false)}
+                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-secondary hover:text-foreground ${active ? 'bg-accent/10 text-accent font-semibold' : 'text-foreground/80'}`}
+                  >
+                    {l.label}
+                  </Link>
+                );
+              })}
+              <div className="mt-3 border-t border-border pt-3">
+                {session ? (
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 hover:bg-secondary"
+                  >
+                    <span className="grid h-7 w-7 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
+                      {session.initials}
+                    </span>
+                    {session.name}
+                  </Link>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileOpen(false)}
+                    className="block rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 hover:bg-secondary"
+                  >
+                    Sign in
+                  </Link>
+                )}
+              </div>
+            </nav>
+          </div>
+        )}
+      </header>
+    </>
   );
 }

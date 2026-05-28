@@ -1,63 +1,67 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
-import { ROLE_META, useAuth, type Role } from "@/lib/auth";
-
-export const Route = createFileRoute("/profile")({
-  head: () => ({ meta: [{ title: "My Profile — NestIQ" }] }),
-  component: ProfilePage,
-});
+'use client';
+import { useEffect, type ElementType } from 'react';
+import type React from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import {
+  Satellite, Building2, CreditCard, Settings2, CheckCircle,
+  BarChart2, FolderOpen, RefreshCcw, Users, Smartphone,
+  Target, Phone, Home, Heart, Calculator, Sparkles, Calendar, MessageCircle,
+} from 'lucide-react';
+import { SiteHeader } from '@/components/site/SiteHeader';
+import { SiteFooter } from '@/components/site/SiteFooter';
+import { ROLE_META, useAuth, type Role } from '@/lib/auth';
 
 const roleStats: Record<Role, Array<[string, string]>> = {
-  "super-admin": [["Tenants", "42"], ["Global Users", "12,480"], ["Uptime", "99.98%"], ["Revenue YTD", "₹142 Cr"]],
-  admin: [["Active Listings", "1,840"], ["Open Leads", "328"], ["Team Size", "24"], ["Conversion", "6.8%"]],
-  supervisor: [["Team Size", "8"], ["Open Leads", "62"], ["MTD Closed", "14"], ["Avg Response", "11 min"]],
-  sales: [["Open Leads", "14"], ["Closed MTD", "4"], ["Target", "72%"], ["Commission", "₹1.24 L"]],
-  user: [["Shortlisted", "6"], ["Site Visits", "3"], ["EMI Pre-approved", "₹1.8 Cr"], ["KYC", "Verified"]],
-  customer: [["Saved Homes", "9"], ["Visits Booked", "2"], ["Concierge Tier", "Gold"], ["KYC", "Verified"]],
+  'super-admin': [['Tenants', '42'], ['Global Users', '12,480'], ['Uptime', '99.98%'], ['Revenue YTD', '₹142 Cr']],
+  admin: [['Active Listings', '1,840'], ['Open Leads', '328'], ['Team Size', '24'], ['Conversion', '6.8%']],
+  supervisor: [['Team Size', '8'], ['Open Leads', '62'], ['MTD Closed', '14'], ['Avg Response', '11 min']],
+  sales: [['Open Leads', '14'], ['Closed MTD', '4'], ['Target', '72%'], ['Commission', '₹1.24 L']],
+  user: [['Shortlisted', '6'], ['Site Visits', '3'], ['EMI Pre-approved', '₹1.8 Cr'], ['KYC', 'Verified']],
+  customer: [['Saved Homes', '9'], ['Visits Booked', '2'], ['Concierge Tier', 'Gold'], ['KYC', 'Verified']],
 };
 
-const roleActions: Record<Role, Array<{ label: string; to: string; icon: string }>> = {
-  "super-admin": [
-    { label: "Open Command Deck", to: "/sa-portal", icon: "🛰" },
-    { label: "Tenants", to: "/sa-portal", icon: "🏢" },
-    { label: "Billing", to: "/sa-portal", icon: "💳" },
+const roleActions: Record<Role, Array<{ label: string; to: string; Icon: React.ElementType }>> = {
+  'super-admin': [
+    { label: 'Open Command Deck', to: '/sa-portal',      Icon: Satellite },
+    { label: 'Tenants',           to: '/sa-portal',      Icon: Building2 },
+    { label: 'Billing',           to: '/sa-portal#bill', Icon: CreditCard },
   ],
   admin: [
-    { label: "Open Control Panel", to: "/admin-portal", icon: "⚙" },
-    { label: "Approve Listings", to: "/admin-portal", icon: "✓" },
-    { label: "Pipeline", to: "/admin-portal", icon: "📊" },
+    { label: 'Open Control Panel', to: '/admin-portal',          Icon: Settings2 },
+    { label: 'Approve Listings',   to: '/admin-portal#listings', Icon: CheckCircle },
+    { label: 'Pipeline',           to: '/admin-portal#crm',      Icon: BarChart2 },
   ],
   supervisor: [
-    { label: "Open Desk", to: "/supervisor-portal", icon: "🗂" },
-    { label: "Reassign Leads", to: "/supervisor-portal", icon: "↻" },
-    { label: "Team Activity", to: "/supervisor-portal", icon: "👥" },
+    { label: 'Open Desk',      to: '/supervisor-portal',          Icon: FolderOpen },
+    { label: 'Reassign Leads', to: '/supervisor-portal#reassign', Icon: RefreshCcw },
+    { label: 'Team Activity',  to: '/supervisor-portal#activity', Icon: Users },
   ],
   sales: [
-    { label: "Open Field", to: "/sales-portal", icon: "📱" },
-    { label: "My Leads", to: "/sales-portal", icon: "🎯" },
-    { label: "Today's Calls", to: "/sales-portal", icon: "📞" },
+    { label: 'Open Field',    to: '/sales-portal',      Icon: Smartphone },
+    { label: 'My Leads',      to: '/sales-portal',      Icon: Target },
+    { label: "Today's Calls", to: '/sales-portal#call', Icon: Phone },
   ],
   user: [
-    { label: "Open My Dashboard", to: "/user-portal", icon: "🏠" },
-    { label: "Shortlist", to: "/user-portal", icon: "❤" },
-    { label: "EMI Calculator", to: "/user-portal", icon: "🧮" },
+    { label: 'Open My Dashboard', to: '/user-portal',       Icon: Home },
+    { label: 'Shortlist',         to: '/user-portal#saved', Icon: Heart },
+    { label: 'EMI Calculator',    to: '/user-portal#emi',   Icon: Calculator },
   ],
   customer: [
-    { label: "Open Concierge", to: "/user-portal", icon: "✨" },
-    { label: "My Visits", to: "/user-portal", icon: "📅" },
-    { label: "Talk to advisor", to: "/contact", icon: "💬" },
+    { label: 'Open Concierge',  to: '/user-portal',        Icon: Sparkles },
+    { label: 'My Visits',       to: '/user-portal#visits', Icon: Calendar },
+    { label: 'Talk to advisor', to: '/contact',             Icon: MessageCircle },
   ],
 };
 
-function ProfilePage() {
+export default function ProfilePage() {
   const { session, signOut } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   useEffect(() => {
-    if (!session) navigate({ to: "/login" });
-  }, [session, navigate]);
+    if (!session) router.push('/login');
+  }, [session, router]);
 
   if (!session) return null;
 
@@ -71,7 +75,7 @@ function ProfilePage() {
 
       {/* Cover banner */}
       <div className="relative h-36 overflow-hidden bg-gradient-to-r from-navy via-navy-deep to-accent sm:h-52">
-        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 20% 30%, white 0, transparent 35%), radial-gradient(circle at 80% 70%, oklch(0.85 0.13 220) 0, transparent 35%)" }} />
+        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 20% 30%, white 0, transparent 35%), radial-gradient(circle at 80% 70%, oklch(0.85 0.13 220) 0, transparent 35%)' }} />
       </div>
 
       <div className="mx-auto -mt-20 w-full max-w-6xl px-4 sm:-mt-24 sm:px-6 lg:px-8">
@@ -90,8 +94,8 @@ function ProfilePage() {
               <div className="mt-1 text-sm text-muted-foreground">{meta.portalName} · {session.city} · Member since {session.joined}</div>
             </div>
             <div className="flex w-full flex-wrap gap-2 md:w-auto md:flex-nowrap">
-              <Link to={meta.portal} className="flex-1 rounded-md bg-accent px-4 py-2.5 text-center text-sm font-semibold text-accent-foreground shadow-sm hover:opacity-90 md:flex-none">Open Portal →</Link>
-              <button onClick={() => { signOut(); navigate({ to: "/" }); }} className="flex-1 rounded-md border border-border bg-white px-4 py-2.5 text-sm font-semibold text-navy hover:bg-secondary md:flex-none">Sign out</button>
+              <Link href={meta.portal} className="flex-1 rounded-md bg-accent px-4 py-2.5 text-center text-sm font-semibold text-accent-foreground shadow-sm hover:opacity-90 md:flex-none">Open Portal →</Link>
+              <button onClick={() => { signOut(); router.push('/'); }} className="flex-1 rounded-md border border-border bg-white px-4 py-2.5 text-sm font-semibold text-navy hover:bg-secondary md:flex-none">Sign out</button>
             </div>
           </div>
         </div>
@@ -113,12 +117,12 @@ function ProfilePage() {
               <h2 className="font-display text-lg font-bold text-navy">Account details</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {[
-                  ["Full name", session.name],
-                  ["Email", session.email],
-                  ["Phone", session.phone],
-                  ["City", session.city],
-                  ["Role", meta.label],
-                  ["Workspace", meta.portalName],
+                  ['Full name', session.name],
+                  ['Email', session.email],
+                  ['Phone', session.phone],
+                  ['City', session.city],
+                  ['Role', meta.label],
+                  ['Workspace', meta.portalName],
                 ].map(([l, v]) => (
                   <div key={l}>
                     <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{l}</div>
@@ -126,23 +130,23 @@ function ProfilePage() {
                   </div>
                 ))}
               </div>
-              <button className="mt-5 rounded-md border border-border bg-white px-4 py-2 text-sm font-semibold text-navy hover:bg-secondary">Edit profile</button>
+              <button onClick={() => toast.success('Profile update form opened')} className="mt-5 rounded-xl border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition hover:border-accent hover:bg-secondary">Edit profile</button>
             </div>
 
             <div className="rounded-xl border border-border bg-white p-5 sm:p-6">
               <h2 className="font-display text-lg font-bold text-navy">Security</h2>
               <div className="mt-4 space-y-3">
                 {[
-                  ["Password", "Last changed 14 days ago", "Change"],
-                  ["Two-factor auth", "OTP via +91 ●●●●● 4291", "Manage"],
-                  ["Active sessions", "2 devices · Mumbai, Pune", "Review"],
+                  ['Password', 'Last changed 14 days ago', 'Change'],
+                  ['Two-factor auth', 'OTP via +91 ●●●●● 4291', 'Manage'],
+                  ['Active sessions', '2 devices · Mumbai, Pune', 'Review'],
                 ].map(([l, sub, btn]) => (
                   <div key={l} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
                     <div className="min-w-0">
                       <div className="text-sm font-semibold text-navy">{l}</div>
                       <div className="truncate text-xs text-muted-foreground">{sub}</div>
                     </div>
-                    <button className="shrink-0 rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-accent hover:bg-secondary">{btn}</button>
+                    <button onClick={() => toast(`${btn}: ${l}`)} className="shrink-0 rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-secondary">{btn}</button>
                   </div>
                 ))}
               </div>
@@ -152,10 +156,10 @@ function ProfilePage() {
               <h2 className="font-display text-lg font-bold text-navy">Recent activity</h2>
               <ul className="mt-4 space-y-3 text-sm">
                 {[
-                  ["10:42", `Signed in to ${meta.portalName}`],
-                  ["09:18", "Updated notification preferences"],
-                  ["Yesterday", "Completed KYC verification"],
-                  ["2 days ago", "Updated phone number"],
+                  ['10:42', `Signed in to ${meta.portalName}`],
+                  ['09:18', 'Updated notification preferences'],
+                  ['Yesterday', 'Completed KYC verification'],
+                  ['2 days ago', 'Updated phone number'],
                 ].map(([ts, msg]) => (
                   <li key={ts + msg} className="flex items-start gap-3 border-b border-border pb-3 last:border-0 last:pb-0">
                     <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-accent" />
@@ -175,8 +179,8 @@ function ProfilePage() {
               <div className="text-[10px] uppercase tracking-widest text-white/60">Quick Actions</div>
               <div className="mt-4 space-y-2">
                 {actions.map((a) => (
-                  <Link key={a.label} to={a.to} className="flex items-center justify-between rounded-lg bg-white/5 px-4 py-3 text-sm font-medium hover:bg-white/10">
-                    <span className="flex items-center gap-3"><span>{a.icon}</span>{a.label}</span>
+                  <Link key={a.label} href={a.to} className="flex items-center justify-between rounded-lg bg-white/5 px-4 py-3 text-sm font-medium hover:bg-white/10">
+                    <span className="flex items-center gap-3"><a.Icon size={15} strokeWidth={1.75} />{a.label}</span>
                     <span>→</span>
                   </Link>
                 ))}
@@ -187,15 +191,15 @@ function ProfilePage() {
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Preferences</div>
               <div className="mt-4 space-y-3 text-sm">
                 {[
-                  ["Email notifications", true],
-                  ["WhatsApp updates", true],
-                  ["SMS alerts", false],
-                  ["Marketing emails", false],
+                  ['Email notifications', true],
+                  ['WhatsApp updates', true],
+                  ['SMS alerts', false],
+                  ['Marketing emails', false],
                 ].map(([l, on]) => (
                   <label key={l as string} className="flex items-center justify-between">
                     <span className="text-navy">{l as string}</span>
-                    <span className={`relative h-5 w-9 rounded-full ${on ? "bg-accent" : "bg-border"}`}>
-                      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${on ? "left-[18px]" : "left-0.5"}`} />
+                    <span className={`relative h-5 w-9 rounded-full ${on ? 'bg-accent' : 'bg-border'}`}>
+                      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${on ? 'left-[18px]' : 'left-0.5'}`} />
                     </span>
                   </label>
                 ))}
@@ -205,7 +209,7 @@ function ProfilePage() {
             <div className="rounded-xl border border-border bg-white p-6 text-center">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Switch role</div>
               <p className="mt-2 text-xs text-muted-foreground">Demo any other portal in one click.</p>
-              <Link to="/login" className="mt-3 inline-block rounded-md border border-accent px-4 py-2 text-xs font-semibold text-accent hover:bg-accent hover:text-accent-foreground">Change role →</Link>
+              <Link href="/login" className="mt-3 inline-block rounded-md border border-accent px-4 py-2 text-xs font-semibold text-accent hover:bg-accent hover:text-accent-foreground">Change role →</Link>
             </div>
           </aside>
         </div>

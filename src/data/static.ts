@@ -163,11 +163,11 @@ export const teamMembers = [
 ];
 
 export const portals = [
-  { name: "NestIQ Command", role: "Super Admin", path: "/sa-portal", accent: "Gold" },
-  { name: "NestIQ Control", role: "Admin", path: "/admin-portal", accent: "Red" },
-  { name: "NestIQ Desk", role: "Supervisor", path: "/supervisor-portal", accent: "Green" },
-  { name: "NestIQ Field", role: "Sales Rep", path: "/sales-portal", accent: "Amber" },
-  { name: "NestIQ Home", role: "End User", path: "/user-portal", accent: "Red" },
+  { name: "NestIt Command", role: "Super Admin", path: "/sa-portal", accent: "Gold" },
+  { name: "NestIt Control", role: "Admin", path: "/admin-portal", accent: "Red" },
+  { name: "NestIt Desk", role: "Supervisor", path: "/supervisor-portal", accent: "Green" },
+  { name: "NestIt Field", role: "Sales Rep", path: "/sales-portal", accent: "Amber" },
+  { name: "NestIt Home", role: "End User", path: "/user-portal", accent: "Red" },
 ];
 
 export const kpis = {

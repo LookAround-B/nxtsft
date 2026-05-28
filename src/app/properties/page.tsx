@@ -1,62 +1,53 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
-import { properties } from "@/data/static";
+'use client';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { Search, SlidersHorizontal, X, Star } from 'lucide-react';
+import { SiteHeader } from '@/components/site/SiteHeader';
+import { SiteFooter } from '@/components/site/SiteFooter';
+import { properties } from '@/data/static';
 
-export const Route = createFileRoute("/properties/")({
-  head: () => ({
-    meta: [
-      { title: "Properties — NestIQ" },
-      { name: "description", content: "Browse verified residential and commercial properties across India on NestIQ." },
-    ],
-  }),
-  component: PropertiesPage,
-});
-
-const CITIES = ["All", ...Array.from(new Set(properties.map((p) => p.city)))];
-const TYPES = ["All", ...Array.from(new Set(properties.map((p) => p.type)))];
-const PURPOSES = ["All", "Sale", "Rent"];
-const BHKS = ["All", "1 BHK", "2 BHK", "3 BHK", "4 BHK"];
+const CITIES = ['All', ...Array.from(new Set(properties.map((p) => p.city)))];
+const TYPES = ['All', ...Array.from(new Set(properties.map((p) => p.type)))];
+const PURPOSES = ['All', 'Sale', 'Rent'];
+const BHKS = ['All', '1 BHK', '2 BHK', '3 BHK', '4 BHK'];
 const SORTS = [
-  { id: "match", label: "Best Match" },
-  { id: "price-asc", label: "Price: Low → High" },
-  { id: "price-desc", label: "Price: High → Low" },
-  { id: "area-desc", label: "Area: Largest" },
+  { id: 'match', label: 'Best Match' },
+  { id: 'price-asc', label: 'Price: Low → High' },
+  { id: 'price-desc', label: 'Price: High → Low' },
+  { id: 'area-desc', label: 'Area: Largest' },
 ] as const;
 
-function PropertiesPage() {
-  const [q, setQ] = useState("");
-  const [city, setCity] = useState("All");
-  const [purpose, setPurpose] = useState("All");
-  const [type, setType] = useState("All");
-  const [bhk, setBhk] = useState("All");
+export default function PropertiesPage() {
+  const [q, setQ] = useState('');
+  const [city, setCity] = useState('All');
+  const [purpose, setPurpose] = useState('All');
+  const [type, setType] = useState('All');
+  const [bhk, setBhk] = useState('All');
   const [maxBudget, setMaxBudget] = useState(50000000);
   const [featuredOnly, setFeaturedOnly] = useState(false);
-  const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>("match");
+  const [sort, setSort] = useState<(typeof SORTS)[number]['id']>('match');
   const [showMobile, setShowMobile] = useState(false);
 
   const filtered = useMemo(() => {
     let r = properties.filter((p) => {
       if (q && !`${p.title} ${p.city} ${p.locality} ${p.builder}`.toLowerCase().includes(q.toLowerCase())) return false;
-      if (city !== "All" && p.city !== city) return false;
-      if (purpose !== "All" && p.purpose !== purpose) return false;
-      if (type !== "All" && p.type !== type) return false;
-      if (bhk !== "All" && p.bhk !== bhk) return false;
+      if (city !== 'All' && p.city !== city) return false;
+      if (purpose !== 'All' && p.purpose !== purpose) return false;
+      if (type !== 'All' && p.type !== type) return false;
+      if (bhk !== 'All' && p.bhk !== bhk) return false;
       if (featuredOnly && !p.featured) return false;
-      if (p.purpose === "Sale" && p.price > maxBudget) return false;
+      if (p.purpose === 'Sale' && p.price > maxBudget) return false;
       return true;
     });
-    if (sort === "price-asc") r = [...r].sort((a, b) => a.price - b.price);
-    if (sort === "price-desc") r = [...r].sort((a, b) => b.price - a.price);
-    if (sort === "area-desc") r = [...r].sort((a, b) => b.area - a.area);
-    if (sort === "match") r = [...r].sort((a, b) => b.matchScore - a.matchScore);
+    if (sort === 'price-asc') r = [...r].sort((a, b) => a.price - b.price);
+    if (sort === 'price-desc') r = [...r].sort((a, b) => b.price - a.price);
+    if (sort === 'area-desc') r = [...r].sort((a, b) => b.area - a.area);
+    if (sort === 'match') r = [...r].sort((a, b) => b.matchScore - a.matchScore);
     return r;
   }, [q, city, purpose, type, bhk, featuredOnly, maxBudget, sort]);
 
   const reset = () => {
-    setQ(""); setCity("All"); setPurpose("All"); setType("All"); setBhk("All"); setMaxBudget(50000000); setFeaturedOnly(false); setSort("match");
+    setQ(''); setCity('All'); setPurpose('All'); setType('All'); setBhk('All'); setMaxBudget(50000000); setFeaturedOnly(false); setSort('match');
   };
 
   const fmtBudget = (n: number) => n >= 10000000 ? `₹${(n / 10000000).toFixed(2)} Cr` : `₹${(n / 100000).toFixed(0)} L`;
@@ -100,7 +91,7 @@ function PropertiesPage() {
       <div className="bg-navy text-white">
         <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 sm:py-14">
           <div className="text-xs font-semibold uppercase tracking-widest text-gold">Listings</div>
-          <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">{filtered.length.toString().padStart(2, "0")} verified properties</h1>
+          <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">{filtered.length.toString().padStart(2, '0')} verified properties</h1>
           <p className="mt-2 text-white/60">AI-matched, RERA-tagged and ready for site visit.</p>
         </div>
       </div>
@@ -139,10 +130,10 @@ function PropertiesPage() {
             ) : (
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((p) => (
-                  <Link key={p.id} to="/properties/$id" params={{ id: p.id }} className="group overflow-hidden rounded-xl border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-2xl">
+                  <Link key={p.id} href={'/properties/' + p.id} className="group overflow-hidden rounded-xl border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-2xl">
                     <div className="relative aspect-[4/3] overflow-hidden">
                       <img src={p.image} alt={p.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
-                      {p.featured && <span className="absolute left-3 top-3 rounded-md bg-gold px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-navy-deep">★ Featured</span>}
+                      {p.featured && <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-md bg-gold px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-navy-deep"><Star size={9} className="fill-current" /> Featured</span>}
                       <span className="absolute right-3 top-3 rounded-md bg-navy-deep/80 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-gold backdrop-blur">{p.matchScore}% match</span>
                       <span className="absolute bottom-3 right-3 rounded-md bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-navy">{p.purpose}</span>
                     </div>
@@ -194,7 +185,7 @@ function FilterGroup({ label, options, value, onChange }: { label: string; optio
           <button
             key={opt}
             onClick={() => onChange(opt)}
-            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${value === opt ? "border-accent bg-accent text-accent-foreground" : "border-border bg-white text-foreground hover:border-accent hover:text-accent"}`}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${value === opt ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-white text-foreground hover:border-accent hover:text-accent'}`}
           >
             {opt}
           </button>

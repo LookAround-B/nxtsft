@@ -1,37 +1,38 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
-import { toast } from "sonner";
-import { PortalShell, StatCard, Section, Badge, useActiveHash } from "@/components/portal/PortalShell";
-import { leads, teamMembers, properties, pipeline, activities } from "@/data/static";
-
-export const Route = createFileRoute("/admin-portal")({
-  head: () => ({ meta: [{ title: "NestIQ Control — Admin" }] }),
-  component: Admin,
-});
+'use client';
+import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
+import { toast } from 'sonner';
+import {
+  LayoutDashboard, Users, Building2, Target, Kanban,
+  BellRing, Megaphone, Building, BarChart2, Wallet,
+} from 'lucide-react';
+import { PortalShell, StatCard, Section, Badge } from '@/components/portal/PortalShell';
+import { useActiveHash } from '@/lib/use-active-hash';
+import { leads, teamMembers, properties, pipeline, activities } from '@/data/static';
 
 const nav = [
-  { label: "Operations", to: "/admin-portal", icon: "◆" },
-  { label: "Team Management", to: "/admin-portal#team", icon: "♟" },
-  { label: "Listings", to: "/admin-portal#listings", icon: "▤" },
-  { label: "Lead Management", to: "/admin-portal#leads", icon: "✦" },
-  { label: "CRM Pipeline", to: "/admin-portal#crm", icon: "▰" },
-  { label: "Click Alerts", to: "/admin-portal#alerts", icon: "◉" },
-  { label: "Marketing", to: "/admin-portal#marketing", icon: "✺" },
-  { label: "Developers", to: "/admin-portal#dev", icon: "▣" },
-  { label: "Reports", to: "/admin-portal#reports", icon: "≡" },
-  { label: "Commissions", to: "/admin-portal#commissions", icon: "₹" },
+  { label: 'Operations',      to: '/admin-portal',             icon: <LayoutDashboard size={14} /> },
+  { label: 'Team Management', to: '/admin-portal#team',        icon: <Users size={14} /> },
+  { label: 'Listings',        to: '/admin-portal#listings',    icon: <Building2 size={14} /> },
+  { label: 'Lead Management', to: '/admin-portal#leads',       icon: <Target size={14} /> },
+  { label: 'CRM Pipeline',    to: '/admin-portal#crm',         icon: <Kanban size={14} /> },
+  { label: 'Click Alerts',    to: '/admin-portal#alerts',      icon: <BellRing size={14} /> },
+  { label: 'Marketing',       to: '/admin-portal#marketing',   icon: <Megaphone size={14} /> },
+  { label: 'Developers',      to: '/admin-portal#dev',         icon: <Building size={14} /> },
+  { label: 'Reports',         to: '/admin-portal#reports',     icon: <BarChart2 size={14} /> },
+  { label: 'Commissions',     to: '/admin-portal#commissions', icon: <Wallet size={14} /> },
 ];
 
-type Member = { id: string; name: string; email: string; role: string; city: string; status: "Active" | "Invited" };
+type Member = { id: string; name: string; email: string; role: string; city: string; status: 'Active' | 'Invited' };
 
 const seedRoster: Member[] = teamMembers.map((m) => ({
-  id: m.id, name: m.name, email: `${m.name.split(" ")[0].toLowerCase()}@nestiq.in`, role: m.role, city: m.city, status: "Active",
+  id: m.id, name: m.name, email: `${m.name.split(' ')[0].toLowerCase()}@nestit.in`, role: m.role, city: m.city, status: 'Active',
 }));
 
-function Admin() {
+export default function AdminPortal() {
   const hash = useActiveHash();
   return (
-    <PortalShell brand="NestIQ Control" role="Admin" accent="red" user={{ name: "Meera Iyer", initials: "MI" }} nav={nav} basePath="/admin-portal">
+    <PortalShell brand="NestIt Control" role="Admin" accent="red" user={{ name: 'Meera Iyer', initials: 'MI' }} nav={nav} basePath="/admin-portal">
       {renderTab(hash)}
     </PortalShell>
   );
@@ -39,23 +40,32 @@ function Admin() {
 
 function renderTab(hash: string) {
   switch (hash) {
-    case "team": return <TeamTab />;
-    case "listings": return <ListingsTab />;
-    case "leads": return <LeadsTab />;
-    case "crm": return <CRMTab />;
-    case "alerts": return <AlertsTab />;
-    case "marketing": return <MarketingTab />;
-    case "dev": return <DevTab />;
-    case "reports": return <ReportsTab />;
-    case "commissions": return <CommissionsTab />;
+    case 'team': return <TeamTab />;
+    case 'listings': return <ListingsTab />;
+    case 'leads': return <LeadsTab />;
+    case 'crm': return <CRMTab />;
+    case 'alerts': return <AlertsTab />;
+    case 'marketing': return <MarketingTab />;
+    case 'dev': return <DevTab />;
+    case 'reports': return <ReportsTab />;
+    case 'commissions': return <CommissionsTab />;
     default: return <OperationsTab />;
   }
+}
+
+function PageHead({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="mb-6">
+      <h2 className="font-display text-2xl font-bold text-navy">{title}</h2>
+      {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+    </div>
+  );
 }
 
 function OperationsTab() {
   return (
     <>
-      <PageHead title="Operations Overview" subtitle="Pulse of all NestIQ ops — refreshed every 30 seconds." />
+      <PageHead title="Operations Overview" subtitle="Pulse of all NestIt ops — refreshed every 30 seconds." />
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Pipeline Value" value="₹84.2 Cr" sub="+9.1% wk" />
         <StatCard label="Open Leads" value="412" sub="+18 today" />
@@ -77,12 +87,12 @@ function OperationsTab() {
       <Section title="Quick Actions">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { label: "Approve listing", to: "#listings" },
-            { label: "Invite team member", to: "#team" },
-            { label: "View click alerts", to: "#alerts" },
-            { label: "Run weekly report", to: "#reports" },
+            { label: 'Approve listing', href: '/admin-portal#listings' },
+            { label: 'Invite team member', href: '/admin-portal#team' },
+            { label: 'View click alerts', href: '/admin-portal#alerts' },
+            { label: 'Run weekly report', href: '/admin-portal#reports' },
           ].map((a) => (
-            <Link key={a.label} to="/admin-portal" hash={a.to.slice(1)} className="rounded-lg border border-border bg-secondary/40 p-4 text-sm font-semibold text-navy transition hover:border-accent hover:bg-white">
+            <Link key={a.label} href={a.href} className="rounded-lg border border-border bg-secondary/40 p-4 text-sm font-semibold text-navy transition hover:border-accent hover:bg-white">
               {a.label} →
             </Link>
           ))}
@@ -100,19 +110,19 @@ function TeamTab() {
       <PageHead title="Team Management" subtitle={`${roster.length} members across 4 cities`} />
       <Section title="Active Roster" action={<button onClick={() => setShowInvite(true)} className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground">+ Invite Member</button>}>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+          <table className="portal-table">
+            <thead>
               <tr><th className="py-2">ID</th><th>Name</th><th>Email</th><th>Role</th><th>City</th><th>Status</th><th></th></tr>
             </thead>
             <tbody>
               {roster.map((m) => (
-                <tr key={m.id} className="border-t border-border">
-                  <td className="py-3 font-mono text-xs">{m.id}</td>
+                <tr>
+                  <td className="font-mono text-xs">{m.id}</td>
                   <td className="font-semibold text-navy">{m.name}</td>
                   <td className="text-xs text-muted-foreground">{m.email}</td>
                   <td className="text-xs">{m.role}</td>
                   <td className="text-xs">{m.city}</td>
-                  <td><Badge tone={m.status === "Active" ? "success" : "new"}>{m.status}</Badge></td>
+                  <td><Badge tone={m.status === 'Active' ? 'success' : 'new'}>{m.status}</Badge></td>
                   <td className="text-right">
                     <button onClick={() => { setRoster((r) => r.filter((x) => x.id !== m.id)); toast.success(`${m.name} removed from team`); }} className="text-xs font-semibold text-accent">Remove</button>
                   </td>
@@ -128,8 +138,8 @@ function TeamTab() {
 }
 
 function ListingsTab() {
-  const [items, setItems] = useState(properties.map((p) => ({ id: p.id, title: p.title, image: p.image, builder: p.builder, status: "Pending" as "Pending" | "Approved" | "Rejected" })));
-  const counts = { pending: items.filter((i) => i.status === "Pending").length, approved: items.filter((i) => i.status === "Approved").length, rejected: items.filter((i) => i.status === "Rejected").length };
+  const [items, setItems] = useState(properties.map((p) => ({ id: p.id, title: p.title, image: p.image, builder: p.builder, status: 'Pending' as 'Pending' | 'Approved' | 'Rejected' })));
+  const counts = { pending: items.filter((i) => i.status === 'Pending').length, approved: items.filter((i) => i.status === 'Approved').length, rejected: items.filter((i) => i.status === 'Rejected').length };
   return (
     <>
       <PageHead title="Listings Approvals" subtitle="Moderate property submissions before they go live." />
@@ -146,10 +156,10 @@ function ListingsTab() {
               <div className="flex-1">
                 <div className="text-sm font-semibold text-navy">{it.title}</div>
                 <div className="text-xs text-muted-foreground">{it.builder}</div>
-                <div className="mt-2"><Badge tone={it.status === "Approved" ? "success" : it.status === "Rejected" ? "hot" : "warm"}>{it.status}</Badge></div>
+                <div className="mt-2"><Badge tone={it.status === 'Approved' ? 'success' : it.status === 'Rejected' ? 'hot' : 'warm'}>{it.status}</Badge></div>
                 <div className="mt-2 flex gap-2">
-                  <button onClick={() => { setItems((arr) => arr.map((x) => x.id === it.id ? { ...x, status: "Approved" } : x)); toast.success(`Approved ${it.title}`); }} className="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-white">Approve</button>
-                  <button onClick={() => { setItems((arr) => arr.map((x) => x.id === it.id ? { ...x, status: "Rejected" } : x)); toast.error(`Rejected ${it.title}`); }} className="rounded-md border border-border px-3 py-1 text-xs font-semibold">Reject</button>
+                  <button onClick={() => { setItems((arr) => arr.map((x) => x.id === it.id ? { ...x, status: 'Approved' } : x)); toast.success(`Approved ${it.title}`); }} className="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-white">Approve</button>
+                  <button onClick={() => { setItems((arr) => arr.map((x) => x.id === it.id ? { ...x, status: 'Rejected' } : x)); toast.error(`Rejected ${it.title}`); }} className="rounded-md border border-border px-3 py-1 text-xs font-semibold">Reject</button>
                 </div>
               </div>
             </div>
@@ -161,30 +171,30 @@ function ListingsTab() {
 }
 
 function LeadsTab() {
-  const [filter, setFilter] = useState<string>("All");
-  const filtered = filter === "All" ? leads : leads.filter((l) => l.status === filter);
+  const [filter, setFilter] = useState<string>('All');
+  const filtered = filter === 'All' ? leads : leads.filter((l) => l.status === filter);
   return (
     <>
       <PageHead title="Lead Management" subtitle="All leads across cities and reps." />
       <Section title="Filter by status">
         <div className="flex flex-wrap gap-2">
-          {["All", "Hot", "Warm", "Cold", "New"].map((s) => (
-            <button key={s} onClick={() => setFilter(s)} className={`rounded-full border px-3 py-1 text-xs font-semibold ${filter === s ? "border-accent bg-accent text-accent-foreground" : "border-border bg-white"}`}>{s}</button>
+          {['All', 'Hot', 'Warm', 'Cold', 'New'].map((s) => (
+            <button key={s} onClick={() => setFilter(s)} className={`rounded-full border px-3 py-1 text-xs font-semibold ${filter === s ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-white'}`}>{s}</button>
           ))}
         </div>
         <div className="mt-5 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+          <table className="portal-table">
+            <thead>
               <tr><th className="py-2">ID</th><th>Lead</th><th>Interest</th><th>Owner</th><th>Status</th><th>Value</th><th></th></tr>
             </thead>
             <tbody>
               {filtered.map((l) => (
-                <tr key={l.id} className="border-t border-border">
-                  <td className="py-3 font-mono text-xs">{l.id}</td>
+                <tr>
+                  <td className="font-mono text-xs">{l.id}</td>
                   <td><div className="font-semibold text-navy">{l.name}</div><div className="text-xs text-muted-foreground">{l.phone}</div></td>
                   <td className="text-xs">{l.interest}</td>
                   <td className="text-xs">{l.owner}</td>
-                  <td><Badge tone={l.status.toLowerCase() as "hot" | "warm" | "cold" | "new"}>{l.status}</Badge></td>
+                  <td><Badge tone={l.status.toLowerCase() as 'hot' | 'warm' | 'cold' | 'new'}>{l.status}</Badge></td>
                   <td className="font-mono text-xs">₹{(l.value / 100000).toFixed(1)}L</td>
                   <td className="text-right"><button onClick={() => toast.success(`Assigning ${l.name}…`)} className="text-xs font-semibold text-accent">Assign →</button></td>
                 </tr>
@@ -227,9 +237,9 @@ function CRMTab() {
 
 function AlertsTab() {
   const alerts = [
-    { id: "A-501", prop: "Skyline Residences", trigger: "50 clicks / 24h", action: "Notified Priya Sharma" },
-    { id: "A-502", prop: "Marina Heights", trigger: "Saved by 12 users", action: "Auto-boosted to homepage" },
-    { id: "A-503", prop: "Green Acres Villa", trigger: "Price-drop watcher hit", action: "Email blast queued" },
+    { id: 'A-501', prop: 'Skyline Residences', trigger: '50 clicks / 24h', action: 'Notified Priya Sharma' },
+    { id: 'A-502', prop: 'Marina Heights', trigger: 'Saved by 12 users', action: 'Auto-boosted to homepage' },
+    { id: 'A-503', prop: 'Green Acres Villa', trigger: 'Price-drop watcher hit', action: 'Email blast queued' },
   ];
   return (
     <>
@@ -252,9 +262,9 @@ function AlertsTab() {
 
 function MarketingTab() {
   const campaigns = [
-    { id: "C-21", name: "Bandra Premium — Google", budget: "₹2.4L", clicks: 4820, leads: 64, cpl: "₹3,750" },
-    { id: "C-22", name: "Whitefield Villa — Meta", budget: "₹1.8L", clicks: 3210, leads: 41, cpl: "₹4,390" },
-    { id: "C-23", name: "Pune Rentals — WhatsApp", budget: "₹60K", clicks: 1240, leads: 28, cpl: "₹2,140" },
+    { id: 'C-21', name: 'Bandra Premium — Google', budget: '₹2.4L', clicks: 4820, leads: 64, cpl: '₹3,750' },
+    { id: 'C-22', name: 'Whitefield Villa — Meta', budget: '₹1.8L', clicks: 3210, leads: 41, cpl: '₹4,390' },
+    { id: 'C-23', name: 'Pune Rentals — WhatsApp', budget: '₹60K', clicks: 1240, leads: 28, cpl: '₹2,140' },
   ];
   return (
     <>
@@ -265,12 +275,12 @@ function MarketingTab() {
         <StatCard label="Avg CPL" value="₹3,621" sub="-8% vs last mo" />
       </div>
       <Section title="Active Campaigns">
-        <div className="overflow-x-auto"><table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="py-2">ID</th><th>Name</th><th>Budget</th><th>Clicks</th><th>Leads</th><th>CPL</th><th></th></tr></thead>
+        <div className="overflow-x-auto"><table className="portal-table">
+          <thead><tr><th className="py-2">ID</th><th>Name</th><th>Budget</th><th>Clicks</th><th>Leads</th><th>CPL</th><th></th></tr></thead>
           <tbody>
             {campaigns.map((c) => (
-              <tr key={c.id} className="border-t border-border">
-                <td className="py-3 font-mono text-xs">{c.id}</td>
+              <tr>
+                <td className="font-mono text-xs">{c.id}</td>
                 <td className="font-semibold text-navy">{c.name}</td>
                 <td className="font-mono text-xs">{c.budget}</td>
                 <td>{c.clicks.toLocaleString()}</td>
@@ -297,7 +307,7 @@ function DevTab() {
             <div key={b.name} className="rounded-lg border border-border p-4">
               <div className="font-display text-lg font-bold text-navy">{b.name}</div>
               <div className="mt-1 text-xs text-muted-foreground">{b.count} active listings</div>
-              <div className="mt-3"><Badge tone={b.partnered ? "success" : "new"}>{b.partnered ? "Partnered" : "Pending MOU"}</Badge></div>
+              <div className="mt-3"><Badge tone={b.partnered ? 'success' : 'new'}>{b.partnered ? 'Partnered' : 'Pending MOU'}</Badge></div>
             </div>
           ))}
         </div>
@@ -308,10 +318,10 @@ function DevTab() {
 
 function ReportsTab() {
   const reports = [
-    { name: "Weekly Sales Recap", last: "Mon 9:00 AM", schedule: "Every Monday" },
-    { name: "Lead Source Attribution", last: "1st of month", schedule: "Monthly" },
-    { name: "City Performance Heatmap", last: "Yesterday", schedule: "Daily" },
-    { name: "Rep Productivity", last: "Mon 9:00 AM", schedule: "Weekly" },
+    { name: 'Weekly Sales Recap', last: 'Mon 9:00 AM', schedule: 'Every Monday' },
+    { name: 'Lead Source Attribution', last: '1st of month', schedule: 'Monthly' },
+    { name: 'City Performance Heatmap', last: 'Yesterday', schedule: 'Daily' },
+    { name: 'Rep Productivity', last: 'Mon 9:00 AM', schedule: 'Weekly' },
   ];
   return (
     <>
@@ -344,12 +354,12 @@ function CommissionsTab() {
         <StatCard label="YTD Paid" value="₹38.2 L" sub="+₹4.1L vs LY" />
       </div>
       <Section title="By Rep">
-        <div className="overflow-x-auto"><table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="py-2">Rep</th><th>Closed MTD</th><th>Earned</th><th>Pending</th><th></th></tr></thead>
+        <div className="overflow-x-auto"><table className="portal-table">
+          <thead><tr><th className="py-2">Rep</th><th>Closed MTD</th><th>Earned</th><th>Pending</th><th></th></tr></thead>
           <tbody>
             {teamMembers.map((m) => (
-              <tr key={m.id} className="border-t border-border">
-                <td className="py-3 font-semibold text-navy">{m.name}</td>
+              <tr>
+                <td className="font-semibold text-navy">{m.name}</td>
                 <td>{m.closedMTD}</td>
                 <td className="font-mono text-xs">₹{(m.closedMTD * 0.62).toFixed(2)} L</td>
                 <td className="font-mono text-xs text-amber-600">₹{(m.closedMTD * 0.18).toFixed(2)} L</td>
@@ -363,29 +373,20 @@ function CommissionsTab() {
   );
 }
 
-function PageHead({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <div className="mb-6">
-      <h2 className="font-display text-2xl font-bold text-navy">{title}</h2>
-      {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
-    </div>
-  );
-}
-
 function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m: Member) => void }) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState("Sales Rep");
-  const [city, setCity] = useState("Mumbai");
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('Sales Rep');
+  const [city, setCity] = useState('Mumbai');
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
-    onInvite({ id: `U-${Math.floor(Math.random() * 900 + 100)}`, name: name.trim(), email: email.trim(), role, city, status: "Invited" });
+    onInvite({ id: `U-${Math.floor(Math.random() * 900 + 100)}`, name: name.trim(), email: email.trim(), role, city, status: 'Invited' });
   };
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
       <form onClick={(e) => e.stopPropagation()} onSubmit={submit} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-1 text-[11px] font-bold uppercase tracking-widest text-accent">Invite to NestIQ</div>
+        <div className="mb-1 text-[11px] font-bold uppercase tracking-widest text-accent">Invite to NestIt</div>
         <h3 className="font-display text-xl font-bold text-navy">Add a new team member</h3>
         <p className="mt-1 text-xs text-muted-foreground">They'll receive an email invite with a one-time sign-in link.</p>
         <div className="mt-5 space-y-3">
@@ -395,7 +396,7 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m:
           </div>
           <div>
             <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Work email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30" placeholder="aisha@nestiq.in" />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30" placeholder="aisha@nestit.in" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
