@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SupervisorPortalRouteImport } from './routes/supervisor-portal'
 import { Route as SaPortalRouteImport } from './routes/sa-portal'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
@@ -20,6 +21,11 @@ import { Route as PropertiesIndexRouteImport } from './routes/properties.index'
 import { Route as PropertiesIdRouteImport } from './routes/properties.$id'
 import { Route as OwnersSlugRouteImport } from './routes/owners.$slug'
 
+const SupervisorPortalRoute = SupervisorPortalRouteImport.update({
+  id: '/supervisor-portal',
+  path: '/supervisor-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SaPortalRoute = SaPortalRouteImport.update({
   id: '/sa-portal',
   path: '/sa-portal',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/sa-portal': typeof SaPortalRoute
+  '/supervisor-portal': typeof SupervisorPortalRoute
   '/owners/$slug': typeof OwnersSlugRoute
   '/properties/$id': typeof PropertiesIdRoute
   '/properties/': typeof PropertiesIndexRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/sa-portal': typeof SaPortalRoute
+  '/supervisor-portal': typeof SupervisorPortalRoute
   '/owners/$slug': typeof OwnersSlugRoute
   '/properties/$id': typeof PropertiesIdRoute
   '/properties': typeof PropertiesIndexRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/sa-portal': typeof SaPortalRoute
+  '/supervisor-portal': typeof SupervisorPortalRoute
   '/owners/$slug': typeof OwnersSlugRoute
   '/properties/$id': typeof PropertiesIdRoute
   '/properties/': typeof PropertiesIndexRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/sa-portal'
+    | '/supervisor-portal'
     | '/owners/$slug'
     | '/properties/$id'
     | '/properties/'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/sa-portal'
+    | '/supervisor-portal'
     | '/owners/$slug'
     | '/properties/$id'
     | '/properties'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/sa-portal'
+    | '/supervisor-portal'
     | '/owners/$slug'
     | '/properties/$id'
     | '/properties/'
@@ -155,6 +167,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SaPortalRoute: typeof SaPortalRoute
+  SupervisorPortalRoute: typeof SupervisorPortalRoute
   OwnersSlugRoute: typeof OwnersSlugRoute
   PropertiesIdRoute: typeof PropertiesIdRoute
   PropertiesIndexRoute: typeof PropertiesIndexRoute
@@ -162,6 +175,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/supervisor-portal': {
+      id: '/supervisor-portal'
+      path: '/supervisor-portal'
+      fullPath: '/supervisor-portal'
+      preLoaderRoute: typeof SupervisorPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sa-portal': {
       id: '/sa-portal'
       path: '/sa-portal'
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SaPortalRoute: SaPortalRoute,
+  SupervisorPortalRoute: SupervisorPortalRoute,
   OwnersSlugRoute: OwnersSlugRoute,
   PropertiesIdRoute: PropertiesIdRoute,
   PropertiesIndexRoute: PropertiesIndexRoute,
