@@ -66,18 +66,18 @@ function ProfilePage() {
   const actions = roleActions[session.role];
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
+    <div className="min-h-screen bg-background pb-24 md:pb-0">
       <SiteHeader />
 
       {/* Cover banner */}
-      <div className="relative h-40 overflow-hidden bg-gradient-to-r from-navy via-navy-deep to-accent sm:h-56">
+      <div className="relative h-36 overflow-hidden bg-gradient-to-r from-navy via-navy-deep to-accent sm:h-52">
         <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 20% 30%, white 0, transparent 35%), radial-gradient(circle at 80% 70%, oklch(0.85 0.13 220) 0, transparent 35%)" }} />
       </div>
 
-      <div className="mx-auto -mt-16 max-w-7xl px-5 sm:-mt-20 sm:px-6">
+      <div className="mx-auto -mt-20 w-full max-w-6xl px-4 sm:-mt-24 sm:px-6 lg:px-8">
         {/* Identity card */}
         <div className="rounded-2xl border border-border bg-white p-5 shadow-xl sm:p-7">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="flex flex-col items-start gap-5 md:flex-row md:items-center">
             <div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-accent to-navy font-display text-2xl font-bold text-white shadow-lg sm:h-24 sm:w-24">
               {session.initials}
             </div>
@@ -86,18 +86,18 @@ function ProfilePage() {
                 <span className="rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-accent">{meta.label}</span>
                 <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">● Active</span>
               </div>
-              <h1 className="mt-2 font-display text-2xl font-bold text-navy sm:text-3xl">{session.name}</h1>
+              <h1 className="mt-2 break-words font-display text-2xl font-bold text-navy sm:text-3xl">{session.name}</h1>
               <div className="mt-1 text-sm text-muted-foreground">{meta.portalName} · {session.city} · Member since {session.joined}</div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Link to={meta.portal} className="rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground shadow-sm hover:opacity-90">Open Portal →</Link>
-              <button onClick={() => { signOut(); navigate({ to: "/" }); }} className="rounded-md border border-border bg-white px-4 py-2.5 text-sm font-semibold text-navy hover:bg-secondary">Sign out</button>
+            <div className="flex w-full flex-wrap gap-2 md:w-auto md:flex-nowrap">
+              <Link to={meta.portal} className="flex-1 rounded-md bg-accent px-4 py-2.5 text-center text-sm font-semibold text-accent-foreground shadow-sm hover:opacity-90 md:flex-none">Open Portal →</Link>
+              <button onClick={() => { signOut(); navigate({ to: "/" }); }} className="flex-1 rounded-md border border-border bg-white px-4 py-2.5 text-sm font-semibold text-navy hover:bg-secondary md:flex-none">Sign out</button>
             </div>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
           {stats.map(([l, v]) => (
             <div key={l} className="rounded-xl border border-border bg-white p-4 sm:p-5">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{l}</div>
@@ -106,9 +106,9 @@ function ProfilePage() {
           ))}
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <div className="mt-6 grid gap-6 lg:grid-cols-3 lg:items-start">
           {/* Details */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-6 lg:col-span-2">
             <div className="rounded-xl border border-border bg-white p-5 sm:p-6">
               <h2 className="font-display text-lg font-bold text-navy">Account details</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
