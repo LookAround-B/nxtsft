@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UserPortalRouteImport } from './routes/user-portal'
 import { Route as SupervisorPortalRouteImport } from './routes/supervisor-portal'
+import { Route as SalesPortalRouteImport } from './routes/sales-portal'
 import { Route as SaPortalRouteImport } from './routes/sa-portal'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
@@ -21,9 +23,19 @@ import { Route as PropertiesIndexRouteImport } from './routes/properties.index'
 import { Route as PropertiesIdRouteImport } from './routes/properties.$id'
 import { Route as OwnersSlugRouteImport } from './routes/owners.$slug'
 
+const UserPortalRoute = UserPortalRouteImport.update({
+  id: '/user-portal',
+  path: '/user-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SupervisorPortalRoute = SupervisorPortalRouteImport.update({
   id: '/supervisor-portal',
   path: '/supervisor-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SalesPortalRoute = SalesPortalRouteImport.update({
+  id: '/sales-portal',
+  path: '/sales-portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SaPortalRoute = SaPortalRouteImport.update({
@@ -85,7 +97,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/sa-portal': typeof SaPortalRoute
+  '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
+  '/user-portal': typeof UserPortalRoute
   '/owners/$slug': typeof OwnersSlugRoute
   '/properties/$id': typeof PropertiesIdRoute
   '/properties/': typeof PropertiesIndexRoute
@@ -98,7 +112,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/sa-portal': typeof SaPortalRoute
+  '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
+  '/user-portal': typeof UserPortalRoute
   '/owners/$slug': typeof OwnersSlugRoute
   '/properties/$id': typeof PropertiesIdRoute
   '/properties': typeof PropertiesIndexRoute
@@ -112,7 +128,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/sa-portal': typeof SaPortalRoute
+  '/sales-portal': typeof SalesPortalRoute
   '/supervisor-portal': typeof SupervisorPortalRoute
+  '/user-portal': typeof UserPortalRoute
   '/owners/$slug': typeof OwnersSlugRoute
   '/properties/$id': typeof PropertiesIdRoute
   '/properties/': typeof PropertiesIndexRoute
@@ -127,7 +145,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/sa-portal'
+    | '/sales-portal'
     | '/supervisor-portal'
+    | '/user-portal'
     | '/owners/$slug'
     | '/properties/$id'
     | '/properties/'
@@ -140,7 +160,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/sa-portal'
+    | '/sales-portal'
     | '/supervisor-portal'
+    | '/user-portal'
     | '/owners/$slug'
     | '/properties/$id'
     | '/properties'
@@ -153,7 +175,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/sa-portal'
+    | '/sales-portal'
     | '/supervisor-portal'
+    | '/user-portal'
     | '/owners/$slug'
     | '/properties/$id'
     | '/properties/'
@@ -167,7 +191,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SaPortalRoute: typeof SaPortalRoute
+  SalesPortalRoute: typeof SalesPortalRoute
   SupervisorPortalRoute: typeof SupervisorPortalRoute
+  UserPortalRoute: typeof UserPortalRoute
   OwnersSlugRoute: typeof OwnersSlugRoute
   PropertiesIdRoute: typeof PropertiesIdRoute
   PropertiesIndexRoute: typeof PropertiesIndexRoute
@@ -175,11 +201,25 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/user-portal': {
+      id: '/user-portal'
+      path: '/user-portal'
+      fullPath: '/user-portal'
+      preLoaderRoute: typeof UserPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/supervisor-portal': {
       id: '/supervisor-portal'
       path: '/supervisor-portal'
       fullPath: '/supervisor-portal'
       preLoaderRoute: typeof SupervisorPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sales-portal': {
+      id: '/sales-portal'
+      path: '/sales-portal'
+      fullPath: '/sales-portal'
+      preLoaderRoute: typeof SalesPortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sa-portal': {
@@ -263,7 +303,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SaPortalRoute: SaPortalRoute,
+  SalesPortalRoute: SalesPortalRoute,
   SupervisorPortalRoute: SupervisorPortalRoute,
+  UserPortalRoute: UserPortalRoute,
   OwnersSlugRoute: OwnersSlugRoute,
   PropertiesIdRoute: PropertiesIdRoute,
   PropertiesIndexRoute: PropertiesIndexRoute,
