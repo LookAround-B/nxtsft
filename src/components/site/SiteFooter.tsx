@@ -3,7 +3,7 @@ import { portals } from "@/data/static";
 
 export function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-border bg-navy text-white/80">
+    <footer className="mt-24 border-t border-border bg-navy pb-16 text-white/80 md:pb-0">
       <div className="mx-auto grid max-w-7xl gap-12 px-6 py-16 md:grid-cols-4">
         <div>
           <div className="flex items-center gap-2">
