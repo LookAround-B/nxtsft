@@ -93,7 +93,7 @@ function PropertyDetail() {
               <span className="rounded-md bg-navy-deep/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gold backdrop-blur">{p.matchScore}% match</span>
             </div>
           </button>
-          {p.gallery.slice(1, 5).map((src, i) => (
+          {p.gallery.slice(1, 5).map((src: string, i: number) => (
             <button
               key={src + i}
               onClick={() => setActive(i + 1)}
@@ -110,7 +110,7 @@ function PropertyDetail() {
         </div>
         {/* Mobile thumbnails */}
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-          {p.gallery.map((src, i) => (
+          {p.gallery.map((src: string, i: number) => (
             <button key={src + i} onClick={() => setActive(i)} className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border-2 ${active === i ? "border-accent" : "border-border"}`}>
               <img src={src} alt="" className="h-full w-full object-cover" />
             </button>
@@ -175,7 +175,7 @@ function PropertyDetail() {
             <div className="rounded-xl border border-border bg-white p-5 sm:p-6">
               <h2 className="font-display text-xl font-bold text-navy">Amenities ({p.amenities.length})</h2>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                {p.amenities.map((a) => (
+                {p.amenities.map((a: string) => (
                   <div key={a} className="flex items-center gap-2 rounded-md bg-secondary px-3 py-2 text-xs font-medium text-navy">
                     <span className="grid h-5 w-5 place-items-center rounded-full bg-accent/20 text-accent">✓</span>
                     {a}
@@ -188,7 +188,7 @@ function PropertyDetail() {
             <div className="rounded-xl border border-border bg-white p-5 sm:p-6">
               <h2 className="font-display text-xl font-bold text-navy">What's nearby</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {p.nearby.map(([name, dist]) => (
+                {p.nearby.map(([name, dist]: [string, string]) => (
                   <div key={name} className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-4 py-3">
                     <div className="flex items-center gap-3">
                       <span className="grid h-9 w-9 place-items-center rounded-lg bg-mid-blue/30 text-navy">📍</span>
