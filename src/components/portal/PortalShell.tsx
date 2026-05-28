@@ -40,7 +40,9 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
         </div>
         <nav className="flex-1 space-y-1 px-3 py-6">
           {nav.map((n) => {
-            const active = loc.pathname === n.to || (n.to !== basePath && loc.pathname.startsWith(n.to));
+            const [navPath, navHash = ""] = n.to.split("#");
+            const currentHash = loc.hash ?? "";
+            const active = navPath === loc.pathname && navHash === currentHash;
             return (
               <Link
                 key={n.to}
