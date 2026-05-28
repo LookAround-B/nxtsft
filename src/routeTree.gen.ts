@@ -78,9 +78,9 @@ const PropertiesIndexRoute = PropertiesIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const PropertiesIdRoute = PropertiesIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => PropertiesRoute,
+  id: '/properties/$id',
+  path: '/properties/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -182,6 +182,7 @@ export interface RootRouteChildren {
   SalesPortalRoute: typeof SalesPortalRoute
   SupervisorPortalRoute: typeof SupervisorPortalRoute
   UserPortalRoute: typeof UserPortalRoute
+  PropertiesIdRoute: typeof PropertiesIdRoute
   PropertiesIndexRoute: typeof PropertiesIndexRoute
 }
 
@@ -266,10 +267,10 @@ declare module '@tanstack/react-router' {
     }
     '/properties/$id': {
       id: '/properties/$id'
-      path: '/$id'
+      path: '/properties/$id'
       fullPath: '/properties/$id'
       preLoaderRoute: typeof PropertiesIdRouteImport
-      parentRoute: typeof PropertiesRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -285,18 +286,9 @@ const rootRouteChildren: RootRouteChildren = {
   SalesPortalRoute: SalesPortalRoute,
   SupervisorPortalRoute: SupervisorPortalRoute,
   UserPortalRoute: UserPortalRoute,
+  PropertiesIdRoute: PropertiesIdRoute,
   PropertiesIndexRoute: PropertiesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
