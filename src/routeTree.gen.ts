@@ -9,38 +9,214 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UserPortalRouteImport } from './routes/user-portal'
+import { Route as SupervisorPortalRouteImport } from './routes/supervisor-portal'
+import { Route as SalesPortalRouteImport } from './routes/sales-portal'
+import { Route as SaPortalRouteImport } from './routes/sa-portal'
+import { Route as PropertiesRouteImport } from './routes/properties'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as AdminPortalRouteImport } from './routes/admin-portal'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PropertiesIdRouteImport } from './routes/properties.$id'
 
+const UserPortalRoute = UserPortalRouteImport.update({
+  id: '/user-portal',
+  path: '/user-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupervisorPortalRoute = SupervisorPortalRouteImport.update({
+  id: '/supervisor-portal',
+  path: '/supervisor-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SalesPortalRoute = SalesPortalRouteImport.update({
+  id: '/sales-portal',
+  path: '/sales-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SaPortalRoute = SaPortalRouteImport.update({
+  id: '/sa-portal',
+  path: '/sa-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PropertiesRoute = PropertiesRouteImport.update({
+  id: '/properties',
+  path: '/properties',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPortalRoute = AdminPortalRouteImport.update({
+  id: '/admin-portal',
+  path: '/admin-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PropertiesIdRoute = PropertiesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => PropertiesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/admin-portal': typeof AdminPortalRoute
+  '/contact': typeof ContactRoute
+  '/properties': typeof PropertiesRouteWithChildren
+  '/sa-portal': typeof SaPortalRoute
+  '/sales-portal': typeof SalesPortalRoute
+  '/supervisor-portal': typeof SupervisorPortalRoute
+  '/user-portal': typeof UserPortalRoute
+  '/properties/$id': typeof PropertiesIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/admin-portal': typeof AdminPortalRoute
+  '/contact': typeof ContactRoute
+  '/properties': typeof PropertiesRouteWithChildren
+  '/sa-portal': typeof SaPortalRoute
+  '/sales-portal': typeof SalesPortalRoute
+  '/supervisor-portal': typeof SupervisorPortalRoute
+  '/user-portal': typeof UserPortalRoute
+  '/properties/$id': typeof PropertiesIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/admin-portal': typeof AdminPortalRoute
+  '/contact': typeof ContactRoute
+  '/properties': typeof PropertiesRouteWithChildren
+  '/sa-portal': typeof SaPortalRoute
+  '/sales-portal': typeof SalesPortalRoute
+  '/supervisor-portal': typeof SupervisorPortalRoute
+  '/user-portal': typeof UserPortalRoute
+  '/properties/$id': typeof PropertiesIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/admin-portal'
+    | '/contact'
+    | '/properties'
+    | '/sa-portal'
+    | '/sales-portal'
+    | '/supervisor-portal'
+    | '/user-portal'
+    | '/properties/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/about'
+    | '/admin-portal'
+    | '/contact'
+    | '/properties'
+    | '/sa-portal'
+    | '/sales-portal'
+    | '/supervisor-portal'
+    | '/user-portal'
+    | '/properties/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/admin-portal'
+    | '/contact'
+    | '/properties'
+    | '/sa-portal'
+    | '/sales-portal'
+    | '/supervisor-portal'
+    | '/user-portal'
+    | '/properties/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
+  AdminPortalRoute: typeof AdminPortalRoute
+  ContactRoute: typeof ContactRoute
+  PropertiesRoute: typeof PropertiesRouteWithChildren
+  SaPortalRoute: typeof SaPortalRoute
+  SalesPortalRoute: typeof SalesPortalRoute
+  SupervisorPortalRoute: typeof SupervisorPortalRoute
+  UserPortalRoute: typeof UserPortalRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/user-portal': {
+      id: '/user-portal'
+      path: '/user-portal'
+      fullPath: '/user-portal'
+      preLoaderRoute: typeof UserPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/supervisor-portal': {
+      id: '/supervisor-portal'
+      path: '/supervisor-portal'
+      fullPath: '/supervisor-portal'
+      preLoaderRoute: typeof SupervisorPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sales-portal': {
+      id: '/sales-portal'
+      path: '/sales-portal'
+      fullPath: '/sales-portal'
+      preLoaderRoute: typeof SalesPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sa-portal': {
+      id: '/sa-portal'
+      path: '/sa-portal'
+      fullPath: '/sa-portal'
+      preLoaderRoute: typeof SaPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/properties': {
+      id: '/properties'
+      path: '/properties'
+      fullPath: '/properties'
+      preLoaderRoute: typeof PropertiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin-portal': {
+      id: '/admin-portal'
+      path: '/admin-portal'
+      fullPath: '/admin-portal'
+      preLoaderRoute: typeof AdminPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +224,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/properties/$id': {
+      id: '/properties/$id'
+      path: '/$id'
+      fullPath: '/properties/$id'
+      preLoaderRoute: typeof PropertiesIdRouteImport
+      parentRoute: typeof PropertiesRoute
+    }
   }
 }
 
+interface PropertiesRouteChildren {
+  PropertiesIdRoute: typeof PropertiesIdRoute
+}
+
+const PropertiesRouteChildren: PropertiesRouteChildren = {
+  PropertiesIdRoute: PropertiesIdRoute,
+}
+
+const PropertiesRouteWithChildren = PropertiesRoute._addFileChildren(
+  PropertiesRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
+  AdminPortalRoute: AdminPortalRoute,
+  ContactRoute: ContactRoute,
+  PropertiesRoute: PropertiesRouteWithChildren,
+  SaPortalRoute: SaPortalRoute,
+  SalesPortalRoute: SalesPortalRoute,
+  SupervisorPortalRoute: SupervisorPortalRoute,
+  UserPortalRoute: UserPortalRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
