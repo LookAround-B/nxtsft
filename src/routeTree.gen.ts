@@ -14,6 +14,7 @@ import { Route as SupervisorPortalRouteImport } from './routes/supervisor-portal
 import { Route as SalesPortalRouteImport } from './routes/sales-portal'
 import { Route as SaPortalRouteImport } from './routes/sa-portal'
 import { Route as PropertiesRouteImport } from './routes/properties'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AdminPortalRouteImport } from './routes/admin-portal'
@@ -44,6 +45,11 @@ const SaPortalRoute = SaPortalRouteImport.update({
 const PropertiesRoute = PropertiesRouteImport.update({
   id: '/properties',
   path: '/properties',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/admin-portal': typeof AdminPortalRoute
   '/contact': typeof ContactRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/admin-portal': typeof AdminPortalRoute
   '/contact': typeof ContactRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/admin-portal': typeof AdminPortalRoute
   '/contact': typeof ContactRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/sa-portal': typeof SaPortalRoute
   '/sales-portal': typeof SalesPortalRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/admin-portal'
     | '/contact'
     | '/login'
+    | '/profile'
     | '/properties'
     | '/sa-portal'
     | '/sales-portal'
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/admin-portal'
     | '/contact'
     | '/login'
+    | '/profile'
     | '/properties'
     | '/sa-portal'
     | '/sales-portal'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/admin-portal'
     | '/contact'
     | '/login'
+    | '/profile'
     | '/properties'
     | '/sa-portal'
     | '/sales-portal'
@@ -165,6 +177,7 @@ export interface RootRouteChildren {
   AdminPortalRoute: typeof AdminPortalRoute
   ContactRoute: typeof ContactRoute
   LoginRoute: typeof LoginRoute
+  ProfileRoute: typeof ProfileRoute
   PropertiesRoute: typeof PropertiesRouteWithChildren
   SaPortalRoute: typeof SaPortalRoute
   SalesPortalRoute: typeof SalesPortalRoute
@@ -207,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/properties'
       fullPath: '/properties'
       preLoaderRoute: typeof PropertiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -272,6 +292,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminPortalRoute: AdminPortalRoute,
   ContactRoute: ContactRoute,
   LoginRoute: LoginRoute,
+  ProfileRoute: ProfileRoute,
   PropertiesRoute: PropertiesRouteWithChildren,
   SaPortalRoute: SaPortalRoute,
   SalesPortalRoute: SalesPortalRoute,
