@@ -1,8 +1,10 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
+import { Lock } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { properties } from "@/data/static";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/properties/$id")({
   component: PropertyDetail,
@@ -49,6 +51,9 @@ function estimateEMI(principal: number) {
 function PropertyDetail() {
   const p = Route.useLoaderData();
   const [active, setActive] = useState(0);
+  const { session } = useAuth();
+  const signedIn = !!session;
+  const loginHref = `/login?redirect=/properties/${p.id}`;
   const similar = properties.filter((x) => x.id !== p.id && x.city === p.city).slice(0, 3);
   const similarFallback = similar.length ? similar : properties.filter((x) => x.id !== p.id).slice(0, 3);
 
