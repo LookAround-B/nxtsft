@@ -4,23 +4,25 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import {
   LayoutDashboard, Users, Building2, Target, Kanban,
-  BellRing, Megaphone, Building, BarChart2, Wallet,
+  BellRing, Megaphone, Building, BarChart2, Wallet, ReceiptText,
+  CheckCircle, XCircle,
 } from 'lucide-react';
 import { PortalShell, StatCard, Section, Badge } from '@/components/portal/PortalShell';
 import { useActiveHash } from '@/lib/use-active-hash';
-import { leads, teamMembers, properties, pipeline, activities } from '@/data/static';
+import { leads, teamMembers, properties, pipeline, activities, subscriptions, unlockedContacts, disputes as disputeData } from '@/data/static';
 
 const nav = [
-  { label: 'Operations',      to: '/admin-portal',             icon: <LayoutDashboard size={14} /> },
-  { label: 'Team Management', to: '/admin-portal#team',        icon: <Users size={14} /> },
-  { label: 'Listings',        to: '/admin-portal#listings',    icon: <Building2 size={14} /> },
-  { label: 'Lead Management', to: '/admin-portal#leads',       icon: <Target size={14} /> },
-  { label: 'CRM Pipeline',    to: '/admin-portal#crm',         icon: <Kanban size={14} /> },
-  { label: 'Click Alerts',    to: '/admin-portal#alerts',      icon: <BellRing size={14} /> },
-  { label: 'Marketing',       to: '/admin-portal#marketing',   icon: <Megaphone size={14} /> },
-  { label: 'Developers',      to: '/admin-portal#dev',         icon: <Building size={14} /> },
-  { label: 'Reports',         to: '/admin-portal#reports',     icon: <BarChart2 size={14} /> },
-  { label: 'Commissions',     to: '/admin-portal#commissions', icon: <Wallet size={14} /> },
+  { label: 'Operations',      to: '/admin-portal',               icon: <LayoutDashboard size={14} /> },
+  { label: 'Team Management', to: '/admin-portal#team',          icon: <Users size={14} /> },
+  { label: 'Listings',        to: '/admin-portal#listings',      icon: <Building2 size={14} /> },
+  { label: 'Lead Management', to: '/admin-portal#leads',         icon: <Target size={14} /> },
+  { label: 'CRM Pipeline',    to: '/admin-portal#crm',           icon: <Kanban size={14} /> },
+  { label: 'Subscriptions',   to: '/admin-portal#subscriptions', icon: <ReceiptText size={14} /> },
+  { label: 'Click Alerts',    to: '/admin-portal#alerts',        icon: <BellRing size={14} /> },
+  { label: 'Marketing',       to: '/admin-portal#marketing',     icon: <Megaphone size={14} /> },
+  { label: 'Developers',      to: '/admin-portal#dev',           icon: <Building size={14} /> },
+  { label: 'Reports',         to: '/admin-portal#reports',       icon: <BarChart2 size={14} /> },
+  { label: 'Commissions',     to: '/admin-portal#commissions',   icon: <Wallet size={14} /> },
 ];
 
 type Member = { id: string; name: string; email: string; role: string; city: string; status: 'Active' | 'Invited' };
@@ -40,16 +42,17 @@ export default function AdminPortal() {
 
 function renderTab(hash: string) {
   switch (hash) {
-    case 'team': return <TeamTab />;
-    case 'listings': return <ListingsTab />;
-    case 'leads': return <LeadsTab />;
-    case 'crm': return <CRMTab />;
-    case 'alerts': return <AlertsTab />;
-    case 'marketing': return <MarketingTab />;
-    case 'dev': return <DevTab />;
-    case 'reports': return <ReportsTab />;
-    case 'commissions': return <CommissionsTab />;
-    default: return <OperationsTab />;
+    case 'team':          return <TeamTab />;
+    case 'listings':      return <ListingsTab />;
+    case 'leads':         return <LeadsTab />;
+    case 'crm':           return <CRMTab />;
+    case 'subscriptions': return <SubscriptionsTab />;
+    case 'alerts':        return <AlertsTab />;
+    case 'marketing':     return <MarketingTab />;
+    case 'dev':           return <DevTab />;
+    case 'reports':       return <ReportsTab />;
+    case 'commissions':   return <CommissionsTab />;
+    default:              return <OperationsTab />;
   }
 }
 
@@ -87,14 +90,18 @@ function OperationsTab() {
       <Section title="Quick Actions">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { label: 'Approve listing', href: '/admin-portal#listings' },
-            { label: 'Invite team member', href: '/admin-portal#team' },
-            { label: 'View click alerts', href: '/admin-portal#alerts' },
-            { label: 'Run weekly report', href: '/admin-portal#reports' },
+            { label: 'Approve listing',    hash: 'listings' },
+            { label: 'Invite team member', hash: 'team' },
+            { label: 'View click alerts',  hash: 'alerts' },
+            { label: 'Run weekly report',  hash: 'reports' },
           ].map((a) => (
-            <Link key={a.label} href={a.href} className="rounded-lg border border-border bg-secondary/40 p-4 text-sm font-semibold text-navy transition hover:border-accent hover:bg-white">
+            <button
+              key={a.label}
+              onClick={() => { window.location.hash = a.hash; }}
+              className="rounded-lg border border-border bg-secondary/40 p-4 text-left text-sm font-semibold text-navy transition hover:border-accent hover:bg-white"
+            >
               {a.label} →
-            </Link>
+            </button>
           ))}
         </div>
       </Section>
@@ -116,7 +123,7 @@ function TeamTab() {
             </thead>
             <tbody>
               {roster.map((m) => (
-                <tr>
+                <tr key={m.id}>
                   <td className="font-mono text-xs">{m.id}</td>
                   <td className="font-semibold text-navy">{m.name}</td>
                   <td className="text-xs text-muted-foreground">{m.email}</td>
@@ -189,7 +196,7 @@ function LeadsTab() {
             </thead>
             <tbody>
               {filtered.map((l) => (
-                <tr>
+                <tr key={l.id}>
                   <td className="font-mono text-xs">{l.id}</td>
                   <td><div className="font-semibold text-navy">{l.name}</div><div className="text-xs text-muted-foreground">{l.phone}</div></td>
                   <td className="text-xs">{l.interest}</td>
@@ -279,7 +286,7 @@ function MarketingTab() {
           <thead><tr><th className="py-2">ID</th><th>Name</th><th>Budget</th><th>Clicks</th><th>Leads</th><th>CPL</th><th></th></tr></thead>
           <tbody>
             {campaigns.map((c) => (
-              <tr>
+              <tr key={c.id}>
                 <td className="font-mono text-xs">{c.id}</td>
                 <td className="font-semibold text-navy">{c.name}</td>
                 <td className="font-mono text-xs">{c.budget}</td>
@@ -358,7 +365,7 @@ function CommissionsTab() {
           <thead><tr><th className="py-2">Rep</th><th>Closed MTD</th><th>Earned</th><th>Pending</th><th></th></tr></thead>
           <tbody>
             {teamMembers.map((m) => (
-              <tr>
+              <tr key={m.id}>
                 <td className="font-semibold text-navy">{m.name}</td>
                 <td>{m.closedMTD}</td>
                 <td className="font-mono text-xs">₹{(m.closedMTD * 0.62).toFixed(2)} L</td>
@@ -419,5 +426,174 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m:
         </div>
       </form>
     </div>
+  );
+}
+
+function SubscriptionsTab() {
+  const [unlocks, setUnlocks] = useState(unlockedContacts.map((u) => ({ ...u })));
+  const [disputeList, setDisputeList] = useState(disputeData.map((d) => ({ ...d })));
+
+  const totalRevenue = subscriptions.reduce((s, sub) => s + sub.amount, 0);
+  const activeCount = subscriptions.filter((s) => s.status === 'Active').length;
+  const totalUnlocks = unlocks.length;
+  const closedDeals = unlocks.filter((u) => u.closed).length;
+
+  const toggleClosed = (id: string) => {
+    setUnlocks((prev) => prev.map((u) => (u.id === id ? { ...u, closed: !u.closed } : u)));
+    toast.success('Closure status updated');
+  };
+
+  const resolveDispute = (id: string) => {
+    setDisputeList((prev) => prev.map((d) => d.id === id ? { ...d, status: 'Resolved' as const, refundIssued: true } : d));
+    toast.success(`Dispute ${id} resolved and refund issued`);
+  };
+
+  return (
+    <>
+      <PageHead title="Subscriptions" subtitle="All plan purchases, unlocks, and closure tracking." />
+
+      {/* KPIs */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <StatCard label="Total Revenue" value={`₹${totalRevenue.toLocaleString()}`} sub={`${subscriptions.length} purchases`} />
+        <StatCard label="Active Plans" value={String(activeCount)} sub={`${subscriptions.length - activeCount} exhausted`} />
+        <StatCard label="Contacts Unlocked" value={String(totalUnlocks)} sub="Across all users" />
+        <StatCard label="Deals Closed" value={String(closedDeals)} sub={`${totalUnlocks - closedDeals} in progress`} accent="text-emerald-600" />
+      </div>
+
+      {/* Subscription purchases */}
+      <Section title="Plan Purchases">
+        <div className="overflow-x-auto">
+          <table className="portal-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>User</th><th>Contact</th><th>Plan</th>
+                <th>Amount</th><th>Credits</th><th>Remaining</th><th>Date</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subscriptions.map((sub) => (
+                <tr key={sub.id}>
+                  <td className="font-mono text-xs">{sub.id}</td>
+                  <td className="font-semibold text-navy">{sub.user}</td>
+                  <td>
+                    <div className="text-xs text-muted-foreground">{sub.email}</div>
+                    <div className="font-mono text-xs">{sub.phone}</div>
+                  </td>
+                  <td>
+                    <Badge tone={sub.plan === 'Premium' ? 'new' : sub.plan === 'Basic' ? 'success' : 'warm'}>
+                      {sub.plan}
+                    </Badge>
+                  </td>
+                  <td className="font-mono text-sm font-semibold text-navy">₹{sub.amount}</td>
+                  <td className="text-center">{sub.creditsTotal}</td>
+                  <td className="text-center font-semibold" style={{ color: sub.creditsLeft === 0 ? 'var(--color-accent)' : 'inherit' }}>
+                    {sub.creditsLeft}
+                  </td>
+                  <td className="text-xs text-muted-foreground">{sub.date}</td>
+                  <td>
+                    <Badge tone={sub.status === 'Active' ? 'success' : 'cold'}>{sub.status}</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      {/* Unlock records */}
+      <Section title="Contact Unlock Records">
+        <div className="overflow-x-auto">
+          <table className="portal-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>User</th><th>Property</th><th>Owner / Phone</th>
+                <th>Unlocked At</th><th>Closure</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {unlocks.map((u) => (
+                <tr key={u.id}>
+                  <td className="font-mono text-xs">{u.id}</td>
+                  <td className="font-semibold text-navy">{u.user}</td>
+                  <td className="max-w-[180px]">
+                    <div className="truncate text-sm font-medium text-navy">{u.property}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">{u.subId}</div>
+                  </td>
+                  <td>
+                    <div className="text-xs font-semibold text-navy">{u.owner}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{u.phone}</div>
+                  </td>
+                  <td className="font-mono text-xs text-muted-foreground">{u.unlockedAt}</td>
+                  <td>
+                    <Badge tone={u.closed ? 'success' : 'warm'}>{u.closed ? 'Closed' : 'In Progress'}</Badge>
+                  </td>
+                  <td>
+                    <button
+                      onClick={() => toggleClosed(u.id)}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-accent hover:underline"
+                    >
+                      {u.closed
+                        ? <><XCircle size={12} /> Reopen</>
+                        : <><CheckCircle size={12} /> Mark closed</>
+                      }
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      {/* Dispute log */}
+      <Section
+        title="Dispute Log"
+        action={
+          <Badge tone="hot">
+            {disputeList.filter((d) => d.status === 'Pending').length} pending
+          </Badge>
+        }
+      >
+        <div className="overflow-x-auto">
+          <table className="portal-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>User</th><th>Property</th><th>Reason</th>
+                <th>Date</th><th>Status</th><th>Refund</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {disputeList.map((d) => (
+                <tr key={d.id}>
+                  <td className="font-mono text-xs">{d.id}</td>
+                  <td className="font-semibold text-navy">{d.user}</td>
+                  <td className="max-w-[180px]">
+                    <div className="truncate text-sm font-medium text-navy">{d.property}</div>
+                  </td>
+                  <td className="max-w-[200px] text-xs text-muted-foreground">{d.reason}</td>
+                  <td className="font-mono text-xs text-muted-foreground">{d.date}</td>
+                  <td>
+                    <Badge tone={d.status === 'Resolved' ? 'success' : 'hot'}>{d.status}</Badge>
+                  </td>
+                  <td>
+                    <Badge tone={d.refundIssued ? 'success' : 'warm'}>{d.refundIssued ? 'Issued' : 'Pending'}</Badge>
+                  </td>
+                  <td>
+                    {d.status === 'Pending' && (
+                      <button
+                        onClick={() => resolveDispute(d.id)}
+                        className="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-white"
+                      >
+                        Resolve &amp; Refund
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </>
   );
 }

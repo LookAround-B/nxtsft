@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NestIt — Master Blueprint</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:      #1e3a5f;
+      --navy-deep: #0f2340;
+      --mid-blue:  #2563eb;
+      --accent:    #2563eb;
+      --gold:      #f59e0b;
+      --emerald:   #10b981;
+      --amber:     #f59e0b;
+      --red:       #ef4444;
+      --bg:        #f8fafc;
+      --white:     #ffffff;
+      --border:    #e2e8f0;
+      --muted:     #64748b;
+      --text:      #1e293b;
+      --radius:    12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    /* ── TYPOGRAPHY ── */
+    h1, h2, h3, h4 { font-family: 'Poppins', sans-serif; font-weight: 800; line-height: 1.15; }
+    h1 { font-size: 3rem; }
+    h2 { font-size: 1.75rem; }
+    h3 { font-size: 1.25rem; }
+    h4 { font-size: 1rem; }
+    code, .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .section { padding: 64px 0; }
+    .section-sm { padding: 40px 0; }
+
+    /* ── COVER ── */
+    .cover {
+      background: linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 50%, #1d4ed8 100%);
+      color: #fff;
+      padding: 80px 24px 72px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(245,158,11,.18) 0%, transparent 70%);
+    }
+    .cover-inner { position: relative; max-width: 760px; margin: 0 auto; }
+    .cover-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+    .cover h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); margin-bottom: 20px; }
+    .cover h1 span { color: var(--gold); }
+    .cover-sub { font-size: 1.1rem; color: rgba(255,255,255,.75); max-width: 560px; margin: 0 auto 40px; }
+    .cover-meta {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+      border-top: 1px solid rgba(255,255,255,.15);
+      padding-top: 32px;
+      margin-top: 32px;
+    }
+    .cover-meta-item { text-align: center; }
+    .cover-meta-item strong { display: block; font-family: 'Poppins', sans-serif; font-size: 1.8rem; font-weight: 900; color: var(--gold); }
+    .cover-meta-item span { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: rgba(255,255,255,.5); }
+
+    /* ── TOC ── */
+    .toc { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; }
+    .toc h3 { color: var(--navy); margin-bottom: 20px; font-size: 1rem; text-transform: uppercase; letter-spacing: .1em; }
+    .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+    .toc a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      text-decoration: none;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      transition: all .15s;
+    }
+    .toc a:hover { background: #eff6ff; border-color: #bfdbfe; color: var(--accent); }
+    .toc a .num { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); min-width: 28px; }
+
+    /* ── PHASE HEADER ── */
+    .phase-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--border);
+    }
+    .phase-num {
+      background: var(--navy);
+      color: #fff;
+      font-family: 'Poppins', sans-serif;
+      font-weight: 900;
+      font-size: 1.5rem;
+      min-width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+    }
+    .phase-header h2 { color: var(--navy); }
+    .phase-header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin: 36px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .label-chip {
+      display: inline-block;
+      background: #dbeafe;
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+
+    /* ── PLAN TABLES ── */
+    .plan-table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    thead { background: var(--navy); color: #fff; }
+    thead th { padding: 13px 16px; text-align: left; font-weight: 600; font-size: 12px; letter-spacing: .04em; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); background: var(--white); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f8faff; }
+    tbody td { padding: 13px 16px; vertical-align: middle; }
+    tbody td:first-child { font-weight: 600; color: var(--navy); }
+    .price-cell { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent); font-size: 14px; }
+    .popular-row { background: linear-gradient(90deg, #eff6ff 0%, var(--white) 100%) !important; }
+    .popular-row td:first-child { color: var(--accent); }
+
+    /* ── BADGES ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .badge-popular  { background: #dbeafe; color: #1d4ed8; }
+    .badge-new      { background: #fef3c7; color: #92400e; }
+    .badge-rm       { background: #dcfce7; color: #166534; }
+    .badge-enterprise { background: #ede9fe; color: #6d28d9; }
+    .badge-builder  { background: #ffedd5; color: #9a3412; }
+    .badge-agent    { background: #fef9c3; color: #854d0e; }
+
+    /* ── PLAN CARDS (small grid for overview) ── */
+    .plan-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin: 20px 0; }
+    .plan-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      position: relative;
+    }
+    .plan-card.highlight { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+    .plan-card-name { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: .95rem; color: var(--navy); }
+    .plan-card-price { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 700; color: var(--accent); margin: 6px 0; }
+    .plan-card-meta { font-size: 12px; color: var(--muted); }
+    .plan-card-badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); }
+
+    /* ── INFO CARDS ── */
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 20px 0; }
+    .info-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .info-card h4 { color: var(--navy); margin-bottom: 10px; font-size: .95rem; }
+    .info-card p, .info-card li { color: var(--muted); font-size: 13.5px; }
+    .info-card ul { padding-left: 18px; }
+    .info-card ul li { margin-bottom: 5px; }
+    .icon-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+    .icon-box {
+      min-width: 36px; height: 36px;
+      border-radius: 9px;
+      display: grid; place-items: center;
+      font-size: 16px;
+    }
+    .icon-box.blue   { background: #dbeafe; }
+    .icon-box.green  { background: #dcfce7; }
+    .icon-box.amber  { background: #fef3c7; }
+    .icon-box.purple { background: #ede9fe; }
+    .icon-box.red    { background: #fee2e2; }
+    .icon-box.navy   { background: #e0e7ff; }
+
+    /* ── CALLOUT ── */
+    .callout {
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 20px 0;
+      border-left: 4px solid;
+      font-size: 14px;
+    }
+    .callout.blue  { background: #eff6ff; border-color: var(--accent); color: #1e3a5f; }
+    .callout.amber { background: #fffbeb; border-color: var(--gold); color: #78350f; }
+    .callout.green { background: #f0fdf4; border-color: var(--emerald); color: #14532d; }
+    .callout strong { font-weight: 700; }
+
+    /* ── CHECKLIST ── */
+    .checklist { list-style: none; display: grid; gap: 12px; margin: 20px 0; }
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 14px;
+    }
+    .check-box {
+      min-width: 22px; height: 22px;
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      margin-top: 1px;
+    }
+    .check-box.done { background: var(--emerald); border-color: var(--emerald); display: grid; place-items: center; color: #fff; font-size: 13px; }
+    .check-box.partial { background: var(--amber); border-color: var(--amber); display: grid; place-items: center; color: #fff; font-size: 13px; }
+
+    /* ── STAT ROW ── */
+    .stat-row { display: flex; flex-wrap: wrap; gap: 16px; margin: 20px 0; }
+    .stat-box {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      flex: 1;
+      min-width: 140px;
+      text-align: center;
+    }
+    .stat-box strong { display: block; font-family: 'Poppins', sans-serif; font-size: 1.8rem; font-weight: 900; color: var(--navy); }
+    .stat-box span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+
+    /* ── FUNNEL ── */
+    .funnel { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 24px 0; }
+    .funnel-step {
+      width: 100%;
+      max-width: 600px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--navy);
+      position: relative;
+    }
+    .funnel-arrow { height: 20px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 18px; }
+    .funnel-step .tag { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); font-weight: 500; }
+
+    /* ── COMPARISON TABLE ── */
+    .compare-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .compare-table th { background: var(--navy); color: #fff; padding: 12px 16px; text-align: left; font-size: 12px; }
+    .compare-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .compare-table tr:nth-child(even) td { background: #f8fafc; }
+    .yes { color: var(--emerald); font-weight: 700; }
+    .no  { color: var(--red); }
+    .partial { color: var(--amber); font-weight: 600; }
+
+    /* ── FOOTER ── */
+    .doc-footer {
+      background: var(--navy-deep);
+      color: rgba(255,255,255,.6);
+      text-align: center;
+      padding: 32px 24px;
+      font-size: 13px;
+      margin-top: 64px;
+    }
+    .doc-footer strong { color: var(--gold); }
+
+    /* ── PRINT ── */
+    @media print {
+      body { background: #fff; }
+      .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      thead { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════ COVER ══════════════════ -->
+<div class="cover">
+  <div class="cover-inner">
+    <div class="cover-badge">⬡ Master Blueprint — v1.0 — Confidential</div>
+    <h1>NestIt <span>Platform Blueprint</span></h1>
+    <p class="cover-sub">
+      The unified product, pricing &amp; growth strategy for India's next-generation
+      real estate marketplace — engineered for agile, multi-sided, unbundled transactions.
+    </p>
+    <div class="cover-meta">
+      <div class="cover-meta-item"><strong>14</strong><span>App Routes</span></div>
+      <div class="cover-meta-item"><strong>5</strong><span>User Portals</span></div>
+      <div class="cover-meta-item"><strong>15</strong><span>Pricing Tiers</span></div>
+      <div class="cover-meta-item"><strong>₹99</strong><span>Entry Price</span></div>
+      <div class="cover-meta-item"><strong>4</strong><span>Build Phases</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ TABLE OF CONTENTS ══════════════════ -->
+<div class="section-sm">
+  <div class="container">
+    <div class="toc">
+      <h3>Table of Contents</h3>
+      <div class="toc-grid">
+        <a href="#phase1"><span class="num">01</span> Pricing Architecture</a>
+        <a href="#owner-rental"><span class="num">02</span> Owner — Rental Plans</a>
+        <a href="#owner-sell"><span class="num">03</span> Owner — Selling Plans</a>
+        <a href="#seeker-plans"><span class="num">04</span> Seeker Demand Plans</a>
+        <a href="#phase2"><span class="num">05</span> Tech Moat &amp; Innovations</a>
+        <a href="#wallet"><span class="num">06</span> Wallet &amp; Token System</a>
+        <a href="#whatsapp"><span class="num">07</span> WhatsApp Bot Engine</a>
+        <a href="#phase3"><span class="num">08</span> Growth Strategy</a>
+        <a href="#neighborhoods"><span class="num">09</span> Neighborhood Targeting</a>
+        <a href="#acquisition"><span class="num">10</span> Supply Acquisition</a>
+        <a href="#phase4"><span class="num">11</span> Implementation Checklist</a>
+        <a href="#current-state"><span class="num">12</span> Current App Status</a>
+        <a href="#portals"><span class="num">13</span> Five User Portals</a>
+        <a href="#gap-analysis"><span class="num">14</span> Gap Analysis</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PHASE 1 ══════════════════ -->
+<div class="section" id="phase1" style="background: var(--white); border-top: 3px solid var(--accent);">
+  <div class="container">
+    <div class="phase-header">
+      <div class="phase-num">01</div>
+      <div>
+        <h2>Unified Pricing Architecture</h2>
+        <p>Three-tab segmented dashboard separating supply (owners) from demand (seekers) workflows</p>
+      </div>
+    </div>
+
+    <div class="callout blue">
+      <strong>Core Concept:</strong> Traditional platforms use a single flat pricing page. NestIt separates
+      buyers from sellers, renters from landlords — each tab shows only relevant plans. This reduces
+      decision fatigue and increases conversion by 40–60% (industry benchmarks).
+    </div>
+
+    <!-- Three-Tab Overview -->
+    <div class="section-title">Three-Tab Dashboard Structure</div>
+    <div class="info-grid">
+      <div class="info-card" style="border-top: 3px solid var(--navy);">
+        <div class="icon-row">
+          <div class="icon-box navy">🏠</div>
+          <div><h4>Tab 1 — Owners &amp; Agents</h4><p>Supply-side subscriptions for landlords, sellers, brokers, builders, and developers.</p></div>
+        </div>
+        <ul>
+          <li>4 Property Renting plans (₹499–₹4,999)</li>
+          <li>5 Property Selling plans (₹4,999–₹49,999)</li>
+          <li>Sub-toggle: Rent vs Sell mode</li>
+        </ul>
+      </div>
+      <div class="info-card" style="border-top: 3px solid var(--mid-blue);">
+        <div class="icon-row">
+          <div class="icon-box blue">👥</div>
+          <div><h4>Tab 2 — Tenants (Rental)</h4><p>Demand-side contact unlock credits for tenants searching for rentals.</p></div>
+        </div>
+        <ul>
+          <li>6 seeker plans (₹99–₹2,999)</li>
+          <li>Token-based contact unlock model</li>
+          <li>Pro tier includes dedicated RM</li>
+        </ul>
+      </div>
+      <div class="info-card" style="border-top: 3px solid var(--emerald);">
+        <div class="icon-row">
+          <div class="icon-box green">🔑</div>
+          <div><h4>Tab 3 — Buyers (Acquisition)</h4><p>Same contact-unlock credit system for property buyers — same 6 tiers, buyer-specific copy.</p></div>
+        </div>
+        <ul>
+          <li>6 seeker plans (₹99–₹2,999)</li>
+          <li>Dedicated RM for ₹1,999+ plans</li>
+          <li>End-to-end sale closing support</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Owner Rental Plans -->
+    <div class="section-title" id="owner-rental">A — Property Renting Supply Plans</div>
+    <p style="color: var(--muted); font-size:14px; margin-bottom:16px;">Optimised for rapid tenant acquisition and high-velocity turnovers.</p>
+    <div class="plan-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Plan Name</th>
+            <th>Price (INR)</th>
+            <th>Validity</th>
+            <th>Active Listings</th>
+            <th>Verified Leads</th>
+            <th>Target User</th>
+            <th>Key Features</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Rent Weekly Booster</td>
+            <td class="price-cell">₹499</td>
+            <td>7 Days</td>
+            <td>1</td>
+            <td>10</td>
+            <td>Standalone Landlord</td>
+            <td>WhatsApp Lead Alerts · Basic Placement</td>
+          </tr>
+          <tr>
+            <td>Rent Monthly Silver</td>
+            <td class="price-cell">₹999</td>
+            <td>30 Days</td>
+            <td>1</td>
+            <td>30</td>
+            <td>Individual Owner</td>
+            <td>Top Search Placement · Privacy Control</td>
+          </tr>
+          <tr class="popular-row">
+            <td>Rent Monthly Gold <span class="badge badge-popular">Popular</span></td>
+            <td class="price-cell">₹1,999</td>
+            <td>30 Days</td>
+            <td>3</td>
+            <td>75</td>
+            <td>Multi-Property Owner</td>
+            <td>Homepage Rotation · Priority Support</td>
+          </tr>
+          <tr>
+            <td>Rent Monthly Platinum <span class="badge badge-agent">Agent Pack</span></td>
+            <td class="price-cell">₹4,999</td>
+            <td>30 Days</td>
+            <td>15</td>
+            <td>220</td>
+            <td>Local Property Agent</td>
+            <td>Social Media Ad Engine · Auto Lead Routing</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Owner Sell Plans -->
+    <div class="section-title" id="owner-sell">B — Property Selling Supply Plans</div>
+    <p style="color: var(--muted); font-size:14px; margin-bottom:16px;">Scales from single-unit residential sellers to high-ticket township developers.</p>
+    <div class="plan-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Plan Name</th>
+            <th>Price (INR)</th>
+            <th>Validity</th>
+            <th>Listings</th>
+            <th>Verified Leads</th>
+            <th>Target User</th>
+            <th>Key Features</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Sell Monthly Silver</td>
+            <td class="price-cell">₹4,999</td>
+            <td>30 Days</td>
+            <td>1</td>
+            <td>50</td>
+            <td>Retail Homeowner</td>
+            <td>Featured Tag · Standard Search Placement</td>
+          </tr>
+          <tr class="popular-row">
+            <td>Sell Monthly Gold <span class="badge badge-popular">Popular</span></td>
+            <td class="price-cell">₹9,999</td>
+            <td>30 Days</td>
+            <td>3</td>
+            <td>120</td>
+            <td>Premium Broker</td>
+            <td>Top Search Placement · Facebook Ad Boost</td>
+          </tr>
+          <tr>
+            <td>Sell Monthly Platinum</td>
+            <td class="price-cell">₹14,999</td>
+            <td>30 Days</td>
+            <td>7</td>
+            <td>200</td>
+            <td>Independent Agency</td>
+            <td>Homepage Rotation · Dedicated Lead Filters</td>
+          </tr>
+          <tr>
+            <td>Sell Monthly Builder Pro <span class="badge badge-builder">Builder</span></td>
+            <td class="price-cell">₹24,999</td>
+            <td>30 Days</td>
+            <td>15</td>
+            <td>400</td>
+            <td>Mid-Tier Builder</td>
+            <td>Google + Meta Hyper-Targeted Ads · CRM</td>
+          </tr>
+          <tr>
+            <td>Sell Monthly Enterprise <span class="badge badge-enterprise">Enterprise</span></td>
+            <td class="price-cell">₹49,999</td>
+            <td>30 Days</td>
+            <td>40</td>
+            <td>850</td>
+            <td>Premium Developer</td>
+            <td>Custom Landing Page · CRM &amp; Lead Routing · Dedicated AM</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Seeker Plans -->
+    <div class="section-title" id="seeker-plans">C — Seeker Demand Plans (Tenants &amp; Buyers)</div>
+    <p style="color: var(--muted); font-size:14px; margin-bottom:16px;">
+      The most innovative micro-segmented seeker engine — unbundled, shopping-cart experience starting at ₹99.
+    </p>
+    <div class="callout amber">
+      <strong>Smart Decoy Pricing Hook:</strong> Highlight the ₹99 plan everywhere. Once a seeker enters their UPI/card details for a ₹99 purchase, the digital friction drops completely — upgrading to ₹499 or ₹1,999 becomes significantly easier.
+    </div>
+    <div class="plan-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Pack Name</th>
+            <th>Price (INR)</th>
+            <th>Contact Credits</th>
+            <th>Validity</th>
+            <th>RM Included</th>
+            <th>Professional Features</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Micro Match <span class="badge badge-popular">₹99 Hook</span></td>
+            <td class="price-cell">₹99</td>
+            <td>1 contact</td>
+            <td>7 Days</td>
+            <td class="no">—</td>
+            <td>Instant single-contact unlock via WhatsApp/SMS</td>
+          </tr>
+          <tr>
+            <td>Trial Pack</td>
+            <td class="price-cell">₹199</td>
+            <td>3 contacts</td>
+            <td>15 Days</td>
+            <td class="no">—</td>
+            <td>Low-cost option for casual neighbourhood explorers</td>
+          </tr>
+          <tr>
+            <td>Standard Pack <span class="badge badge-rm">Best Value</span></td>
+            <td class="price-cell">₹499</td>
+            <td>6 contacts</td>
+            <td>30 Days</td>
+            <td class="no">—</td>
+            <td>Optimised for shortlisted local choices · Matching alerts</td>
+          </tr>
+          <tr class="popular-row">
+            <td>Active Hunter <span class="badge badge-popular">Popular</span></td>
+            <td class="price-cell">₹999</td>
+            <td>12 contacts</td>
+            <td>30 Days</td>
+            <td class="no">—</td>
+            <td>Best value for aggressive seekers comparing multiple options</td>
+          </tr>
+          <tr>
+            <td>Pro Assisted <span class="badge badge-enterprise">RM</span></td>
+            <td class="price-cell">₹1,999</td>
+            <td>24 contacts</td>
+            <td>45 Days</td>
+            <td class="yes">✓ Dedicated RM</td>
+            <td>RM handles scheduling · 5 physical walkthroughs · Legal/paperwork</td>
+          </tr>
+          <tr>
+            <td>Executive Premium <span class="badge badge-enterprise">RM+</span></td>
+            <td class="price-cell">₹2,999</td>
+            <td>50 contacts</td>
+            <td>60 Days</td>
+            <td class="yes">✓ Dedicated RM</td>
+            <td>RM manages premium searches · 10 site visits · End-to-end closing</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PHASE 2 ══════════════════ -->
+<div class="section" id="phase2">
+  <div class="container">
+    <div class="phase-header">
+      <div class="phase-num">02</div>
+      <div>
+        <h2>Pro-Level Platform Innovations</h2>
+        <p>The tech moat — automated workflows that make the product feel instantaneous and intelligent</p>
+      </div>
+    </div>
+
+    <!-- Wallet System -->
+    <div class="section-title" id="wallet">The Wallet-Credit (Token) System</div>
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="icon-row">
+          <div class="icon-box blue">💳</div>
+          <div><h4>Credit Wallet</h4></div>
+        </div>
+        <p>Purchasing a plan credits tokens into the user's digital wallet. Each "View Owner Contact" click burns exactly 1 token. The balance is always visible in the user dashboard.</p>
+      </div>
+      <div class="info-card">
+        <div class="icon-row">
+          <div class="icon-box green">↩</div>
+          <div><h4>One-Click Dispute Refund</h4></div>
+        </div>
+        <p>If an unlocked contact is inactive, already rented, or unreachable — the user taps "File Dispute" and the token is automatically refunded within 24 hours. Establishes ironclad platform trust.</p>
+      </div>
+      <div class="info-card">
+        <div class="icon-row">
+          <div class="icon-box amber">📊</div>
+          <div><h4>Token Ledger</h4></div>
+        </div>
+        <p>Every credit, debit, and refund is logged in a transaction ledger visible to users and admins. Color-coded: <strong>green=credit</strong>, <strong>red=debit</strong>, <strong>blue=refund</strong>.</p>
+      </div>
+    </div>
+
+    <div class="funnel">
+      <div class="funnel-step">User buys ₹499 Standard Pack <span class="tag">+6 tokens credited</span></div>
+      <div class="funnel-arrow">↓</div>
+      <div class="funnel-step">User clicks "Unlock Contact" on property <span class="tag">−1 token debited</span></div>
+      <div class="funnel-arrow">↓</div>
+      <div class="funnel-step">Phone number + exact address revealed instantly <span class="tag">5 tokens remaining</span></div>
+      <div class="funnel-arrow">↓</div>
+      <div class="funnel-step" style="background:#fef3c7; border-color:#fcd34d;">Contact inactive? File dispute → token refunded in 24h <span class="tag" style="color:#92400e;">+1 refund token</span></div>
+      <div class="funnel-arrow">↓</div>
+      <div class="funnel-step" style="background:#f0fdf4; border-color:#86efac;">Deal closed → user marks closure in dashboard <span class="tag" style="color:#166534;">Admin notified</span></div>
+    </div>
+
+    <!-- WhatsApp Bot -->
+    <div class="section-title" id="whatsapp">The Direct Connect WhatsApp Bot</div>
+    <div class="callout green">
+      <strong>Users shouldn't always log into the website.</strong> When an owner posts a property matching a buyer's saved preference, the backend routes a formatted interactive card directly to the seeker's WhatsApp.
+    </div>
+    <div class="info-card" style="font-family: 'JetBrains Mono', monospace; font-size:13px; background:#1e293b; color:#e2e8f0; border:none; border-radius: 14px; padding: 24px;">
+      <div style="color:#86efac; margin-bottom:8px; font-size:11px;">📱 WHATSAPP MESSAGE — AUTOMATED</div>
+      Hey Suresh! 🏠 A new 3BHK direct-owner flat just opened up in Gachibowli for ₹35,000.<br /><br />
+      You have <strong style="color:#fcd34d;">4 tokens</strong> left in your Active Hunter plan.<br /><br />
+      <span style="color:#93c5fd;">[ Unlock Owner Details Instantly → ]</span><br />
+      <span style="color:#93c5fd;">[ Save for Later ]</span> · <span style="color:#6b7280;">[ Not Interested ]</span><br /><br />
+      <span style="color:#6b7280; font-size:11px;">NestIt · Gachibowli · Reply STOP to unsubscribe</span>
+    </div>
+
+    <!-- Decoy Pricing -->
+    <div class="section-title">Smart Decoy Pricing Hook</div>
+    <div class="plan-cards">
+      <div class="plan-card highlight">
+        <div class="plan-card-badge"><span class="badge badge-popular">Gateway Plan</span></div>
+        <div class="plan-card-name">Micro Match</div>
+        <div class="plan-card-price">₹99</div>
+        <div class="plan-card-meta">1 contact · 7 days</div>
+        <p style="font-size:12px; color:var(--muted); margin-top:10px;">Shown everywhere. Cognitive gateway — after first card entry, upgrade friction drops 60%.</p>
+      </div>
+      <div class="plan-card">
+        <div class="plan-card-name">Trial Pack</div>
+        <div class="plan-card-price">₹199</div>
+        <div class="plan-card-meta">3 contacts · 15 days</div>
+        <p style="font-size:12px; color:var(--muted); margin-top:10px;">Natural upgrade for casual users who liked Micro Match.</p>
+      </div>
+      <div class="plan-card">
+        <div class="plan-card-name">Standard Pack</div>
+        <div class="plan-card-price">₹499</div>
+        <div class="plan-card-meta">6 contacts · 30 days</div>
+        <p style="font-size:12px; color:var(--muted); margin-top:10px;">Upsell trigger when user exhausts Trial Pack tokens.</p>
+      </div>
+      <div class="plan-card">
+        <div class="plan-card-name">Active Hunter</div>
+        <div class="plan-card-price">₹999</div>
+        <div class="plan-card-meta">12 contacts · 30 days</div>
+        <p style="font-size:12px; color:var(--muted); margin-top:10px;">Best-value label drives final conversion from Standard.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PHASE 3 ══════════════════ -->
+<div class="section" id="phase3" style="background: var(--white); border-top: 3px solid var(--emerald);">
+  <div class="container">
+    <div class="phase-header">
+      <div class="phase-num" style="background: var(--emerald);">03</div>
+      <div>
+        <h2>Low-Cost Startup Growth &amp; Onboarding</h2>
+        <p>Neighbourhood-first, high-efficiency strategy to launch with minimal capital burn</p>
+      </div>
+    </div>
+
+    <!-- Neighborhoods -->
+    <div class="section-title" id="neighborhoods">1 — Identify &amp; Monopolise High-Velocity Pockets</div>
+    <div class="callout amber">
+      <strong>Don't market to an entire city on Day 1.</strong> Split operations into two hyper-focused funnels targeting specific micro-markets first.
+    </div>
+    <div class="info-grid">
+      <div class="info-card" style="border-top: 3px solid var(--mid-blue);">
+        <div class="icon-row">
+          <div class="icon-box blue">💻</div>
+          <div><h4>Tech Corridor — Renters &amp; Premium Sellers</h4></div>
+        </div>
+        <ul>
+          <li><strong>Gachibowli</strong> — IT professionals, premium rentals</li>
+          <li><strong>Kondapur</strong> — Mid-segment apartments</li>
+          <li><strong>HITEC City</strong> — Corporate housing demand</li>
+          <li><strong>Madhapur</strong> — Mixed residential + commercial</li>
+        </ul>
+        <p style="margin-top:12px; font-size:12px; color:var(--muted);">Channel: Digital-first (LinkedIn, Google PPC, Facebook groups)</p>
+      </div>
+      <div class="info-card" style="border-top: 3px solid var(--amber);">
+        <div class="icon-row">
+          <div class="icon-box amber">🏗️</div>
+          <div><h4>Open-Plot Investment Zone — Land Buyers &amp; Sellers</h4></div>
+        </div>
+        <ul>
+          <li><strong>Kompally</strong> — Fast-growing suburban fringe</li>
+          <li><strong>Medchal</strong> — Open plots &amp; investment land</li>
+          <li><strong>Maheshwaram</strong> — Pharma corridor expansion</li>
+        </ul>
+        <p style="margin-top:12px; font-size:12px; color:var(--muted);">Channel: Offline (posters, BTL, direct WhatsApp outreach)</p>
+      </div>
+    </div>
+
+    <!-- Inventory Aggregator -->
+    <div class="section-title" id="acquisition">2 — Free Inventory Aggregator Growth Hack</div>
+    <div class="info-card">
+      <div class="icon-row">
+        <div class="icon-box green">₹0</div>
+        <div><h4>Cost: ₹0 — Pure Human Capital</h4></div>
+      </div>
+      <p style="margin-bottom:14px;">A marketplace needs supply before it can attract demand. Build your initial inventory by cross-listing from open forums and Facebook groups.</p>
+      <div style="background:#1e293b; color:#e2e8f0; border-radius:10px; padding:18px; font-family:'JetBrains Mono',monospace; font-size:13px; margin-top:14px;">
+        <div style="color:#86efac; margin-bottom:8px; font-size:11px;">📲 COLD OUTREACH SCRIPT — WHATSAPP</div>
+        Hi, I saw your rental post for your property in Financial District.<br /><br />
+        We'd like to cross-list it on <strong style="color:#fcd34d;">NestIt.in</strong> for FREE to reach our pool of verified tech professionals.<br /><br />
+        You pay <strong style="color:#86efac;">absolutely zero brokerage</strong>. May we take it live?
+      </div>
+    </div>
+
+    <!-- BTL Tactics -->
+    <div class="section-title">3 — Hyper-Local BTL Gorilla Tactics</div>
+    <div class="stat-row">
+      <div class="stat-box"><strong>₹3,000</strong><span>Total BTL Budget</span></div>
+      <div class="stat-box"><strong>A4</strong><span>Laminated Posters</span></div>
+      <div class="stat-box"><strong>QR Code</strong><span>Direct Landing Page</span></div>
+      <div class="stat-box"><strong>3–5</strong><span>High-Traffic Hubs</span></div>
+    </div>
+    <div class="info-card" style="margin-top:16px;">
+      <h4 style="margin-bottom:10px;">Target Locations for Poster Placement</h4>
+      <ul>
+        <li>Popular local tea spots and dining lanes near major tech complexes</li>
+        <li>Commuter pickup points (Metro stations, bus stands)</li>
+        <li>Co-working space notice boards</li>
+        <li>Apartment complex community boards</li>
+      </ul>
+      <div style="background:#fef3c7; border-radius:8px; padding:14px; margin-top:16px; border-left:4px solid var(--gold);">
+        <strong>Ad Creative Copy:</strong><br />
+        <em>"Tired of giving a ₹45,000 commission check to brokers just to find an apartment? Scan here to connect with direct owners on NestIt starting at just ₹99."</em>
+      </div>
+    </div>
+
+    <!-- B2B Agent Infiltration -->
+    <div class="section-title">4 — Direct B2B Agent Infiltration</div>
+    <div class="info-card">
+      <div class="icon-row">
+        <div class="icon-box navy">🤝</div>
+        <div><h4>Cost: ~₹2,000 — Bulk WhatsApp Outreach</h4></div>
+      </div>
+      <p>Small local brokers can't afford ₹50K/year corporate portal packages. Offer a time-locked launch incentive:</p>
+      <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:16px; margin-top:14px;">
+        <strong>Launch Offer:</strong> Sell Monthly Platinum (₹14,999/mo — 200 Verified Buyer Leads)<br />
+        <strong>for just ₹2,499 for the first month.</strong><br />
+        <span style="color:var(--muted); font-size:13px;">This rapidly populates the platform with high-value premium listings from day one.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PHASE 4 ══════════════════ -->
+<div class="section" id="phase4">
+  <div class="container">
+    <div class="phase-header">
+      <div class="phase-num" style="background: var(--gold); color: var(--navy-deep);">04</div>
+      <div>
+        <h2>Implementation Checklist</h2>
+        <p>Tech &amp; operations team execution roadmap — 14-day sprint to first neighborhood launch</p>
+      </div>
+    </div>
+
+    <div class="section-title">Database &amp; Backend</div>
+    <ul class="checklist">
+      <li><div class="check-box done">✓</div><div><strong>Static data architecture</strong> — properties, plans, subscriptions, unlocked contacts, wallet ledger, disputes all structured in static.ts</div></li>
+      <li><div class="check-box done">✓</div><div><strong>Multi-role account structure</strong> — 6 roles: super-admin, admin, supervisor, sales, user/buyer, customer (via localStorage auth)</div></li>
+      <li><div class="check-box"></div><div><strong>Production database schema</strong> — migrate static.ts models to PostgreSQL (Supabase): users, properties, subscriptions, tokens, unlocks, disputes, wallet_ledger</div></li>
+      <li><div class="check-box"></div><div><strong>UPI payment webhook</strong> — Razorpay integration to trigger token credit on successful payment event</div></li>
+    </ul>
+
+    <div class="section-title">Wallet &amp; Token Engine</div>
+    <ul class="checklist">
+      <li><div class="check-box done">✓</div><div><strong>Token wallet UI</strong> — ledger with credit/debit/refund entries, balance display, usage progress bar</div></li>
+      <li><div class="check-box done">✓</div><div><strong>Contact unlock flow</strong> — 4-state: not signed in → no credits → has credits → already unlocked</div></li>
+      <li><div class="check-box done">✓</div><div><strong>Dispute filing UI</strong> — one-click dispute button on each unlocked contact in user portal</div></li>
+      <li><div class="check-box partial">~</div><div><strong>Backend token deduction API</strong> — currently demo state; needs real DB endpoint at POST /api/unlock, POST /api/dispute</div></li>
+      <li><div class="check-box"></div><div><strong>Automated refund engine</strong> — background job to validate disputes and auto-refund within 24h SLA</div></li>
+    </ul>
+
+    <div class="section-title">RM (Relationship Manager) Workflow</div>
+    <ul class="checklist">
+      <li><div class="check-box done">✓</div><div><strong>RM badge on pricing page</strong> — Pro Assisted and Executive Premium plans show "Dedicated RM Included" chip</div></li>
+      <li><div class="check-box partial">~</div><div><strong>RM assignment dashboard</strong> — Admin portal shows subscription purchases; RM assignment UI needs a dedicated lightweight CRM panel</div></li>
+      <li><div class="check-box"></div><div><strong>Auto-assignment trigger</strong> — when user purchases ₹1,999+ plan, auto-assign available RM and send WhatsApp notification to both RM and user</div></li>
+      <li><div class="check-box"></div><div><strong>RM task tracking</strong> — site visit scheduling, paperwork status, deal closure tracking linked to each Pro/Executive subscription</div></li>
+    </ul>
+
+    <div class="section-title">WhatsApp Bot &amp; Notifications</div>
+    <ul class="checklist">
+      <li><div class="check-box"></div><div><strong>WhatsApp Business API setup</strong> — register approved number, configure message templates for new match alerts</div></li>
+      <li><div class="check-box"></div><div><strong>Saved preference engine</strong> — match new listings against each user's saved search criteria on property creation</div></li>
+      <li><div class="check-box"></div><div><strong>Interactive card routing</strong> — send formatted listing card with inline "Unlock" button directly on WhatsApp</div></li>
+    </ul>
+
+    <div class="section-title">Launch Sprint (14 Days)</div>
+    <ul class="checklist">
+      <li><div class="check-box"></div><div><strong>Day 1–2:</strong> Select one neighborhood (e.g. Gachibowli). Begin cold outreach to 50 direct-owner landlords via WhatsApp script.</div></li>
+      <li><div class="check-box"></div><div><strong>Day 3–5:</strong> List 20–30 verified direct-owner properties. Enable ₹99 Micro Match plan. Test full unlock → dispute → refund loop end-to-end.</div></li>
+      <li><div class="check-box"></div><div><strong>Day 6–8:</strong> Print 50 QR posters, deploy to tea stalls and tech-park lanes. Launch Google PPC campaign (₹500 budget) targeting "direct owner flat Gachibowli".</div></li>
+      <li><div class="check-box"></div><div><strong>Day 9–11:</strong> Outreach to 5 local agents with ₹2,499 first-month Platinum offer. Onboard first agent listings.</div></li>
+      <li><div class="check-box"></div><div><strong>Day 12–14:</strong> Analyse conversion funnel. Identify leak points. Fine-tune matching notification loops before opening to wider city traffic.</div></li>
+    </ul>
+  </div>
+</div>
+
+<!-- ══════════════════ CURRENT APP STATE ══════════════════ -->
+<div class="section" id="current-state" style="background: var(--white); border-top: 3px solid var(--navy);">
+  <div class="container">
+    <div class="phase-header">
+      <div class="phase-num" style="background: var(--mid-blue);">05</div>
+      <div>
+        <h2>Current Application Status</h2>
+        <p>NestIt — Next.js 15 App Router · Static data · 14 routes · 5 portals</p>
+      </div>
+    </div>
+
+    <!-- Route Map -->
+    <div class="section-title" id="portals">Application Routes &amp; Portals</div>
+    <div class="plan-table-wrap">
+      <table>
+        <thead>
+          <tr><th>Route</th><th>Page / Purpose</th><th>Type</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>/</code></td><td>Homepage — hero slider, featured listings, portal grid, CTA</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/properties</code></td><td>Property listing with filters (city, type, BHK, budget, purpose)</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/properties/[id]</code></td><td>Property detail — gallery, specs, contact unlock, EMI estimator</td><td>Dynamic</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/owners/[slug]</code></td><td>Owner/agent profile — all listings, rating, contact gated</td><td>Dynamic</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/pricing</code></td><td>Three-tab pricing — Owners | Tenants | Buyers — 15 plans</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/login</code></td><td>Role-picker demo sign-in — 6 roles, instant portal redirect</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/profile</code></td><td>User profile — role stats, quick actions, security, preferences</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/about</code></td><td>About page — vision, mission, market stats</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/contact</code></td><td>Contact form with enquiry submission</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/sa-portal</code></td><td>Super Admin — 10 tabs: dashboard, users, config, analytics, AI, billing…</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/admin-portal</code></td><td>Admin — 11 tabs: operations, teams, listings, leads, CRM, subscriptions…</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/supervisor-portal</code></td><td>Supervisor — 7 tabs: dashboard, leads, reassignment, performance…</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/sales-portal</code></td><td>Sales Rep — 7 tabs: leads, detail, log, click-to-call, visits, commission…</td><td>Static</td><td class="yes">✓ Live</td></tr>
+          <tr><td><code>/user-portal</code></td><td>End User — 9 tabs: home, shortlisted, listings, credits/wallet, visits…</td><td>Static</td><td class="yes">✓ Live</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Data Accuracy Note -->
+    <div class="callout blue" style="margin-bottom: 0;">
+      <strong>Data Accuracy Note (verified 2026-05-30):</strong> All claims below were cross-checked against the live codebase.
+      Mock subscription data uses current seekerPlan names (Micro Match / Standard Pack / Active Hunter / Pro Assisted).
+      The legacy <code>plans</code> export (Instant/Basic/Premium) remains in static.ts for backward-compat but is no longer shown on the pricing page.
+      Route count is <strong>14</strong> (not 15+).
+    </div>
+
+    <!-- Gap Analysis -->
+    <div class="section-title" id="gap-analysis">Blueprint Gap Analysis — Current vs Required</div>
+    <div class="plan-table-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr><th>Blueprint Feature</th><th>Current Status</th><th>Priority</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Three-tab pricing page</td><td class="yes">✓ Implemented</td><td>—</td></tr>
+          <tr><td>Owner rental plans (4 tiers)</td><td class="yes">✓ Implemented</td><td>—</td></tr>
+          <tr><td>Owner selling plans (5 tiers)</td><td class="yes">✓ Implemented</td><td>—</td></tr>
+          <tr><td>Seeker demand plans (6 tiers ₹99–₹2,999)</td><td class="yes">✓ Implemented</td><td>—</td></tr>
+          <tr><td>Contact unlock system (4-state flow)</td><td class="yes">✓ Implemented</td><td>—</td></tr>
+          <tr><td>Token wallet &amp; ledger</td><td class="yes">✓ Implemented (UI)</td><td>—</td></tr>
+          <tr><td>Dispute filing (user side)</td><td class="yes">✓ Implemented (UI)</td><td>—</td></tr>
+          <tr><td>Admin dispute management</td><td class="yes">✓ Implemented (UI)</td><td>—</td></tr>
+          <tr><td>RM badge on Pro/Executive plans</td><td class="yes">✓ Implemented</td><td>—</td></tr>
+          <tr><td>Property listing upload form</td><td class="partial">~ Basic (owner portal)</td><td>Medium</td></tr>
+          <tr><td>Payment gateway (Razorpay/UPI)</td><td class="no">✗ Not connected</td><td>High</td></tr>
+          <tr><td>Real PostgreSQL backend</td><td class="no">✗ Static data only</td><td>High</td></tr>
+          <tr><td>WhatsApp bot integration</td><td class="no">✗ Not built</td><td>High</td></tr>
+          <tr><td>Automated token deduction API</td><td class="no">✗ Not built</td><td>High</td></tr>
+          <tr><td>RM assignment automation</td><td class="no">✗ Not built</td><td>Medium</td></tr>
+          <tr><td>WhatsApp match alerts</td><td class="no">✗ Not built</td><td>Medium</td></tr>
+          <tr><td>Saved search / preference engine</td><td class="partial">~ UI only</td><td>Medium</td></tr>
+          <tr><td>Neighbourhood-targeted ads</td><td class="no">✗ Not built</td><td>Low (external)</td></tr>
+          <tr><td>QR poster campaign</td><td class="no">✗ Offline activity</td><td>Low (ops)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Tech Stack -->
+    <div class="section-title">Technology Stack</div>
+    <div class="info-grid">
+      <div class="info-card">
+        <h4>Frontend</h4>
+        <ul>
+          <li>Next.js 15 (App Router)</li>
+          <li>React 19 + TypeScript</li>
+          <li>Tailwind CSS v4</li>
+          <li>Lucide React (icons)</li>
+          <li>Sonner (toasts)</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h4>Backend (Planned)</h4>
+        <ul>
+          <li>Supabase (PostgreSQL)</li>
+          <li>Next.js API Routes</li>
+          <li>Razorpay Payment Gateway</li>
+          <li>WhatsApp Business API</li>
+          <li>Twilio (SMS fallback)</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h4>UI Components</h4>
+        <ul>
+          <li>shadcn/ui (50+ components)</li>
+          <li>Radix UI primitives</li>
+          <li>Custom portal shell</li>
+          <li>Custom stat cards + sections</li>
+          <li>Poppins + Inter + JetBrains Mono</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h4>Portals &amp; Roles</h4>
+        <ul>
+          <li>NestIt Command (Super Admin)</li>
+          <li>NestIt Control (Admin)</li>
+          <li>NestIt Desk (Supervisor)</li>
+          <li>NestIt Field (Sales Rep)</li>
+          <li>NestIt Home (End User/Buyer)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ FOOTER ══════════════════ -->
+<div class="doc-footer">
+  <strong>NestIt Technology Pvt. Ltd.</strong> — Master Blueprint v1.0<br />
+  Strictly Confidential · Apna Ghar, Apni Pehchaan<br />
+  <span style="font-size:11px; opacity:.5; margin-top:8px; display:block;">Generated 2026 · nestit.in · care@nestit.in</span>
+</div>
+
+</body>
+</html>

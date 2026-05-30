@@ -119,7 +119,7 @@ function Dashboard() {
           </thead>
           <tbody>
             {activities.map((a, i) => (
-              <tr>
+              <tr key={i}>
                 <td className="font-mono text-xs">{a.ts}</td>
                 <td className="font-semibold text-navy">{a.user}</td>
                 <td>{a.action}</td>
@@ -186,7 +186,7 @@ function UsersTab() {
             </thead>
             <tbody>
               {allUsers.map((u) => (
-                <tr>
+                <tr key={u.id}>
                   <td className="font-mono text-xs">{u.id}</td>
                   <td className="font-semibold text-navy">{u.name}</td>
                   <td className="text-xs">{u.role}</td>
@@ -314,7 +314,7 @@ function AuditTab() {
             </thead>
             <tbody>
               {rows.map((a, i) => (
-                <tr>
+                <tr key={i}>
                   <td className="font-mono text-xs">{a.ts}</td>
                   <td className="font-semibold text-navy">{a.user}</td>
                   <td className="text-sm">{a.action}</td>
@@ -353,7 +353,7 @@ function AITab() {
             </thead>
             <tbody>
               {models.map(([id, p, d, a, live]) => (
-                <tr>
+                <tr key={id}>
                   <td className="font-mono text-xs">{id}</td>
                   <td className="text-sm font-semibold text-navy">{p}</td>
                   <td className="font-mono text-xs">{d}</td>
@@ -429,7 +429,7 @@ function CMSTab() {
             </thead>
             <tbody>
               {pages.map(([t, p, s, e, u]) => (
-                <tr>
+                <tr key={t}>
                   <td className="font-semibold text-navy">{t}</td>
                   <td className="font-mono text-xs">{p}</td>
                   <td><Badge tone={s === 'Published' ? 'success' : s === 'Draft' ? 'warm' : 'new'}>{s}</Badge></td>
@@ -515,7 +515,7 @@ function BillingTab() {
             </thead>
             <tbody>
               {invoices.map(([id, c, a, s, d]) => (
-                <tr>
+                <tr key={id}>
                   <td className="font-mono text-xs">{id}</td>
                   <td className="font-semibold text-navy">{c}</td>
                   <td className="font-mono text-sm">{a}</td>

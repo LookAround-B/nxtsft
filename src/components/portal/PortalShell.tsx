@@ -72,12 +72,27 @@ export function PortalShell({ brand, role, accent = 'red', user, nav, basePath, 
             const [navPath, navHash = ''] = n.to.split('#');
             const active = navPath === pathname && navHash === currentHash;
             const href = navHash ? `${navPath}#${navHash}` : navPath;
+
+            const handleClick = (e: React.MouseEvent) => {
+              e.preventDefault();
+              setSidebarOpen(false);
+              if (navHash) {
+                // Setting window.location.hash always fires hashchange reliably
+                window.location.hash = navHash;
+              } else {
+                // Clear hash for default tab; pushState doesn't fire hashchange,
+                // so we dispatch it manually after updating the URL.
+                history.pushState(null, '', navPath + window.location.search);
+                window.dispatchEvent(new Event('hashchange'));
+              }
+            };
+
             return (
               <Link
                 key={n.to}
                 href={href}
                 scroll={false}
-                onClick={() => setSidebarOpen(false)}
+                onClick={handleClick}
                 className={`
                   group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-150
                   ${active

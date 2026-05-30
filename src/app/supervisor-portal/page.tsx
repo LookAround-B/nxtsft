@@ -92,7 +92,7 @@ function TeamLeads() {
           <thead><tr><th className="py-2">Lead</th><th>Interest</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>
             {leads.map((l) => (
-              <tr>
+              <tr key={l.id}>
                 <td className="py-3"><div className="font-semibold text-navy">{l.name}</div><div className="font-mono text-[10px] text-muted-foreground">{l.id}</div></td>
                 <td className="text-xs">{l.interest}</td>
                 <td className="text-xs">{l.owner}</td>

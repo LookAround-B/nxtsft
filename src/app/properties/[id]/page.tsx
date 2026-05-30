@@ -20,6 +20,8 @@ function estimateEMI(principal: number) {
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const [active, setActive] = useState(0);
+  const [contactUnlocked, setContactUnlocked] = useState(false);
+  const [credits, setCredits] = useState(3); // demo: user has 3 credits from a Basic plan
   const { session } = useAuth();
 
   const p = properties.find((x) => x.id === id);
@@ -127,13 +129,17 @@ export default function PropertyDetail() {
               ))}
             </div>
 
-            {/* Exact address — gated */}
+            {/* Exact address — unlock gated */}
             <div className="rounded-xl border border-border bg-white p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="font-display text-xl font-bold text-navy">Exact address</h2>
-                {!signedIn && <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-navy"><Lock className="h-3 w-3" /> Login required</span>}
+                {!contactUnlocked && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-navy">
+                    <Lock className="h-3 w-3" /> {signedIn ? 'Unlock required' : 'Login required'}
+                  </span>
+                )}
               </div>
-              {signedIn ? (
+              {contactUnlocked ? (
                 <p className="mt-3 text-sm leading-relaxed text-foreground/80 sm:text-base">
                   Tower B, Plot 42, {p.locality}, {p.city} — 400050. RERA: <span className="font-mono text-xs">{p.rera}</span>
                 </p>
@@ -143,8 +149,8 @@ export default function PropertyDetail() {
                     Tower B, Plot 42, Pali Hill Road, Bandra West — 400050. Building marker: GPS 19.0599°N · 72.8295°E.
                   </p>
                   <div className="absolute inset-0 grid place-items-center bg-gradient-to-t from-white via-white/85 to-white/40">
-                    <Link href="/login" className="inline-flex items-center gap-2 rounded-md bg-navy px-4 py-2 text-xs font-semibold text-white hover:opacity-90">
-                      <Lock className="h-3.5 w-3.5" /> Sign in to view exact address
+                    <Link href="/pricing" className="inline-flex items-center gap-2 rounded-md bg-navy px-4 py-2 text-xs font-semibold text-white hover:opacity-90">
+                      <Lock className="h-3.5 w-3.5" /> Unlock to view exact address
                     </Link>
                   </div>
                 </div>
@@ -265,18 +271,60 @@ export default function PropertyDetail() {
                   <div className="font-display font-bold text-navy">&lt; 30 min</div>
                 </div>
               </div>
-              {signedIn ? (
-                <>
-                  <a href={`tel:${p.owner.phone.replace(/\s/g, '')}`} className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-navy py-2.5 text-sm font-semibold text-white transition hover:opacity-90"><Phone size={14} /> Call {p.owner.phone}</a>
-                  <button onClick={() => toast.success('Opening WhatsApp…', { description: `Chat with ${p.owner.name} about ${p.title}.` })} className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-emerald-500 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"><MessageCircle size={14} /> WhatsApp Agent</button>
-                </>
-              ) : (
+              {/* Contact unlock system */}
+              {!signedIn ? (
+                // Not signed in
                 <>
                   <div className="mt-4 rounded-md border border-dashed border-border bg-secondary/60 px-3 py-2.5 text-center">
                     <div className="select-none font-mono text-sm font-semibold text-foreground/40 blur-[5px]">+91 98xxx 88421</div>
                   </div>
-                  <Link href="/login" className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-navy py-2.5 text-sm font-semibold text-white hover:opacity-90"><Lock className="h-4 w-4" /> Sign in to view contact</Link>
-                  <p className="mt-2 text-center text-[11px] text-muted-foreground">Phone & WhatsApp unlocked after sign-in</p>
+                  <Link href="/login" className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-navy py-2.5 text-sm font-semibold text-white hover:opacity-90">
+                    <Lock className="h-4 w-4" /> Sign in to unlock contact
+                  </Link>
+                  <p className="mt-2 text-center text-[11px] text-muted-foreground">Sign in, then use 1 credit to reveal phone & address</p>
+                </>
+              ) : contactUnlocked ? (
+                // Contact already unlocked
+                <>
+                  <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <Check size={14} className="text-emerald-600" strokeWidth={2.5} />
+                    <span className="text-xs font-semibold text-emerald-700">Contact Unlocked</span>
+                  </div>
+                  <a href={`tel:${p.owner.phone.replace(/\s/g, '')}`} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-navy py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
+                    <Phone size={14} /> Call {p.owner.phone}
+                  </a>
+                  <button onClick={() => toast.success('Opening WhatsApp…', { description: `Chat with ${p.owner.name} about ${p.title}.` })} className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-emerald-500 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
+                    <MessageCircle size={14} /> WhatsApp Agent
+                  </button>
+                </>
+              ) : credits > 0 ? (
+                // Signed in, has credits
+                <>
+                  <div className="mt-4 rounded-md border border-dashed border-border bg-secondary/60 px-3 py-2.5 text-center">
+                    <div className="select-none font-mono text-sm font-semibold text-foreground/40 blur-[5px]">+91 98xxx 88421</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setContactUnlocked(true);
+                      setCredits((c) => c - 1);
+                      toast.success('Contact unlocked!', { description: `${credits - 1} credit${credits - 1 !== 1 ? 's' : ''} remaining.` });
+                    }}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-accent py-2.5 text-sm font-semibold text-white shadow transition hover:opacity-90"
+                  >
+                    <Lock className="h-4 w-4" /> Unlock Contact — 1 Credit
+                  </button>
+                  <p className="mt-2 text-center text-[11px] text-muted-foreground">{credits} credit{credits !== 1 ? 's' : ''} remaining in your plan</p>
+                </>
+              ) : (
+                // Signed in, no credits
+                <>
+                  <div className="mt-4 rounded-md border border-dashed border-border bg-secondary/60 px-3 py-2.5 text-center">
+                    <div className="select-none font-mono text-sm font-semibold text-foreground/40 blur-[5px]">+91 98xxx 88421</div>
+                  </div>
+                  <Link href="/pricing" className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-navy py-2.5 text-sm font-semibold text-white hover:opacity-90">
+                    <Lock className="h-4 w-4" /> Get a Plan to Unlock
+                  </Link>
+                  <p className="mt-2 text-center text-[11px] text-muted-foreground">Plans from ₹99 · No brokerage</p>
                 </>
               )}
             </div>
