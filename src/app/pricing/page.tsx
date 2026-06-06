@@ -278,8 +278,8 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Sticky tab bar — top-20 matches the h-20 navbar */}
-      <div className="sticky top-20 z-30 border-b border-border bg-background/95 backdrop-blur">
+      {/* Sticky tab bar — top-16 mobile (h-16 nav), top-20 sm+ (h-20 nav) */}
+      <div className="sticky top-16 z-30 border-b border-border bg-background/95 backdrop-blur sm:top-20">
         <div className="mx-auto flex max-w-6xl items-center gap-0 overflow-x-auto px-5 sm:px-6">
           {TABS.map((tab, i) => {
             const icons = [<Home size={15} key="h" />, <Users size={15} key="u" />, <TrendingUp size={15} key="t" />];
