@@ -6,8 +6,11 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-16 sm:grid-cols-2 md:grid-cols-3">
         {/* Brand */}
         <div>
-          <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="Nestiqo" className="h-[6.75rem] w-auto object-contain brightness-0 invert" />
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Nestiqo" className="h-9 w-auto object-contain brightness-0 invert" />
+            <div className="font-display text-[17px] font-black leading-none tracking-tight text-white">
+              nestiqo<span className="text-gold">.</span>in
+            </div>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-white/55">
             India's next-generation real estate ecosystem.<br />Find. Own. Live Smarter.

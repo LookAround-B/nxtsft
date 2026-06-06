@@ -35,9 +35,8 @@ export function SiteHeader() {
               alt="Nestiqo"
               className="h-9 w-auto object-contain transition group-hover:scale-105 sm:h-14"
             />
-            {/* Wordmark — hidden on smallest screens to prevent overflow */}
-            <div className="hidden min-[420px]:block">
-              <div className="font-display text-[15px] font-black leading-none tracking-tight text-navy sm:text-[17px]">
+            <div>
+              <div className="font-display text-[14px] font-black leading-none tracking-tight text-navy min-[420px]:text-[15px] sm:text-[17px]">
                 nest<TittleI />qo<span className="text-accent">.</span><TittleI />n
               </div>
             </div>
