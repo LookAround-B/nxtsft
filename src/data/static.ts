@@ -163,11 +163,11 @@ export const teamMembers = [
 ];
 
 export const portals = [
-  { name: "NestIt Command", role: "Super Admin", path: "/sa-portal", accent: "Gold" },
-  { name: "NestIt Control", role: "Admin", path: "/admin-portal", accent: "Red" },
-  { name: "NestIt Desk", role: "Supervisor", path: "/supervisor-portal", accent: "Green" },
-  { name: "NestIt Field", role: "Sales Rep", path: "/sales-portal", accent: "Amber" },
-  { name: "NestIt Home", role: "End User", path: "/user-portal", accent: "Red" },
+  { name: "Nestiqo Command", role: "Super Admin", path: "/sa-portal", accent: "Gold" },
+  { name: "Nestiqo Control", role: "Admin", path: "/admin-portal", accent: "Red" },
+  { name: "Nestiqo Desk", role: "Supervisor", path: "/supervisor-portal", accent: "Green" },
+  { name: "Nestiqo Field", role: "Sales Rep", path: "/sales-portal", accent: "Amber" },
+  { name: "Nestiqo Home", role: "End User", path: "/user-portal", accent: "Red" },
 ];
 
 export const kpis = {
@@ -462,4 +462,22 @@ export const walletLedger = [
 export const disputes = [
   { id: "DSP-001", user: "Rohan Mehta", property: "Marina Heights — Sea-facing 2 BHK", reason: "Property already rented out", status: "Resolved" as const, refundIssued: true,  date: "2026-05-19" },
   { id: "DSP-002", user: "Kavya Nair",  property: "Green Acres Villa — 4 BHK",         reason: "Owner number unreachable",    status: "Pending"  as const, refundIssued: false, date: "2026-05-21" },
+];
+
+export const propertyViews = [
+  { id: "PV-001", propertyId: "p1", propertyTitle: "Skyline Residences — 3 BHK Premium",  city: "Mumbai",    userName: "Rohan Mehta",   userEmail: "rohan@example.com",   userRole: "user"     as const, leadId: "L-1042", ts: "2026-06-06 10:42", durationSec: 187, contactUnlocked: true  },
+  { id: "PV-002", propertyId: "p4", propertyTitle: "Marina Heights — Sea-facing 2 BHK",   city: "Mumbai",    userName: "Rohan Mehta",   userEmail: "rohan@example.com",   userRole: "user"     as const, leadId: "L-1042", ts: "2026-06-06 10:55", durationSec: 94,  contactUnlocked: true  },
+  { id: "PV-003", propertyId: "p2", propertyTitle: "Green Acres Villa — Sprawling 4 BHK", city: "Bengaluru", userName: "Aisha Khan",    userEmail: "aisha@example.com",   userRole: "user"     as const, leadId: "L-1043", ts: "2026-06-06 09:18", durationSec: 215, contactUnlocked: false },
+  { id: "PV-004", propertyId: "p1", propertyTitle: "Skyline Residences — 3 BHK Premium",  city: "Mumbai",    userName: "Kavya Nair",    userEmail: "kavya@example.com",   userRole: "customer" as const, leadId: "L-1047", ts: "2026-06-06 09:05", durationSec: 132, contactUnlocked: true  },
+  { id: "PV-005", propertyId: "p6", propertyTitle: "Heritage Bungalow — 5 BHK",           city: "Delhi",     userName: "Suresh Iyer",   userEmail: "suresh@example.com",  userRole: "user"     as const, leadId: "L-1046", ts: "2026-06-06 08:50", durationSec: 298, contactUnlocked: false },
+  { id: "PV-006", propertyId: "p3", propertyTitle: "Urban Studio — Fully Furnished",       city: "Pune",      userName: "Vikram Singh",  userEmail: "vikram@example.com",  userRole: "user"     as const, leadId: "L-1044", ts: "2026-06-05 18:33", durationSec: 74,  contactUnlocked: false },
+  { id: "PV-007", propertyId: "p5", propertyTitle: "Tech Park Office — Grade A",           city: "Hyderabad", userName: "Neha Reddy",   userEmail: "neha@example.com",    userRole: "user"     as const, leadId: "L-1045", ts: "2026-06-05 17:10", durationSec: 163, contactUnlocked: false },
+  { id: "PV-008", propertyId: "p2", propertyTitle: "Green Acres Villa — Sprawling 4 BHK", city: "Bengaluru", userName: "Arjun Shah",    userEmail: "arjun@example.com",   userRole: "customer" as const, leadId: null,     ts: "2026-06-05 16:48", durationSec: 241, contactUnlocked: false },
+  { id: "PV-009", propertyId: "p4", propertyTitle: "Marina Heights — Sea-facing 2 BHK",   city: "Mumbai",    userName: "Sneha Pillai",  userEmail: "sneha@example.com",   userRole: "user"     as const, leadId: null,     ts: "2026-06-05 15:22", durationSec: 109, contactUnlocked: false },
+  { id: "PV-010", propertyId: "p1", propertyTitle: "Skyline Residences — 3 BHK Premium",  city: "Mumbai",    userName: "Priya Kapoor",  userEmail: "pkapoor@example.com", userRole: "user"     as const, leadId: null,     ts: "2026-06-05 14:05", durationSec: 55,  contactUnlocked: false },
+  { id: "PV-011", propertyId: "p6", propertyTitle: "Heritage Bungalow — 5 BHK",           city: "Delhi",     userName: "Arjun Shah",    userEmail: "arjun@example.com",   userRole: "customer" as const, leadId: null,     ts: "2026-06-05 13:30", durationSec: 312, contactUnlocked: false },
+  { id: "PV-012", propertyId: "p3", propertyTitle: "Urban Studio — Fully Furnished",       city: "Pune",      userName: "Rohan Mehta",   userEmail: "rohan@example.com",   userRole: "user"     as const, leadId: "L-1042", ts: "2026-06-05 11:18", durationSec: 48,  contactUnlocked: false },
+  { id: "PV-013", propertyId: "p5", propertyTitle: "Tech Park Office — Grade A",           city: "Hyderabad", userName: "Kavya Nair",   userEmail: "kavya@example.com",   userRole: "customer" as const, leadId: "L-1047", ts: "2026-06-04 17:45", durationSec: 88,  contactUnlocked: false },
+  { id: "PV-014", propertyId: "p2", propertyTitle: "Green Acres Villa — Sprawling 4 BHK", city: "Bengaluru", userName: "Vikram Singh",  userEmail: "vikram@example.com",  userRole: "user"     as const, leadId: "L-1044", ts: "2026-06-04 16:02", durationSec: 176, contactUnlocked: false },
+  { id: "PV-015", propertyId: "p4", propertyTitle: "Marina Heights — Sea-facing 2 BHK",   city: "Mumbai",    userName: "Neha Reddy",    userEmail: "neha@example.com",    userRole: "user"     as const, leadId: "L-1045", ts: "2026-06-04 14:20", durationSec: 203, contactUnlocked: false },
 ];

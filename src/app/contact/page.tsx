@@ -27,9 +27,9 @@ export default function ContactPage() {
           <div className="space-y-6">
             {[
               ['Headquarters', 'Cyber City Tower 4, Gurugram 122002, Haryana'],
-              ['Sales', '+91 1800-NESTIT-1 · sales@nestit.in'],
-              ['Support', 'Mon–Sun, 8am–10pm IST · care@nestit.in'],
-              ['Partnerships', 'developers@nestit.in'],
+              ['Sales', '+91 1800-NESTIQO-1 · sales@nestiqo.in'],
+              ['Support', 'Mon–Sun, 8am–10pm IST · care@nestiqo.in'],
+              ['Partnerships', 'developers@nestiqo.in'],
             ].map(([t, d]) => (
               <div key={t} className="rounded-xl border border-border bg-white p-6">
                 <div className="text-xs uppercase tracking-widest text-accent">{t}</div>

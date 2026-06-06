@@ -6,6 +6,18 @@ import { Menu, X } from 'lucide-react';
 import { navLinks } from '@/data/static';
 import { useAuth } from '@/lib/auth';
 
+function TittleI() {
+  return (
+    <span className="relative inline-block">
+      ı
+      <span
+        className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-full bg-accent"
+        style={{ top: '0.05em', width: '0.2em', height: '0.2em' }}
+      />
+    </span>
+  );
+}
+
 export function SiteHeader() {
   const { session } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -14,22 +26,21 @@ export function SiteHeader() {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-6">
           {/* Logo */}
-          <Link href="/" className="group flex items-center gap-2.5">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-navy text-white font-display text-lg font-black shadow-md shadow-navy/30 transition group-hover:scale-105 group-hover:shadow-navy/50">
-              N
-            </div>
-            <div className="leading-tight">
-              <div className="font-display text-[17px] font-black tracking-tight text-navy">NestIt</div>
-              <div className="text-[9px] uppercase tracking-[0.22em] text-muted-foreground">Smart Ghar · India</div>
+          <Link href="/" className="group flex items-center gap-3">
+            <img src="/logo.png" alt="Nestiqo" className="h-20 w-auto object-contain transition group-hover:scale-105" />
+            <div>
+              <div className="font-display text-[17px] font-black leading-none tracking-tight text-navy">
+                nest<TittleI />qo<span className="text-accent">.</span><TittleI />n
+              </div>
             </div>
           </Link>
 
           {/* Desktop nav */}
           <nav className="hidden items-center gap-1 md:flex">
             {navLinks.map((l) => {
-              const active = pathname === l.to;
+              const active = l.to === '/' ? pathname === '/' : pathname.startsWith(l.to);
               return (
                 <Link
                   key={l.to}
@@ -64,7 +75,7 @@ export function SiteHeader() {
             )}
             <Link
               href="/properties"
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm shadow-accent/25 transition hover:opacity-90 hover:shadow-md hover:shadow-accent/30"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90 hover:shadow-md hover:shadow-accent/35"
             >
               Browse Homes
             </Link>
@@ -84,7 +95,7 @@ export function SiteHeader() {
           <div className="animate-fade-up border-t border-border bg-background px-5 py-4 md:hidden">
             <nav className="space-y-1">
               {navLinks.map((l) => {
-                const active = pathname === l.to;
+                const active = l.to === '/' ? pathname === '/' : pathname.startsWith(l.to);
                 return (
                   <Link
                     key={l.to}

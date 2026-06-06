@@ -107,12 +107,12 @@ export default function PropertyDetail() {
                 <span className="rounded-md bg-mid-blue/20 px-3 py-1 text-xs font-bold uppercase tracking-wider text-navy">{p.builder}</span>
               </div>
               {/* Mobile price */}
-              <div className="mt-4 flex items-baseline justify-between rounded-xl bg-navy p-4 text-white lg:hidden">
+              <div className="mt-4 flex items-baseline justify-between rounded-xl border border-accent/20 bg-accent/8 p-4 lg:hidden">
                 <div>
-                  <div className="text-[10px] uppercase tracking-widest text-white/60">Asking</div>
-                  <div className="font-display text-3xl font-bold text-gold">{p.priceLabel}</div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Asking</div>
+                  <div className="font-display text-3xl font-bold text-accent">{p.priceLabel}</div>
                 </div>
-                <div className="text-right text-[11px] text-white/70">
+                <div className="text-right text-[11px] text-muted-foreground">
                   <div>{p.pricePerSqft}/sqft</div>
                   <div>EMI ₹{p.purpose === 'Sale' ? estimateEMI(p.price) : '—'}/mo</div>
                 </div>
@@ -149,7 +149,7 @@ export default function PropertyDetail() {
                     Tower B, Plot 42, Pali Hill Road, Bandra West — 400050. Building marker: GPS 19.0599°N · 72.8295°E.
                   </p>
                   <div className="absolute inset-0 grid place-items-center bg-gradient-to-t from-white via-white/85 to-white/40">
-                    <Link href="/pricing" className="inline-flex items-center gap-2 rounded-md bg-navy px-4 py-2 text-xs font-semibold text-white hover:opacity-90">
+                    <Link href="/pricing" className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-xs font-semibold text-white hover:opacity-90">
                       <Lock className="h-3.5 w-3.5" /> Unlock to view exact address
                     </Link>
                   </div>
@@ -230,23 +230,23 @@ export default function PropertyDetail() {
 
           {/* Sticky sidebar */}
           <aside className="space-y-5 lg:sticky lg:top-20 lg:self-start">
-            <div className="hidden rounded-xl border border-border bg-navy p-6 text-white lg:block">
-              <div className="text-xs uppercase tracking-widest text-white/60">Asking Price</div>
-              <div className="mt-1 font-display text-4xl font-bold text-gold">{p.priceLabel}</div>
-              <div className="mt-1 text-xs text-white/60">
+            <div className="hidden rounded-xl border border-border bg-white p-6 shadow-sm lg:block">
+              <div className="text-xs uppercase tracking-widest text-muted-foreground">Asking Price</div>
+              <div className="mt-1 font-display text-4xl font-bold text-accent">{p.priceLabel}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
                 {p.pricePerSqft}/sqft
                 {p.purpose === 'Sale' && ` · EMI ₹${estimateEMI(p.price)}/mo`}
               </div>
               {signedIn ? (
                 <>
-                  <button onClick={() => toast.success('Site visit requested', { description: `${p.owner.name} will confirm a slot within 30 min.` })} className="mt-5 w-full rounded-md bg-accent py-3 font-display text-sm font-bold text-accent-foreground hover:opacity-90">Schedule Site Visit</button>
-                  <button onClick={() => toast.success('Callback requested', { description: `${p.owner.name} will call ${session?.phone} shortly.` })} className="mt-2 w-full rounded-md border border-white/20 py-3 font-display text-sm font-bold text-white hover:bg-white/5">Request Callback</button>
+                  <button onClick={() => toast.success('Site visit requested', { description: `${p.owner.name} will confirm a slot within 30 min.` })} className="mt-5 w-full rounded-md bg-accent py-3 font-display text-sm font-bold text-white shadow-sm shadow-accent/30 hover:opacity-90">Schedule Site Visit</button>
+                  <button onClick={() => toast.success('Callback requested', { description: `${p.owner.name} will call ${session?.phone} shortly.` })} className="mt-2 w-full rounded-md border border-border py-3 font-display text-sm font-bold text-navy hover:bg-secondary">Request Callback</button>
                 </>
               ) : (
                 <>
-                  <Link href="/login" className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-accent py-3 font-display text-sm font-bold text-accent-foreground hover:opacity-90"><Lock className="h-4 w-4" /> Sign in to Schedule Visit</Link>
-                  <Link href="/login" className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-white/20 py-3 font-display text-sm font-bold text-white hover:bg-white/5"><Lock className="h-4 w-4" /> Sign in to Request Callback</Link>
-                  <p className="mt-3 text-center text-[11px] text-white/60">Free account · 30 second sign-in</p>
+                  <Link href="/login" className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-accent py-3 font-display text-sm font-bold text-white shadow-sm shadow-accent/30 hover:opacity-90"><Lock className="h-4 w-4" /> Sign in to Schedule Visit</Link>
+                  <Link href="/login" className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-border py-3 font-display text-sm font-bold text-navy hover:bg-secondary"><Lock className="h-4 w-4" /> Request Callback</Link>
+                  <p className="mt-3 text-center text-[11px] text-muted-foreground">Free account · 30 second sign-in</p>
                 </>
               )}
             </div>
@@ -278,7 +278,7 @@ export default function PropertyDetail() {
                   <div className="mt-4 rounded-md border border-dashed border-border bg-secondary/60 px-3 py-2.5 text-center">
                     <div className="select-none font-mono text-sm font-semibold text-foreground/40 blur-[5px]">+91 98xxx 88421</div>
                   </div>
-                  <Link href="/login" className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-navy py-2.5 text-sm font-semibold text-white hover:opacity-90">
+                  <Link href="/login" className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-accent py-2.5 text-sm font-semibold text-white hover:opacity-90">
                     <Lock className="h-4 w-4" /> Sign in to unlock contact
                   </Link>
                   <p className="mt-2 text-center text-[11px] text-muted-foreground">Sign in, then use 1 credit to reveal phone & address</p>
@@ -290,7 +290,7 @@ export default function PropertyDetail() {
                     <Check size={14} className="text-emerald-600" strokeWidth={2.5} />
                     <span className="text-xs font-semibold text-emerald-700">Contact Unlocked</span>
                   </div>
-                  <a href={`tel:${p.owner.phone.replace(/\s/g, '')}`} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-navy py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
+                  <a href={`tel:${p.owner.phone.replace(/\s/g, '')}`} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-accent py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
                     <Phone size={14} /> Call {p.owner.phone}
                   </a>
                   <button onClick={() => toast.success('Opening WhatsApp…', { description: `Chat with ${p.owner.name} about ${p.title}.` })} className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-emerald-500 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
@@ -321,7 +321,7 @@ export default function PropertyDetail() {
                   <div className="mt-4 rounded-md border border-dashed border-border bg-secondary/60 px-3 py-2.5 text-center">
                     <div className="select-none font-mono text-sm font-semibold text-foreground/40 blur-[5px]">+91 98xxx 88421</div>
                   </div>
-                  <Link href="/pricing" className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-navy py-2.5 text-sm font-semibold text-white hover:opacity-90">
+                  <Link href="/pricing" className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-accent py-2.5 text-sm font-semibold text-white hover:opacity-90">
                     <Lock className="h-4 w-4" /> Get a Plan to Unlock
                   </Link>
                   <p className="mt-2 text-center text-[11px] text-muted-foreground">Plans from ₹99 · No brokerage</p>

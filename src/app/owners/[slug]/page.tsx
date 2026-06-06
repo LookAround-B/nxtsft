@@ -46,7 +46,7 @@ export default function OwnerPage() {
             <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-mid-blue font-display text-2xl font-bold text-white">{owner.initials}</div>
             <div className="flex-1">
               <h1 className="font-display text-3xl font-bold text-navy sm:text-4xl">{owner.name}</h1>
-              <div className="mt-1 text-sm text-muted-foreground">{owner.role} · NestIt Partner since {owner.since}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{owner.role} · Nestiqo Partner since {owner.since}</div>
               <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                 <span className="inline-flex items-center gap-1 font-semibold text-amber-600"><Star className="h-4 w-4 fill-amber-400 text-amber-400" />{owner.rating}</span>
                 <span className="text-muted-foreground">·</span>
@@ -58,11 +58,11 @@ export default function OwnerPage() {
             <div className="flex gap-2">
               {session ? (
                 <>
-                  <a href={`tel:${owner.phone.replace(/\s/g, '')}`} className="inline-flex items-center gap-2 rounded-lg bg-navy px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"><Phone className="h-4 w-4" /> Call</a>
+                  <a href={`tel:${owner.phone.replace(/\s/g, '')}`} className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"><Phone className="h-4 w-4" /> Call</a>
                   <button className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"><MessageCircle className="h-4 w-4" /> WhatsApp</button>
                 </>
               ) : (
-                <Link href="/login" className="inline-flex items-center gap-2 rounded-lg bg-navy px-4 py-2.5 text-sm font-semibold text-white"><Lock className="h-4 w-4" /> Sign in to contact</Link>
+                <Link href="/login" className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white"><Lock className="h-4 w-4" /> Sign in to contact</Link>
               )}
             </div>
           </div>

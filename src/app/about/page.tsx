@@ -4,19 +4,19 @@ import { SiteHeader } from '@/components/site/SiteHeader';
 import { SiteFooter } from '@/components/site/SiteFooter';
 
 export const metadata: Metadata = {
-  title: 'About NestIt',
-  description: 'NestIt vision, mission and the team building India\'s smart real estate ecosystem.',
+  title: 'About Nestiqo',
+  description: 'Nestiqo vision, mission and the team building India\'s smart real estate ecosystem.',
 };
 
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
-      <section className="bg-navy text-white">
-        <div className="mx-auto max-w-4xl px-6 py-24">
-          <div className="text-xs font-semibold uppercase tracking-widest text-gold">About</div>
-          <h1 className="mt-3 font-display text-5xl font-bold">Real estate, re-engineered for India.</h1>
-          <p className="mt-6 text-lg text-white/70">NestIt democratises real estate transactions by building a transparent, technology-first marketplace — eliminating friction, opacity and information asymmetry from every step.</p>
+      <section className="border-b border-border bg-white">
+        <div className="mx-auto max-w-4xl px-6 py-20">
+          <div className="text-xs font-bold uppercase tracking-widest text-accent">About</div>
+          <h1 className="mt-3 font-display text-4xl font-black text-navy sm:text-5xl">Real estate, re-engineered for India.</h1>
+          <p className="mt-5 text-lg text-muted-foreground">Nestiqo democratises real estate transactions by building a transparent, technology-first marketplace — eliminating friction, opacity and information asymmetry from every step.</p>
         </div>
       </section>
       <section className="mx-auto max-w-4xl px-6 py-20">

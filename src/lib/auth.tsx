@@ -14,15 +14,15 @@ export interface Session {
 }
 
 export const ROLE_META: Record<Role, { label: string; portal: string; portalName: string; demoEmail: string; demoName: string; city: string; phone: string }> = {
-  "super-admin": { label: "Super Admin", portal: "/sa-portal", portalName: "NestIt Command", demoEmail: "sa@nestit.in", demoName: "Aarav Kapoor", city: "Bengaluru HQ", phone: "+91 98xxx 00001" },
-  admin: { label: "Admin", portal: "/admin-portal", portalName: "NestIt Control", demoEmail: "admin@nestit.in", demoName: "Meera Iyer", city: "Mumbai", phone: "+91 98xxx 00002" },
-  supervisor: { label: "Supervisor", portal: "/supervisor-portal", portalName: "NestIt Desk", demoEmail: "supervisor@nestit.in", demoName: "Rahul Verma", city: "Pune", phone: "+91 98xxx 00003" },
-  sales: { label: "Sales Rep", portal: "/sales-portal", portalName: "NestIt Field", demoEmail: "priya@nestit.in", demoName: "Priya Sharma", city: "Mumbai", phone: "+91 98xxx 12042" },
-  user: { label: "Home Buyer", portal: "/user-portal", portalName: "NestIt Home", demoEmail: "rohan@example.com", demoName: "Rohan Mehta", city: "Mumbai", phone: "+91 98xxx 11000" },
-  customer: { label: "Customer", portal: "/user-portal", portalName: "NestIt Concierge", demoEmail: "ananya@example.com", demoName: "Ananya Gupta", city: "Delhi", phone: "+91 98xxx 11001" },
+  "super-admin": { label: "Super Admin", portal: "/sa-portal", portalName: "Nestiqo Command", demoEmail: "sa@nestiqo.in", demoName: "Aarav Kapoor", city: "Bengaluru HQ", phone: "+91 98xxx 00001" },
+  admin: { label: "Admin", portal: "/admin-portal", portalName: "Nestiqo Control", demoEmail: "admin@nestiqo.in", demoName: "Meera Iyer", city: "Mumbai", phone: "+91 98xxx 00002" },
+  supervisor: { label: "Supervisor", portal: "/supervisor-portal", portalName: "Nestiqo Desk", demoEmail: "supervisor@nestiqo.in", demoName: "Rahul Verma", city: "Pune", phone: "+91 98xxx 00003" },
+  sales: { label: "Sales Rep", portal: "/sales-portal", portalName: "Nestiqo Field", demoEmail: "priya@nestiqo.in", demoName: "Priya Sharma", city: "Mumbai", phone: "+91 98xxx 12042" },
+  user: { label: "Home Buyer", portal: "/user-portal", portalName: "Nestiqo Home", demoEmail: "rohan@example.com", demoName: "Rohan Mehta", city: "Mumbai", phone: "+91 98xxx 11000" },
+  customer: { label: "Customer", portal: "/user-portal", portalName: "Nestiqo Concierge", demoEmail: "ananya@example.com", demoName: "Ananya Gupta", city: "Delhi", phone: "+91 98xxx 11001" },
 };
 
-const STORAGE_KEY = "nestit.session";
+const STORAGE_KEY = "nestiqo.session";
 
 interface Ctx {
   session: Session | null;
