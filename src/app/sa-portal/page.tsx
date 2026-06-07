@@ -42,7 +42,7 @@ const nav = [
 export default function SAPortal() {
   const hash = useActiveHash();
   return (
-    <PortalShell brand="Nestiqo Command" role="Super Admin" accent="gold" user={{ name: 'Aarav Khanna', initials: 'AK' }} nav={nav} basePath="/sa-portal">
+    <PortalShell brand="NxtSft.com Command" role="Super Admin" accent="gold" user={{ name: 'Aarav Khanna', initials: 'AK' }} nav={nav} basePath="/sa-portal">
       {renderTab(hash)}
     </PortalShell>
   );
@@ -100,21 +100,21 @@ const allUsers: Array<{
 }> = [
   ...teamMembers.map((m) => ({
     id: m.id, name: m.name,
-    email: `${m.name.toLowerCase().replace(/\s+/, '.')}@nestiqo.in`,
+    email: `${m.name.toLowerCase().replace(/\s+/, '.')}@nxtsft.com`,
     role: m.role, portal: 'Sales Portal', city: m.city,
     status: 'Active' as const, last: '2h ago',
   })),
-  { id: 'U-25', name: 'Aarav Khanna',    email: 'aarav.khanna@nestiqo.in',    role: 'Super Admin', portal: 'Command',      city: 'Mumbai',    status: 'Active',    last: 'now' },
-  { id: 'U-26', name: 'Meera Iyer',      email: 'meera.iyer@nestiqo.in',      role: 'Admin',       portal: 'Admin Portal', city: 'Bengaluru', status: 'Active',    last: '12m ago' },
-  { id: 'U-27', name: 'Rohit Nair',      email: 'rohit.nair@nestiqo.in',      role: 'Supervisor',  portal: 'Supervisor',   city: 'Hyderabad', status: 'Suspended', last: '4d ago' },
-  { id: 'U-28', name: 'Sneha Pillai',    email: 'sneha.pillai@nestiqo.in',    role: 'Sales Rep',   portal: 'Sales Portal', city: 'Chennai',   status: 'Invited',   last: '—' },
-  { id: 'U-29', name: 'Rahul Verma',     email: 'rahul.verma@nestiqo.in',     role: 'Admin',       portal: 'Admin Portal', city: 'Delhi',     status: 'Active',    last: '1h ago' },
-  { id: 'U-30', name: 'Pooja Desai',     email: 'pooja.desai@nestiqo.in',     role: 'Sales Rep',   portal: 'Sales Portal', city: 'Pune',      status: 'Active',    last: '3h ago' },
-  { id: 'U-31', name: 'Arjun Shah',      email: 'arjun.shah@nestiqo.in',      role: 'Supervisor',  portal: 'Supervisor',   city: 'Mumbai',    status: 'Active',    last: '45m ago' },
-  { id: 'U-32', name: 'Nisha Kapoor',    email: 'nisha.kapoor@nestiqo.in',    role: 'Sales Rep',   portal: 'Sales Portal', city: 'Bengaluru', status: 'Active',    last: '6h ago' },
-  { id: 'U-33', name: 'Vivek Malhotra',  email: 'vivek.malhotra@nestiqo.in',  role: 'Sales Rep',   portal: 'Sales Portal', city: 'Hyderabad', status: 'Invited',   last: '—' },
-  { id: 'U-34', name: 'Preeti Singh',    email: 'preeti.singh@nestiqo.in',    role: 'Admin',       portal: 'Admin Portal', city: 'Chennai',   status: 'Active',    last: '2d ago' },
-  { id: 'U-35', name: 'Manish Tiwari',   email: 'manish.tiwari@nestiqo.in',   role: 'Supervisor',  portal: 'Supervisor',   city: 'Pune',      status: 'Suspended', last: '1w ago' },
+  { id: 'U-25', name: 'Aarav Khanna',    email: 'aarav.khanna@nxtsft.com',    role: 'Super Admin', portal: 'Command',      city: 'Mumbai',    status: 'Active',    last: 'now' },
+  { id: 'U-26', name: 'Meera Iyer',      email: 'meera.iyer@nxtsft.com',      role: 'Admin',       portal: 'Admin Portal', city: 'Bengaluru', status: 'Active',    last: '12m ago' },
+  { id: 'U-27', name: 'Rohit Nair',      email: 'rohit.nair@nxtsft.com',      role: 'Supervisor',  portal: 'Supervisor',   city: 'Hyderabad', status: 'Suspended', last: '4d ago' },
+  { id: 'U-28', name: 'Sneha Pillai',    email: 'sneha.pillai@nxtsft.com',    role: 'Sales Rep',   portal: 'Sales Portal', city: 'Chennai',   status: 'Invited',   last: '—' },
+  { id: 'U-29', name: 'Rahul Verma',     email: 'rahul.verma@nxtsft.com',     role: 'Admin',       portal: 'Admin Portal', city: 'Delhi',     status: 'Active',    last: '1h ago' },
+  { id: 'U-30', name: 'Pooja Desai',     email: 'pooja.desai@nxtsft.com',     role: 'Sales Rep',   portal: 'Sales Portal', city: 'Pune',      status: 'Active',    last: '3h ago' },
+  { id: 'U-31', name: 'Arjun Shah',      email: 'arjun.shah@nxtsft.com',      role: 'Supervisor',  portal: 'Supervisor',   city: 'Mumbai',    status: 'Active',    last: '45m ago' },
+  { id: 'U-32', name: 'Nisha Kapoor',    email: 'nisha.kapoor@nxtsft.com',    role: 'Sales Rep',   portal: 'Sales Portal', city: 'Bengaluru', status: 'Active',    last: '6h ago' },
+  { id: 'U-33', name: 'Vivek Malhotra',  email: 'vivek.malhotra@nxtsft.com',  role: 'Sales Rep',   portal: 'Sales Portal', city: 'Hyderabad', status: 'Invited',   last: '—' },
+  { id: 'U-34', name: 'Preeti Singh',    email: 'preeti.singh@nxtsft.com',    role: 'Admin',       portal: 'Admin Portal', city: 'Chennai',   status: 'Active',    last: '2d ago' },
+  { id: 'U-35', name: 'Manish Tiwari',   email: 'manish.tiwari@nxtsft.com',   role: 'Supervisor',  portal: 'Supervisor',   city: 'Pune',      status: 'Suspended', last: '1w ago' },
 ];
 
 /* ═══════════════════════════════════════════════════════════
@@ -350,7 +350,7 @@ function UsersTab() {
       {showInvite && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setShowInvite(false)}>
           <div className="animate-scale-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-1 text-[11px] font-bold uppercase tracking-widest text-accent">Nestiqo Platform</div>
+            <div className="mb-1 text-[11px] font-bold uppercase tracking-widest text-accent">NxtSft.com Platform</div>
             <h3 className="font-display text-xl font-bold text-navy">Invite a user</h3>
             <p className="mt-1 text-xs text-muted-foreground">They'll receive an email with a one-time sign-in link.</p>
             <div className="mt-5 space-y-3">
@@ -468,7 +468,7 @@ function TeamsTab() {
       {showAdd && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setShowAdd(false)}>
           <div className="animate-scale-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-1 text-[11px] font-bold uppercase tracking-widest text-accent">Nestiqo Command</div>
+            <div className="mb-1 text-[11px] font-bold uppercase tracking-widest text-accent">NxtSft.com Command</div>
             <h3 className="font-display text-xl font-bold text-navy">Add Team Member</h3>
             <p className="mt-1 text-xs text-muted-foreground">Assign portal access and role for the new member.</p>
             <div className="mt-5 space-y-3">
@@ -681,10 +681,10 @@ function AuditTab() {
 ═══════════════════════════════════════════════════════════ */
 function AITab() {
   const models: Array<[string, string, string, string, boolean]> = [
-    ['nestiqo-match-v3',    'Property Match',   '0.4%', '94.2%', true],
-    ['nestiqo-price-v2',    'Price Estimator',  '1.1%', '88.6%', true],
-    ['nestiqo-lead-score',  'Lead Scoring',     '0.8%', '91.0%', true],
-    ['nestiqo-recommend',   'Recommendations',  '2.3%', '82.4%', false],
+    ['nxtsft-match-v3',    'Property Match',   '0.4%', '94.2%', true],
+    ['nxtsft-price-v2',    'Price Estimator',  '1.1%', '88.6%', true],
+    ['nxtsft-lead-score',  'Lead Scoring',     '0.8%', '91.0%', true],
+    ['nxtsft-recommend',   'Recommendations',  '2.3%', '82.4%', false],
   ];
   return (
     <>

@@ -212,7 +212,7 @@ function CTABanner({ session }: { session: unknown }) {
             Browse Properties
           </Link>
           {!session && (
-            <Link href="/login" className="rounded-xl border border-white/25 bg-white/10 px-7 py-3 font-display text-sm font-bold text-white backdrop-blur transition hover:bg-white/20">
+            <Link href="/register" className="rounded-xl border border-white/25 bg-white/10 px-7 py-3 font-display text-sm font-bold text-white backdrop-blur transition hover:bg-white/20">
               Create Free Account
             </Link>
           )}
@@ -224,7 +224,7 @@ function CTABanner({ session }: { session: unknown }) {
 
 /* ── FAQ data ───────────────────────────────────────────────────── */
 const seekerFaqs: string[][] = [
-  ['What is a Dedicated RM?', 'A Relationship Manager (RM) is a Nestiqo property advisor assigned exclusively to you. They help you shortlist properties, coordinate site visits, and assist during negotiations.'],
+  ['What is a Dedicated RM?', 'A Relationship Manager (RM) is a NxtSft.com property advisor assigned exclusively to you. They help you shortlist properties, coordinate site visits, and assist during negotiations.'],
   ['How does the dispute refund work?', "If an owner's contact turns out to be wrong or unreachable, open your Unlocks dashboard and tap \"Raise Dispute\" within 24 hours. Credits are restored or amount refunded usually the same day."],
   ['Do unused credits expire?', 'Yes — credits are valid for the period shown on each plan (7 to 60 days). Unused credits are not refunded after expiry, so pick a plan that matches your search timeline.'],
   ['Can I unlock the same property twice?', 'No — once you unlock a property contact it stays visible in your account forever. Only one credit is ever deducted per property.'],
@@ -242,7 +242,7 @@ const ownerFaqs: string[][] = [
 const TABS = ['Owners & Agents', 'Tenants', 'Buyers'];
 
 export default function PricingPage() {
-  const { session } = useAuth();
+  const { session, addCredits } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [ownerMode, setOwnerMode] = useState<'renting' | 'selling'>('renting');
 
@@ -253,6 +253,7 @@ export default function PricingPage() {
 
   const handleBuySeeker = (plan: SeekerPlan) => {
     if (!session) { toast.error('Please sign in first'); return; }
+    addCredits(plan.credits);
     toast.success(`${plan.name} plan activated!`, { description: `${plan.credits} credit${plan.credits > 1 ? 's' : ''} added to your wallet.`, duration: 5000 });
   };
 
@@ -273,7 +274,7 @@ export default function PricingPage() {
             <span className="text-gold">No commissions.</span>
           </h1>
           <p className="mt-5 text-base text-white/70 sm:text-lg">
-            Whether you own, rent or are searching for your dream home — Nestiqo has a plan sized exactly for you.
+            Whether you own, rent or are searching for your dream home — NxtSft.com has a plan sized exactly for you.
           </p>
         </div>
       </section>

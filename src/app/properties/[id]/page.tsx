@@ -8,6 +8,7 @@ import { SiteHeader } from '@/components/site/SiteHeader';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { properties, ownerSlug } from '@/data/static';
 import { useAuth } from '@/lib/auth';
+import { captureLead } from '@/lib/leads';
 
 function estimateEMI(principal: number) {
   const P = principal * 0.8;
@@ -21,8 +22,7 @@ export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const [active, setActive] = useState(0);
   const [contactUnlocked, setContactUnlocked] = useState(false);
-  const [credits, setCredits] = useState(3); // demo: user has 3 credits from a Basic plan
-  const { session } = useAuth();
+  const { session, credits, useCredit } = useAuth();
 
   const p = properties.find((x) => x.id === id);
   if (!p) { notFound(); return null; }
@@ -239,8 +239,8 @@ export default function PropertyDetail() {
               </div>
               {signedIn ? (
                 <>
-                  <button onClick={() => toast.success('Site visit requested', { description: `${p.owner.name} will confirm a slot within 30 min.` })} className="mt-5 w-full rounded-md bg-accent py-3 font-display text-sm font-bold text-white shadow-sm shadow-accent/30 hover:opacity-90">Schedule Site Visit</button>
-                  <button onClick={() => toast.success('Callback requested', { description: `${p.owner.name} will call ${session?.phone} shortly.` })} className="mt-2 w-full rounded-md border border-border py-3 font-display text-sm font-bold text-navy hover:bg-secondary">Request Callback</button>
+                  <button onClick={() => { captureLead('Schedule Visit', p, session!); toast.success('Site visit requested', { description: `${p.owner.name} will confirm a slot within 30 min.` }); }} className="mt-5 w-full rounded-md bg-accent py-3 font-display text-sm font-bold text-white shadow-sm shadow-accent/30 hover:opacity-90">Schedule Site Visit</button>
+                  <button onClick={() => { captureLead('Request Callback', p, session!); toast.success('Callback requested', { description: `${p.owner.name} will call ${session?.phone} shortly.` }); }} className="mt-2 w-full rounded-md border border-border py-3 font-display text-sm font-bold text-navy hover:bg-secondary">Request Callback</button>
                 </>
               ) : (
                 <>
@@ -293,7 +293,7 @@ export default function PropertyDetail() {
                   <a href={`tel:${p.owner.phone.replace(/\s/g, '')}`} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-accent py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
                     <Phone size={14} /> Call {p.owner.phone}
                   </a>
-                  <button onClick={() => toast.success('Opening WhatsApp…', { description: `Chat with ${p.owner.name} about ${p.title}.` })} className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-emerald-500 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
+                  <button onClick={() => { captureLead('WhatsApp', p, session!); toast.success('Opening WhatsApp…', { description: `Chat with ${p.owner.name} about ${p.title}.` }); }} className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-emerald-500 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
                     <MessageCircle size={14} /> WhatsApp Agent
                   </button>
                 </>
@@ -305,9 +305,11 @@ export default function PropertyDetail() {
                   </div>
                   <button
                     onClick={() => {
-                      setContactUnlocked(true);
-                      setCredits((c) => c - 1);
-                      toast.success('Contact unlocked!', { description: `${credits - 1} credit${credits - 1 !== 1 ? 's' : ''} remaining.` });
+                      if (useCredit()) {
+                        setContactUnlocked(true);
+                        captureLead('Unlock Contact', p, session!);
+                        toast.success('Contact unlocked!', { description: `${credits - 1} credit${credits - 1 !== 1 ? 's' : ''} remaining.` });
+                      }
                     }}
                     className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-accent py-2.5 text-sm font-semibold text-white shadow transition hover:opacity-90"
                   >

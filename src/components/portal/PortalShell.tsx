@@ -59,7 +59,7 @@ export function PortalShell({ brand, role, accent = 'red', user, nav, basePath, 
       >
         {/* Brand */}
         <div className={`flex items-center border-b border-white/8 py-4 ${collapsed ? 'justify-center px-0' : 'gap-3 px-4'}`}>
-          <img src="/logo.png" alt="Nestiqo" className="h-9 w-9 flex-shrink-0 object-contain brightness-0 invert" />
+          <img src="/navbar.png" alt="NxtSft.com" className="h-16 w-auto flex-shrink-0 object-contain brightness-0 invert" />
           {!collapsed && (
             <div className="min-w-0">
               <div className="truncate font-display text-[14px] font-bold tracking-tight text-white">{brand}</div>
@@ -124,13 +124,13 @@ export function PortalShell({ brand, role, accent = 'red', user, nav, basePath, 
               className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-white/35 transition hover:bg-white/6 hover:text-gold"
             >
               <ChevronLeft size={12} />
-              Back to nestiqo.in
+              Back to nxtsft.com
             </Link>
           )}
           {collapsed && (
             <Link
               href="/"
-              title="Back to nestiqo.in"
+              title="Back to nxtsft.com"
               className="flex justify-center rounded-xl py-2 text-white/35 transition hover:bg-white/6 hover:text-gold"
             >
               <ChevronLeft size={14} />

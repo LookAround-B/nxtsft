@@ -4,18 +4,19 @@ import { AuthProvider } from '@/lib/auth';
 import { BottomNav } from '@/components/site/BottomNav';
 import { Toaster } from '@/components/ui/sonner';
 import { Preloader } from '@/components/site/Preloader';
+import { ListPropertyPopup } from '@/components/site/ListPropertyPopup';
 
 export const metadata: Metadata = {
-  title: 'Nestiqo — India\'s Smart Real Estate Platform',
-  description: 'Nestiqo is India\'s next-generation real estate ecosystem — verified listings, AI matching, zero brokerage, integrated CRM and ERP.',
+  title: 'NxtSft.com — India\'s Smart Real Estate Platform',
+  description: 'NxtSft.com is India\'s next-generation real estate ecosystem — verified listings, AI matching, zero brokerage, integrated CRM and ERP.',
   openGraph: {
-    title: 'Nestiqo — Find. Own. Live Smarter.',
+    title: 'NxtSft.com — Find. Own. Live Smarter.',
     description: 'India\'s most comprehensive real estate platform — AI matched, zero brokerage, CRM+ERP in one.',
     type: 'website',
   },
   twitter: {
     card: 'summary',
-    site: '@NestiqoIn',
+    site: '@NxtSftCom',
   },
 };
 
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           {children}
           <BottomNav />
+          <ListPropertyPopup />
           <Toaster richColors position="top-right" />
         </AuthProvider>
       </body>

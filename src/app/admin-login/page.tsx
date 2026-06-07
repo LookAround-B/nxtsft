@@ -99,8 +99,7 @@ export default function AdminLoginPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-border bg-white/80 px-5 py-3 backdrop-blur-sm sm:px-8">
         <Link href="/" className="flex items-center gap-2.5 text-navy hover:opacity-80 transition-opacity">
-          <img src="/logo.png" alt="Nestiqo" className="h-8 w-auto" />
-          <span className="font-display text-sm font-black tracking-tight">nestiqo.in</span>
+          <img src="/navbar.png" alt="NxtSft.com" className="h-16 w-auto object-contain" />
         </Link>
         <Link href="/login" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-accent transition-colors">
           <ArrowLeft size={13} />

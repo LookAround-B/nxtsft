@@ -163,11 +163,11 @@ export const teamMembers = [
 ];
 
 export const portals = [
-  { name: "Nestiqo Command", role: "Super Admin", path: "/sa-portal", accent: "Gold" },
-  { name: "Nestiqo Control", role: "Admin", path: "/admin-portal", accent: "Red" },
-  { name: "Nestiqo Desk", role: "Supervisor", path: "/supervisor-portal", accent: "Green" },
-  { name: "Nestiqo Field", role: "Sales Rep", path: "/sales-portal", accent: "Amber" },
-  { name: "Nestiqo Home", role: "End User", path: "/user-portal", accent: "Red" },
+  { name: "NxtSft.com Command", role: "Super Admin", path: "/sa-portal", accent: "Gold" },
+  { name: "NxtSft.com Control", role: "Admin", path: "/admin-portal", accent: "Red" },
+  { name: "NxtSft.com Desk", role: "Supervisor", path: "/supervisor-portal", accent: "Green" },
+  { name: "NxtSft.com Field", role: "Sales Rep", path: "/sales-portal", accent: "Amber" },
+  { name: "NxtSft.com Home", role: "End User", path: "/user-portal", accent: "Red" },
 ];
 
 export const kpis = {

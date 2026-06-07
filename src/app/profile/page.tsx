@@ -113,7 +113,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 }
 
 export default function ProfilePage() {
-  const { session, signOut } = useAuth();
+  const { session, signOut, updateProfile } = useAuth();
   const router = useRouter();
 
   const [editing, setEditing] = useState(false);
@@ -140,6 +140,7 @@ export default function ProfilePage() {
 
   const saveProfile = () => {
     setEditing(false);
+    updateProfile(name.trim() || session!.name, phone.trim() || session!.phone);
     toast.success('Profile updated');
   };
 

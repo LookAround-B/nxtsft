@@ -4,8 +4,8 @@ import { SiteHeader } from '@/components/site/SiteHeader';
 import { SiteFooter } from '@/components/site/SiteFooter';
 
 export const metadata: Metadata = {
-  title: 'About Nestiqo',
-  description: 'Nestiqo vision, mission and the team building India\'s smart real estate ecosystem.',
+  title: 'About NxtSft.com',
+  description: 'NxtSft.com vision, mission and the team building India\'s smart real estate ecosystem.',
 };
 
 export default function AboutPage() {
@@ -16,7 +16,7 @@ export default function AboutPage() {
         <div className="mx-auto max-w-4xl px-6 py-20">
           <div className="text-xs font-bold uppercase tracking-widest text-accent">About</div>
           <h1 className="mt-3 font-display text-4xl font-black text-navy sm:text-5xl">Real estate, re-engineered for India.</h1>
-          <p className="mt-5 text-lg text-muted-foreground">Nestiqo democratises real estate transactions by building a transparent, technology-first marketplace — eliminating friction, opacity and information asymmetry from every step.</p>
+          <p className="mt-5 text-lg text-muted-foreground">NxtSft.com democratises real estate transactions by building a transparent, technology-first marketplace — eliminating friction, opacity and information asymmetry from every step.</p>
         </div>
       </section>
       <section className="mx-auto max-w-4xl px-6 py-20">

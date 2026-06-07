@@ -180,6 +180,10 @@
 .delay-375 { animation-delay: 375ms; }
 .delay-450 { animation-delay: 450ms; }
 
+/* ─── No-scrollbar utility ───────────────────────────────── */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* ─── Global ──────────────────────────────────────────────── */
 @layer base {
   html { scroll-behavior: smooth; }

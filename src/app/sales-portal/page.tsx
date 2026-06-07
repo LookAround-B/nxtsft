@@ -36,7 +36,7 @@ function downloadCSV(filename: string, headers: string[], rows: string[][]) {
 export default function SalesPortal() {
   const h = useActiveHash();
   return (
-    <PortalShell brand="Nestiqo Field" role="Sales Rep" accent="amber" user={{ name: 'Priya Sharma', initials: 'PS' }} nav={nav} basePath="/sales-portal">
+    <PortalShell brand="NxtSft.com Field" role="Sales Rep" accent="amber" user={{ name: 'Priya Sharma', initials: 'PS' }} nav={nav} basePath="/sales-portal">
       {renderTab(h)}
     </PortalShell>
   );

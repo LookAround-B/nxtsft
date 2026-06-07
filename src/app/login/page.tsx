@@ -17,7 +17,19 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setTimeout(() => {
-      signIn('user');
+      try {
+        const users: Array<{ email: string; role?: string }> = JSON.parse(
+          window.localStorage.getItem('nxtsft.users') ?? '[]'
+        );
+        const found = users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
+        if (found) {
+          signIn((found.role as typeof ROLE_META extends Record<infer R, unknown> ? R : never) ?? 'user');
+        } else {
+          signIn('user');
+        }
+      } catch {
+        signIn('user');
+      }
       router.push(ROLE_META['user'].portal);
     }, 500);
   };
@@ -29,7 +41,7 @@ export default function LoginPage() {
         {/* Left panel */}
         <div className="hidden animate-fade-up flex-col justify-between rounded-3xl bg-gradient-to-br from-navy via-navy-deep to-accent p-10 text-white lg:flex">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white/70">Nestiqo Home</div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white/70">NxtSft.com Home</div>
             <h1 className="mt-6 font-display text-4xl font-black leading-tight">
               Your dream home<br />starts here.<br /><span className="text-white/55">Verified. Trusted. Yours.</span>
             </h1>
@@ -53,7 +65,7 @@ export default function LoginPage() {
             </div>
           )}
           <div className="text-xs font-bold uppercase tracking-widest text-accent">Welcome back</div>
-          <h2 className="mt-2 font-display text-3xl font-black text-navy sm:text-4xl">Sign in to Nestiqo</h2>
+          <h2 className="mt-2 font-display text-3xl font-black text-navy sm:text-4xl">Sign in to NxtSft.com</h2>
           <p className="mt-2 text-sm text-muted-foreground">Demo mode — credentials are pre-filled.</p>
 
           <form onSubmit={submit} className="mt-6 rounded-2xl border border-border bg-white p-6 shadow-sm">
@@ -69,7 +81,7 @@ export default function LoginPage() {
               {loading ? 'Signing in…' : 'Sign in →'}
             </button>
           </form>
-          <p className="mt-5 text-center text-xs text-muted-foreground">New here? <Link href="/contact" className="font-semibold text-accent hover:underline">Request a workspace</Link></p>
+          <p className="mt-5 text-center text-xs text-muted-foreground">New here? <Link href="/register" className="font-semibold text-accent hover:underline">Create a free account →</Link></p>
           <div className="mt-4 border-t border-border pt-4 text-center">
             <p className="text-xs text-muted-foreground">Are you staff or admin? <Link href="/admin-login" className="font-semibold text-navy hover:underline">Admin sign in →</Link></p>
           </div>

@@ -46,7 +46,7 @@ export default function OwnerPage() {
             <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-mid-blue font-display text-2xl font-bold text-white">{owner.initials}</div>
             <div className="flex-1">
               <h1 className="font-display text-3xl font-bold text-navy sm:text-4xl">{owner.name}</h1>
-              <div className="mt-1 text-sm text-muted-foreground">{owner.role} · Nestiqo Partner since {owner.since}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{owner.role} · NxtSft.com Partner since {owner.since}</div>
               <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                 <span className="inline-flex items-center gap-1 font-semibold text-amber-600"><Star className="h-4 w-4 fill-amber-400 text-amber-400" />{owner.rating}</span>
                 <span className="text-muted-foreground">·</span>

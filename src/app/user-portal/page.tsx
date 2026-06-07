@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -10,11 +11,11 @@ import {
 import { Home as HomeIcon, CheckCircle, XCircle } from 'lucide-react';
 import { PortalShell, StatCard, Section, Badge } from '@/components/portal/PortalShell';
 import { useActiveHash } from '@/lib/use-active-hash';
+import { useAuth } from '@/lib/auth';
 import { properties, subscriptions, unlockedContacts, walletLedger, disputes, seekerPlans, propertyViews } from '@/data/static';
 
-/* ─── Demo user ─────────────────────────────────────────────── */
+/* ─── Demo user fallback (used only when no session exists) ─── */
 const DEMO_USER = { name: 'Ananya Rao', email: 'ananya@example.com', initials: 'AR', phone: '+91 98xxx 77001', city: 'Mumbai' };
-const MY_EMAIL  = 'rohan@example.com'; // matches propertyViews data
 
 /* ─── Navigation ─────────────────────────────────────────────── */
 const nav = [
@@ -33,10 +34,20 @@ const nav = [
 
 /* ─── Root ───────────────────────────────────────────────────── */
 export default function UserPortal() {
+  const { session } = useAuth();
+  const router = useRouter();
   const h = useActiveHash();
+
+  useEffect(() => {
+    if (!session) router.push('/login');
+  }, [session, router]);
+
+  if (!session) return null;
+
+  const displayUser = { name: session.name, initials: session.initials };
   return (
-    <PortalShell brand="Nestiqo Home" role="End User" accent="red" user={{ name: DEMO_USER.name, initials: DEMO_USER.initials }} nav={nav} basePath="/user-portal">
-      {renderTab(h)}
+    <PortalShell brand="NxtSft.com Home" role="End User" accent="red" user={displayUser} nav={nav} basePath="/user-portal">
+      {renderTab(h, session.email)}
     </PortalShell>
   );
 }
@@ -63,7 +74,7 @@ function todayLabel() {
 }
 
 /* ─── Tab router ─────────────────────────────────────────────── */
-function renderTab(h: string) {
+function renderTab(h: string, userEmail: string) {
   switch (h) {
     case 'saved':   return <Saved />;
     case 'mylist':  return <MyListings />;
@@ -75,16 +86,18 @@ function renderTab(h: string) {
     case 'kyc':     return <KYC />;
     case 'profile': return <Profile />;
     case 'alerts':  return <SearchAlerts />;
-    default:        return <HomeDash />;
+    default:        return <HomeDash userEmail={userEmail} />;
   }
 }
 
 /* ═══════════════════════════════════════════════════════════════
    OVERVIEW / HOME DASHBOARD
 ═══════════════════════════════════════════════════════════════ */
-function HomeDash() {
+function HomeDash({ userEmail }: { userEmail: string }) {
+  const { session } = useAuth();
+  const displayName = session?.name ?? DEMO_USER.name;
   const myViews = propertyViews
-    .filter((v) => v.userEmail === MY_EMAIL)
+    .filter((v) => v.userEmail === userEmail || v.userEmail === 'rohan@example.com')
     .sort((a, b) => b.ts.localeCompare(a.ts));
 
   const featuredProps = properties.filter((p) => p.featured).slice(0, 3);
@@ -99,7 +112,7 @@ function HomeDash() {
       {/* Greeting */}
       <div className="mb-6">
         <h2 className="font-display text-2xl font-bold text-navy">
-          {greeting()}, {DEMO_USER.name.split(' ')[0]}!
+          {greeting()}, {displayName.split(' ')[0]}!
         </h2>
         <p className="mt-0.5 text-sm text-muted-foreground">{todayLabel()}</p>
       </div>
@@ -598,8 +611,9 @@ function Credits() {
    PROFILE
 ═══════════════════════════════════════════════════════════════ */
 function Profile() {
-  const [name, setName]       = useState(DEMO_USER.name);
-  const [phone, setPhone]     = useState(DEMO_USER.phone);
+  const { session, updateProfile } = useAuth();
+  const [name, setName]       = useState(session?.name  ?? DEMO_USER.name);
+  const [phone, setPhone]     = useState(session?.phone ?? DEMO_USER.phone);
   const [city, setCity]       = useState(DEMO_USER.city);
   const [budget, setBudget]   = useState('₹50L – ₹1.5Cr');
   const [propType, setPropType] = useState('Apartment');
@@ -621,14 +635,14 @@ function Profile() {
   const [confPwd, setConfPwd] = useState('');
 
   const handleDownloadCSV = () => {
-    const myViews = propertyViews.filter((v) => v.userEmail === MY_EMAIL);
+    const myViews = propertyViews.filter((v) => v.userEmail === (session?.email ?? DEMO_USER.email));
     const header  = ['ID', 'Property', 'City', 'Date', 'Duration (sec)', 'Contact Unlocked'];
     const rows    = myViews.map((v) => [v.id, `"${v.propertyTitle}"`, v.city, v.ts, v.durationSec, v.contactUnlocked]);
     const csv     = [header, ...rows].map((r) => r.join(',')).join('\n');
     const blob    = new Blob([csv], { type: 'text/csv' });
     const url     = URL.createObjectURL(blob);
     const a       = document.createElement('a');
-    a.href = url; a.download = 'nestiqo-my-data.csv'; a.click();
+    a.href = url; a.download = 'nxtsft-my-data.csv'; a.click();
     URL.revokeObjectURL(url);
     toast.success('CSV downloaded');
   };
@@ -658,7 +672,7 @@ function Profile() {
           </div>
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">Email</label>
-            <input value={DEMO_USER.email} readOnly className="mt-1 w-full rounded-md border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground cursor-not-allowed" />
+            <input value={session?.email ?? DEMO_USER.email} readOnly className="mt-1 w-full rounded-md border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground cursor-not-allowed" />
           </div>
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">Phone</label>
@@ -671,7 +685,7 @@ function Profile() {
             </select>
           </div>
         </div>
-        <button onClick={() => toast.success('Profile updated')} className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground">Save Changes</button>
+        <button onClick={() => { updateProfile(name.trim() || (session?.name ?? DEMO_USER.name), phone.trim() || (session?.phone ?? DEMO_USER.phone)); toast.success('Profile updated'); }} className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground">Save Changes</button>
       </Section>
 
       {/* Property Preferences */}
@@ -743,7 +757,7 @@ function Profile() {
 
       {/* Download data */}
       <Section title="Data & Privacy">
-        <p className="mb-3 text-sm text-muted-foreground">Download a CSV of all properties you have viewed on Nestiqo Home.</p>
+        <p className="mb-3 text-sm text-muted-foreground">Download a CSV of all properties you have viewed on NxtSft.com Home.</p>
         <button
           onClick={handleDownloadCSV}
           className="flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-semibold hover:border-accent hover:text-accent transition-colors"

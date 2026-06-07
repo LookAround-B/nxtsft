@@ -56,7 +56,7 @@ const nav = [
 export default function SupervisorPortal() {
   const hash = useActiveHash();
   return (
-    <PortalShell brand="Nestiqo Desk" role="Supervisor" accent="green" user={{ name: 'Rahul Verma', initials: 'RV' }} nav={nav} basePath="/supervisor-portal">
+    <PortalShell brand="NxtSft.com Desk" role="Supervisor" accent="green" user={{ name: 'Rahul Verma', initials: 'RV' }} nav={nav} basePath="/supervisor-portal">
       {renderTab(hash)}
     </PortalShell>
   );

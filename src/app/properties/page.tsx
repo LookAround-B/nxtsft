@@ -30,10 +30,12 @@ export default function PropertiesPage() {
 
   useEffect(() => {
     const sp       = new URLSearchParams(window.location.search);
-    const qParam   = sp.get('q');
+    const qParam    = sp.get('q');
     const typeParam = sp.get('type');
-    if (qParam)                        setQ(qParam);
-    if (typeParam && TYPES.includes(typeParam)) setType(typeParam);
+    const cityParam = sp.get('city');
+    if (qParam)                                         setQ(qParam);
+    if (typeParam && TYPES.includes(typeParam))         setType(typeParam);
+    if (cityParam && CITIES.includes(cityParam))        setCity(cityParam);
   }, []);
 
   const filtered = useMemo(() => {
