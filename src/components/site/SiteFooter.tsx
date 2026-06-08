@@ -18,11 +18,15 @@ const FOOTER_LINKS = {
     { href: '/about#press',   label: 'Press & Media' },
   ],
   quick: [
-    { href: '/contact',    label: 'Help & Support' },
-    { href: '/login',      label: 'Sign In' },
-    { href: '/register',   label: 'Create Account' },
-    { href: '/pricing',    label: 'View Plans' },
-    { href: '/admin-login',label: 'Staff Portal', external: true },
+    { href: '/contact',         label: 'Help & Support' },
+    { href: '/login',           label: 'Sign In' },
+    { href: '/register',        label: 'Create Account' },
+    { href: '/pricing',         label: 'View Plans' },
+    { href: '/refer',           label: 'Refer & Earn' },
+    { href: '/admin-login',     label: 'Staff Portal', external: true },
+    { href: '/terms',           label: 'Terms of Use' },
+    { href: '/privacy',         label: 'Privacy Policy' },
+    { href: '/fraud-advisory',  label: 'Fraud Advisory' },
   ],
   cities: [
     { href: '/properties?city=Mumbai',     label: 'Mumbai' },
@@ -208,9 +212,13 @@ export function SiteFooter() {
       {/* ── Copyright bar ── */}
       <div className="relative z-10 border-t border-white/8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-5">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
             <span className="text-xs text-white/30">© 2026 NxtSft.com Technology Pvt. Ltd. — All rights reserved.</span>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-end">
+              <Link href="/terms"          className="text-xs text-white/30 transition hover:text-white/60">Terms</Link>
+              <Link href="/privacy"        className="text-xs text-white/30 transition hover:text-white/60">Privacy</Link>
+              <Link href="/fraud-advisory" className="text-xs text-white/30 transition hover:text-white/60">Fraud Advisory</Link>
+              <span className="hidden text-white/15 sm:inline">|</span>
               <span className="text-xs italic text-white/30">Apna Ghar, Apni Pehchaan. &mdash; India</span>
               <Link
                 href="/admin-login"
