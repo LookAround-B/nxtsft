@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams, notFound } from 'next/navigation';
-import { Lock, MapPin, Phone, MessageCircle, Check, Star } from 'lucide-react';
+import { Lock, MapPin, Phone, MessageCircle, Check, Star, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SiteHeader } from '@/components/site/SiteHeader';
 import { SiteFooter } from '@/components/site/SiteFooter';
@@ -22,10 +22,23 @@ export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const [active, setActive] = useState(0);
   const [contactUnlocked, setContactUnlocked] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const { session, credits, useCredit } = useAuth();
 
   const p = properties.find((x) => x.id === id);
   if (!p) { notFound(); return null; }
+
+  const handleShare = () => {
+    const url = window.location.href;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: p.title, text: `${p.priceLabel} — ${p.locality}, ${p.city} | NxtSft.com`, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).catch(() => {});
+      setShareCopied(true);
+      toast.success('Link copied!', { description: 'Property link copied to clipboard.' });
+      setTimeout(() => setShareCopied(false), 2000);
+    }
+  };
   const signedIn = !!session;
   const similar = properties.filter((x) => x.id !== p.id && x.city === p.city).slice(0, 3);
   const similarFallback = similar.length ? similar : properties.filter((x) => x.id !== p.id).slice(0, 3);
@@ -50,12 +63,21 @@ export default function PropertyDetail() {
       <SiteHeader />
 
       <div className="mx-auto max-w-7xl px-5 py-6 sm:px-6 sm:py-10">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <Link href="/" className="text-muted-foreground hover:text-accent">Home</Link>
-          <span className="text-muted-foreground">/</span>
-          <Link href="/properties" className="text-muted-foreground hover:text-accent">Properties</Link>
-          <span className="text-muted-foreground">/</span>
-          <span className="font-semibold text-navy">{p.locality}, {p.city}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Link href="/" className="text-muted-foreground hover:text-accent">Home</Link>
+            <span className="text-muted-foreground">/</span>
+            <Link href="/properties" className="text-muted-foreground hover:text-accent">Properties</Link>
+            <span className="text-muted-foreground">/</span>
+            <span className="font-semibold text-navy">{p.locality}, {p.city}</span>
+          </div>
+          <button
+            onClick={handleShare}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-navy shadow-sm transition hover:border-accent hover:text-accent"
+          >
+            {shareCopied ? <Check size={12} strokeWidth={2.5} /> : <Share2 size={12} />}
+            {shareCopied ? 'Copied!' : 'Share'}
+          </button>
         </div>
 
         {/* Hero gallery */}
@@ -237,6 +259,13 @@ export default function PropertyDetail() {
                 {p.pricePerSqft}/sqft
                 {p.purpose === 'Sale' && ` · EMI ₹${estimateEMI(p.price)}/mo`}
               </div>
+              <button
+                onClick={handleShare}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border py-2 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
+              >
+                {shareCopied ? <Check size={12} strokeWidth={2.5} /> : <Share2 size={12} />}
+                {shareCopied ? 'Link copied!' : 'Share this property'}
+              </button>
               {signedIn ? (
                 <>
                   <button onClick={() => { captureLead('Schedule Visit', p, session!); toast.success('Site visit requested', { description: `${p.owner.name} will confirm a slot within 30 min.` }); }} className="mt-5 w-full rounded-md bg-accent py-3 font-display text-sm font-bold text-white shadow-sm shadow-accent/30 hover:opacity-90">Schedule Site Visit</button>

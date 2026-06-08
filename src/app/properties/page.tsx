@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useMemo, useState, useEffect } from 'react';
-import { Search, SlidersHorizontal, X, Star, Home } from 'lucide-react';
+import { Search, SlidersHorizontal, X, Star, Home, Share2, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { SiteHeader } from '@/components/site/SiteHeader';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { properties } from '@/data/static';
@@ -63,6 +64,18 @@ export default function PropertiesPage() {
 
   const fmtBudget = (n: number) =>
     n >= 10_000_000 ? `₹${(n / 10_000_000).toFixed(2)} Cr` : `₹${(n / 100_000).toFixed(0)} L`;
+
+  const handleShare = (e: React.MouseEvent, p: (typeof properties)[0]) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}/properties/${p.id}`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: p.title, text: `${p.priceLabel} — ${p.locality}, ${p.city} | NxtSft.com`, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).catch(() => {});
+      toast.success('Link copied!', { description: p.title });
+    }
+  };
 
   const FiltersPanel = (
     <div className="space-y-6">
@@ -223,6 +236,13 @@ export default function PropertiesPage() {
                       <span className="absolute bottom-3 right-3 rounded-lg bg-white/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-navy shadow-sm">
                         {p.purpose}
                       </span>
+                      <button
+                        onClick={(e) => handleShare(e, p)}
+                        title="Share property"
+                        className="absolute bottom-3 left-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition hover:bg-white hover:shadow-md"
+                      >
+                        <Share2 size={14} className="text-navy" />
+                      </button>
                     </div>
 
                     {/* Card body */}
