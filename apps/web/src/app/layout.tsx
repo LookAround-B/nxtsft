@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Providers } from "@/components/Providers";
 import { AuthProvider } from "@/lib/auth";
 import { BottomNav } from "@/components/site/BottomNav";
 import { Toaster } from "@/components/ui/sonner";
@@ -28,13 +29,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <Preloader />
-        <AuthProvider>
-          {children}
-          <BottomNav />
-          <ListPropertyPopup />
-          <CookieBanner />
-          <Toaster richColors position="top-right" />
-        </AuthProvider>
+        <Providers>
+          <AuthProvider>
+            {children}
+            <BottomNav />
+            <ListPropertyPopup />
+            <CookieBanner />
+            <Toaster richColors position="top-right" />
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

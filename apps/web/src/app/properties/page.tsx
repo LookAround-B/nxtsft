@@ -1,464 +1,382 @@
 "use client";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useMemo, useState, useEffect } from "react";
-import { Search, SlidersHorizontal, X, Star, Home, Share2, Check } from "lucide-react";
-import { toast } from "sonner";
+import Image from "next/image";
+import {
+  Search,
+  SlidersHorizontal,
+  MapPin,
+  BedDouble,
+  SquareStack,
+  X,
+  ChevronDown,
+  BadgeCheck,
+} from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { properties } from "@/data/static";
+import { trpc } from "@/lib/trpc";
 
-const CITIES = ["All", ...Array.from(new Set(properties.map((p) => p.city)))];
-const TYPES = ["All", ...Array.from(new Set(properties.map((p) => p.type)))];
-const PURPOSES = ["All", "Sale", "Rent"];
-const BHKS = ["All", "1 BHK", "2 BHK", "3 BHK", "4 BHK"];
-const FURNISHINGS = ["All", "Fully Furnished", "Semi-Furnished", "Unfurnished", "Warm Shell"];
-const POSSESSIONS = ["All", "Ready to Move", "Under Construction"];
-const POSTED_BY = ["All", "Owner", "Agent"];
-const SORTS = [
-  { id: "match", label: "Best Match" },
-  { id: "price-asc", label: "Price: Low → High" },
-  { id: "price-desc", label: "Price: High → Low" },
-  { id: "area-desc", label: "Area: Largest" },
-] as const;
+const PROPERTY_TYPES = ["Apartment", "Villa", "Studio", "Office", "Bungalow", "Plot", "PG"] as const;
+const PURPOSES = ["Sale", "Rent"] as const;
+const BHKS = [1, 2, 3, 4, 5];
+const CITIES = [
+  "Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Pune", "Chennai",
+  "Ahmedabad", "Kolkata", "Jaipur", "Noida", "Gurgaon", "Surat",
+];
 
-export default function PropertiesPage() {
-  const [q, setQ] = useState("");
-  const [city, setCity] = useState("All");
-  const [purpose, setPurpose] = useState("All");
-  const [type, setType] = useState("All");
-  const [bhk, setBhk] = useState("All");
-  const [maxBudget, setMaxBudget] = useState(50_000_000);
-  const [minArea, setMinArea] = useState(0);
-  const [furnishing, setFurnishing] = useState("All");
-  const [possession, setPossession] = useState("All");
-  const [postedBy, setPostedBy] = useState("All");
-  const [featuredOnly, setFeaturedOnly] = useState(false);
-  const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>("match");
-  const [showMobile, setShowMobile] = useState(false);
+function formatPrice(price: number): string {
+  if (price >= 1_00_00_000) return `₹${(price / 1_00_00_000).toFixed(2)} Cr`;
+  if (price >= 1_00_000) return `₹${(price / 1_00_000).toFixed(1)} L`;
+  return `₹${price.toLocaleString("en-IN")}`;
+}
 
-  useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    const qParam = sp.get("q");
-    const typeParam = sp.get("type");
-    const cityParam = sp.get("city");
-    if (qParam) setQ(qParam);
-    if (typeParam && TYPES.includes(typeParam)) setType(typeParam);
-    if (cityParam && CITIES.includes(cityParam)) setCity(cityParam);
-  }, []);
+type PropertyItem = {
+  id: string;
+  slug: string;
+  title: string;
+  type: string;
+  purpose: string;
+  price: number;
+  area: number;
+  bedrooms: number;
+  images: string[];
+  bhk: string | null;
+  rera: string | null;
+  featured: boolean;
+  location: { city: string; locality: string; state: string };
+};
 
-  const filtered = useMemo(() => {
-    let r = properties.filter((p) => {
-      if (
-        q &&
-        !`${p.title} ${p.city} ${p.locality} ${p.builder}`.toLowerCase().includes(q.toLowerCase())
-      )
-        return false;
-      if (city !== "All" && p.city !== city) return false;
-      if (purpose !== "All" && p.purpose !== purpose) return false;
-      if (type !== "All" && p.type !== type) return false;
-      if (bhk !== "All" && p.bhk !== bhk) return false;
-      if (furnishing !== "All" && p.furnishing !== furnishing) return false;
-      if (possession === "Ready to Move" && p.age === "Under Construction") return false;
-      if (possession === "Under Construction" && p.age !== "Under Construction") return false;
-      if (postedBy === "Owner" && !p.owner.role.toLowerCase().includes("owner")) return false;
-      if (postedBy === "Agent" && p.owner.role.toLowerCase().includes("owner")) return false;
-      if (minArea > 0 && p.area < minArea) return false;
-      if (featuredOnly && !p.featured) return false;
-      if (p.purpose === "Sale" && p.price > maxBudget) return false;
-      return true;
-    });
-    if (sort === "price-asc") r = [...r].sort((a, b) => a.price - b.price);
-    if (sort === "price-desc") r = [...r].sort((a, b) => b.price - a.price);
-    if (sort === "area-desc") r = [...r].sort((a, b) => b.area - a.area);
-    if (sort === "match") r = [...r].sort((a, b) => b.matchScore - a.matchScore);
-    return r;
-  }, [
-    q,
-    city,
-    purpose,
-    type,
-    bhk,
-    furnishing,
-    possession,
-    postedBy,
-    minArea,
-    featuredOnly,
-    maxBudget,
-    sort,
-  ]);
-
-  const reset = () => {
-    setQ("");
-    setCity("All");
-    setPurpose("All");
-    setType("All");
-    setBhk("All");
-    setMaxBudget(50_000_000);
-    setMinArea(0);
-    setFurnishing("All");
-    setPossession("All");
-    setPostedBy("All");
-    setFeaturedOnly(false);
-    setSort("match");
-  };
-
-  const activeFilterCount = [
-    city !== "All",
-    purpose !== "All",
-    type !== "All",
-    bhk !== "All",
-    maxBudget < 50_000_000,
-    minArea > 0,
-    furnishing !== "All",
-    possession !== "All",
-    postedBy !== "All",
-    featuredOnly,
-  ].filter(Boolean).length;
-
-  const fmtBudget = (n: number) =>
-    n >= 10_000_000 ? `₹${(n / 10_000_000).toFixed(2)} Cr` : `₹${(n / 100_000).toFixed(0)} L`;
-
-  const handleShare = (e: React.MouseEvent, p: (typeof properties)[0]) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const url = `${window.location.origin}/properties/${p.id}`;
-    if (typeof navigator !== "undefined" && navigator.share) {
-      navigator
-        .share({
-          title: p.title,
-          text: `${p.priceLabel} — ${p.locality}, ${p.city} | NxtSft.com`,
-          url,
-        })
-        .catch(() => {});
-    } else {
-      navigator.clipboard.writeText(url).catch(() => {});
-      toast.success("Link copied!", { description: p.title });
-    }
-  };
-
-  const FiltersPanel = (
-    <div className="space-y-6">
-      {/* Search */}
-      <div>
-        <label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Search
-        </label>
-        <div className="relative mt-2">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Locality, builder…"
-            className="w-full rounded-lg border border-border bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-accent"
-          />
-        </div>
-      </div>
-
-      <FilterGroup label="Purpose" options={PURPOSES} value={purpose} onChange={setPurpose} />
-      <FilterGroup label="City" options={CITIES} value={city} onChange={setCity} />
-      <FilterGroup label="Type" options={TYPES} value={type} onChange={setType} />
-      <FilterGroup label="Configuration" options={BHKS} value={bhk} onChange={setBhk} />
-      <FilterGroup
-        label="Furnishing"
-        options={FURNISHINGS}
-        value={furnishing}
-        onChange={setFurnishing}
-      />
-      <FilterGroup
-        label="Possession"
-        options={POSSESSIONS}
-        value={possession}
-        onChange={setPossession}
-      />
-      <FilterGroup label="Posted By" options={POSTED_BY} value={postedBy} onChange={setPostedBy} />
-
-      {/* Max Budget slider */}
-      <div>
-        <div className="flex items-center justify-between">
-          <label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Max Budget
-          </label>
-          <span className="font-display text-sm font-bold text-accent">{fmtBudget(maxBudget)}</span>
-        </div>
-        <input
-          type="range"
-          min={1_000_000}
-          max={50_000_000}
-          step={500_000}
-          value={maxBudget}
-          onChange={(e) => setMaxBudget(Number(e.target.value))}
-          className="mt-3 w-full accent-accent"
-        />
-        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-          <span>₹10 L</span>
-          <span>₹5 Cr</span>
-        </div>
-      </div>
-
-      {/* Min Area slider */}
-      <div>
-        <div className="flex items-center justify-between">
-          <label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Min Area
-          </label>
-          <span className="font-display text-sm font-bold text-accent">
-            {minArea === 0 ? "Any" : `${minArea.toLocaleString("en-IN")} sqft`}
-          </span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={3000}
-          step={100}
-          value={minArea}
-          onChange={(e) => setMinArea(Number(e.target.value))}
-          className="mt-3 w-full accent-accent"
-        />
-        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-          <span>Any</span>
-          <span>3,000 sqft</span>
-        </div>
-      </div>
-
-      {/* Featured toggle */}
-      <label className="flex cursor-pointer items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={featuredOnly}
-          onChange={(e) => setFeaturedOnly(e.target.checked)}
-          className="h-4 w-4 accent-accent"
-        />
-        <span>Featured only</span>
-      </label>
-
-      {activeFilterCount > 0 && (
-        <button
-          onClick={reset}
-          className="w-full rounded-lg border border-accent bg-accent/6 py-2.5 text-sm font-semibold text-accent transition hover:bg-accent hover:text-white"
-        >
-          Clear {activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""}
-        </button>
-      )}
-
-      <button
-        onClick={reset}
-        className="w-full rounded-lg border border-border bg-white py-2.5 text-sm font-semibold text-navy transition hover:border-accent hover:text-accent"
-      >
-        Reset Filters
-      </button>
-    </div>
-  );
+function PropertyCard({ p }: { p: PropertyItem }) {
+  const img =
+    p.images[0] ??
+    "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80";
 
   return (
-    <div className="min-h-screen bg-background">
+    <Link
+      href={`/properties/${p.slug}`}
+      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
+    >
+      <div className="relative h-48 overflow-hidden bg-secondary">
+        <Image
+          src={img}
+          alt={p.title}
+          fill
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+          <span
+            className={`rounded-full px-2.5 py-1 text-[11px] font-bold text-white ${p.purpose === "Sale" ? "bg-accent" : "bg-emerald-500"}`}
+          >
+            For {p.purpose}
+          </span>
+          {p.featured && (
+            <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-white">
+              Featured
+            </span>
+          )}
+        </div>
+        {p.rera && (
+          <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold text-emerald-700 backdrop-blur-sm">
+            <BadgeCheck size={11} />
+            RERA
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col p-4">
+        <div className="font-display text-xl font-black text-navy">
+          {formatPrice(p.price)}
+          {p.purpose === "Rent" && (
+            <span className="text-sm font-medium text-muted-foreground">/mo</span>
+          )}
+        </div>
+        <h3 className="mt-1 line-clamp-1 text-sm font-semibold text-foreground">{p.title}</h3>
+        <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <MapPin size={11} className="shrink-0" />
+          <span className="line-clamp-1">
+            {p.location.locality}, {p.location.city}
+          </span>
+        </div>
+        <div className="mt-3 flex items-center gap-3 border-t border-border pt-3 text-xs text-foreground/70">
+          {p.bedrooms > 0 && (
+            <span className="flex items-center gap-1">
+              <BedDouble size={13} />
+              {p.bhk ?? `${p.bedrooms} BHK`}
+            </span>
+          )}
+          <span className="flex items-center gap-1">
+            <SquareStack size={13} />
+            {p.area.toLocaleString()} sq.ft
+          </span>
+          <span className="ml-auto rounded-lg bg-secondary px-2 py-0.5 text-[11px] font-semibold text-foreground/60">
+            {p.type}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+        active
+          ? "border-accent bg-accent text-white"
+          : "border-border bg-white text-foreground/70 hover:border-accent/50 hover:text-accent"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function PropertiesInner() {
+  const searchParams = useSearchParams();
+
+  const [search, setSearch] = useState(searchParams.get("search") ?? "");
+  const [searchInput, setSearchInput] = useState(searchParams.get("search") ?? "");
+  const [city, setCity] = useState(searchParams.get("city") ?? "");
+  const [type, setType] = useState(searchParams.get("type") ?? "");
+  const [purpose, setPurpose] = useState<"Sale" | "Rent" | "">(
+    (searchParams.get("purpose") as "Sale" | "Rent") ?? ""
+  );
+  const [bedrooms, setBedrooms] = useState<number | undefined>(
+    searchParams.get("bedrooms") ? Number(searchParams.get("bedrooms")) : undefined
+  );
+  const [showFilters, setShowFilters] = useState(false);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const query = (trpc.properties.list as any).useInfiniteQuery(
+    {
+      search: search || undefined,
+      city: city || undefined,
+      type: type || undefined,
+      purpose: purpose || undefined,
+      bedrooms,
+      limit: 12,
+    },
+    {
+      initialCursor: undefined as string | undefined,
+      getNextPageParam: (lastPage: { nextCursor: string | null; hasMore: boolean }) => lastPage.nextCursor ?? undefined,
+    }
+  );
+
+  const properties = (query.data?.pages.flatMap((p: { items: unknown[] }) => p.items) ?? []) as PropertyItem[];
+  const hasMore = query.data?.pages.at(-1)?.hasMore ?? false;
+  const activeCount = [city, type, purpose, bedrooms].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setCity(""); setType(""); setPurpose(""); setBedrooms(undefined);
+    setSearch(""); setSearchInput("");
+  };
+
+  return (
+    <div className="min-h-screen bg-[oklch(0.97_0.01_260)]">
       <SiteHeader />
 
-      {/* Page header — stays part of document flow, well-padded */}
-      <div className="border-b border-border bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-10 sm:py-12">
-          <div className="text-xs font-bold uppercase tracking-widest text-accent">Listings</div>
-          <h1 className="mt-2 font-display text-3xl font-black text-navy sm:text-4xl">
-            {filtered.length.toString().padStart(2, "0")} verified properties
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            AI-matched, RERA-tagged and ready for site visit.
-          </p>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-7xl px-6 py-8 lg:py-10">
-        <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-          {/* Desktop sidebar — sticky so filters stay visible while scrolling */}
-          <aside className="hidden lg:block">
-            <div className="sticky top-6 rounded-2xl border border-border bg-white p-5 shadow-sm">
-              <div className="mb-5 flex items-center justify-between">
-                <div className="font-display text-base font-bold text-navy">Filters</div>
-                <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-              </div>
-              {FiltersPanel}
-            </div>
-          </aside>
-
-          {/* Main column */}
-          <div>
-            {/* Toolbar */}
-            <div className="mb-5 flex flex-wrap items-center gap-3">
-              {/* Mobile filter toggle */}
-              <button
-                onClick={() => setShowMobile(true)}
-                className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition hover:border-accent hover:text-accent lg:hidden"
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-                Filters
-                {activeFilterCount > 0 && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-
-              <span className="text-xs text-muted-foreground">{filtered.length} results</span>
-
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as typeof sort)}
-                className="ml-auto rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-navy outline-none focus:border-accent"
-              >
-                {SORTS.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Empty state */}
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-white px-8 py-20 text-center">
-                <div className="mb-4 grid h-14 w-14 place-items-center rounded-full bg-secondary text-muted-foreground">
-                  <Home size={24} strokeWidth={1.5} />
-                </div>
-                <div className="font-display text-lg font-bold text-navy">No properties found</div>
-                <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-                  Try widening your budget, changing the city, or removing a filter.
-                </p>
-                <button
-                  onClick={reset}
-                  className="mt-6 rounded-xl bg-accent px-6 py-2.5 text-sm font-semibold text-accent-foreground shadow-sm shadow-accent/20 transition hover:opacity-90"
-                >
-                  Reset all filters
-                </button>
-              </div>
-            ) : (
-              /* Property grid: 1 col mobile, 2 cols sm, 3 cols xl */
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((p) => (
-                  <Link
-                    key={p.id}
-                    href={`/properties/${p.id}`}
-                    className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition duration-200 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-navy/8"
-                  >
-                    {/* Image — fixed aspect ratio so all cards align */}
-                    <div className="relative aspect-[4/3] overflow-hidden">
-                      <img
-                        src={p.image}
-                        alt={p.title}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                      {p.featured && (
-                        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-lg bg-gold px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-navy-deep shadow">
-                          <Star size={9} className="fill-current" /> Featured
-                        </span>
-                      )}
-                      <span className="absolute right-3 top-3 rounded-lg bg-navy-deep/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gold backdrop-blur">
-                        {p.matchScore}% match
-                      </span>
-                      <span className="absolute bottom-3 right-3 rounded-lg bg-white/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-navy shadow-sm">
-                        {p.purpose}
-                      </span>
-                      <button
-                        onClick={(e) => handleShare(e, p)}
-                        title="Share property"
-                        className="absolute bottom-3 left-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition hover:bg-white hover:shadow-md"
-                      >
-                        <Share2 size={14} className="text-navy" />
-                      </button>
-                    </div>
-
-                    {/* Card body */}
-                    <div className="flex flex-1 flex-col p-5">
-                      <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                        {p.locality}, {p.city}
-                      </div>
-                      <h3 className="mt-1 font-display text-base font-bold text-navy line-clamp-2">
-                        {p.title}
-                      </h3>
-                      <div className="mt-auto pt-4 flex items-end justify-between">
-                        <div>
-                          <div className="font-display text-xl font-black text-accent">
-                            {p.priceLabel}
-                          </div>
-                          <div className="mt-0.5 text-xs text-muted-foreground">
-                            {p.bhk} · {p.area} sqft · {p.type}
-                          </div>
-                        </div>
-                        <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-xs font-semibold text-navy">
-                          {p.builder}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile filters drawer */}
-      {showMobile && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-navy-deep/60 backdrop-blur-sm"
-            onClick={() => setShowMobile(false)}
-          />
-          <div className="absolute inset-y-0 right-0 w-[88%] max-w-sm overflow-y-auto bg-white p-5 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <div className="font-display text-lg font-bold text-navy">Filters</div>
-              <button
-                onClick={() => setShowMobile(false)}
-                className="rounded-md p-1 text-muted-foreground transition hover:bg-secondary"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            {FiltersPanel}
-            <button
-              onClick={() => setShowMobile(false)}
-              className="mt-6 w-full rounded-xl bg-accent py-3 text-sm font-semibold text-accent-foreground shadow-sm shadow-accent/20 transition hover:opacity-90"
+      {/* Sticky filter bar */}
+      <div className="sticky top-0 z-30 border-b border-border bg-white/95 shadow-sm backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-5 py-3 sm:px-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <form
+              onSubmit={(e) => { e.preventDefault(); setSearch(searchInput); }}
+              className="flex flex-1 items-center gap-2 rounded-xl border border-input bg-background px-3.5 py-2.5"
             >
-              Show {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+              <Search size={16} className="shrink-0 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search by location, project, or type…"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+              {searchInput && (
+                <button type="button" onClick={() => { setSearchInput(""); setSearch(""); }}>
+                  <X size={14} className="text-muted-foreground" />
+                </button>
+              )}
+            </form>
+
+            <button
+              onClick={() => setShowFilters((v) => !v)}
+              className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${showFilters || activeCount > 0 ? "border-accent bg-accent/10 text-accent" : "border-border bg-white text-foreground/70 hover:border-accent/40"}`}
+            >
+              <SlidersHorizontal size={15} />
+              Filters
+              {activeCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-black text-white">
+                  {activeCount}
+                </span>
+              )}
             </button>
           </div>
+
+          {showFilters && (
+            <div className="mt-3 flex flex-wrap gap-2 pb-1">
+              {PURPOSES.map((p) => (
+                <FilterChip
+                  key={p}
+                  label={`For ${p}`}
+                  active={purpose === p}
+                  onClick={() => setPurpose(purpose === p ? "" : p)}
+                />
+              ))}
+
+              <div className="relative">
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className={`appearance-none cursor-pointer rounded-full border px-3.5 py-1.5 pr-7 text-xs font-semibold transition ${type ? "border-accent bg-accent text-white" : "border-border bg-white text-foreground/70"}`}
+                >
+                  <option value="">Property Type</option>
+                  {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <ChevronDown size={12} className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 ${type ? "text-white" : "text-muted-foreground"}`} />
+              </div>
+
+              <div className="relative">
+                <select
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className={`appearance-none cursor-pointer rounded-full border px-3.5 py-1.5 pr-7 text-xs font-semibold transition ${city ? "border-accent bg-accent text-white" : "border-border bg-white text-foreground/70"}`}
+                >
+                  <option value="">All Cities</option>
+                  {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <ChevronDown size={12} className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 ${city ? "text-white" : "text-muted-foreground"}`} />
+              </div>
+
+              {BHKS.map((b) => (
+                <FilterChip
+                  key={b}
+                  label={`${b}${b === 5 ? "+" : ""} BHK`}
+                  active={bedrooms === b}
+                  onClick={() => setBedrooms(bedrooms === b ? undefined : b)}
+                />
+              ))}
+
+              {activeCount > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-100"
+                >
+                  <X size={11} />
+                  Clear all
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
+      <main className="mx-auto max-w-7xl px-5 py-8 sm:px-6">
+        {/* Results summary */}
+        <div className="mb-5">
+          <h1 className="font-display text-xl font-black text-navy sm:text-2xl">
+            {purpose ? `Properties for ${purpose}` : "All Properties"}
+            {city ? ` in ${city}` : ""}
+          </h1>
+          {!query.isLoading && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {properties.length} listing{properties.length !== 1 ? "s" : ""} found
+              {hasMore && " · more available"}
+            </p>
+          )}
+        </div>
+
+        {/* Loading skeleton */}
+        {query.isLoading && (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="animate-pulse overflow-hidden rounded-2xl border border-border bg-white">
+                <div className="h-48 bg-secondary" />
+                <div className="space-y-2.5 p-4">
+                  <div className="h-6 w-32 rounded bg-secondary" />
+                  <div className="h-4 w-48 rounded bg-secondary" />
+                  <div className="h-3 w-36 rounded bg-secondary" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Error */}
+        {query.isError && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-10 text-center">
+            <p className="font-semibold text-rose-700">Failed to load properties.</p>
+            <button
+              onClick={() => query.refetch()}
+              className="mt-3 rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-700"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!query.isLoading && !query.isError && properties.length === 0 && (
+          <div className="rounded-2xl border border-border bg-white px-6 py-16 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
+              <Search size={28} className="text-muted-foreground" />
+            </div>
+            <h3 className="font-display text-lg font-bold text-navy">No properties found</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Try adjusting your filters or search terms.
+            </p>
+            <button
+              onClick={clearFilters}
+              className="mt-5 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
+
+        {/* Property grid */}
+        {properties.length > 0 && (
+          <>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {properties.map((p) => (
+                <PropertyCard key={p.id} p={p} />
+              ))}
+            </div>
+
+            {hasMore && (
+              <div className="mt-10 text-center">
+                <button
+                  onClick={() => query.fetchNextPage()}
+                  disabled={query.isFetchingNextPage}
+                  className="rounded-xl border-2 border-navy px-8 py-3 font-display text-sm font-bold text-navy transition hover:bg-navy hover:text-white disabled:opacity-60"
+                >
+                  {query.isFetchingNextPage ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-navy/30 border-t-navy" />
+                      Loading…
+                    </span>
+                  ) : (
+                    "Load more properties"
+                  )}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </main>
 
       <SiteFooter />
     </div>
   );
 }
 
-function FilterGroup({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: string[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
+export default function PropertiesPage() {
   return (
-    <div>
-      <label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-        {label}
-      </label>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {options.map((opt) => (
-          <button
-            key={opt}
-            onClick={() => onChange(opt)}
-            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-              value === opt
-                ? "border-accent bg-accent text-accent-foreground"
-                : "border-border bg-white text-foreground hover:border-accent hover:text-accent"
-            }`}
-          >
-            {opt}
-          </button>
-        ))}
-      </div>
-    </div>
+    <Suspense>
+      <PropertiesInner />
+    </Suspense>
   );
 }

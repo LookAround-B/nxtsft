@@ -33,6 +33,6 @@
       "inputs": ["prisma/schema.prisma"]
     }
   },
-  "globalEnv": ["NODE_ENV", "DATABASE_URL", "REDIS_URL", "ENVIRONMENT"],
+  "globalEnv": ["NODE_ENV", "DATABASE_URL", "REDIS_URL", "ENVIRONMENT", "PORT", "HOST", "CORS_ORIGINS", "NEXT_PUBLIC_API_URL"],
   "ui": "tui"
 }

@@ -20,11 +20,22 @@ import {
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { ownerRentalPlans, ownerSellPlans, seekerPlans } from "@/data/static";
+import { ownerRentalPlans, ownerSellPlans } from "@/data/static";
 import { useAuth } from "@/lib/auth";
+import { trpc } from "@/lib/trpc";
 
 type OwnerPlan = (typeof ownerRentalPlans)[0];
-type SeekerPlan = (typeof seekerPlans)[0];
+type SeekerPlan = {
+  id: string;
+  name: string;
+  price: number;
+  priceLabel: string;
+  credits: number;
+  validity: number;
+  tagline: string;
+  features: string[];
+  popular: boolean;
+};
 
 /* ── Plan card — owner ──────────────────────────────────────────── */
 function OwnerPlanCard({ plan, onBuy }: { plan: OwnerPlan; onBuy: (p: OwnerPlan) => void }) {
@@ -79,27 +90,17 @@ function OwnerPlanCard({ plan, onBuy }: { plan: OwnerPlan; onBuy: (p: OwnerPlan)
 
 /* ── Plan card — seeker ─────────────────────────────────────────── */
 function SeekerPlanCard({ plan, onBuy }: { plan: SeekerPlan; onBuy: (p: SeekerPlan) => void }) {
-  const isPopular = plan.badge === "Popular";
+  const isPopular = plan.popular;
   return (
     <div
       className={`relative flex h-full flex-col rounded-2xl border-2 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl
       ${isPopular ? "border-accent shadow-accent/10" : "border-border"}`}
     >
-      {plan.badge && (
+      {isPopular && (
         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap">
-          <span
-            className={`rounded-full px-4 py-1 text-[11px] font-bold uppercase tracking-widest shadow
-            ${isPopular ? "bg-accent text-white" : "bg-navy text-white"}`}
-          >
-            {plan.badge}
+          <span className="rounded-full bg-accent px-4 py-1 text-[11px] font-bold uppercase tracking-widest text-white shadow">
+            Popular
           </span>
-        </div>
-      )}
-
-      {plan.rm && (
-        <div className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-200">
-          <UserCheck size={11} />
-          Dedicated RM Included
         </div>
       )}
 
@@ -112,7 +113,7 @@ function SeekerPlanCard({ plan, onBuy }: { plan: SeekerPlan; onBuy: (p: SeekerPl
           {plan.credits} {plan.credits === 1 ? "credit" : "credits"}
         </span>
       </div>
-      <div className="mt-1 text-xs text-muted-foreground">Valid for {plan.validity}</div>
+      <div className="mt-1 text-xs text-muted-foreground">Valid for {plan.validity} days</div>
 
       <ul className="mt-5 flex-1 space-y-2.5">
         {plan.features.map((f: string) => (
@@ -1018,9 +1019,14 @@ const resellerFaqs: string[][] = [
 const TABS = ["Builders & Consultants", "Tenants", "Resellers & Owners"];
 
 export default function PricingPage() {
-  const { session, addCredits } = useAuth();
+  const { session, refreshCredits } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [ownerMode, setOwnerMode] = useState<"renting" | "selling">("renting");
+  const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
+
+  const plansQuery = trpc.subscriptions.plans.useQuery({ type: "seeker" });
+  const createOrder = trpc.subscriptions.createOrder.useMutation();
+  const verifyPayment = trpc.subscriptions.verifyPayment.useMutation();
 
   const handleBuyOwner = (plan: OwnerPlan) => {
     if (!session) {
@@ -1033,16 +1039,30 @@ export default function PricingPage() {
     });
   };
 
-  const handleBuySeeker = (plan: SeekerPlan) => {
+  const handleBuySeeker = async (plan: SeekerPlan) => {
     if (!session) {
-      toast.error("Please sign in first");
+      toast.error("Please sign in to purchase a plan.");
       return;
     }
-    addCredits(plan.credits);
-    toast.success(`${plan.name} plan activated!`, {
-      description: `${plan.credits} credit${plan.credits > 1 ? "s" : ""} added to your wallet.`,
-      duration: 5000,
-    });
+    setBuyingPlanId(plan.id);
+    try {
+      const order = await createOrder.mutateAsync({ planId: plan.id });
+      await verifyPayment.mutateAsync({
+        razorpayOrderId: order.orderId,
+        razorpayPaymentId: `demo_pay_${Date.now()}`,
+        razorpaySignature: `demo_sig_${Date.now()}`,
+        planId: plan.id,
+      });
+      await refreshCredits();
+      toast.success(`${plan.name} plan activated!`, {
+        description: `${plan.credits} credit${plan.credits > 1 ? "s" : ""} added to your wallet.`,
+        duration: 5000,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Purchase failed. Please try again.");
+    } finally {
+      setBuyingPlanId(null);
+    }
   };
 
   const handleBuyReseller = (plan: ResellerPlan) => {
@@ -1057,6 +1077,7 @@ export default function PricingPage() {
   };
 
   const ownerPlans = ownerMode === "renting" ? ownerRentalPlans : ownerSellPlans;
+  const dbSeekerPlans = (plansQuery.data ?? []) as SeekerPlan[];
 
   const scrollToPlan = (planId: string) => {
     const el = document.getElementById(`plan-${planId}`);
@@ -1174,11 +1195,19 @@ export default function PricingPage() {
         <>
           <section className="mx-auto max-w-6xl px-5 pb-6 pt-10 sm:px-6">
             <div className="grid grid-cols-1 items-stretch gap-6 pt-5 sm:grid-cols-2 lg:grid-cols-3">
-              {seekerPlans.map((plan) => (
-                <div id={`plan-${plan.id}`} key={plan.id} className="h-full">
-                  <SeekerPlanCard plan={plan} onBuy={handleBuySeeker} />
-                </div>
-              ))}
+              {plansQuery.isLoading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-72 animate-pulse rounded-2xl border border-border bg-white" />
+                  ))
+                : dbSeekerPlans.map((plan) => (
+                  <div
+                    id={`plan-${plan.id}`}
+                    key={plan.id}
+                    className={`h-full transition-opacity ${buyingPlanId && buyingPlanId !== plan.id ? "opacity-50" : ""}`}
+                  >
+                    <SeekerPlanCard plan={plan} onBuy={handleBuySeeker} />
+                  </div>
+                ))}
             </div>
             <p className="mt-8 text-center text-xs text-muted-foreground">
               Secure payment via Razorpay · One-time only, no recurring charges · Dispute refund

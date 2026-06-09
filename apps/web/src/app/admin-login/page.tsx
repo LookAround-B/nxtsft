@@ -13,9 +13,11 @@ import {
   EyeOff,
   ArrowLeft,
 } from "lucide-react";
-import { ROLE_META, useAuth, type Role } from "@/lib/auth";
+import { ROLE_META, useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
 type AdminRole = "super-admin" | "admin" | "supervisor" | "sales" | "support-admin";
+
 
 const ROLES: {
   role: AdminRole;
@@ -86,11 +88,11 @@ const ROLES: {
 ];
 
 export default function AdminLoginPage() {
-  const { signIn } = useAuth();
+  const { signInStaff } = useAuth();
   const router = useRouter();
   const [selected, setSelected] = useState<AdminRole | null>(null);
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("demo1234");
+  const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -102,18 +104,21 @@ export default function AdminLoginPage() {
     setError("");
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selected) {
-      setError("Select a role to continue.");
-      return;
-    }
+    if (!selected) { setError("Select a role to continue."); return; }
+    if (!email.trim() || !password) { setError("Enter your email and password."); return; }
     setError("");
     setLoading(true);
-    setTimeout(() => {
-      signIn(selected as Role);
-      router.push(ROLE_META[selected].portal);
-    }, 600);
+    try {
+      const s = await signInStaff(email.trim(), password);
+      toast.success(`Welcome, ${s.name.split(" ")[0]}!`);
+      router.push(ROLE_META[s.role].portal);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const active = selected ? ROLES.find((r) => r.role === selected) : null;
@@ -317,9 +322,8 @@ export default function AdminLoginPage() {
                   )}
                 </button>
 
-                {/* Demo hint */}
                 <p className="mt-4 rounded-lg bg-secondary/60 px-3 py-2 text-center text-[11px] text-muted-foreground">
-                  Demo mode — credentials are pre-filled when you select a role.
+                  Select your role and enter your credentials to sign in.
                 </p>
               </form>
             </div>

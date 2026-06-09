@@ -1,5 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import type { AppRouter } from "@nxtsft/trpc";
 
 export type Role =
   | "super-admin"
@@ -11,6 +13,7 @@ export type Role =
   | "customer";
 
 export interface Session {
+  id: string;
   role: Role;
   name: string;
   email: string;
@@ -22,15 +25,7 @@ export interface Session {
 
 export const ROLE_META: Record<
   Role,
-  {
-    label: string;
-    portal: string;
-    portalName: string;
-    demoEmail: string;
-    demoName: string;
-    city: string;
-    phone: string;
-  }
+  { label: string; portal: string; portalName: string; demoEmail: string; demoName: string; city: string; phone: string }
 > = {
   "super-admin": {
     label: "Super Admin",
@@ -39,7 +34,7 @@ export const ROLE_META: Record<
     demoEmail: "sa@nxtsft.com",
     demoName: "Aarav Kapoor",
     city: "Bengaluru HQ",
-    phone: "+91 98xxx 00001",
+    phone: "+91 9800000001",
   },
   admin: {
     label: "Admin",
@@ -48,7 +43,7 @@ export const ROLE_META: Record<
     demoEmail: "admin@nxtsft.com",
     demoName: "Meera Iyer",
     city: "Mumbai",
-    phone: "+91 98xxx 00002",
+    phone: "+91 9800000002",
   },
   supervisor: {
     label: "Supervisor",
@@ -57,7 +52,7 @@ export const ROLE_META: Record<
     demoEmail: "supervisor@nxtsft.com",
     demoName: "Rahul Verma",
     city: "Pune",
-    phone: "+91 98xxx 00003",
+    phone: "+91 9800000003",
   },
   sales: {
     label: "Sales Rep",
@@ -66,7 +61,7 @@ export const ROLE_META: Record<
     demoEmail: "priya@nxtsft.com",
     demoName: "Priya Sharma",
     city: "Mumbai",
-    phone: "+91 98xxx 12042",
+    phone: "+91 9800012042",
   },
   "support-admin": {
     label: "Support Admin",
@@ -75,7 +70,7 @@ export const ROLE_META: Record<
     demoEmail: "support@nxtsft.com",
     demoName: "Support Admin",
     city: "Mumbai",
-    phone: "+91 98xxx 00005",
+    phone: "+91 9800000005",
   },
   user: {
     label: "Home Buyer",
@@ -84,7 +79,7 @@ export const ROLE_META: Record<
     demoEmail: "rohan@example.com",
     demoName: "Rohan Mehta",
     city: "Mumbai",
-    phone: "+91 98xxx 11000",
+    phone: "+91 9800011000",
   },
   customer: {
     label: "Customer",
@@ -93,150 +88,219 @@ export const ROLE_META: Record<
     demoEmail: "ananya@example.com",
     demoName: "Ananya Gupta",
     city: "Delhi",
-    phone: "+91 98xxx 11001",
+    phone: "+91 9800011001",
   },
 };
 
 const SESSION_KEY = "nxtsft.session";
 const CREDITS_KEY = "nxtsft.credits";
+const TOKEN_KEY = "nxtsft.token";
 
 interface Ctx {
   session: Session | null;
   credits: number;
-  signIn: (role: Role) => Session;
-  signOut: () => void;
-  register: (name: string, email: string, phone: string) => Session;
-  updateProfile: (name: string, phone: string) => void;
+  token: string | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<Session>;
+  signInStaff: (email: string, password: string) => Promise<Session>;
+  signOut: () => Promise<void>;
+  register: (name: string, email: string, phone: string, password: string, city?: string) => Promise<Session>;
+  updateProfile: (name: string, phone: string) => Promise<void>;
   addCredits: (n: number) => void;
   useCredit: () => boolean;
+  refreshCredits: () => Promise<void>;
 }
 
 const AuthContext = createContext<Ctx | null>(null);
 
-function readCredits(): number {
+// Vanilla tRPC client for imperative calls (AuthProvider can't use hooks)
+function makeTRPC(token?: string | null) {
+  return createTRPCClient<AppRouter>({
+    links: [
+      httpBatchLink({
+        url: "/api/trpc",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }),
+    ],
+  });
+}
+
+function toInitials(name: string): string {
+  return name.split(" ").map((s) => s[0] ?? "").join("").slice(0, 2).toUpperCase();
+}
+
+function formatJoined(date: Date | string): string {
+  return new Date(date).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+}
+
+type SafeUser = {
+  id: string;
+  role: string;
+  name: string;
+  email: string;
+  phone: string;
+  city: string;
+  credits: number;
+  joined: Date | string;
+};
+
+function toSession(user: SafeUser): Session {
+  return {
+    id: user.id,
+    role: user.role as Role,
+    name: user.name,
+    email: user.email,
+    initials: toInitials(user.name),
+    city: user.city || "India",
+    phone: user.phone.startsWith("+") ? user.phone : `+91 ${user.phone}`,
+    joined: formatJoined(user.joined),
+  };
+}
+
+function readLS(key: string, fallback: string): string {
   try {
-    return Math.max(0, parseInt(localStorage.getItem(CREDITS_KEY) ?? "0", 10) || 0);
+    return localStorage.getItem(key) ?? fallback;
   } catch {
-    return 0;
+    return fallback;
   }
 }
 
-function writeCredits(n: number): void {
+function writeLS(key: string, value: string): void {
   try {
-    localStorage.setItem(CREDITS_KEY, String(Math.max(0, n)));
+    localStorage.setItem(key, value);
+  } catch {}
+}
+
+function removeLS(key: string): void {
+  try {
+    localStorage.removeItem(key);
   } catch {}
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [credits, setCredits] = useState(0);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const raw = readLS(SESSION_KEY, "null");
+    const t = readLS(TOKEN_KEY, "");
+    const c = Math.max(0, parseInt(readLS(CREDITS_KEY, "0"), 10) || 0);
     try {
-      const raw = typeof window !== "undefined" ? window.localStorage.getItem(SESSION_KEY) : null;
-      if (raw) setSession(JSON.parse(raw));
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") setSession(parsed as Session);
     } catch {}
-    setCredits(readCredits());
+    if (t) setToken(t);
+    setCredits(c);
+    setLoading(false);
   }, []);
 
-  const signIn = (role: Role): Session => {
-    const meta = ROLE_META[role];
-    const initials = meta.demoName
-      .split(" ")
-      .map((s) => s[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-    const s: Session = {
-      role,
-      name: meta.demoName,
-      email: meta.demoEmail,
-      initials,
-      city: meta.city,
-      phone: meta.phone,
-      joined: "Jan 2024",
-    };
-    try {
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(s));
-    } catch {}
+  function persist(s: Session, t: string, c: number) {
+    writeLS(SESSION_KEY, JSON.stringify(s));
+    writeLS(TOKEN_KEY, t);
+    writeLS(CREDITS_KEY, String(c));
     setSession(s);
-    // Demo home-buyer roles get 3 free credits to explore the platform
-    if ((role === "user" || role === "customer") && readCredits() === 0) {
-      writeCredits(3);
-      setCredits(3);
-    } else {
-      setCredits(readCredits());
-    }
-    return s;
-  };
+    setToken(t);
+    setCredits(c);
+  }
 
-  const signOut = () => {
-    try {
-      window.localStorage.removeItem(SESSION_KEY);
-    } catch {}
+  async function signIn(email: string, password: string): Promise<Session> {
+    const { token: t, user } = await makeTRPC().auth.login.mutate({ email, password });
+    const s = toSession(user);
+    persist(s, t, user.credits);
+    return s;
+  }
+
+  async function signInStaff(email: string, password: string): Promise<Session> {
+    const { token: t, user } = await makeTRPC().auth.loginStaff.mutate({ email, password });
+    const s = toSession(user);
+    persist(s, t, user.credits);
+    return s;
+  }
+
+  async function signOut(): Promise<void> {
+    if (token) {
+      try {
+        await makeTRPC(token).auth.logout.mutate();
+      } catch {}
+    }
+    removeLS(SESSION_KEY);
+    removeLS(TOKEN_KEY);
     setSession(null);
-    setCredits(readCredits()); // keep credits
-  };
+    setToken(null);
+    // credits are intentionally preserved across sign-out
+    setCredits(Math.max(0, parseInt(readLS(CREDITS_KEY, "0"), 10) || 0));
+  }
 
-  const register = (name: string, email: string, phone: string): Session => {
-    const initials = name
-      .split(" ")
-      .map((s) => s[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-    const joined = new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" });
-    const s: Session = { role: "user", name, email, initials, city: "India", phone, joined };
-    try {
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(s));
-      const users: Session[] = JSON.parse(window.localStorage.getItem("nxtsft.users") ?? "[]");
-      if (!users.find((u) => u.email === email)) users.push(s);
-      window.localStorage.setItem("nxtsft.users", JSON.stringify(users));
-    } catch {}
-    setSession(s);
-    // Give 1 free credit on registration (welcome gift)
-    if (readCredits() === 0) {
-      writeCredits(1);
-      setCredits(1);
-    } else {
-      setCredits(readCredits());
-    }
+  async function register(
+    name: string,
+    email: string,
+    phone: string,
+    password: string,
+    city = "India"
+  ): Promise<Session> {
+    const { token: t, user } = await makeTRPC().auth.register.mutate({
+      name,
+      email,
+      phone,
+      password,
+      city,
+    });
+    const s = toSession(user);
+    persist(s, t, user.credits);
     return s;
-  };
+  }
 
-  const updateProfile = (name: string, phone: string) => {
-    if (!session) return;
-    const initials = name
-      .split(" ")
-      .map((s) => s[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-    const updated: Session = { ...session, name, phone, initials };
-    try {
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
-    } catch {}
+  async function updateProfile(name: string, phone: string): Promise<void> {
+    if (!session || !token) return;
+    await makeTRPC(token).users.updateProfile.mutate({ name, phone });
+    const updated: Session = { ...session, name, phone: `+91 ${phone}`, initials: toInitials(name) };
+    writeLS(SESSION_KEY, JSON.stringify(updated));
     setSession(updated);
-  };
+  }
 
-  const addCredits = (n: number) => {
-    const next = readCredits() + n;
-    writeCredits(next);
+  function addCredits(n: number): void {
+    const next = Math.max(0, credits + n);
+    writeLS(CREDITS_KEY, String(next));
     setCredits(next);
-  };
+  }
 
-  const useCredit = (): boolean => {
-    const current = readCredits();
-    if (current <= 0) return false;
-    const next = current - 1;
-    writeCredits(next);
+  function useCredit(): boolean {
+    if (credits <= 0) return false;
+    const next = credits - 1;
+    writeLS(CREDITS_KEY, String(next));
     setCredits(next);
     return true;
-  };
+  }
+
+  async function refreshCredits(): Promise<void> {
+    if (!token) return;
+    try {
+      const user = await makeTRPC(token).auth.me.query();
+      if (user) {
+        writeLS(CREDITS_KEY, String(user.credits));
+        setCredits(user.credits);
+      }
+    } catch {}
+  }
 
   return (
     <AuthContext.Provider
-      value={{ session, credits, signIn, signOut, register, updateProfile, addCredits, useCredit }}
+      value={{
+        session,
+        credits,
+        token,
+        loading,
+        signIn,
+        signInStaff,
+        signOut,
+        register,
+        updateProfile,
+        addCredits,
+        useCredit,
+        refreshCredits,
+      }}
     >
       {children}
     </AuthContext.Provider>

@@ -2,45 +2,46 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { ROLE_META, useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const { session, signIn, signOut } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState(ROLE_META["user"].demoEmail);
-  const [password, setPassword] = useState("demo1234");
-  const [loading, setLoading] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      setError("Enter your email and password.");
+      return;
+    }
+    setError("");
     setLoading(true);
-    setTimeout(() => {
-      try {
-        const users: Array<{ email: string; role?: string }> = JSON.parse(
-          window.localStorage.getItem("nxtsft.users") ?? "[]",
-        );
-        const found = users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
-        if (found) {
-          signIn(
-            (found.role as typeof ROLE_META extends Record<infer R, unknown> ? R : never) ?? "user",
-          );
-        } else {
-          signIn("user");
-        }
-      } catch {
-        signIn("user");
-      }
-      router.push(ROLE_META["user"].portal);
-    }, 500);
+    try {
+      const s = await signIn(email.trim(), password);
+      toast.success(`Welcome back, ${s.name.split(" ")[0]}!`);
+      router.push(ROLE_META[s.role].portal);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 sm:py-16 lg:grid-cols-2">
-        {/* Left panel */}
+        {/* Left decorative panel */}
         <div className="hidden animate-fade-up flex-col justify-between rounded-3xl bg-gradient-to-br from-navy via-navy-deep to-accent p-10 text-white lg:flex">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white/70">
@@ -87,20 +88,21 @@ export default function LoginPage() {
               </button>
             </div>
           )}
-          <div className="text-xs font-bold uppercase tracking-widest text-accent">
-            Welcome back
-          </div>
+
+          <div className="text-xs font-bold uppercase tracking-widest text-accent">Welcome back</div>
           <h2 className="mt-2 font-display text-3xl font-black text-navy sm:text-4xl">
             Sign in to NxtSft.com
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Demo mode — credentials are pre-filled.
+            Find your next home — zero brokerage, RERA-verified.
           </p>
 
           <form
             onSubmit={submit}
+            noValidate
             className="mt-6 rounded-2xl border border-border bg-white p-6 shadow-sm"
           >
+            {/* Email */}
             <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
               Email
             </label>
@@ -108,37 +110,66 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+              placeholder="your@email.com"
+              autoComplete="email"
+              className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
             />
+
+            {/* Password */}
             <label className="mt-4 block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
               Password
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-            />
-            <div className="mt-3 flex items-center justify-between text-xs">
-              <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
-                <input type="checkbox" defaultChecked className="rounded" /> Remember me
-              </label>
+            <div className="relative mt-1.5">
+              <input
+                type={showPass ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                className="w-full rounded-xl border border-input bg-background px-3.5 py-3 pr-11 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+              />
               <button
                 type="button"
-                className="font-semibold text-accent hover:underline"
-                onClick={() => alert("Password reset not available in demo mode.")}
+                tabIndex={-1}
+                onClick={() => setShowPass((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
+              >
+                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+
+            <div className="mt-3 flex items-center justify-end">
+              <button
+                type="button"
+                className="text-xs font-semibold text-accent hover:underline"
+                onClick={() => toast.info("Password reset coming soon.")}
               >
                 Forgot password?
               </button>
             </div>
+
+            {error && (
+              <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
+                {error}
+              </p>
+            )}
+
             <button
-              disabled={loading}
               type="submit"
-              className="mt-5 w-full rounded-xl bg-accent py-3 font-display text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:opacity-95 hover:-translate-y-0.5 disabled:opacity-60"
+              disabled={loading}
+              className="mt-4 w-full rounded-xl bg-accent py-3.5 font-display text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-60"
             >
-              {loading ? "Signing in…" : "Sign in →"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Signing in…
+                </span>
+              ) : (
+                "Sign in →"
+              )}
             </button>
           </form>
+
           <p className="mt-5 text-center text-xs text-muted-foreground">
             New here?{" "}
             <Link href="/register" className="font-semibold text-accent hover:underline">

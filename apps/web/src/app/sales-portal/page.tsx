@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Target,
@@ -19,6 +20,8 @@ import {
 } from "lucide-react";
 import { PortalShell, StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
+import { useAuth } from "@/lib/auth";
+import { trpc } from "@/lib/trpc";
 import { leads, activities, properties, propertyViews } from "@/data/static";
 import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
 
@@ -47,17 +50,27 @@ function downloadCSV(filename: string, headers: string[], rows: string[][]) {
 }
 
 export default function SalesPortal() {
+  const { session } = useAuth();
+  const router = useRouter();
   const h = useActiveHash();
+
+  useEffect(() => {
+    if (session !== undefined && !session) router.push("/admin-login");
+  }, [session, router]);
+
+  if (!session) return null;
+  const user = { name: session.name, initials: session.initials };
+
   return (
     <PortalShell
       brand="NxtSft.com Field"
       role="Sales Rep"
       accent="amber"
-      user={{ name: "Priya Sharma", initials: "PS" }}
+      user={user}
       nav={nav}
       basePath="/sales-portal"
     >
-      {renderTab(h)}
+      {renderTab(h, session.name)}
     </PortalShell>
   );
 }
@@ -69,7 +82,7 @@ const Head = ({ t, s }: { t: string; s?: string }) => (
   </div>
 );
 
-function renderTab(h: string) {
+function renderTab(h: string, salesName: string) {
   switch (h) {
     case "detail":
       return <Detail />;
@@ -86,9 +99,9 @@ function renderTab(h: string) {
     case "reports":
       return (
         <ReportsDashboard
-          defaultSales="Priya Sharma"
+          defaultSales={salesName}
           title="My Reports"
-          subtitle="Reports filtered to your activity — Priya Sharma."
+          subtitle={`Reports filtered to your activity — ${salesName}.`}
         />
       );
     default:
@@ -109,45 +122,53 @@ function getMeta(id: string) {
 
 const sourceTone: Record<string, "hot" | "warm" | "cold" | "new" | "success"> = {
   WhatsApp: "hot",
-  Organic: "new",
+  Portal: "new",
   Referral: "warm",
+  Direct: "cold",
 };
+
+type DbLead = {
+  id: string;
+  name: string;
+  phone: string;
+  city: string | null;
+  interest: string | null;
+  status: string;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  property: { id: string; title: string; slug: string } | null;
+};
+
+function daysSince(iso: string) {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+}
+
+function fmtRelative(iso: string) {
+  const d = daysSince(iso);
+  if (d === 0) return "Today";
+  if (d === 1) return "Yesterday";
+  return `${d}d ago`;
+}
 
 // ─── My Leads ─────────────────────────────────────────────────────────────────
 function MyLeads() {
   const [filter, setFilter] = useState<"All" | "Hot" | "Warm" | "Cold">("All");
-  const mine = leads.slice(0, 4);
-  const filtered =
-    filter === "All" ? mine : mine.filter((l) => l.status.toLowerCase() === filter.toLowerCase());
+
+  const leadsQ = trpc.leads.list.useQuery({
+    status: filter !== "All" ? (filter as "Hot" | "Warm" | "Cold") : undefined,
+    limit: 50,
+  });
+  const items = (leadsQ.data?.items ?? []) as DbLead[];
+
+  const hotCount = items.filter((l) => l.status === "Hot").length;
 
   function handleExport() {
-    const headers = [
-      "ID",
-      "Name",
-      "Phone",
-      "City",
-      "Interest",
-      "Budget",
-      "Status",
-      "Source",
-      "Days In Pipeline",
-      "Last Activity",
-    ];
-    const rows = filtered.map((l) => {
-      const m = getMeta(l.id);
-      return [
-        l.id,
-        l.name,
-        l.phone,
-        l.city,
-        l.interest,
-        `₹${(l.value / 100000).toFixed(1)}L`,
-        l.status,
-        m.source,
-        String(m.daysInPipeline),
-        l.lastActivity,
-      ];
-    });
+    const headers = ["ID", "Name", "Phone", "City", "Interest", "Status", "Source", "Days In Pipeline", "Last Activity"];
+    const rows = items.map((l) => [
+      l.id, l.name, l.phone, l.city ?? "", l.interest ?? l.property?.title ?? "",
+      l.status, l.source, String(daysSince(l.createdAt)), fmtRelative(l.updatedAt),
+    ]);
     downloadCSV("my-leads.csv", headers, rows);
     toast.success("CSV downloaded");
   }
@@ -156,21 +177,19 @@ function MyLeads() {
     <>
       <Head t="My Leads" s="Your active queue — call, WhatsApp or annotate." />
 
-      {/* 6 stat cards */}
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-        <StatCard label="My Open Leads" value="14" sub="+2 today" />
-        <StatCard label="Closed MTD" value="4" sub="+1 this wk" />
-        <StatCard label="Visits This Wk" value="6" sub="2 tomorrow" />
-        <StatCard label="Commission MTD" value="₹2.18 L" sub="+₹48K pending" accent="text-accent" />
-        <StatCard label="Hot Leads" value="6" sub="Needs action" accent="text-accent" />
-        <StatCard label="Avg Deal Size" value="₹48 L" sub="MTD average" />
+        <StatCard label="My Open Leads" value={String(items.length)} sub="assigned to you" />
+        <StatCard label="Hot Leads" value={String(hotCount)} sub="needs action" accent="text-accent" />
+        <StatCard label="Closed MTD" value="—" sub="in progress" />
+        <StatCard label="Visits This Wk" value="—" sub="scheduled" />
+        <StatCard label="Commission MTD" value="—" sub="pending" accent="text-accent" />
+        <StatCard label="Avg Deal Size" value="—" sub="MTD average" />
       </div>
 
       <Section
         title="Assigned to you"
         action={
           <div className="flex items-center gap-3">
-            {/* Quick filter tabs */}
             <div className="flex rounded-lg border border-border overflow-hidden text-xs font-semibold">
               {(["All", "Hot", "Warm", "Cold"] as const).map((f) => (
                 <button
@@ -191,64 +210,68 @@ function MyLeads() {
           </div>
         }
       >
-        {filtered.length === 0 ? (
+        {leadsQ.isLoading ? (
+          <div className="space-y-4 py-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse space-y-2 border-b border-border pb-4">
+                <div className="h-4 w-48 rounded bg-secondary" />
+                <div className="h-3 w-64 rounded bg-secondary" />
+              </div>
+            ))}
+          </div>
+        ) : items.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">No leads match this filter.</p>
         ) : (
-          filtered.map((l) => {
-            const m = getMeta(l.id);
-            return (
-              <div key={l.id} className="border-b border-border py-4 last:border-0">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-navy">{l.name}</span>
-                      <Badge tone={l.status.toLowerCase() as "hot" | "warm" | "cold" | "new"}>
-                        {l.status}
-                      </Badge>
-                      <Badge tone={sourceTone[m.source] ?? "new"}>{m.source}</Badge>
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {l.interest} · {l.city} · Budget: {m.budgetRange}
-                    </div>
-                    <div className="mt-0.5 font-mono text-[10px] text-muted-foreground flex items-center gap-2">
-                      <span>
-                        {l.id} · {l.lastActivity}
-                      </span>
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold">
-                        {m.daysInPipeline}d in pipeline
-                      </span>
-                    </div>
+          items.map((l) => (
+            <div key={l.id} className="border-b border-border py-4 last:border-0">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-navy">{l.name}</span>
+                    <Badge tone={l.status.toLowerCase() as "hot" | "warm" | "cold" | "new"}>
+                      {l.status}
+                    </Badge>
+                    <Badge tone={sourceTone[l.source] ?? "new"}>{l.source}</Badge>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => toast.success(`Calling ${l.name}`)}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white"
-                    >
-                      <Phone size={12} /> Call
-                    </button>
-                    <button
-                      onClick={() => toast.success(`WhatsApp opened for ${l.name}`)}
-                      className="rounded-md bg-mid-blue px-3 py-1.5 text-xs font-semibold text-white"
-                    >
-                      WhatsApp
-                    </button>
-                    <button
-                      onClick={() => toast("Note saved")}
-                      className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold"
-                    >
-                      + Note
-                    </button>
-                    <button
-                      onClick={() => toast.success(`Visit scheduled for ${l.name}`)}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white"
-                    >
-                      <Calendar size={12} /> Schedule Visit
-                    </button>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {l.interest ?? l.property?.title ?? "Property enquiry"} · {l.city ?? "—"}
+                  </div>
+                  <div className="mt-0.5 font-mono text-[10px] text-muted-foreground flex items-center gap-2">
+                    <span>{l.id.slice(0, 8)}… · {fmtRelative(l.updatedAt)}</span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold">
+                      {daysSince(l.createdAt)}d in pipeline
+                    </span>
                   </div>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => toast.success(`Calling ${l.name}`)}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white"
+                  >
+                    <Phone size={12} /> Call
+                  </button>
+                  <button
+                    onClick={() => toast.success(`WhatsApp opened for ${l.name}`)}
+                    className="rounded-md bg-mid-blue px-3 py-1.5 text-xs font-semibold text-white"
+                  >
+                    WhatsApp
+                  </button>
+                  <button
+                    onClick={() => toast("Note saved")}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold"
+                  >
+                    + Note
+                  </button>
+                  <button
+                    onClick={() => toast.success(`Visit scheduled for ${l.name}`)}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white"
+                  >
+                    <Calendar size={12} /> Schedule Visit
+                  </button>
+                </div>
               </div>
-            );
-          })
+            </div>
+          ))
         )}
       </Section>
     </>
@@ -539,13 +562,16 @@ function Call() {
   const [durations, setDurations] = useState<Record<string, string>>({});
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
 
-  function dial(l: (typeof leads)[0]) {
+  const leadsQ = trpc.leads.list.useQuery({ status: "Hot", limit: 10 });
+  const dialQueue = (leadsQ.data?.items ?? []) as DbLead[];
+
+  function dial(l: DbLead) {
     toast.success(`Dialing ${l.phone}…`);
     setCallStatuses((prev) => ({ ...prev, [l.id]: "connected" }));
     setDurations((prev) => ({ ...prev, [l.id]: "" }));
   }
 
-  function recordOutcome(l: (typeof leads)[0], status: Exclude<CallStatus, "idle">) {
+  function recordOutcome(l: DbLead, status: Exclude<CallStatus, "idle">) {
     setCallStatuses((prev) => ({ ...prev, [l.id]: status }));
     const dur = durations[l.id] || "0m 0s";
     setRecentCalls((prev) => [
@@ -560,7 +586,7 @@ function Call() {
       <Head t="Click-to-Call" s="One-tap dial via our PSTN gateway." />
       <Section title="Quick dial">
         <div className="grid gap-3 sm:grid-cols-2">
-          {leads.slice(0, 5).map((l) => {
+          {dialQueue.slice(0, 5).map((l) => {
             const status = callStatuses[l.id] ?? "idle";
             const cfg = status !== "idle" ? callStatusConfig[status] : null;
             return (

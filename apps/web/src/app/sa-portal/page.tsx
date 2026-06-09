@@ -1,5 +1,6 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -22,8 +23,9 @@ import {
 } from "lucide-react";
 import { PortalShell, StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
+import { useAuth } from "@/lib/auth";
+import { trpc } from "@/lib/trpc";
 import {
-  kpis,
   leads,
   activities,
   properties,
@@ -67,13 +69,23 @@ const nav = [
 
 /* ─── Root page ───────────────────────────────────────────── */
 export default function SAPortal() {
+  const { session } = useAuth();
+  const router = useRouter();
   const hash = useActiveHash();
+
+  useEffect(() => {
+    if (session !== undefined && !session) router.push("/admin-login");
+  }, [session, router]);
+
+  if (!session) return null;
+  const user = { name: session.name, initials: session.initials };
+
   return (
     <PortalShell
       brand="NxtSft.com Command"
       role="Super Admin"
       accent="gold"
-      user={{ name: "Aarav Khanna", initials: "AK" }}
+      user={user}
       nav={nav}
       basePath="/sa-portal"
     >
@@ -290,23 +302,18 @@ const allUsers: Array<{
    DASHBOARD
 ═══════════════════════════════════════════════════════════ */
 function Dashboard() {
+  const statsQ = trpc.admin.stats.useQuery();
+  const s = statsQ.data;
+
   return (
     <>
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-        <StatCard
-          label="Total Listings"
-          value={kpis.totalListings.toLocaleString()}
-          sub="↑ +8.2% wk"
-        />
-        <StatCard
-          label="Active Leads"
-          value={kpis.activeLeads.toLocaleString()}
-          sub="↑ +12.4% wk"
-        />
-        <StatCard label="Revenue YTD" value={`₹${kpis.revenueCr}Cr`} sub="↑ +24% YoY" />
-        <StatCard label="DAU" value={kpis.dau.toLocaleString()} sub="↑ +3.1%" />
-        <StatCard label="MAU" value={`${(kpis.mau / 1000).toFixed(0)}K`} sub="↑ +9.6%" />
-        <StatCard label="Conv. Rate" value={`${kpis.conversion}%`} sub="↑ +0.4 pts" />
+        <StatCard label="Total Listings" value={s ? s.totalProperties.toLocaleString() : "…"} sub="↑ +8.2% wk" />
+        <StatCard label="Active Leads" value={s ? s.totalLeads.toLocaleString() : "…"} sub="↑ +12.4% wk" />
+        <StatCard label="Revenue YTD" value={s ? `₹${(s.totalRevenue / 1_00_00_000).toFixed(1)}Cr` : "…"} sub="↑ +24% YoY" />
+        <StatCard label="Total Users" value={s ? s.totalUsers.toLocaleString() : "…"} sub="registered" />
+        <StatCard label="Hot Leads" value={s ? s.hotLeads.toLocaleString() : "…"} sub="high priority" />
+        <StatCard label="Active Listings" value={s ? s.activeListings.toLocaleString() : "…"} sub="approved" />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

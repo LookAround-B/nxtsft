@@ -1,42 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@nxtsft/db";
 import { z } from "zod";
-import { getAuthUser, serializeBigInt } from "../../../helper";
+import { getAuthUser } from "../../../helper";
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getAuthUser(req);
-    if (!user || (user.role !== "admin" && user.role !== "super-admin")) {
+    if (!user || !["admin", "super-admin"].includes(user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
     const body = await req.json();
-    const bodySchema = z.object({
-      assignedTo: z.string(),
+    const schema = z.object({ assignedToId: z.string() });
+    const result = schema.safeParse(body);
+    if (!result.success) return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
+
+    const assignee = await prisma.user.findUnique({ where: { id: result.data.assignedToId } });
+    if (!assignee || assignee.role !== "sales") {
+      return NextResponse.json({ error: "Assignee must be a sales rep" }, { status: 400 });
+    }
+
+    const lead = await prisma.lead.update({
+      where: { id },
+      data: { assignedToId: result.data.assignedToId, status: "New" },
     });
-
-    const result = bodySchema.safeParse(body);
-    if (!result.success) {
-      return NextResponse.json({ error: result.error.errors }, { status: 400 });
-    }
-
-    try {
-      const lead = await prisma.lead.update({
-        where: { id },
-        data: {
-          status: "Contacted",
-          notes: `Assigned to ${result.data.assignedTo}`,
-        },
-      });
-      return NextResponse.json(serializeBigInt(lead));
-    } catch (err) {
-      return NextResponse.json({ error: "Lead not found" }, { status: 404 });
-    }
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(lead);
+  } catch {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

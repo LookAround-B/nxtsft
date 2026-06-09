@@ -26,13 +26,13 @@ import { Home as HomeIcon, CheckCircle, XCircle } from "lucide-react";
 import { PortalShell, StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
+import { trpc } from "@/lib/trpc";
 import {
   properties,
   subscriptions,
   unlockedContacts,
   walletLedger,
   disputes,
-  seekerPlans,
   propertyViews,
 } from "@/data/static";
 
@@ -145,8 +145,10 @@ function renderTab(h: string, userEmail: string) {
    OVERVIEW / HOME DASHBOARD
 ═══════════════════════════════════════════════════════════════ */
 function HomeDash({ userEmail }: { userEmail: string }) {
-  const { session } = useAuth();
+  const { session, credits } = useAuth();
   const displayName = session?.name ?? DEMO_USER.name;
+  const favoritesQ = trpc.users.favorites.useQuery(undefined, { enabled: !!session });
+  const visitsQ = trpc.users.siteVisits.useQuery(undefined, { enabled: !!session });
   const myViews = propertyViews
     .filter((v) => v.userEmail === userEmail || v.userEmail === "rohan@example.com")
     .sort((a, b) => b.ts.localeCompare(a.ts));
@@ -170,15 +172,23 @@ function HomeDash({ userEmail }: { userEmail: string }) {
 
       {/* Stat cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Saved Properties" value="12" sub="3 new this week" />
-        <StatCard label="Contact Unlocks Used" value="2" sub="of 6 in plan" />
+        <StatCard
+          label="Saved Properties"
+          value={favoritesQ.data ? String(favoritesQ.data.length) : "—"}
+          sub="from your shortlist"
+        />
+        <StatCard label="Contact Unlocks Used" value="—" sub="see Credits tab" />
         <StatCard
           label="Credits Remaining"
-          value="4"
-          sub="Standard Pack"
-          accent="text-emerald-600"
+          value={String(credits)}
+          sub={credits === 0 ? "Top up now" : "ready to unlock"}
+          accent={credits === 0 ? "text-accent" : "text-emerald-600"}
         />
-        <StatCard label="Site Visits Scheduled" value="2" sub="Next: Sat 11am" />
+        <StatCard
+          label="Site Visits Booked"
+          value={visitsQ.data ? String(visitsQ.data.length) : "—"}
+          sub="scheduled or completed"
+        />
       </div>
 
       {/* Continue where you left off */}
@@ -287,56 +297,46 @@ function HomeDash({ userEmail }: { userEmail: string }) {
    SAVED PROPERTIES
 ═══════════════════════════════════════════════════════════════ */
 function Saved() {
-  const [items, setItems] = useState(properties.slice(0, 6));
-  const [sortBy, setSortBy] = useState<"price" | "date" | "match">("match");
-  const [filterBhk, setFilterBhk] = useState("");
+  const { session } = useAuth();
+  const [sortBy, setSortBy] = useState<"price" | "date">("date");
   const [filterCity, setFilterCity] = useState("");
 
-  const bhkOptions = [...new Set(properties.map((p) => p.bhk))];
-  const cityOptions = [...new Set(properties.map((p) => p.city))];
+  const favQ = trpc.users.favorites.useQuery(undefined, { enabled: !!session });
+  const removeFav = trpc.users.removeFavorite.useMutation({ onSuccess: () => favQ.refetch() });
+
+  type FavItem = { id: string; slug: string | null; title: string; price: number; images: string[]; bhk: string | null; location: { city: string; locality: string } | null };
+  const items = (favQ.data ?? []) as FavItem[];
+  const cityOptions = [...new Set(items.map((p) => p.location?.city ?? ""))].filter(Boolean) as string[];
 
   const sorted = [...items].sort((a, b) => {
     if (sortBy === "price") return a.price - b.price;
-    if (sortBy === "match") return b.matchScore - a.matchScore;
-    return 0; // date: preserve insertion order
+    return 0;
   });
 
   const filtered = sorted.filter((p) => {
-    if (filterBhk && p.bhk !== filterBhk) return false;
-    if (filterCity && p.city !== filterCity) return false;
+    if (filterCity && p.location?.city !== filterCity) return false;
     return true;
   });
 
   return (
     <>
-      <Head t="Saved Properties" s={`${items.length} homes saved.`} />
+      <Head t="Saved Properties" s={`${items.length} home${items.length !== 1 ? "s" : ""} saved.`} />
 
       {/* Controls */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         {/* Sort */}
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground">Sort:</span>
-          {(["match", "price", "date"] as const).map((s) => (
+          {(["date", "price"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setSortBy(s)}
               className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${sortBy === s ? "bg-accent text-accent-foreground" : "border border-border hover:border-accent/50"}`}
             >
-              {s === "match" ? "Match Score" : s === "price" ? "Price" : "Date Added"}
+              {s === "price" ? "Price" : "Date Added"}
             </button>
           ))}
         </div>
-        {/* Filter BHK */}
-        <select
-          value={filterBhk}
-          onChange={(e) => setFilterBhk(e.target.value)}
-          className="rounded-md border border-border bg-white px-3 py-1 text-xs"
-        >
-          <option value="">All BHK</option>
-          {bhkOptions.map((b) => (
-            <option key={b}>{b}</option>
-          ))}
-        </select>
         {/* Filter City */}
         <select
           value={filterCity}
@@ -348,61 +348,69 @@ function Saved() {
             <option key={c}>{c}</option>
           ))}
         </select>
-        {(filterBhk || filterCity) && (
+        {filterCity && (
           <button
-            onClick={() => {
-              setFilterBhk("");
-              setFilterCity("");
-            }}
+            onClick={() => setFilterCity("")}
             className="flex items-center gap-1 text-xs text-accent"
           >
-            <X size={12} /> Clear filters
+            <X size={12} /> Clear
           </button>
         )}
       </div>
 
       {/* Grid */}
-      {filtered.length === 0 ? (
+      {favQ.isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-52 animate-pulse rounded-lg border border-border bg-white" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-secondary/20 py-16 text-center">
           <Heart size={32} className="mx-auto mb-3 text-muted-foreground/40" />
           <p className="text-sm font-semibold text-muted-foreground">
-            No saved properties match your filters.
+            {items.length === 0
+              ? "No saved properties yet. Browse and save homes you like."
+              : "No saved properties match your filters."}
           </p>
-          <button
-            onClick={() => {
-              setFilterBhk("");
-              setFilterCity("");
-            }}
-            className="mt-2 text-xs text-accent hover:underline"
-          >
-            Clear filters
-          </button>
+          {filterCity && (
+            <button
+              onClick={() => setFilterCity("")}
+              className="mt-2 text-xs text-accent hover:underline"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {filtered.map((p) => (
+          {filtered.map((p) => {
+            const img = p.images?.[0] ?? "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=70";
+            const city = p.location?.city ?? "";
+            const locality = p.location?.locality ?? "";
+            const priceLabel = p.price >= 1e7
+              ? `₹${(p.price / 1e7).toFixed(2)} Cr`
+              : p.price >= 1e5
+              ? `₹${(p.price / 1e5).toFixed(1)} L`
+              : `₹${p.price.toLocaleString("en-IN")}`;
+            return (
             <div key={p.id} className="overflow-hidden rounded-lg border border-border bg-white">
               <div className="relative">
-                <Link href={`/properties/${p.id}`}>
-                  <img src={p.image} alt="" className="aspect-[4/3] w-full object-cover" />
+                <Link href={`/properties/${p.slug ?? p.id}`}>
+                  <img src={img} alt="" className="aspect-[4/3] w-full object-cover" />
                 </Link>
-                <span className="absolute right-2 top-2 rounded-md bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">
-                  {p.matchScore}%
-                </span>
               </div>
               <div className="p-3">
                 <div className="text-xs text-muted-foreground">
-                  {p.locality} · {p.bhk} · {p.city}
+                  {locality}{locality && city ? " · " : ""}{city}{p.bhk ? ` · ${p.bhk}` : ""}
                 </div>
                 <div className="text-sm font-semibold text-navy">{p.title}</div>
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="font-display text-base font-bold text-accent">
-                    {p.priceLabel}
-                  </span>
+                  <span className="font-display text-base font-bold text-accent">{priceLabel}</span>
                   <button
                     onClick={() => {
-                      setItems((arr) => arr.filter((x) => x.id !== p.id));
-                      toast(`Removed ${p.title.split("—")[0].trim()}`);
+                      removeFav.mutate({ propertyId: p.id });
+                      toast(`Removed from saved`);
                     }}
                     className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:border-accent hover:text-accent transition-colors"
                   >
@@ -411,7 +419,8 @@ function Saved() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </>
@@ -578,9 +587,40 @@ const creditTimeline = [
 ];
 
 function Credits() {
+  const { credits, refreshCredits } = useAuth();
   const [unlocks, setUnlocks] = useState(myUnlocks.map((u) => ({ ...u })));
   const [showTopUp, setShowTopUp] = useState(false);
-  const activePlan = seekerPlans.find((p) => p.name === mySubscription.plan)!;
+  const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
+
+  const creditsQ = trpc.users.credits.useQuery();
+  const plansQ = trpc.subscriptions.plans.useQuery({ type: "seeker" });
+  const createOrder = trpc.subscriptions.createOrder.useMutation();
+  const verifyPayment = trpc.subscriptions.verifyPayment.useMutation();
+
+  type TxItem = { id: string; type: string; amount: number; reason: string | null; createdAt: string };
+  const balance = creditsQ.data?.balance ?? credits;
+  const transactions = (creditsQ.data?.transactions ?? []) as unknown as TxItem[];
+
+  const handleTopUp = async (plan: { id: string; name: string; credits: number }) => {
+    setBuyingPlanId(plan.id);
+    try {
+      const order = await createOrder.mutateAsync({ planId: plan.id });
+      await verifyPayment.mutateAsync({
+        razorpayOrderId: order.orderId,
+        razorpayPaymentId: `demo_pay_${Date.now()}`,
+        razorpaySignature: `demo_sig_${Date.now()}`,
+        planId: plan.id,
+      });
+      await refreshCredits();
+      void creditsQ.refetch();
+      setShowTopUp(false);
+      toast.success(`${plan.name} activated! ${plan.credits} credit${plan.credits > 1 ? "s" : ""} added.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Purchase failed.");
+    } finally {
+      setBuyingPlanId(null);
+    }
+  };
 
   const toggleClosed = (id: string) => {
     setUnlocks((prev) => prev.map((u) => (u.id === id ? { ...u, closed: !u.closed } : u)));
@@ -602,20 +642,20 @@ function Credits() {
       {/* Stat cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard
-          label="Active Plan"
-          value={mySubscription.plan}
-          sub={`Valid 30 days · ${activePlan.priceLabel}`}
+          label="Credit Balance"
+          value={creditsQ.isLoading ? "…" : String(balance)}
+          sub={balance === 0 ? "Top up to unlock contacts" : "ready to use"}
+          accent={balance === 0 ? "text-accent" : "text-emerald-600"}
         />
         <StatCard
-          label="Tokens Remaining"
-          value={String(mySubscription.creditsLeft)}
-          sub={`of ${mySubscription.creditsTotal} total`}
-          accent={mySubscription.creditsLeft === 0 ? "text-accent" : "text-emerald-600"}
+          label="Total Purchased"
+          value={String(transactions.filter((t) => t.type === "credit").reduce((s, t) => s + t.amount, 0))}
+          sub={`across ${transactions.filter((t) => t.type === "credit").length} purchase${transactions.filter((t) => t.type === "credit").length !== 1 ? "s" : ""}`}
         />
         <StatCard
-          label="Contacts Unlocked"
-          value={String(mySubscription.creditsUsed)}
-          sub={`${unlocks.filter((u) => u.closed).length} closed`}
+          label="Credits Used"
+          value={String(transactions.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0))}
+          sub={`${unlocks.filter((u) => u.closed).length} contacts closed`}
         />
         <StatCard
           label="Disputes Filed"
@@ -625,24 +665,24 @@ function Credits() {
       </div>
 
       {/* Plan usage */}
-      <Section title="Plan Usage">
+      <Section title="Credit Balance">
         <div className="flex items-center justify-between text-sm mb-2">
-          <span className="font-semibold text-navy">{mySubscription.plan}</span>
-          <span className="font-mono text-xs text-muted-foreground">
-            {mySubscription.creditsUsed} / {mySubscription.creditsTotal} used
-          </span>
+          <span className="font-semibold text-navy">Available Credits</span>
+          <span className="font-mono text-xs text-muted-foreground">{balance} remaining</span>
         </div>
         <div className="h-3 w-full rounded-full bg-secondary">
           <div
             className="h-3 rounded-full bg-accent transition-all"
             style={{
-              width: `${(mySubscription.creditsUsed / mySubscription.creditsTotal) * 100}%`,
+              width: balance === 0 ? "2px" : "100%",
             }}
           />
         </div>
         <div className="mt-4 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            Purchased {mySubscription.date} · expires in 18 days
+            {transactions.length > 0
+              ? `Last updated ${new Date(transactions[0].createdAt).toLocaleDateString("en-IN")}`
+              : "No transactions yet"}
           </span>
           <button
             onClick={() => setShowTopUp(true)}
@@ -667,56 +707,65 @@ function Credits() {
               </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              {seekerPlans.slice(0, 3).map((plan) => (
-                <button
-                  key={plan.id}
-                  onClick={() => {
-                    setShowTopUp(false);
-                    toast.success(`${plan.name} purchased!`);
-                  }}
-                  className="rounded-xl border-2 border-border p-4 text-left hover:border-accent transition-colors"
-                >
-                  <div className="font-display text-lg font-bold text-navy">{plan.priceLabel}</div>
-                  <div className="mt-0.5 text-xs font-semibold text-accent">
-                    {plan.credits} credits
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">{plan.name}</div>
-                  <div className="mt-0.5 text-[10px] text-muted-foreground">
-                    Valid {plan.validity}
-                  </div>
-                </button>
-              ))}
+              {plansQ.isLoading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-24 animate-pulse rounded-xl border border-border bg-secondary" />
+                  ))
+                : (plansQ.data ?? []).map((plan) => (
+                  <button
+                    key={plan.id}
+                    onClick={() => handleTopUp(plan)}
+                    disabled={buyingPlanId !== null}
+                    className={`rounded-xl border-2 p-4 text-left transition-colors hover:border-accent disabled:opacity-60 ${buyingPlanId === plan.id ? "border-accent" : "border-border"}`}
+                  >
+                    <div className="font-display text-lg font-bold text-navy">{plan.priceLabel}</div>
+                    <div className="mt-0.5 text-xs font-semibold text-accent">
+                      {plan.credits} credit{plan.credits !== 1 ? "s" : ""}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">{plan.name}</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      Valid {plan.validity} days
+                    </div>
+                    {buyingPlanId === plan.id && (
+                      <div className="mt-2 text-[10px] font-semibold text-accent">Processing…</div>
+                    )}
+                  </button>
+                ))}
             </div>
           </div>
         </div>
       )}
 
       {/* Credit Usage Timeline */}
-      <Section title="Credit Usage Timeline">
+      <Section title="Credit Transaction History">
         <div className="relative pl-5">
           {/* Vertical line */}
           <div className="absolute left-1.5 top-0 h-full w-px bg-border" />
           <div className="space-y-5">
-            {creditTimeline.map((entry, i) => (
+            {transactions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No transactions yet.</p>
+            ) : (
+            transactions.slice(0, 10).map((entry, i) => (
               <div key={i} className="relative flex items-start gap-3">
-                {/* Dot */}
                 <div
-                  className={`absolute -left-[15px] mt-0.5 h-3 w-3 rounded-full border-2 border-white ${entry.tokens > 0 ? "bg-emerald-500" : "bg-accent"}`}
+                  className={`absolute -left-[15px] mt-0.5 h-3 w-3 rounded-full border-2 border-white ${entry.type === "credit" ? "bg-emerald-500" : "bg-accent"}`}
                 />
                 <div>
-                  <div className="text-sm font-medium text-navy">{entry.action}</div>
+                  <div className="text-sm font-medium text-navy capitalize">{entry.reason ?? entry.type}</div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="font-mono">{entry.date}</span>
+                    <span className="font-mono">
+                      {new Date(entry.createdAt).toLocaleDateString("en-IN")}
+                    </span>
                     <span
-                      className={`font-bold ${entry.tokens > 0 ? "text-emerald-600" : "text-accent"}`}
+                      className={`font-bold ${entry.type === "credit" ? "text-emerald-600" : "text-accent"}`}
                     >
-                      {entry.tokens > 0 ? `+${entry.tokens}` : `${entry.tokens}`} token
-                      {Math.abs(entry.tokens) !== 1 ? "s" : ""}
+                      {entry.type === "credit" ? "+" : "-"}{entry.amount} credit{entry.amount !== 1 ? "s" : ""}
                     </span>
                   </div>
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
         </div>
       </Section>
@@ -839,6 +888,7 @@ function Credits() {
 ═══════════════════════════════════════════════════════════════ */
 function Profile() {
   const { session, updateProfile } = useAuth();
+  const updateProfileMutation = trpc.users.updateProfile.useMutation();
   const [name, setName] = useState(session?.name ?? DEMO_USER.name);
   const [phone, setPhone] = useState(session?.phone ?? DEMO_USER.phone);
   const [city, setCity] = useState(DEMO_USER.city);
@@ -954,16 +1004,21 @@ function Profile() {
           </div>
         </div>
         <button
-          onClick={() => {
-            updateProfile(
-              name.trim() || (session?.name ?? DEMO_USER.name),
-              phone.trim() || (session?.phone ?? DEMO_USER.phone),
-            );
-            toast.success("Profile updated");
+          onClick={async () => {
+            const n = name.trim() || (session?.name ?? DEMO_USER.name);
+            const p = phone.replace(/\D/g, "").slice(-10);
+            try {
+              await updateProfileMutation.mutateAsync({ name: n, phone: p || undefined });
+              updateProfile(n, phone.trim());
+              toast.success("Profile updated");
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Failed to update profile.");
+            }
           }}
-          className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
+          disabled={updateProfileMutation.isPending}
+          className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
         >
-          Save Changes
+          {updateProfileMutation.isPending ? "Saving…" : "Save Changes"}
         </button>
       </Section>
 
@@ -1257,42 +1312,87 @@ function SearchAlerts() {
    SITE VISITS
 ═══════════════════════════════════════════════════════════════ */
 function Visits() {
+  const { session } = useAuth();
+  const visitsQ = trpc.users.siteVisits.useQuery(undefined, { enabled: !!session });
+  const visits = visitsQ.data ?? [];
+  const upcoming = visits.filter((v) => v.status === "Scheduled" || v.status === "Confirmed");
+  const past = visits.filter((v) => v.status === "Completed" || v.status === "Cancelled");
+
   return (
     <>
       <Head t="Site Visits" s="Tours you've booked." />
-      <Section title="Upcoming">
+      {visitsQ.isLoading ? (
         <div className="space-y-3">
-          {[
-            {
-              property: "Skyline Residences",
-              when: "Sat, 14 Jun · 11:00 AM",
-              agent: "Priya Sharma",
-            },
-            { property: "Marina Heights", when: "Sun, 15 Jun · 3:30 PM", agent: "Karan Joshi" },
-          ].map((v) => (
-            <div key={v.property} className="rounded-lg border border-border bg-secondary/40 p-4">
-              <div className="font-display text-sm font-bold text-navy">{v.property}</div>
-              <div className="text-xs text-muted-foreground">
-                {v.when} · with {v.agent}
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => toast.success("Visit rescheduled")}
-                  className="rounded-md bg-mid-blue px-3 py-1 text-xs font-semibold text-white"
-                >
-                  Reschedule
-                </button>
-                <button
-                  onClick={() => toast.error("Visit cancelled")}
-                  className="rounded-md border border-border px-3 py-1 text-xs font-semibold"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-20 animate-pulse rounded-lg border border-border bg-white" />
           ))}
         </div>
-      </Section>
+      ) : visits.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border bg-secondary/20 py-16 text-center">
+          <Calendar size={32} className="mx-auto mb-3 text-muted-foreground/40" />
+          <p className="text-sm font-semibold text-muted-foreground">No site visits booked yet.</p>
+          <Link href="/properties" className="mt-2 inline-block text-xs text-accent hover:underline">
+            Browse properties →
+          </Link>
+        </div>
+      ) : (
+        <>
+          {upcoming.length > 0 && (
+            <Section title="Upcoming">
+              <div className="space-y-3">
+                {upcoming.map((v) => (
+                  <div key={v.id} className="rounded-lg border border-border bg-secondary/40 p-4">
+                    <div className="font-display text-sm font-bold text-navy">
+                      {v.propertyId ?? "Property Visit"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(v.scheduledAt).toLocaleString("en-IN", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </div>
+                    <div className="mt-1"><Badge tone={v.status === "Confirmed" ? "success" : "new"}>{v.status}</Badge></div>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => toast.success("Visit reschedule request sent")}
+                        className="rounded-md bg-mid-blue px-3 py-1 text-xs font-semibold text-white"
+                      >
+                        Reschedule
+                      </button>
+                      <button
+                        onClick={() => toast.info("Visit cancellation request sent")}
+                        className="rounded-md border border-border px-3 py-1 text-xs font-semibold"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+          {past.length > 0 && (
+            <Section title="Past Visits">
+              <div className="space-y-3">
+                {past.map((v) => (
+                  <div key={v.id} className="rounded-lg border border-border bg-white p-4 opacity-75">
+                    <div className="font-display text-sm font-bold text-navy">
+                      {v.propertyId ?? "Property Visit"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(v.scheduledAt).toLocaleString("en-IN", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </div>
+                    <div className="mt-1"><Badge tone={v.status === "Completed" ? "success" : "default"}>{v.status}</Badge></div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+        </>
+      )}
     </>
   );
 }

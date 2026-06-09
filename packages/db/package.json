@@ -10,16 +10,21 @@
   "scripts": {
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:seed": "tsx seeds/index.ts",
+    "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
     "@nxtsft/shared": "workspace:*"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.16.5",
+    "bcryptjs": "^2.4.3",
     "prisma": "^6.0.0",
     "typescript": "^5.8.3",
     "tsx": "^4.7.0"

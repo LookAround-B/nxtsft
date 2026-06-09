@@ -1,0 +1,27 @@
+{
+  "name": "@nxtsft/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nxtsft/db": "workspace:*",
+    "@nxtsft/shared": "workspace:*",
+    "@nxtsft/trpc": "workspace:*",
+    "@trpc/server": "^11.0.0-rc.445",
+    "fastify": "^5.0.0",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/compress": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.5",
+    "pino-pretty": "^13.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3"
+  }
+}

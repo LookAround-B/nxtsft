@@ -6,16 +6,19 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./nextjs": "./src/nextjs.ts"
   },
   "dependencies": {
     "@trpc/server": "^11.0.0-rc.445",
     "@trpc/client": "^11.0.0-rc.445",
     "@nxtsft/db": "workspace:*",
     "@nxtsft/shared": "workspace:*",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.16.5",
     "typescript": "^5.8.3"
   }

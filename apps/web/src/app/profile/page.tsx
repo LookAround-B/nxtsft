@@ -36,6 +36,7 @@ import {
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { ROLE_META, useAuth, type Role } from "@/lib/auth";
+import { trpc } from "@/lib/trpc";
 
 /* ── per-role quick actions ─────────────────────────────────────── */
 const roleActions: Record<Role, Array<{ label: string; to: string; Icon: LucideIcon }>> = {
@@ -152,6 +153,8 @@ export default function ProfilePage() {
   const { session, signOut, updateProfile } = useAuth();
   const router = useRouter();
 
+  const updateProfileMutation = trpc.users.updateProfile.useMutation();
+
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -177,9 +180,16 @@ export default function ProfilePage() {
   const stats = roleStats[session.role];
   const actions = roleActions[session.role];
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
+    const newName = name.trim() || session!.name;
+    const newPhone = phone.trim() || session!.phone;
     setEditing(false);
-    updateProfile(name.trim() || session!.name, phone.trim() || session!.phone);
+    try {
+      await updateProfileMutation.mutateAsync({ name: newName, phone: newPhone });
+    } catch {
+      // local update still succeeds if server fails transiently
+    }
+    updateProfile(newName, newPhone);
     toast.success("Profile updated");
   };
 

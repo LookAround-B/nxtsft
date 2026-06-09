@@ -1,76 +1,63 @@
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import prisma from "@nxtsft/db";
 
-/**
- * Create tRPC context for Next.js Route Handlers (using standard Web Request)
- */
+const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"] as const;
+const ADMIN_ROLES = ["admin", "super-admin"] as const;
+
+// Shared token → user resolution used by both Next.js and Fastify adapters
+export async function createContextFromToken(token: string | null) {
+  if (!token) return { prisma, user: null, token: null };
+
+  const session = await prisma.session.findUnique({ where: { token } });
+  if (!session || session.expiresAt <= new Date()) return { prisma, user: null, token: null };
+
+  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  return { prisma, user, token };
+}
+
+// For Next.js App Router (Web Request API)
 export const createTRPCContext = async (opts: { req: Request }) => {
-  // Extract user from headers or cookies if needed
-  const authHeader = opts.req.headers.get("authorization");
-  let user = null;
-
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
-    // Retrieve session or decode token
-    const session = await prisma.session.findUnique({
-      where: { token },
-    });
-    if (session && session.expiresAt > new Date()) {
-      user = await prisma.user.findUnique({
-        where: { id: session.userId },
-      });
-    }
-  }
-
-  return {
-    prisma,
-    req: opts.req,
-    user,
-  };
+  const raw = opts.req.headers.get("authorization") ?? "";
+  const token = raw.startsWith("Bearer ") ? raw.slice(7) : null;
+  return createContextFromToken(token);
 };
 
-export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
+export type Context = Awaited<ReturnType<typeof createContextFromToken>>;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Initialize tRPC
-// ═══════════════════════════════════════════════════════════════════════════
+// ─── tRPC init ───────────────────────────────────────────────────────────────
 
-const t = initTRPC.context<Context>().create({
-  isServer: true,
-  allowOutsideOfServer: true,
-});
-
-/**
- * Public procedure - accessible without authentication
- */
-export const publicProcedure = t.procedure;
-
-/**
- * Protected procedure - requires authentication
- */
-export const protectedProcedure = t.procedure.use(async (opts) => {
-  if (!opts.ctx.user) {
-    throw new Error("UNAUTHORIZED");
-  }
-  return opts.next({
-    ctx: {
-      ...opts.ctx,
-      user: opts.ctx.user, // type narrowed
-    },
-  });
-});
-
-/**
- * Admin procedure - requires admin role
- */
-export const adminProcedure = protectedProcedure.use(async (opts) => {
-  const adminRoles = ["super-admin", "admin"];
-  if (!adminRoles.includes(opts.ctx.user?.role)) {
-    throw new Error("FORBIDDEN");
-  }
-  return opts.next();
-});
+const t = initTRPC.context<Context>().create({ isServer: true, allowOutsideOfServer: true });
 
 export const router = t.router;
 export const middleware = t.middleware;
 export const createCallerFactory = t.createCallerFactory;
+
+// ─── Procedures ──────────────────────────────────────────────────────────────
+
+export const publicProcedure = t.procedure;
+
+export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+  if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in to continue." });
+  return next({ ctx: { ...ctx, user: ctx.user } });
+});
+
+export const staffProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!STAFF_ROLES.includes(ctx.user.role as (typeof STAFF_ROLES)[number])) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Staff access only." });
+  }
+  return next();
+});
+
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!ADMIN_ROLES.includes(ctx.user.role as (typeof ADMIN_ROLES)[number])) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Admin access only." });
+  }
+  return next();
+});
+
+export const superAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== "super-admin") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Super-admin access only." });
+  }
+  return next();
+});

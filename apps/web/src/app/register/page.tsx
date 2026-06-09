@@ -2,50 +2,70 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Building2, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { useAuth } from "@/lib/auth";
+import { useAuth, ROLE_META } from "@/lib/auth";
+import { toast } from "sonner";
+
+const CITIES = [
+  "Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Pune", "Chennai",
+  "Ahmedabad", "Kolkata", "Jaipur", "Surat", "Lucknow", "Kanpur",
+];
 
 export default function RegisterPage() {
   const router = useRouter();
   const { session, signOut, register } = useAuth();
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirm: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", password: "", confirm: "" });
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set =
+    (k: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = "Full name is required";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Enter a valid email";
-    if (!/^\d{10}$/.test(form.phone.replace(/\s/g, "")))
-      errs.phone = "Enter a 10-digit phone number";
-    if (form.password.length < 6) errs.password = "Password must be at least 6 characters";
+    if (form.name.trim().length < 2) errs.name = "Enter your full name (min 2 characters)";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Enter a valid email address";
+    if (!/^[6-9]\d{9}$/.test(form.phone.replace(/\s/g, "")))
+      errs.phone = "Enter a valid 10-digit Indian mobile number (starts with 6-9)";
+    if (!form.city) errs.city = "Select your city";
+    if (form.password.length < 8) errs.password = "Password must be at least 8 characters";
     if (form.password !== form.confirm) errs.confirm = "Passwords do not match";
-    if (!agreed) errs.agreed = "You must accept the terms";
+    if (!agreed) errs.agreed = "You must accept the terms to continue";
     return errs;
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
-    if (Object.keys(errs).length) {
-      setErrors(errs);
-      return;
-    }
+    if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
     setLoading(true);
-    setTimeout(() => {
-      register(form.name.trim(), form.email.trim(), form.phone.trim());
-      router.push("/user-portal");
-    }, 600);
+    try {
+      const s = await register(
+        form.name.trim(),
+        form.email.trim(),
+        form.phone.replace(/\s/g, ""),
+        form.password,
+        form.city
+      );
+      toast.success(`Welcome to NxtSft, ${s.name.split(" ")[0]}! You have 1 free credit.`);
+      router.push(ROLE_META[s.role].portal);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Registration failed. Please try again.";
+      if (msg.toLowerCase().includes("email")) setErrors({ email: msg });
+      else if (msg.toLowerCase().includes("phone")) setErrors({ phone: msg });
+      else toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -75,7 +95,7 @@ export default function RegisterPage() {
                 "Zero brokerage — save lakhs",
                 "RERA-verified listings only",
                 "Dedicated relationship manager",
-                "Free account, no credit card required",
+                "1 free credit on signup, no card required",
               ].map((pt) => (
                 <li key={pt} className="flex items-center gap-2.5 text-sm text-white/80">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} />
@@ -85,11 +105,7 @@ export default function RegisterPage() {
             </ul>
           </div>
           <div className="grid grid-cols-3 gap-4 border-t border-white/10 pt-6">
-            {[
-              ["10K+", "Properties"],
-              ["50+", "Cities"],
-              ["100K+", "Happy Buyers"],
-            ].map(([v, l]) => (
+            {[["10K+", "Properties"], ["50+", "Cities"], ["100K+", "Happy Buyers"]].map(([v, l]) => (
               <div key={l}>
                 <div className="font-display text-2xl font-black">{v}</div>
                 <div className="text-[10px] uppercase tracking-wider text-white/50">{l}</div>
@@ -114,12 +130,8 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <div className="text-xs font-bold uppercase tracking-widest text-accent">
-            Get started free
-          </div>
-          <h2 className="mt-2 font-display text-3xl font-black text-navy sm:text-4xl">
-            Create your account
-          </h2>
+          <div className="text-xs font-bold uppercase tracking-widest text-accent">Get started free</div>
+          <h2 className="mt-2 font-display text-3xl font-black text-navy sm:text-4xl">Create your account</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Join 1 lakh+ buyers on India&apos;s smartest real estate platform.
           </p>
@@ -137,6 +149,7 @@ export default function RegisterPage() {
                 value={form.name}
                 onChange={set("name")}
                 placeholder="Enter your full name"
+                autoComplete="name"
                 className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.name ? "border-rose-400" : "border-input"}`}
               />
               {errors.name && <p className="mt-1 text-xs text-rose-500">{errors.name}</p>}
@@ -149,7 +162,8 @@ export default function RegisterPage() {
                 type="email"
                 value={form.email}
                 onChange={set("email")}
-                placeholder="Enter your email"
+                placeholder="your@email.com"
+                autoComplete="email"
                 className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.email ? "border-rose-400" : "border-input"}`}
               />
               {errors.email && <p className="mt-1 text-xs text-rose-500">{errors.email}</p>}
@@ -166,12 +180,28 @@ export default function RegisterPage() {
                   type="tel"
                   value={form.phone}
                   onChange={set("phone")}
-                  placeholder="e.g. 9876543210"
+                  placeholder="9876543210"
                   maxLength={10}
+                  autoComplete="tel"
                   className={`min-w-0 flex-1 rounded-r-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.phone ? "border-rose-400" : "border-input"}`}
                 />
               </div>
               {errors.phone && <p className="mt-1 text-xs text-rose-500">{errors.phone}</p>}
+            </div>
+
+            {/* City */}
+            <div>
+              <label className="block text-sm font-semibold text-foreground">Your City</label>
+              <select
+                value={form.city}
+                onChange={set("city")}
+                className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.city ? "border-rose-400" : "border-input"}`}
+              >
+                <option value="">Select your city</option>
+                {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                <option value="Other">Other</option>
+              </select>
+              {errors.city && <p className="mt-1 text-xs text-rose-500">{errors.city}</p>}
             </div>
 
             {/* Password */}
@@ -182,7 +212,8 @@ export default function RegisterPage() {
                   type={showPass ? "text" : "password"}
                   value={form.password}
                   onChange={set("password")}
-                  placeholder="Enter your password"
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
                   className={`w-full rounded-xl border bg-background px-3.5 py-3 pr-11 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.password ? "border-rose-400" : "border-input"}`}
                 />
                 <button
@@ -198,15 +229,14 @@ export default function RegisterPage() {
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-sm font-semibold text-foreground">
-                Confirm Password
-              </label>
+              <label className="block text-sm font-semibold text-foreground">Confirm Password</label>
               <div className="relative mt-1.5">
                 <input
                   type={showConfirm ? "text" : "password"}
                   value={form.confirm}
                   onChange={set("confirm")}
-                  placeholder="Confirm your password"
+                  placeholder="Re-enter your password"
+                  autoComplete="new-password"
                   className={`w-full rounded-xl border bg-background px-3.5 py-3 pr-11 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.confirm ? "border-rose-400" : "border-input"}`}
                 />
                 <button
@@ -236,7 +266,7 @@ export default function RegisterPage() {
                     {agreed && <CheckCircle2 size={12} className="text-white" strokeWidth={3} />}
                   </div>
                 </div>
-                <span className="text-sm text-foreground/80 leading-relaxed">
+                <span className="text-sm leading-relaxed text-foreground/80">
                   I accept the{" "}
                   <Link href="/terms" className="font-semibold text-accent hover:underline">
                     Terms &amp; Conditions
@@ -247,20 +277,20 @@ export default function RegisterPage() {
               {errors.agreed && <p className="mt-1 text-xs text-rose-500">{errors.agreed}</p>}
             </div>
 
-            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-accent py-3.5 font-display text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:opacity-60"
+              className="w-full rounded-xl bg-accent py-3.5 font-display text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-60"
             >
-              {loading ? "Creating account…" : "Continue to Verify Phone"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Creating account…
+                </span>
+              ) : (
+                "Create Account →"
+              )}
             </button>
-
-            <div className="relative flex items-center gap-3 py-1">
-              <div className="flex-1 border-t border-border" />
-              <span className="text-xs text-muted-foreground">or</span>
-              <div className="flex-1 border-t border-border" />
-            </div>
 
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}

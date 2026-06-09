@@ -18,6 +18,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { useAuth } from "@/lib/auth";
 import { submitListing, type ListerType, type PendingListing } from "@/lib/listings";
+import { trpc } from "@/lib/trpc";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Plot", "Commercial", "PG / Co-living", "Studio"];
 const CITIES = [
@@ -100,8 +101,24 @@ const EMPTY: FormData = {
   listerPhone: "",
 };
 
+const DB_TYPE_MAP: Record<string, "Apartment" | "Villa" | "Studio" | "Office" | "Bungalow" | "Plot" | "PG"> = {
+  Apartment: "Apartment",
+  Villa: "Villa",
+  Studio: "Studio",
+  Plot: "Plot",
+  Commercial: "Office",
+  "PG / Co-living": "PG",
+};
+
+function parseBedrooms(bhk: string): number {
+  if (bhk.startsWith("4+")) return 4;
+  const n = parseInt(bhk);
+  return isNaN(n) ? 0 : n;
+}
+
 export default function ListPropertyPage() {
   const { session } = useAuth();
+  const createProperty = trpc.properties.create.useMutation();
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState<PendingListing | null>(null);
@@ -157,7 +174,7 @@ export default function ListPropertyPage() {
     return e;
   };
 
-  const next = () => {
+  const next = async () => {
     const errs = validate(step);
     if (Object.keys(errs).length) {
       setErrors(errs);
@@ -168,6 +185,7 @@ export default function ListPropertyPage() {
       setStep((s) => s + 1);
       return;
     }
+    const title = data.title || `${data.bhk} ${data.propertyType} in ${data.city}`;
     const result = submitListing({
       listerType: data.listerType as ListerType,
       propertyType: data.propertyType,
@@ -177,7 +195,7 @@ export default function ListPropertyPage() {
       price: data.price,
       area: data.area,
       bhk: data.bhk,
-      title: data.title || `${data.bhk} ${data.propertyType} in ${data.city}`,
+      title,
       description: data.description,
       amenities: data.amenities,
       rera: data.rera,
@@ -186,6 +204,29 @@ export default function ListPropertyPage() {
       listerEmail: data.listerEmail,
       listerPhone: data.listerPhone,
     });
+    const dbType = DB_TYPE_MAP[data.propertyType];
+    if (session && dbType) {
+      try {
+        await createProperty.mutateAsync({
+          title,
+          type: dbType,
+          purpose: data.purpose,
+          price: parseInt(data.price) || 0,
+          area: parseInt(data.area) || 0,
+          bhk: data.bhk || undefined,
+          bedrooms: parseBedrooms(data.bhk),
+          city: data.city,
+          state: "India",
+          locality: data.locality || data.city,
+          description: data.description || undefined,
+          amenities: data.amenities,
+          rera: data.rera || undefined,
+          possession: data.possession || undefined,
+        });
+      } catch {
+        // DB save failed; local listing still saved above
+      }
+    }
     setSubmitted(result);
   };
 

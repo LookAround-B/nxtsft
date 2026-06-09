@@ -32,6 +32,8 @@ import { getLeads, assignLead, updateLeadStatus, type Lead } from "@/lib/leads";
 import { getPendingListings, updateListingStatus as persistListingStatus } from "@/lib/listings";
 import { PortalShell, StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
+import { useAuth } from "@/lib/auth";
+import { trpc } from "@/lib/trpc";
 import {
   leads,
   teamMembers,
@@ -47,6 +49,7 @@ import {
   ownerSellPlans,
 } from "@/data/static";
 import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
+import { useRouter } from "next/navigation";
 
 // ─── CSV helper ────────────────────────────────────────────────────────────────
 const downloadCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -112,13 +115,24 @@ const seedRoster: Member[] = teamMembers.map((m) => ({
 }));
 
 export default function AdminPortal() {
+  const { session } = useAuth();
+  const router = useRouter();
   const hash = useActiveHash();
+
+  useEffect(() => {
+    if (session !== undefined && !session) router.push("/admin-login");
+  }, [session, router]);
+
+  if (!session) return null;
+
+  const user = { name: session.name, initials: session.initials };
+
   return (
     <PortalShell
       brand="NxtSft.com Control"
       role="Admin"
       accent="red"
-      user={{ name: "Meera Iyer", initials: "MI" }}
+      user={user}
       nav={nav}
       basePath="/admin-portal"
     >
@@ -204,6 +218,12 @@ function FunnelBar({
 }
 
 function OperationsTab() {
+  const statsQ = trpc.admin.stats.useQuery();
+  const s = statsQ.data;
+
+  const fmtRevenue = (r: number) =>
+    r >= 1e7 ? `₹${(r / 1e7).toFixed(1)} Cr` : r >= 1e5 ? `₹${(r / 1e5).toFixed(1)} L` : `₹${r.toLocaleString("en-IN")}`;
+
   return (
     <>
       <PageHead
@@ -213,24 +233,24 @@ function OperationsTab() {
 
       {/* 8-card stat grid */}
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Pipeline Value" value="₹84.2 Cr" sub="+9.1% wk" />
-        <StatCard label="Open Leads" value="412" sub="+18 today" />
-        <StatCard label="Pending Approvals" value="27" sub="6 urgent" accent="text-amber-600" />
+        <StatCard label="Total Revenue" value={s ? fmtRevenue(s.totalRevenue) : "…"} sub="from verified payments" />
+        <StatCard label="Open Leads" value={s ? String(s.totalLeads) : "…"} sub={s ? `${s.hotLeads} hot` : "loading"} />
+        <StatCard label="Active Listings" value={s ? String(s.activeListings) : "…"} sub={s ? `of ${s.totalProperties} total` : "loading"} accent="text-amber-600" />
         <StatCard
-          label="Click Alerts (24h)"
-          value="14"
-          sub="3 thresholds hit"
+          label="Hot Leads"
+          value={s ? String(s.hotLeads) : "…"}
+          sub="need immediate action"
           accent="text-accent"
         />
-        <StatCard label="Total Properties" value="186" sub="Across all cities" />
+        <StatCard label="Total Properties" value={s ? String(s.totalProperties) : "…"} sub="across all cities" />
         <StatCard
-          label="Conversions MTD"
-          value="23"
-          sub="+4 vs last mo"
+          label="Registered Users"
+          value={s ? String(s.totalUsers) : "…"}
+          sub="buyers + staff"
           accent="text-emerald-600"
         />
-        <StatCard label="Avg Deal Size" value="₹52 L" sub="Up ₹3L vs last mo" />
-        <StatCard label="Team Size" value="18" sub="4 cities active" />
+        <StatCard label="Avg Deal Size" value="₹52 L" sub="static — wire later" />
+        <StatCard label="Team Size" value={s ? String(s.totalUsers) : "…"} sub="all roles" />
       </div>
 
       {/* Funnel section */}
@@ -316,11 +336,30 @@ function PerfBar({ pct }: { pct: number }) {
 }
 
 function TeamTab() {
+  const staffQ = trpc.admin.users.list.useQuery({ limit: 50 });
+  const dbStaff = staffQ.data?.items ?? [];
+  const staffRoles = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+  const staffOnly = dbStaff.filter((u) => staffRoles.includes(u.role));
+
   const [roster, setRoster] = useState<Member[]>(seedRoster);
   const [showInvite, setShowInvite] = useState(false);
+
+  const displayRoster = staffOnly.length > 0 ? staffOnly.map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+    role: u.role,
+    city: u.city,
+    joined: new Date(u.joined).toLocaleDateString("en-IN"),
+    target: 100,
+    achieved: 75,
+    status: u.verified ? "Active" : "Inactive",
+  })) : roster;
+
   return (
     <>
-      <PageHead title="Team Management" subtitle={`${roster.length} members across 4 cities`} />
+      <PageHead title="Team Management" subtitle={`${displayRoster.length} members`} />
       <Section
         title="Active Roster"
         action={
@@ -349,9 +388,9 @@ function TeamTab() {
               </tr>
             </thead>
             <tbody>
-              {roster.map((m) => (
+              {displayRoster.map((m) => (
                 <tr key={m.id}>
-                  <td className="font-mono text-xs">{m.id}</td>
+                  <td className="font-mono text-xs">{typeof m.id === "string" && m.id.length > 10 ? m.id.slice(0, 8) + "…" : m.id}</td>
                   <td className="font-semibold text-navy">{m.name}</td>
                   <td className="text-xs text-muted-foreground">{m.email}</td>
                   <td className="font-mono text-xs text-muted-foreground">{m.phone}</td>
@@ -405,6 +444,8 @@ type ListingItem = {
   bhk: string;
   status: "Pending" | "Approved" | "Rejected";
   isUserSubmission?: boolean;
+  isDbProperty?: boolean;
+  rera?: string | null;
   locality?: string;
   listerEmail?: string;
   listerPhone?: string;
@@ -414,18 +455,16 @@ type ListingItem = {
 };
 
 function ListingsTab() {
-  const [items, setItems] = useState<ListingItem[]>(
-    properties.map((p) => ({
-      id: p.id,
-      title: p.title,
-      image: p.image,
-      builder: p.builder,
-      city: p.city,
-      priceLabel: p.priceLabel,
-      bhk: p.bhk,
-      status: "Pending" as const,
-    })),
-  );
+  const dbListingsQ = trpc.admin.properties.list.useQuery({ limit: 50 });
+  const approveMutation = trpc.admin.properties.approve.useMutation({
+    onSuccess: () => {
+      void dbListingsQ.refetch();
+      toast.success("Property approved and set to Active.");
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+
+  const [localItems, setLocalItems] = useState<ListingItem[]>([]);
 
   useEffect(() => {
     const userSubs: ListingItem[] = getPendingListings().map((l) => ({
@@ -446,21 +485,44 @@ function ListingsTab() {
       purpose: l.purpose,
       area: l.area,
     }));
-    setItems((prev) => {
-      const staticOnly = prev.filter((i) => !i.isUserSubmission);
-      return [...userSubs, ...staticOnly];
-    });
+    setLocalItems(userSubs);
   }, []);
 
+  type RawProp = { id: string; title: string; images: string[]; owner: { name: string } | null; location: { city: string } | null; price: number; bhk: string | null; status: string; rera: string | null; slug: string };
+  const dbItems: ListingItem[] = ((dbListingsQ.data?.items ?? []) as RawProp[]).map((p) => ({
+    id: p.id,
+    title: p.title,
+    image: p.images?.[0] ?? "",
+    builder: p.owner?.name ?? "",
+    city: p.location?.city ?? "",
+    priceLabel: p.price >= 1e7
+      ? `₹${(p.price / 1e7).toFixed(2)} Cr`
+      : p.price >= 1e5
+      ? `₹${(p.price / 1e5).toFixed(1)} L`
+      : `₹${p.price.toLocaleString("en-IN")}`,
+    bhk: p.bhk ?? "",
+    status: (p.status === "Active" ? "Approved" : p.status === "Sold" || p.status === "Rented" ? "Approved" : "Pending") as "Pending" | "Approved" | "Rejected",
+    isDbProperty: true,
+    rera: p.rera,
+  }));
+
+  const items = [...localItems, ...dbItems];
+
   const approve = (it: ListingItem) => {
-    setItems((arr) => arr.map((x) => (x.id === it.id ? { ...x, status: "Approved" } : x)));
-    if (it.isUserSubmission) persistListingStatus(it.id, "approved");
-    toast.success(`Approved: ${it.title}`);
+    if (it.isUserSubmission) {
+      setLocalItems((arr) => arr.map((x) => (x.id === it.id ? { ...x, status: "Approved" } : x)));
+      persistListingStatus(it.id, "approved");
+      toast.success(`Approved: ${it.title}`);
+    } else {
+      approveMutation.mutate({ id: it.id });
+    }
   };
 
   const reject = (it: ListingItem) => {
-    setItems((arr) => arr.map((x) => (x.id === it.id ? { ...x, status: "Rejected" } : x)));
-    if (it.isUserSubmission) persistListingStatus(it.id, "rejected");
+    if (it.isUserSubmission) {
+      setLocalItems((arr) => arr.map((x) => (x.id === it.id ? { ...x, status: "Rejected" } : x)));
+      persistListingStatus(it.id, "rejected");
+    }
     toast.error(`Rejected: ${it.title}`);
   };
 
@@ -611,7 +673,14 @@ function ListingsTab() {
 
 function LeadsTab() {
   const [filter, setFilter] = useState<string>("All");
-  const filtered = filter === "All" ? leads : leads.filter((l) => l.status === filter);
+  const dbLeadsQ = trpc.admin.leads.list.useQuery({ limit: 50, status: filter === "All" ? undefined : filter });
+  const dbLeads = dbLeadsQ.data?.items ?? [];
+
+  // Merge DB leads (primary) with static leads as fallback
+  const displayLeads = dbLeads.length > 0 ? dbLeads : (
+    filter === "All" ? leads : leads.filter((l) => l.status === filter)
+  );
+
   return (
     <>
       <PageHead title="Lead Management" subtitle="All leads across cities and reps." />
@@ -627,24 +696,56 @@ function LeadsTab() {
             </button>
           ))}
         </div>
+        {dbLeadsQ.isLoading && (
+          <div className="mt-4 text-sm text-muted-foreground">Loading leads…</div>
+        )}
         <div className="mt-5 overflow-x-auto">
           <table className="portal-table">
             <thead>
               <tr>
                 <th className="py-2">ID</th>
                 <th>Lead</th>
-                <th>Interest</th>
-                <th>Budget</th>
+                <th>Property</th>
                 <th>Source</th>
-                <th>Owner</th>
+                <th>Assigned To</th>
                 <th>Status</th>
-                <th>Value</th>
-                <th>Last Activity</th>
+                <th>Created</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((l) => (
+              {dbLeads.length > 0 ? dbLeads.map((l) => (
+                <tr key={l.id}>
+                  <td className="font-mono text-[11px]">{l.id.slice(0, 8)}…</td>
+                  <td>
+                    <div className="font-semibold text-navy">{l.user?.name ?? "—"}</div>
+                    <div className="text-xs text-muted-foreground">{l.user?.email}</div>
+                  </td>
+                  <td className="text-xs">{l.property?.title ?? "—"}</td>
+                  <td>
+                    <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-navy">
+                      {l.source ?? "Portal"}
+                    </span>
+                  </td>
+                  <td className="text-xs">{l.assignedToId ? l.assignedToId.slice(0, 8) + "…" : "Unassigned"}</td>
+                  <td>
+                    <Badge tone={(l.status?.toLowerCase() ?? "new") as "hot" | "warm" | "cold" | "new"}>
+                      {l.status ?? "New"}
+                    </Badge>
+                  </td>
+                  <td className="text-xs text-muted-foreground">
+                    {new Date(l.createdAt).toLocaleDateString("en-IN")}
+                  </td>
+                  <td className="text-right">
+                    <button
+                      onClick={() => toast.success(`Assigning lead…`)}
+                      className="text-xs font-semibold text-accent"
+                    >
+                      Assign →
+                    </button>
+                  </td>
+                </tr>
+              )) : (leads.filter((l) => filter === "All" || l.status === filter)).map((l) => (
                 <tr key={l.id}>
                   <td className="font-mono text-xs">{l.id}</td>
                   <td>
@@ -652,7 +753,6 @@ function LeadsTab() {
                     <div className="text-xs text-muted-foreground">{l.phone}</div>
                   </td>
                   <td className="text-xs">{l.interest}</td>
-                  <td className="font-mono text-xs">₹{(l.value / 100000).toFixed(1)}L</td>
                   <td>
                     <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-navy">
                       {l.source}
@@ -664,7 +764,6 @@ function LeadsTab() {
                       {l.status}
                     </Badge>
                   </td>
-                  <td className="font-mono text-xs">₹{(l.value / 100000).toFixed(1)}L</td>
                   <td className="text-xs text-muted-foreground">{l.lastActivity}</td>
                   <td className="text-right">
                     <button

@@ -1,5 +1,6 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { PortalShell, StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
+import { useAuth } from "@/lib/auth";
 import { reportTickets } from "@/data/reports";
 
 /* ─── Types ─────────────────────────────────────────────────── */
@@ -41,13 +43,23 @@ const nav = [
 
 /* ─── Root page ──────────────────────────────────────────────── */
 export default function SupportPortal() {
+  const { session } = useAuth();
+  const router = useRouter();
   const hash = useActiveHash();
+
+  useEffect(() => {
+    if (session !== undefined && !session) router.push("/admin-login");
+  }, [session, router]);
+
+  if (!session) return null;
+  const user = { name: session.name, initials: session.initials };
+
   return (
     <PortalShell
       brand="NxtSft.com Support"
       role="Support Admin"
       accent="blue"
-      user={{ name: "Support Admin", initials: "SA" }}
+      user={user}
       nav={nav}
       basePath="/support-portal"
     >

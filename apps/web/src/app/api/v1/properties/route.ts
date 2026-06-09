@@ -108,9 +108,17 @@ export async function POST(req: NextRequest) {
 
     const { city, state, locality, address, zipCode, latitude, longitude, price, area, ...rest } = result.data;
 
+    const slug = `${rest.title}-${city}`
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .concat(`-${Date.now()}`);
+
     const property = await prisma.property.create({
       data: {
         ...rest,
+        slug,
         price: BigInt(price),
         pricePerSqft: Math.round(price / area),
         area,

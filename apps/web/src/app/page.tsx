@@ -32,7 +32,8 @@ import {
 } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { properties, portals } from "@/data/static";
+import { portals } from "@/data/static";
+import { trpc } from "@/lib/trpc";
 
 /* ─── static data ──────────────────────────────────── */
 
@@ -76,9 +77,27 @@ const PROPERTY_TABS = ["All", "Apartments", "Villas", "Commercial", "PG"];
 const TAB_TYPE_MAP: Record<string, string> = {
   Apartments: "Apartment",
   Villas: "Villa",
-  Commercial: "Commercial",
+  Commercial: "Office",
   PG: "PG",
 };
+
+type FeaturedProp = {
+  id: string;
+  slug: string;
+  title: string;
+  type: string;
+  bhk: string | null;
+  area: number;
+  price: number;
+  images: string[];
+  location: { city: string; locality: string } | null;
+};
+
+function fmtPrice(p: number): string {
+  if (p >= 1_00_00_000) return `₹${(p / 1_00_00_000).toFixed(2)} Cr`;
+  if (p >= 1_00_000) return `₹${(p / 1_00_000).toFixed(1)} L`;
+  return `₹${p.toLocaleString("en-IN")}`;
+}
 
 const CATEGORIES = [
   { label: "Apartments", Icon: Building2, type: "Apartment" },
@@ -679,7 +698,6 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 export default function HomePage() {
   const router = useRouter();
-  const featured = properties.filter((p) => p.featured);
 
   const [tab, setTab] = useState<"Buy" | "Rent" | "Commercial" | "PG">("Buy");
   const [query, setQuery] = useState("");
@@ -691,9 +709,12 @@ export default function HomePage() {
   const carouselRef = useRef<HTMLDivElement>(null);
   const reviewRef = useRef<HTMLDivElement>(null);
 
-  const shownProps =
-    propTab === "All" ? featured : featured.filter((p) => p.type === TAB_TYPE_MAP[propTab]);
-  const displayProps = shownProps.length > 0 ? shownProps : featured;
+  const featuredQ = trpc.properties.list.useQuery({
+    featured: true,
+    type: propTab !== "All" ? TAB_TYPE_MAP[propTab] : undefined,
+    limit: 12,
+  });
+  const displayProps = (featuredQ.data?.items ?? []) as FeaturedProp[];
 
   /* rotating stat ticker */
   useEffect(() => {
@@ -873,50 +894,64 @@ export default function HomePage() {
 
             <div className="relative">
               <div ref={carouselRef} className="no-scrollbar flex gap-4 overflow-x-auto pb-1">
-                {displayProps.map((p, i) => (
-                  <Link
-                    key={p.id}
-                    href={`/properties/${p.id}`}
-                    data-reveal="scale"
-                    className="group w-[255px] shrink-0 overflow-hidden rounded-xl border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-                    style={{ transitionDelay: `${i * 60}ms` }}
-                  >
-                    <div className="relative aspect-[4/3] overflow-hidden">
-                      <img
-                        src={p.image}
-                        alt={p.title}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                      <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-md bg-gold px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-navy shadow">
-                        <StarIcon size={7} className="fill-current" /> Featured
-                      </span>
-                      <span className="absolute right-2.5 top-2.5 rounded-md bg-navy/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white backdrop-blur">
-                        {p.matchScore}% match
-                      </span>
-                    </div>
-                    <div className="p-3">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        {p.locality}, {p.city}
+                {featuredQ.isLoading
+                  ? Array.from({ length: 4 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-[255px] shrink-0 animate-pulse overflow-hidden rounded-xl border border-border bg-white"
+                      >
+                        <div className="aspect-[4/3] bg-secondary" />
+                        <div className="space-y-2 p-3">
+                          <div className="h-3 w-24 rounded bg-secondary" />
+                          <div className="h-4 w-40 rounded bg-secondary" />
+                          <div className="h-3 w-20 rounded bg-secondary" />
+                        </div>
                       </div>
-                      <h3 className="mt-0.5 font-display text-sm font-bold leading-tight text-navy">
-                        {p.title}
-                      </h3>
-                      <div className="mt-2 flex items-end justify-between">
-                        <div>
-                          <div className="font-display text-base font-black text-accent">
-                            {p.priceLabel}
+                    ))
+                  : displayProps.map((p, i) => (
+                      <Link
+                        key={p.id}
+                        href={`/properties/${p.slug}`}
+                        data-reveal="scale"
+                        className="group w-[255px] shrink-0 overflow-hidden rounded-xl border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                        style={{ transitionDelay: `${i * 60}ms` }}
+                      >
+                        <div className="relative aspect-[4/3] overflow-hidden">
+                          <img
+                            src={
+                              p.images[0] ??
+                              "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80"
+                            }
+                            alt={p.title}
+                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                          />
+                          <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-md bg-gold px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-navy shadow">
+                            <StarIcon size={7} className="fill-current" /> Featured
+                          </span>
+                        </div>
+                        <div className="p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            {p.location?.locality}, {p.location?.city}
                           </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {p.bhk} · {p.area} sqft
+                          <h3 className="mt-0.5 font-display text-sm font-bold leading-tight text-navy">
+                            {p.title}
+                          </h3>
+                          <div className="mt-2 flex items-end justify-between">
+                            <div>
+                              <div className="font-display text-base font-black text-accent">
+                                {fmtPrice(p.price)}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {p.bhk ? `${p.bhk} · ` : ""}{p.area} sqft
+                              </div>
+                            </div>
+                            <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-semibold text-navy">
+                              {p.type}
+                            </span>
                           </div>
                         </div>
-                        <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-semibold text-navy">
-                          {p.type}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+                      </Link>
+                    ))}
               </div>
 
               <button

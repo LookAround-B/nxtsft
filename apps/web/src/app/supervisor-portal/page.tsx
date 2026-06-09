@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -25,6 +26,8 @@ import {
 import { Activity as ActivityIcon, Calendar as CalendarIcon } from "lucide-react";
 import { PortalShell, StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
+import { useAuth } from "@/lib/auth";
+import { trpc } from "@/lib/trpc";
 import { leads, teamMembers, activities, propertyViews } from "@/data/static";
 import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
 
@@ -77,22 +80,32 @@ const nav = [
 ];
 
 export default function SupervisorPortal() {
+  const { session } = useAuth();
+  const router = useRouter();
   const hash = useActiveHash();
+
+  useEffect(() => {
+    if (session !== undefined && !session) router.push("/admin-login");
+  }, [session, router]);
+
+  if (!session) return null;
+  const user = { name: session.name, initials: session.initials };
+
   return (
     <PortalShell
       brand="NxtSft.com Desk"
       role="Supervisor"
       accent="green"
-      user={{ name: "Rahul Verma", initials: "RV" }}
+      user={user}
       nav={nav}
       basePath="/supervisor-portal"
     >
-      {renderTab(hash)}
+      {renderTab(hash, session.name)}
     </PortalShell>
   );
 }
 
-function renderTab(h: string) {
+function renderTab(h: string, supervisorName: string) {
   switch (h) {
     case "leads":
       return <TeamLeads />;
@@ -109,9 +122,9 @@ function renderTab(h: string) {
     case "reports":
       return (
         <ReportsDashboard
-          defaultSupervisor="Rahul Verma"
+          defaultSupervisor={supervisorName}
           title="My Team Reports"
-          subtitle="Reports filtered to your team — Rahul Verma."
+          subtitle={`Reports filtered to your team — ${supervisorName}.`}
         />
       );
     default:
@@ -301,14 +314,29 @@ function Dashboard() {
    TEAM LEADS
 ══════════════════════════════════════════════════════════════ */
 
-const budgetMap: Record<string, string> = {
-  "L-1042": "₹3.0–3.5 Cr",
-  "L-1043": "₹4.0–4.5 Cr",
-  "L-1044": "₹30–40k/mo",
-  "L-1045": "₹1.5–2L/mo",
-  "L-1046": "₹6–7 Cr",
-  "L-1047": "₹2.5–3 Cr",
+type DbLead = {
+  id: string;
+  name: string;
+  phone: string;
+  city: string | null;
+  interest: string | null;
+  status: string;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  property: { id: string; title: string; slug: string } | null;
 };
+
+function daysSince(iso: string) {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+}
+
+function fmtRelative(iso: string) {
+  const d = daysSince(iso);
+  if (d === 0) return "Today";
+  if (d === 1) return "Yesterday";
+  return `${d}d ago`;
+}
 
 const rowBg: Record<string, string> = {
   Hot: "bg-red-50",
@@ -321,26 +349,14 @@ function TeamLeads() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
 
+  const leadsQ = trpc.leads.list.useQuery({ limit: 100 });
+  const items = (leadsQ.data?.items ?? []) as DbLead[];
+
   function handleExport() {
-    const headers = [
-      "ID",
-      "Name",
-      "Interest",
-      "Budget",
-      "Source",
-      "Owner",
-      "Status",
-      "Days Since Contact",
-    ];
-    const rows = leads.map((l) => [
-      l.id,
-      l.name,
-      l.interest,
-      budgetMap[l.id] ?? "",
-      l.source,
-      l.owner,
-      l.status,
-      daysSinceLabel(l.lastActivity),
+    const headers = ["ID", "Name", "Interest", "Source", "Status", "Days In Pipeline", "Last Activity"];
+    const rows = items.map((l) => [
+      l.id, l.name, l.interest ?? l.property?.title ?? "", l.source,
+      l.status, String(daysSince(l.createdAt)), fmtRelative(l.updatedAt),
     ]);
     exportCSV("team-leads.csv", headers, rows);
     toast.success("Team Leads CSV downloaded");
@@ -366,33 +382,45 @@ function TeamLeads() {
               <tr>
                 <th className="py-2 text-left">Lead</th>
                 <th className="text-left">Interest</th>
-                <th className="text-left">Budget</th>
                 <th className="text-left">Source</th>
-                <th className="text-left">Owner</th>
                 <th className="text-left">Status</th>
-                <th className="text-left">Last Contact</th>
+                <th className="text-left">Pipeline</th>
+                <th className="text-left">Last Activity</th>
                 <th className="text-left">Action</th>
               </tr>
             </thead>
             <tbody>
-              {leads.map((l) => (
+              {leadsQ.isLoading ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                    Loading leads…
+                  </td>
+                </tr>
+              ) : items.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                    No leads found.
+                  </td>
+                </tr>
+              ) : items.map((l) => (
                 <>
                   <tr key={l.id} className={`${rowBg[l.status] ?? "bg-white"} transition-colors`}>
                     <td className="py-3">
                       <div className="font-semibold text-navy">{l.name}</div>
-                      <div className="font-mono text-[10px] text-muted-foreground">{l.id}</div>
+                      <div className="font-mono text-[10px] text-muted-foreground">{l.id.slice(0, 8)}…</div>
                     </td>
-                    <td className="text-xs">{l.interest}</td>
-                    <td className="text-xs font-medium">{budgetMap[l.id] ?? "—"}</td>
+                    <td className="text-xs">{l.interest ?? l.property?.title ?? "—"}</td>
                     <td className="text-xs">{l.source}</td>
-                    <td className="text-xs">{l.owner}</td>
                     <td>
                       <Badge tone={l.status.toLowerCase() as "hot" | "warm" | "cold" | "new"}>
                         {l.status}
                       </Badge>
                     </td>
                     <td className="text-xs font-mono text-muted-foreground">
-                      {daysSinceLabel(l.lastActivity)}
+                      {daysSince(l.createdAt)}d
+                    </td>
+                    <td className="text-xs font-mono text-muted-foreground">
+                      {fmtRelative(l.updatedAt)}
                     </td>
                     <td className="space-x-2 whitespace-nowrap">
                       <button
