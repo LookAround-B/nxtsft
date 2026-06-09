@@ -1,12 +1,16 @@
-import { router } from "./server";
-import { authRouter } from "./routers/auth";
-import { propertiesRouter } from "./routers/properties";
-import { leadsRouter } from "./routers/leads";
-import { usersRouter } from "./routers/users";
-import { subscriptionsRouter } from "./routers/subscriptions";
-import { adminRouter } from "./routers/admin";
-import { ticketsRouter } from "./routers/tickets";
-import { notificationsRouter } from "./routers/notifications";
+import { router } from "./server.js";
+import { authRouter } from "./routers/auth.js";
+import { propertiesRouter } from "./routers/properties.js";
+import { leadsRouter } from "./routers/leads.js";
+import { usersRouter } from "./routers/users.js";
+import { subscriptionsRouter } from "./routers/subscriptions.js";
+import { adminRouter } from "./routers/admin.js";
+import { ticketsRouter } from "./routers/tickets.js";
+import { notificationsRouter } from "./routers/notifications.js";
+import { siteVisitsRouter } from "./routers/siteVisits.js";
+import { searchAlertsRouter } from "./routers/searchAlerts.js";
+import { reviewsRouter } from "./routers/reviews.js";
+import { superAdminRouter } from "./routers/superAdmin.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -17,6 +21,10 @@ export const appRouter = router({
   admin: adminRouter,
   tickets: ticketsRouter,
   notifications: notificationsRouter,
+  siteVisits: siteVisitsRouter,
+  searchAlerts: searchAlertsRouter,
+  reviews: reviewsRouter,
+  superAdmin: superAdminRouter,
 });
 
 export type AppRouter = typeof appRouter;

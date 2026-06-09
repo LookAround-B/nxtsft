@@ -1,7 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure, adminProcedure } from "../server";
+import { router, protectedProcedure, adminProcedure } from "../server.js";
 
 const safeUserSelect = {
   id: true,
@@ -134,4 +135,96 @@ export const usersRouter = router({
       orderBy: { scheduledAt: "desc" },
     });
   }),
+
+  changePassword: protectedProcedure
+    .input(
+      z.object({
+        currentPassword: z.string(),
+        newPassword: z.string().min(8, "Password must be at least 8 characters"),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: ctx.user.id },
+        select: { passwordHash: true },
+      });
+
+      if (!user.passwordHash) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Password not set for this account." });
+      }
+
+      const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+      if (!valid) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Incorrect current password." });
+      }
+
+      const passwordHash = await bcrypt.hash(input.newPassword, 12);
+      await prisma.user.update({
+        where: { id: ctx.user.id },
+        data: { passwordHash },
+      });
+
+      return { ok: true };
+    }),
+
+  myListings: protectedProcedure.query(async ({ ctx }) => {
+    const properties = await prisma.property.findMany({
+      where: { ownerId: ctx.user.id, deletedAt: null },
+      include: {
+        location: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return properties.map((p) => ({
+      ...p,
+      price: Number(p.price),
+    }));
+  }),
+
+  sessions: protectedProcedure.query(async ({ ctx }) => {
+    return prisma.session.findMany({
+      where: { userId: ctx.user.id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        expiresAt: true,
+        ipAddress: true,
+        userAgent: true,
+      },
+    });
+  }),
+
+  terminateSession: protectedProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const session = await prisma.session.findUnique({
+        where: { id: input.sessionId },
+      });
+
+      if (!session) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Session not found." });
+      }
+
+      if (session.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot terminate another user's session." });
+      }
+
+      await prisma.session.delete({
+        where: { id: input.sessionId },
+      });
+
+      return { ok: true };
+    }),
+
+  toggleTwoFactor: protectedProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      return prisma.user.update({
+        where: { id: ctx.user.id },
+        data: { twoFactorEnabled: input.enabled },
+        select: { id: true, twoFactorEnabled: true },
+      });
+    }),
 });

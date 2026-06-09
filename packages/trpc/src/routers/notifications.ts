@@ -1,6 +1,6 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure } from "../server";
+import { router, protectedProcedure } from "../server.js";
 
 export const notificationsRouter = router({
   list: protectedProcedure

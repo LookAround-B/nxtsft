@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure, staffProcedure, adminProcedure } from "../server";
+import { router, protectedProcedure, staffProcedure, adminProcedure } from "../server.js";
 
 const LeadStatus = z.enum(["Hot", "Warm", "Cold", "New", "Converted", "Lost"]);
 const LeadSource = z.enum(["Portal", "WhatsApp", "Referral", "Direct"]);
@@ -191,4 +191,51 @@ export const leadsRouter = router({
 
       return visit;
     }),
+
+  bulkAssign: staffProcedure
+    .input(z.object({ leadIds: z.array(z.string()), assignedToId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const allowedRoles = ["supervisor", "admin", "super-admin"];
+      if (!allowedRoles.includes(ctx.user.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only supervisors and admins can assign leads." });
+      }
+
+      const assignee = await prisma.user.findUnique({ where: { id: input.assignedToId } });
+      if (!assignee || assignee.role !== "sales") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Assignee must be a sales rep." });
+      }
+
+      await prisma.lead.updateMany({
+        where: { id: { in: input.leadIds } },
+        data: { assignedToId: input.assignedToId, status: "New" },
+      });
+
+      return { ok: true };
+    }),
+
+  stats: staffProcedure.query(async ({ ctx }) => {
+    const isSales = ctx.user.role === "sales";
+    const where: any = {};
+    if (isSales) where.assignedToId = ctx.user.id;
+
+    const [total, hot, warm, cold, newLeads, converted, lost] = await Promise.all([
+      prisma.lead.count({ where }),
+      prisma.lead.count({ where: { ...where, status: "Hot" } }),
+      prisma.lead.count({ where: { ...where, status: "Warm" } }),
+      prisma.lead.count({ where: { ...where, status: "Cold" } }),
+      prisma.lead.count({ where: { ...where, status: "New" } }),
+      prisma.lead.count({ where: { ...where, status: "Converted" } }),
+      prisma.lead.count({ where: { ...where, status: "Lost" } }),
+    ]);
+
+    return {
+      total,
+      hot,
+      warm,
+      cold,
+      new: newLeads,
+      converted,
+      lost,
+    };
+  }),
 });

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server";
+import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server.js";
 
 // Serialize BigInt price fields to number for JSON transport
 function serializeProperty<T extends object>(obj: T): T {
@@ -134,7 +134,7 @@ export const propertiesRouter = router({
         facing: z.string().optional(),
         possession: z.string().optional(),
         builder: z.string().optional(),
-        rera: z.string().optional(),
+        rera: z.string().min(1, "RERA registration number is required").regex(/^[a-zA-Z0-9\/\-]+$/, "Invalid RERA registration number format"),
         city: z.string().min(2),
         state: z.string().min(2),
         locality: z.string().min(2),
@@ -188,7 +188,7 @@ export const propertiesRouter = router({
         furnishing: z.enum(["Furnished", "Semi-Furnished", "Unfurnished"]).optional(),
         facing: z.string().optional(),
         possession: z.string().optional(),
-        rera: z.string().optional(),
+        rera: z.string().regex(/^[a-zA-Z0-9\/\-]+$/, "Invalid RERA registration number format").optional(),
         status: z.enum(["Active", "Sold", "Rented", "Inactive"]).optional(),
         amenities: z.array(z.string()).optional(),
         images: z.array(z.string()).optional(),

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure, staffProcedure } from "../server";
+import { router, protectedProcedure, staffProcedure } from "../server.js";
 
 const TicketCategory = z.enum(["payment", "property", "agent", "technical", "other"]);
 const TicketPriority = z.enum(["low", "medium", "high", "urgent"]);
@@ -104,4 +104,27 @@ export const ticketsRouter = router({
 
       return prisma.ticket.update({ where: { id: input.id }, data });
     }),
+
+  stats: staffProcedure.query(async () => {
+    const [total, open, inProgress, resolved, closed, low, medium, high, urgent] = await Promise.all([
+      prisma.ticket.count(),
+      prisma.ticket.count({ where: { status: "open" } }),
+      prisma.ticket.count({ where: { status: "in_progress" } }),
+      prisma.ticket.count({ where: { status: "resolved" } }),
+      prisma.ticket.count({ where: { status: "closed" } }),
+      prisma.ticket.count({ where: { priority: "low" } }),
+      prisma.ticket.count({ where: { priority: "medium" } }),
+      prisma.ticket.count({ where: { priority: "high" } }),
+      prisma.ticket.count({ where: { priority: "urgent" } }),
+    ]);
+
+    return {
+      total,
+      open,
+      inProgress,
+      resolved,
+      closed,
+      byPriority: { low, medium, high, urgent },
+    };
+  }),
 });

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure } from "../server";
+import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server.js";
 
 // Seeker plans seeded in DB via migrations/seed. These are the canonical values.
 const SEEKER_PLANS = [
@@ -121,4 +121,103 @@ export const subscriptionsRouter = router({
       orderBy: { createdAt: "desc" },
     });
   }),
+
+  cancel: protectedProcedure
+    .input(z.object({ subscriptionId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const sub = await prisma.subscription.findUnique({
+        where: { id: input.subscriptionId },
+      });
+      if (!sub) throw new TRPCError({ code: "NOT_FOUND", message: "Subscription not found." });
+
+      const isAdmin = ["admin", "super-admin"].includes(ctx.user.role);
+      if (sub.userId !== ctx.user.id && !isAdmin) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to cancel this subscription." });
+      }
+
+      return prisma.subscription.update({
+        where: { id: input.subscriptionId },
+        data: { status: "Cancelled", updatedAt: new Date() },
+      });
+    }),
+
+  createPlan: adminProcedure
+    .input(
+      z.object({
+        name: z.string(),
+        price: z.number().int().positive(),
+        priceLabel: z.string(),
+        credits: z.number().int().nonnegative(),
+        validity: z.number().int().positive(),
+        tagline: z.string(),
+        features: z.array(z.string()).default([]),
+        popular: z.boolean().default(false),
+        type: z.enum(["seeker", "owner-rent", "owner-sell"]),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return prisma.plan.create({ data: input });
+    }),
+
+  updatePlan: adminProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        price: z.number().int().positive().optional(),
+        priceLabel: z.string().optional(),
+        credits: z.number().int().nonnegative().optional(),
+        validity: z.number().int().positive().optional(),
+        tagline: z.string().optional(),
+        features: z.array(z.string()).optional(),
+        popular: z.boolean().optional(),
+        active: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const { id, ...data } = input;
+      return prisma.plan.update({ where: { id }, data });
+    }),
+
+  deletePlan: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      return prisma.plan.update({ where: { id: input.id }, data: { active: false } });
+    }),
+
+  adminList: adminProcedure
+    .input(
+      z.object({
+        status: z.string().optional(),
+        cursor: z.string().optional(),
+        limit: z.number().int().min(1).max(100).default(20),
+      }),
+    )
+    .query(async ({ input }) => {
+      const { status, cursor, limit } = input;
+      const where: any = {};
+      if (status) where.status = status;
+
+      const items = await prisma.subscription.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+
+      const hasMore = items.length > limit;
+      const page = hasMore ? items.slice(0, limit) : items;
+
+      return {
+        items: page.map((sub) => ({
+          ...sub,
+          amount: Number(sub.amount),
+        })),
+        nextCursor: page.at(-1)?.id ?? null,
+        hasMore,
+      };
+    }),
 });

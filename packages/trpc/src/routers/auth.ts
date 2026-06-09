@@ -3,7 +3,7 @@ import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure } from "../server";
+import { router, publicProcedure, protectedProcedure } from "../server.js";
 
 const SESSION_TTL_DAYS = 30;
 const CONSUMER_ROLES = ["user", "customer"] as const;

@@ -35,7 +35,7 @@ export async function buildApp() {
     trpcOptions: {
       router: appRouter,
       createContext,
-      onError({ path, error }) {
+      onError({ path, error }: any) {
         if (error.code === "INTERNAL_SERVER_ERROR") {
           app.log.error({ path }, error.message);
         }

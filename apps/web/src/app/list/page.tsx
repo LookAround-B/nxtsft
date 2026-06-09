@@ -163,7 +163,14 @@ export default function ListPropertyPage() {
       if (!data.area) e.area = "Enter property area";
       if (!data.bhk) e.bhk = "Select a configuration";
     }
-    if (s === 3 && !data.description.trim()) e.description = "Add a brief description";
+    if (s === 3) {
+      if (!data.description.trim()) e.description = "Add a brief description";
+      if (!data.rera.trim()) {
+        e.rera = "RERA registration number is required";
+      } else if (!/^[a-zA-Z0-9\/\-]+$/.test(data.rera)) {
+        e.rera = "Invalid RERA registration number format";
+      }
+    }
     if (s === 4) {
       if (!data.listerName.trim()) e.listerName = "Enter your full name";
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.listerEmail))
@@ -220,7 +227,7 @@ export default function ListPropertyPage() {
           locality: data.locality || data.city,
           description: data.description || undefined,
           amenities: data.amenities,
-          rera: data.rera || undefined,
+          rera: data.rera,
           possession: data.possession || undefined,
         });
       } catch {
@@ -604,16 +611,16 @@ export default function ListPropertyPage() {
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-semibold text-foreground">
-                    RERA Number{" "}
-                    <span className="font-normal text-muted-foreground">(optional)</span>
+                    RERA Number
                   </label>
                   <input
                     type="text"
                     value={data.rera}
                     onChange={(e) => set("rera", e.target.value)}
                     placeholder="e.g. MH/2024/000123"
-                    className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                    className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.rera ? "border-rose-400" : "border-input"}`}
                   />
+                  {errors.rera && <p className="mt-1 text-xs text-rose-500">{errors.rera}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-foreground">

@@ -1,7 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
-import { router, adminProcedure, superAdminProcedure } from "../server";
+import { router, adminProcedure, superAdminProcedure } from "../server.js";
 
 const Role = z.enum(["super-admin", "admin", "supervisor", "sales", "support-admin", "user", "customer"]);
 
@@ -231,5 +232,73 @@ export const adminRouter = router({
       const hasMore = items.length > limit;
       const page = hasMore ? items.slice(0, limit) : items;
       return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
+    }),
+
+  teamMembers: adminProcedure
+    .input(
+      z.object({
+        role: Role.optional(),
+        search: z.string().optional(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const staffRoles = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+      const where: any = {
+        role: { in: staffRoles },
+      };
+
+      if (input.role) {
+        where.role = input.role;
+      }
+      if (input.search) {
+        where.OR = [
+          { name: { contains: input.search, mode: "insensitive" } },
+          { email: { contains: input.search, mode: "insensitive" } },
+          { phone: { contains: input.search, mode: "insensitive" } },
+        ];
+      }
+
+      return prisma.user.findMany({
+        where,
+        select: safeUserSelect,
+        orderBy: { joined: "desc" },
+      });
+    }),
+
+  createTeamMember: adminProcedure
+    .input(
+      z.object({
+        name: z.string().min(2),
+        email: z.string().email(),
+        phone: z.string().regex(/^[6-9]\d{9}$/),
+        password: z.string().min(8),
+        role: z.enum(["admin", "supervisor", "sales", "support-admin"]),
+        city: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const [existingEmail, existingPhone] = await Promise.all([
+        prisma.user.findUnique({ where: { email: input.email } }),
+        prisma.user.findUnique({ where: { phone: input.phone } }),
+      ]);
+
+      if (existingEmail) throw new TRPCError({ code: "CONFLICT", message: "Email already registered." });
+      if (existingPhone) throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
+
+      const passwordHash = await bcrypt.hash(input.password, 12);
+
+      return prisma.user.create({
+        data: {
+          name: input.name,
+          email: input.email,
+          phone: input.phone,
+          role: input.role,
+          city: input.city,
+          passwordHash,
+          verified: true,
+          verifiedAt: new Date(),
+        },
+        select: safeUserSelect,
+      });
     }),
 });

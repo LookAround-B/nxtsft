@@ -1,3 +1,13 @@
+import { join } from "path";
+
+try {
+  process.loadEnvFile();
+} catch (e) {}
+
+try {
+  process.loadEnvFile(join(process.cwd(), "../../.env"));
+} catch (e) {}
+
 function require(key: string, fallback?: string): string {
   const value = process.env[key] ?? fallback;
   if (value === undefined) throw new Error(`Missing required env var: ${key}`);
