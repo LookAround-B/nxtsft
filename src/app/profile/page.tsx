@@ -48,6 +48,11 @@ const roleActions: Record<Role, Array<{ label: string; to: string; Icon: LucideI
     { label: 'My Visits',     to: '/user-portal#visits', Icon: Calendar    },
     { label: 'Talk to advisor',to: '/contact',            Icon: MessageCircle },
   ],
+  'support-admin': [
+    { label: 'Support Portal', to: '/support-portal',          Icon: MessageCircle },
+    { label: 'Ticket Queue',   to: '/support-portal#queue',    Icon: FolderOpen    },
+    { label: 'TAT Report',     to: '/support-portal#tat',      Icon: BarChart2     },
+  ],
 };
 
 /* ── per-role stats ─────────────────────────────────────────────── */
@@ -87,6 +92,12 @@ const roleStats: Record<Role, Array<{ label: string; value: string; sub?: string
     { label: 'Visits Booked',  value: '2',     sub: '1 upcoming'      },
     { label: 'Concierge Tier', value: 'Gold',  sub: 'Renews in 22 d'  },
     { label: 'KYC',            value: 'Verified',sub: 'All docs OK'   },
+  ],
+  'support-admin': [
+    { label: 'Open Tickets',   value: '5',       sub: 'action needed'     },
+    { label: 'Resolved',       value: '11',      sub: 'this period'        },
+    { label: 'Within TAT',     value: '82%',     sub: 'TAT compliance'     },
+    { label: 'Escalated',      value: '1',       sub: 'SLA breach risk'    },
   ],
 };
 

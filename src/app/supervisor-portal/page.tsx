@@ -12,6 +12,7 @@ import { Activity as ActivityIcon, Calendar as CalendarIcon } from 'lucide-react
 import { PortalShell, StatCard, Section, Badge } from '@/components/portal/PortalShell';
 import { useActiveHash } from '@/lib/use-active-hash';
 import { leads, teamMembers, activities, propertyViews } from '@/data/static';
+import { ReportsDashboard } from '@/components/portal/ReportsDashboard';
 
 /* ─── helpers ──────────────────────────────────────────────── */
 
@@ -51,6 +52,7 @@ const nav = [
   { label: 'Performance',      to: '/supervisor-portal#performance', icon: <TrendingUp size={14} /> },
   { label: 'Visit Calendar',   to: '/supervisor-portal#calendar',    icon: <CalendarIcon size={14} /> },
   { label: 'Escalations',      to: '/supervisor-portal#escalations', icon: <AlertTriangle size={14} /> },
+  { label: 'Reports',          to: '/supervisor-portal#reports',     icon: <BarChart2 size={14} /> },
 ];
 
 export default function SupervisorPortal() {
@@ -70,6 +72,7 @@ function renderTab(h: string) {
     case 'performance': return <Performance />;
     case 'calendar': return <VisitCalendar />;
     case 'escalations': return <Escalations />;
+    case 'reports':     return <ReportsDashboard defaultSupervisor="Rahul Verma" title="My Team Reports" subtitle="Reports filtered to your team — Rahul Verma." />;
     default: return <Dashboard />;
   }
 }

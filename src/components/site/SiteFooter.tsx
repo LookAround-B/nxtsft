@@ -27,6 +27,7 @@ const FOOTER_LINKS = {
     { href: '/admin-login',     label: 'Staff Portal', external: true },
     { href: '/terms',           label: 'Terms of Use' },
     { href: '/privacy',         label: 'Privacy Policy' },
+    { href: '/cookie-policy',   label: 'Cookie Policy' },
     { href: '/fraud-advisory',  label: 'Fraud Advisory' },
   ],
   cities: [

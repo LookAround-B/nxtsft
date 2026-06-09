@@ -1,0 +1,148 @@
+export type UserCategory = 'Buyer' | 'Seller' | 'Owner' | 'Agent' | 'Tenant';
+
+export type ReportUser = {
+  id: string; name: string; email: string; phone: string;
+  category: UserCategory; city: string; state: string; builder: string;
+  supervisor: string; salesStaff: string; registeredOn: string;
+  status: 'Active' | 'Inactive';
+};
+
+export type ReportSubscription = {
+  id: string; userId: string; userName: string; plan: string; amount: number;
+  category: UserCategory; city: string; state: string; builder: string;
+  supervisor: string; salesStaff: string;
+  type: 'Fresh' | 'Renewal';
+  status: 'Paid' | 'Unpaid' | 'Follow-up' | 'Not Interested';
+  subscribedOn: string; dueDate: string;
+};
+
+export type ReportSiteVisit = {
+  id: string; leadName: string; property: string;
+  city: string; state: string; builder: string;
+  supervisor: string; salesStaff: string; category: UserCategory;
+  scheduledOn: string;
+  status: 'Completed' | 'Scheduled' | 'Cancelled' | 'No Show';
+};
+
+export type ReportAgentReg = {
+  id: string; name: string; city: string; state: string;
+  rera: string; registeredOn: string;
+  status: 'Active' | 'Pending' | 'Rejected';
+};
+
+export type ReportTicket = {
+  id: string; subject: string; raisedBy: string; category: string;
+  city: string; state: string; assignedTo: string; supervisor: string;
+  raisedOn: string; resolvedOn: string | null;
+  tatHours: number; actualHours: number | null;
+  status: 'Resolved' | 'Open' | 'Escalated';
+  withinTAT: boolean | null;
+};
+
+export const REPORT_CATEGORIES  = ['All', 'Buyer', 'Seller', 'Owner', 'Agent', 'Tenant'] as const;
+export const REPORT_CITIES      = ['All', 'Mumbai', 'Bengaluru', 'Delhi', 'Pune', 'Hyderabad', 'Chennai', 'Kolkata'] as const;
+export const REPORT_STATES      = ['All', 'Maharashtra', 'Karnataka', 'Delhi', 'Telangana', 'Tamil Nadu', 'West Bengal'] as const;
+export const REPORT_BUILDERS    = ['All', 'Lodha Group', 'Prestige', 'DLF', 'Oberoi Realty', 'Kolte Patil', 'Casagrand', 'Merlin Group', 'Private'] as const;
+export const REPORT_SUPERVISORS = ['All', 'Rahul Verma', 'Sonal Mehta', 'Arjun Nair'] as const;
+export const REPORT_SALES       = ['All', 'Priya Sharma', 'Karan Joshi', 'Anita Rao', 'Devansh Patel'] as const;
+
+export const reportUsers: ReportUser[] = [
+  { id: 'RU-01', name: 'Rohan Mehta',         email: 'rohan@example.com',    phone: '+91 98xxx 11001', category: 'Buyer',  city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  registeredOn: '2026-06-01', status: 'Active'   },
+  { id: 'RU-02', name: 'Kavya Nair',           email: 'kavya@example.com',    phone: '+91 98xxx 11002', category: 'Tenant', city: 'Mumbai',    state: 'Maharashtra', builder: 'Oberoi Realty', supervisor: 'Rahul Verma', salesStaff: 'Karan Joshi',   registeredOn: '2026-06-01', status: 'Active'   },
+  { id: 'RU-03', name: 'Arjun Shah',           email: 'arjun@example.com',    phone: '+91 98xxx 11003', category: 'Buyer',  city: 'Bengaluru', state: 'Karnataka',   builder: 'Prestige',      supervisor: 'Sonal Mehta', salesStaff: 'Karan Joshi',   registeredOn: '2026-06-02', status: 'Active'   },
+  { id: 'RU-04', name: 'Sneha Pillai',         email: 'sneha@example.com',    phone: '+91 98xxx 11004', category: 'Buyer',  city: 'Bengaluru', state: 'Karnataka',   builder: 'Prestige',      supervisor: 'Sonal Mehta', salesStaff: 'Karan Joshi',   registeredOn: '2026-06-02', status: 'Active'   },
+  { id: 'RU-05', name: 'Vikram Singh',         email: 'vikram@example.com',   phone: '+91 98xxx 11005', category: 'Tenant', city: 'Pune',      state: 'Maharashtra', builder: 'Kolte Patil',   supervisor: 'Rahul Verma', salesStaff: 'Devansh Patel', registeredOn: '2026-06-03', status: 'Inactive' },
+  { id: 'RU-06', name: 'Neha Reddy',           email: 'neha@example.com',     phone: '+91 98xxx 11006', category: 'Buyer',  city: 'Hyderabad', state: 'Telangana',   builder: 'DLF',           supervisor: 'Sonal Mehta', salesStaff: 'Anita Rao',     registeredOn: '2026-06-03', status: 'Active'   },
+  { id: 'RU-07', name: 'Aisha Khan',           email: 'aisha@example.com',    phone: '+91 98xxx 11007', category: 'Buyer',  city: 'Bengaluru', state: 'Karnataka',   builder: 'Prestige',      supervisor: 'Sonal Mehta', salesStaff: 'Karan Joshi',   registeredOn: '2026-06-04', status: 'Active'   },
+  { id: 'RU-08', name: 'Ravi Kumar',           email: 'ravi@example.com',     phone: '+91 98xxx 11008', category: 'Seller', city: 'Chennai',   state: 'Tamil Nadu',  builder: 'Private',       supervisor: 'Arjun Nair',  salesStaff: 'Priya Sharma',  registeredOn: '2026-06-04', status: 'Active'   },
+  { id: 'RU-09', name: 'Priya Kapoor',         email: 'pkapoor@example.com',  phone: '+91 98xxx 11009', category: 'Buyer',  city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  registeredOn: '2026-06-05', status: 'Active'   },
+  { id: 'RU-10', name: 'Suresh Iyer',          email: 'suresh@example.com',   phone: '+91 98xxx 11010', category: 'Owner',  city: 'Delhi',     state: 'Delhi',       builder: 'Private',       supervisor: 'Arjun Nair',  salesStaff: 'Devansh Patel', registeredOn: '2026-06-05', status: 'Active'   },
+  { id: 'RU-11', name: 'Anjali Gupta',         email: 'anjali@example.com',   phone: '+91 98xxx 11011', category: 'Tenant', city: 'Mumbai',    state: 'Maharashtra', builder: 'Oberoi Realty', supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  registeredOn: '2026-06-06', status: 'Active'   },
+  { id: 'RU-12', name: 'Dev Malhotra',         email: 'dev@example.com',      phone: '+91 98xxx 11012', category: 'Buyer',  city: 'Delhi',     state: 'Delhi',       builder: 'DLF',           supervisor: 'Arjun Nair',  salesStaff: 'Karan Joshi',   registeredOn: '2026-06-06', status: 'Inactive' },
+  { id: 'RU-13', name: 'Meena Subramanian',    email: 'meena@example.com',    phone: '+91 98xxx 11013', category: 'Buyer',  city: 'Chennai',   state: 'Tamil Nadu',  builder: 'Casagrand',     supervisor: 'Arjun Nair',  salesStaff: 'Anita Rao',     registeredOn: '2026-06-07', status: 'Active'   },
+  { id: 'RU-14', name: 'Harish Nair',          email: 'harish@example.com',   phone: '+91 98xxx 11014', category: 'Agent',  city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  registeredOn: '2026-06-07', status: 'Active'   },
+  { id: 'RU-15', name: 'Pooja Jain',           email: 'pooja@example.com',    phone: '+91 98xxx 11015', category: 'Seller', city: 'Pune',      state: 'Maharashtra', builder: 'Kolte Patil',   supervisor: 'Rahul Verma', salesStaff: 'Devansh Patel', registeredOn: '2026-06-08', status: 'Active'   },
+  { id: 'RU-16', name: 'Farhan Ahmed',         email: 'farhan@example.com',   phone: '+91 98xxx 11016', category: 'Tenant', city: 'Hyderabad', state: 'Telangana',   builder: 'DLF',           supervisor: 'Sonal Mehta', salesStaff: 'Anita Rao',     registeredOn: '2026-06-08', status: 'Active'   },
+  { id: 'RU-17', name: 'Lakshmi Rao',          email: 'lakshmi@example.com',  phone: '+91 98xxx 11017', category: 'Buyer',  city: 'Chennai',   state: 'Tamil Nadu',  builder: 'Casagrand',     supervisor: 'Arjun Nair',  salesStaff: 'Anita Rao',     registeredOn: '2026-06-09', status: 'Active'   },
+  { id: 'RU-18', name: 'Neeraj Pandey',        email: 'neeraj@example.com',   phone: '+91 98xxx 11018', category: 'Buyer',  city: 'Delhi',     state: 'Delhi',       builder: 'DLF',           supervisor: 'Arjun Nair',  salesStaff: 'Karan Joshi',   registeredOn: '2026-06-09', status: 'Active'   },
+  { id: 'RU-19', name: 'Tanya Bose',           email: 'tanya@example.com',    phone: '+91 98xxx 11019', category: 'Buyer',  city: 'Kolkata',   state: 'West Bengal', builder: 'Merlin Group',  supervisor: 'Arjun Nair',  salesStaff: 'Priya Sharma',  registeredOn: '2026-05-28', status: 'Active'   },
+  { id: 'RU-20', name: 'Vivek Sharma',         email: 'vivek@example.com',    phone: '+91 98xxx 11020', category: 'Owner',  city: 'Pune',      state: 'Maharashtra', builder: 'Kolte Patil',   supervisor: 'Rahul Verma', salesStaff: 'Devansh Patel', registeredOn: '2026-05-27', status: 'Inactive' },
+  { id: 'RU-21', name: 'Simran Kaur',          email: 'simran@example.com',   phone: '+91 98xxx 11021', category: 'Buyer',  city: 'Delhi',     state: 'Delhi',       builder: 'DLF',           supervisor: 'Arjun Nair',  salesStaff: 'Karan Joshi',   registeredOn: '2026-05-25', status: 'Active'   },
+  { id: 'RU-22', name: 'Rahul Bhatia',         email: 'rbhatia@example.com',  phone: '+91 98xxx 11022', category: 'Tenant', city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  registeredOn: '2026-05-22', status: 'Active'   },
+  { id: 'RU-23', name: 'Kiran Shetty',         email: 'kiran@example.com',    phone: '+91 98xxx 11023', category: 'Buyer',  city: 'Bengaluru', state: 'Karnataka',   builder: 'Prestige',      supervisor: 'Sonal Mehta', salesStaff: 'Karan Joshi',   registeredOn: '2026-05-20', status: 'Inactive' },
+  { id: 'RU-24', name: 'Ritesh Choudhary',     email: 'ritesh@example.com',   phone: '+91 98xxx 11024', category: 'Agent',  city: 'Hyderabad', state: 'Telangana',   builder: 'DLF',           supervisor: 'Sonal Mehta', salesStaff: 'Anita Rao',     registeredOn: '2026-05-18', status: 'Active'   },
+  { id: 'RU-25', name: 'Deepa Nambiar',        email: 'deepa@example.com',    phone: '+91 98xxx 11025', category: 'Seller', city: 'Chennai',   state: 'Tamil Nadu',  builder: 'Casagrand',     supervisor: 'Arjun Nair',  salesStaff: 'Anita Rao',     registeredOn: '2026-05-15', status: 'Active'   },
+];
+
+export const reportSubscriptions: ReportSubscription[] = [
+  { id: 'RS-01', userId: 'RU-01', userName: 'Rohan Mehta',      plan: 'Standard Pack',        amount: 499,  category: 'Buyer',  city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  type: 'Fresh',   status: 'Paid',           subscribedOn: '2026-06-01', dueDate: '2026-07-01' },
+  { id: 'RS-02', userId: 'RU-02', userName: 'Kavya Nair',       plan: 'Micro Match',          amount: 99,   category: 'Tenant', city: 'Mumbai',    state: 'Maharashtra', builder: 'Oberoi Realty', supervisor: 'Rahul Verma', salesStaff: 'Karan Joshi',   type: 'Fresh',   status: 'Paid',           subscribedOn: '2026-06-01', dueDate: '2026-06-08' },
+  { id: 'RS-03', userId: 'RU-03', userName: 'Arjun Shah',       plan: 'Active Hunter',        amount: 999,  category: 'Buyer',  city: 'Bengaluru', state: 'Karnataka',   builder: 'Prestige',      supervisor: 'Sonal Mehta', salesStaff: 'Karan Joshi',   type: 'Renewal', status: 'Paid',           subscribedOn: '2026-06-02', dueDate: '2026-07-02' },
+  { id: 'RS-04', userId: 'RU-04', userName: 'Sneha Pillai',     plan: 'Pro Assisted',         amount: 1999, category: 'Buyer',  city: 'Bengaluru', state: 'Karnataka',   builder: 'Prestige',      supervisor: 'Sonal Mehta', salesStaff: 'Karan Joshi',   type: 'Fresh',   status: 'Paid',           subscribedOn: '2026-06-02', dueDate: '2026-07-17' },
+  { id: 'RS-05', userId: 'RU-05', userName: 'Vikram Singh',     plan: 'Trial Pack',           amount: 199,  category: 'Tenant', city: 'Pune',      state: 'Maharashtra', builder: 'Kolte Patil',   supervisor: 'Rahul Verma', salesStaff: 'Devansh Patel', type: 'Fresh',   status: 'Unpaid',         subscribedOn: '2026-06-03', dueDate: '2026-06-18' },
+  { id: 'RS-06', userId: 'RU-06', userName: 'Neha Reddy',       plan: 'Standard Pack',        amount: 499,  category: 'Buyer',  city: 'Hyderabad', state: 'Telangana',   builder: 'DLF',           supervisor: 'Sonal Mehta', salesStaff: 'Anita Rao',     type: 'Renewal', status: 'Paid',           subscribedOn: '2026-06-03', dueDate: '2026-07-03' },
+  { id: 'RS-07', userId: 'RU-07', userName: 'Aisha Khan',       plan: 'Active Hunter',        amount: 999,  category: 'Buyer',  city: 'Bengaluru', state: 'Karnataka',   builder: 'Prestige',      supervisor: 'Sonal Mehta', salesStaff: 'Karan Joshi',   type: 'Fresh',   status: 'Paid',           subscribedOn: '2026-06-04', dueDate: '2026-07-04' },
+  { id: 'RS-08', userId: 'RU-08', userName: 'Ravi Kumar',       plan: 'Sell Monthly Silver',  amount: 4999, category: 'Seller', city: 'Chennai',   state: 'Tamil Nadu',  builder: 'Private',       supervisor: 'Arjun Nair',  salesStaff: 'Priya Sharma',  type: 'Fresh',   status: 'Follow-up',      subscribedOn: '2026-06-04', dueDate: '2026-07-04' },
+  { id: 'RS-09', userId: 'RU-09', userName: 'Priya Kapoor',     plan: 'Micro Match',          amount: 99,   category: 'Buyer',  city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  type: 'Fresh',   status: 'Paid',           subscribedOn: '2026-06-05', dueDate: '2026-06-12' },
+  { id: 'RS-10', userId: 'RU-10', userName: 'Suresh Iyer',      plan: 'Rent Monthly Gold',    amount: 1999, category: 'Owner',  city: 'Delhi',     state: 'Delhi',       builder: 'Private',       supervisor: 'Arjun Nair',  salesStaff: 'Devansh Patel', type: 'Renewal', status: 'Unpaid',         subscribedOn: '2026-06-05', dueDate: '2026-07-05' },
+  { id: 'RS-11', userId: 'RU-11', userName: 'Anjali Gupta',     plan: 'Trial Pack',           amount: 199,  category: 'Tenant', city: 'Mumbai',    state: 'Maharashtra', builder: 'Oberoi Realty', supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  type: 'Fresh',   status: 'Paid',           subscribedOn: '2026-06-06', dueDate: '2026-06-21' },
+  { id: 'RS-12', userId: 'RU-13', userName: 'Meena Subramanian',plan: 'Standard Pack',        amount: 499,  category: 'Buyer',  city: 'Chennai',   state: 'Tamil Nadu',  builder: 'Casagrand',     supervisor: 'Arjun Nair',  salesStaff: 'Anita Rao',     type: 'Renewal', status: 'Not Interested', subscribedOn: '2026-06-07', dueDate: '2026-07-07' },
+  { id: 'RS-13', userId: 'RU-14', userName: 'Harish Nair',      plan: 'Rent Monthly Platinum',amount: 4999, category: 'Agent',  city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  type: 'Fresh',   status: 'Paid',           subscribedOn: '2026-06-07', dueDate: '2026-07-07' },
+  { id: 'RS-14', userId: 'RU-16', userName: 'Farhan Ahmed',     plan: 'Trial Pack',           amount: 199,  category: 'Tenant', city: 'Hyderabad', state: 'Telangana',   builder: 'DLF',           supervisor: 'Sonal Mehta', salesStaff: 'Anita Rao',     type: 'Fresh',   status: 'Follow-up',      subscribedOn: '2026-06-08', dueDate: '2026-06-23' },
+  { id: 'RS-15', userId: 'RU-18', userName: 'Neeraj Pandey',    plan: 'Active Hunter',        amount: 999,  category: 'Buyer',  city: 'Delhi',     state: 'Delhi',       builder: 'DLF',           supervisor: 'Arjun Nair',  salesStaff: 'Karan Joshi',   type: 'Renewal', status: 'Paid',           subscribedOn: '2026-06-09', dueDate: '2026-07-09' },
+  { id: 'RS-16', userId: 'RU-19', userName: 'Tanya Bose',       plan: 'Standard Pack',        amount: 499,  category: 'Buyer',  city: 'Kolkata',   state: 'West Bengal', builder: 'Merlin Group',  supervisor: 'Arjun Nair',  salesStaff: 'Priya Sharma',  type: 'Fresh',   status: 'Paid',           subscribedOn: '2026-05-28', dueDate: '2026-06-28' },
+  { id: 'RS-17', userId: 'RU-21', userName: 'Simran Kaur',      plan: 'Micro Match',          amount: 99,   category: 'Buyer',  city: 'Delhi',     state: 'Delhi',       builder: 'DLF',           supervisor: 'Arjun Nair',  salesStaff: 'Karan Joshi',   type: 'Fresh',   status: 'Paid',           subscribedOn: '2026-05-25', dueDate: '2026-06-01' },
+  { id: 'RS-18', userId: 'RU-22', userName: 'Rahul Bhatia',     plan: 'Active Hunter',        amount: 999,  category: 'Tenant', city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  type: 'Renewal', status: 'Paid',           subscribedOn: '2026-05-22', dueDate: '2026-06-22' },
+  { id: 'RS-19', userId: 'RU-24', userName: 'Ritesh Choudhary', plan: 'Rent Monthly Gold',    amount: 1999, category: 'Agent',  city: 'Hyderabad', state: 'Telangana',   builder: 'DLF',           supervisor: 'Sonal Mehta', salesStaff: 'Anita Rao',     type: 'Fresh',   status: 'Unpaid',         subscribedOn: '2026-05-18', dueDate: '2026-06-18' },
+  { id: 'RS-20', userId: 'RU-25', userName: 'Deepa Nambiar',    plan: 'Sell Monthly Silver',  amount: 4999, category: 'Seller', city: 'Chennai',   state: 'Tamil Nadu',  builder: 'Casagrand',     supervisor: 'Arjun Nair',  salesStaff: 'Anita Rao',     type: 'Fresh',   status: 'Not Interested', subscribedOn: '2026-05-15', dueDate: '2026-06-15' },
+];
+
+export const reportSiteVisits: ReportSiteVisit[] = [
+  { id: 'SV-01', leadName: 'Rohan Mehta',         property: 'Skyline Residences — 3 BHK',       city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  category: 'Buyer',  scheduledOn: '2026-06-07', status: 'Completed' },
+  { id: 'SV-02', leadName: 'Aisha Khan',           property: 'Green Acres Villa — 4 BHK',        city: 'Bengaluru', state: 'Karnataka',   builder: 'Prestige',      supervisor: 'Sonal Mehta', salesStaff: 'Karan Joshi',   category: 'Buyer',  scheduledOn: '2026-06-07', status: 'Completed' },
+  { id: 'SV-03', leadName: 'Sneha Pillai',         property: 'Green Acres Villa — 4 BHK',        city: 'Bengaluru', state: 'Karnataka',   builder: 'Prestige',      supervisor: 'Sonal Mehta', salesStaff: 'Karan Joshi',   category: 'Buyer',  scheduledOn: '2026-06-08', status: 'Scheduled' },
+  { id: 'SV-04', leadName: 'Suresh Iyer',          property: 'Heritage Bungalow — 5 BHK',        city: 'Delhi',     state: 'Delhi',       builder: 'Private',       supervisor: 'Arjun Nair',  salesStaff: 'Devansh Patel', category: 'Owner',  scheduledOn: '2026-06-08', status: 'No Show'   },
+  { id: 'SV-05', leadName: 'Vikram Singh',         property: 'Urban Studio — Fully Furnished',   city: 'Pune',      state: 'Maharashtra', builder: 'Kolte Patil',   supervisor: 'Rahul Verma', salesStaff: 'Devansh Patel', category: 'Tenant', scheduledOn: '2026-06-09', status: 'Scheduled' },
+  { id: 'SV-06', leadName: 'Kavya Nair',           property: 'Marina Heights — Sea-facing 2 BHK',city: 'Mumbai',    state: 'Maharashtra', builder: 'Oberoi Realty', supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  category: 'Tenant', scheduledOn: '2026-06-06', status: 'Completed' },
+  { id: 'SV-07', leadName: 'Neha Reddy',           property: 'Tech Park Office — Grade A',       city: 'Hyderabad', state: 'Telangana',   builder: 'DLF',           supervisor: 'Sonal Mehta', salesStaff: 'Anita Rao',     category: 'Buyer',  scheduledOn: '2026-06-06', status: 'Completed' },
+  { id: 'SV-08', leadName: 'Dev Malhotra',         property: 'Heritage Bungalow — 5 BHK',        city: 'Delhi',     state: 'Delhi',       builder: 'Private',       supervisor: 'Arjun Nair',  salesStaff: 'Karan Joshi',   category: 'Buyer',  scheduledOn: '2026-06-05', status: 'Cancelled' },
+  { id: 'SV-09', leadName: 'Priya Kapoor',         property: 'Skyline Residences — 3 BHK',       city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  category: 'Buyer',  scheduledOn: '2026-06-04', status: 'Completed' },
+  { id: 'SV-10', leadName: 'Meena Subramanian',    property: 'Casagrand Fern — 3 BHK',           city: 'Chennai',   state: 'Tamil Nadu',  builder: 'Casagrand',     supervisor: 'Arjun Nair',  salesStaff: 'Anita Rao',     category: 'Buyer',  scheduledOn: '2026-06-04', status: 'Completed' },
+  { id: 'SV-11', leadName: 'Harish Nair',          property: 'Skyline Residences — 3 BHK',       city: 'Mumbai',    state: 'Maharashtra', builder: 'Lodha Group',   supervisor: 'Rahul Verma', salesStaff: 'Priya Sharma',  category: 'Agent',  scheduledOn: '2026-06-09', status: 'Scheduled' },
+  { id: 'SV-12', leadName: 'Farhan Ahmed',         property: 'Lotus Heights — 2 BHK',            city: 'Hyderabad', state: 'Telangana',   builder: 'DLF',           supervisor: 'Sonal Mehta', salesStaff: 'Anita Rao',     category: 'Tenant', scheduledOn: '2026-06-09', status: 'Scheduled' },
+  { id: 'SV-13', leadName: 'Tanya Bose',           property: 'Merlin Infinity — 2 BHK',          city: 'Kolkata',   state: 'West Bengal', builder: 'Merlin Group',  supervisor: 'Arjun Nair',  salesStaff: 'Priya Sharma',  category: 'Buyer',  scheduledOn: '2026-05-30', status: 'Completed' },
+  { id: 'SV-14', leadName: 'Simran Kaur',          property: 'DLF Crest — 4 BHK',               city: 'Delhi',     state: 'Delhi',       builder: 'DLF',           supervisor: 'Arjun Nair',  salesStaff: 'Karan Joshi',   category: 'Buyer',  scheduledOn: '2026-05-28', status: 'Completed' },
+  { id: 'SV-15', leadName: 'Kiran Shetty',         property: 'Prestige Raintree — Villa',        city: 'Bengaluru', state: 'Karnataka',   builder: 'Prestige',      supervisor: 'Sonal Mehta', salesStaff: 'Karan Joshi',   category: 'Buyer',  scheduledOn: '2026-05-25', status: 'No Show'   },
+];
+
+export const reportAgentRegs: ReportAgentReg[] = [
+  { id: 'AR-01', name: 'Harish Nair',       city: 'Mumbai',    state: 'Maharashtra', rera: 'MAHARERA/A2024001', registeredOn: '2026-06-07', status: 'Active'  },
+  { id: 'AR-02', name: 'Rajiv Menon',       city: 'Chennai',   state: 'Tamil Nadu',  rera: 'TN/RERA/2024A003',  registeredOn: '2026-06-03', status: 'Pending' },
+  { id: 'AR-03', name: 'Sushmita Das',      city: 'Kolkata',   state: 'West Bengal', rera: 'WB/RERA/2024A004',  registeredOn: '2026-06-05', status: 'Active'  },
+  { id: 'AR-04', name: 'Nisha Tiwari',      city: 'Pune',      state: 'Maharashtra', rera: 'MAHARERA/A2024006', registeredOn: '2026-06-08', status: 'Pending' },
+  { id: 'AR-05', name: 'Prakash Reddy',     city: 'Bengaluru', state: 'Karnataka',   rera: 'KA/RERA/2024A007',  registeredOn: '2026-06-01', status: 'Active'  },
+  { id: 'AR-06', name: 'Siddharth Roy',     city: 'Mumbai',    state: 'Maharashtra', rera: 'MAHARERA/A2024008', registeredOn: '2026-06-09', status: 'Pending' },
+  { id: 'AR-07', name: 'Ritesh Choudhary',  city: 'Hyderabad', state: 'Telangana',   rera: 'TS/RERA/2024A002',  registeredOn: '2026-05-18', status: 'Active'  },
+  { id: 'AR-08', name: 'Gaurav Walia',      city: 'Delhi',     state: 'Delhi',       rera: 'DLRERA/2024A005',   registeredOn: '2026-05-28', status: 'Active'  },
+];
+
+export const reportTickets: ReportTicket[] = [
+  { id: 'TKT-01', subject: 'Contact number incorrect',       raisedBy: 'Rohan Mehta',        category: 'Contact Quality',  city: 'Mumbai',    state: 'Maharashtra', assignedTo: 'Priya Sharma',  supervisor: 'Rahul Verma', raisedOn: '2026-06-01', resolvedOn: '2026-06-02', tatHours: 48, actualHours: 22,   status: 'Resolved',  withinTAT: true  },
+  { id: 'TKT-02', subject: 'Property already sold',          raisedBy: 'Kavya Nair',         category: 'Listing Accuracy', city: 'Mumbai',    state: 'Maharashtra', assignedTo: 'Karan Joshi',   supervisor: 'Rahul Verma', raisedOn: '2026-06-01', resolvedOn: '2026-06-04', tatHours: 48, actualHours: 72,   status: 'Resolved',  withinTAT: false },
+  { id: 'TKT-03', subject: 'Refund not processed',           raisedBy: 'Arjun Shah',         category: 'Billing',          city: 'Bengaluru', state: 'Karnataka',   assignedTo: 'Anita Rao',     supervisor: 'Sonal Mehta', raisedOn: '2026-06-02', resolvedOn: '2026-06-03', tatHours: 24, actualHours: 18,   status: 'Resolved',  withinTAT: true  },
+  { id: 'TKT-04', subject: 'Site visit no-show by agent',    raisedBy: 'Sneha Pillai',       category: 'Site Visit',       city: 'Bengaluru', state: 'Karnataka',   assignedTo: 'Karan Joshi',   supervisor: 'Sonal Mehta', raisedOn: '2026-06-03', resolvedOn: null,         tatHours: 48, actualHours: null, status: 'Open',      withinTAT: null  },
+  { id: 'TKT-05', subject: 'App login issue',                raisedBy: 'Vikram Singh',       category: 'Technical',        city: 'Pune',      state: 'Maharashtra', assignedTo: 'Devansh Patel', supervisor: 'Rahul Verma', raisedOn: '2026-06-03', resolvedOn: '2026-06-03', tatHours: 4,  actualHours: 3,    status: 'Resolved',  withinTAT: true  },
+  { id: 'TKT-06', subject: 'Price mismatch on listing',      raisedBy: 'Neha Reddy',         category: 'Listing Accuracy', city: 'Hyderabad', state: 'Telangana',   assignedTo: 'Anita Rao',     supervisor: 'Sonal Mehta', raisedOn: '2026-06-04', resolvedOn: '2026-06-05', tatHours: 24, actualHours: 20,   status: 'Resolved',  withinTAT: true  },
+  { id: 'TKT-07', subject: 'Duplicate listing reported',     raisedBy: 'Aisha Khan',         category: 'Listing Accuracy', city: 'Bengaluru', state: 'Karnataka',   assignedTo: 'Karan Joshi',   supervisor: 'Sonal Mehta', raisedOn: '2026-06-04', resolvedOn: null,         tatHours: 24, actualHours: null, status: 'Open',      withinTAT: null  },
+  { id: 'TKT-08', subject: 'Credits not reflected',          raisedBy: 'Suresh Iyer',        category: 'Billing',          city: 'Delhi',     state: 'Delhi',       assignedTo: 'Devansh Patel', supervisor: 'Arjun Nair',  raisedOn: '2026-06-05', resolvedOn: '2026-06-06', tatHours: 24, actualHours: 16,   status: 'Resolved',  withinTAT: true  },
+  { id: 'TKT-09', subject: 'Owner phone unreachable',        raisedBy: 'Priya Kapoor',       category: 'Contact Quality',  city: 'Mumbai',    state: 'Maharashtra', assignedTo: 'Priya Sharma',  supervisor: 'Rahul Verma', raisedOn: '2026-06-05', resolvedOn: '2026-06-07', tatHours: 48, actualHours: 44,   status: 'Resolved',  withinTAT: true  },
+  { id: 'TKT-10', subject: 'Subscription not activated',     raisedBy: 'Anjali Gupta',       category: 'Billing',          city: 'Mumbai',    state: 'Maharashtra', assignedTo: 'Priya Sharma',  supervisor: 'Rahul Verma', raisedOn: '2026-06-06', resolvedOn: null,         tatHours: 24, actualHours: null, status: 'Escalated', withinTAT: null  },
+  { id: 'TKT-11', subject: 'Incorrect RERA certificate',     raisedBy: 'Dev Malhotra',       category: 'Compliance',       city: 'Delhi',     state: 'Delhi',       assignedTo: 'Karan Joshi',   supervisor: 'Arjun Nair',  raisedOn: '2026-06-06', resolvedOn: null,         tatHours: 72, actualHours: null, status: 'Open',      withinTAT: null  },
+  { id: 'TKT-12', subject: 'OTP not received',               raisedBy: 'Meena Subramanian',  category: 'Technical',        city: 'Chennai',   state: 'Tamil Nadu',  assignedTo: 'Anita Rao',     supervisor: 'Arjun Nair',  raisedOn: '2026-06-07', resolvedOn: '2026-06-07', tatHours: 4,  actualHours: 2,    status: 'Resolved',  withinTAT: true  },
+  { id: 'TKT-13', subject: 'WhatsApp alert not received',    raisedBy: 'Harish Nair',        category: 'Technical',        city: 'Mumbai',    state: 'Maharashtra', assignedTo: 'Priya Sharma',  supervisor: 'Rahul Verma', raisedOn: '2026-06-07', resolvedOn: null,         tatHours: 24, actualHours: null, status: 'Open',      withinTAT: null  },
+  { id: 'TKT-14', subject: 'Site visit cancelled by sales',  raisedBy: 'Pooja Jain',         category: 'Site Visit',       city: 'Pune',      state: 'Maharashtra', assignedTo: 'Devansh Patel', supervisor: 'Rahul Verma', raisedOn: '2026-06-08', resolvedOn: null,         tatHours: 48, actualHours: null, status: 'Open',      withinTAT: null  },
+  { id: 'TKT-15', subject: 'Search results irrelevant',      raisedBy: 'Farhan Ahmed',       category: 'Technical',        city: 'Hyderabad', state: 'Telangana',   assignedTo: 'Anita Rao',     supervisor: 'Sonal Mehta', raisedOn: '2026-06-08', resolvedOn: null,         tatHours: 48, actualHours: null, status: 'Open',      withinTAT: null  },
+  { id: 'TKT-16', subject: 'Listing not appearing in search',raisedBy: 'Ritesh Choudhary',   category: 'Listing Accuracy', city: 'Hyderabad', state: 'Telangana',   assignedTo: 'Anita Rao',     supervisor: 'Sonal Mehta', raisedOn: '2026-05-20', resolvedOn: '2026-05-21', tatHours: 24, actualHours: 19,   status: 'Resolved',  withinTAT: true  },
+  { id: 'TKT-17', subject: 'Unable to book site visit',      raisedBy: 'Kiran Shetty',       category: 'Technical',        city: 'Bengaluru', state: 'Karnataka',   assignedTo: 'Karan Joshi',   supervisor: 'Sonal Mehta', raisedOn: '2026-05-25', resolvedOn: '2026-05-27', tatHours: 48, actualHours: 60,   status: 'Resolved',  withinTAT: false },
+  { id: 'TKT-18', subject: 'Commission not credited',        raisedBy: 'Deepa Nambiar',      category: 'Billing',          city: 'Chennai',   state: 'Tamil Nadu',  assignedTo: 'Anita Rao',     supervisor: 'Arjun Nair',  raisedOn: '2026-05-15', resolvedOn: '2026-05-17', tatHours: 48, actualHours: 38,   status: 'Resolved',  withinTAT: true  },
+];

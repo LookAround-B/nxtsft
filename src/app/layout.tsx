@@ -5,6 +5,7 @@ import { BottomNav } from '@/components/site/BottomNav';
 import { Toaster } from '@/components/ui/sonner';
 import { Preloader } from '@/components/site/Preloader';
 import { ListPropertyPopup } from '@/components/site/ListPropertyPopup';
+import { CookieBanner } from '@/components/site/CookieBanner';
 
 export const metadata: Metadata = {
   title: 'NxtSft.com — India\'s Smart Real Estate Platform',
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <BottomNav />
           <ListPropertyPopup />
+          <CookieBanner />
           <Toaster richColors position="top-right" />
         </AuthProvider>
       </body>

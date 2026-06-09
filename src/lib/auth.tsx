@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type Role = "super-admin" | "admin" | "supervisor" | "sales" | "user" | "customer";
+export type Role = "super-admin" | "admin" | "supervisor" | "sales" | "support-admin" | "user" | "customer";
 
 export interface Session {
   role: Role;
@@ -18,6 +18,7 @@ export const ROLE_META: Record<Role, { label: string; portal: string; portalName
   admin:         { label: "Admin",         portal: "/admin-portal",       portalName: "NxtSft.com Control",  demoEmail: "admin@nxtsft.com",       demoName: "Meera Iyer",    city: "Mumbai",       phone: "+91 98xxx 00002" },
   supervisor:    { label: "Supervisor",    portal: "/supervisor-portal",  portalName: "NxtSft.com Desk",     demoEmail: "supervisor@nxtsft.com",  demoName: "Rahul Verma",   city: "Pune",         phone: "+91 98xxx 00003" },
   sales:         { label: "Sales Rep",     portal: "/sales-portal",       portalName: "NxtSft.com Field",    demoEmail: "priya@nxtsft.com",       demoName: "Priya Sharma",  city: "Mumbai",       phone: "+91 98xxx 12042" },
+  "support-admin":{ label: "Support Admin", portal: "/support-portal",    portalName: "NxtSft.com Support",  demoEmail: "support@nxtsft.com",     demoName: "Support Admin", city: "Mumbai",       phone: "+91 98xxx 00005" },
   user:          { label: "Home Buyer",    portal: "/user-portal",        portalName: "NxtSft.com Home",     demoEmail: "rohan@example.com",      demoName: "Rohan Mehta",   city: "Mumbai",       phone: "+91 98xxx 11000" },
   customer:      { label: "Customer",      portal: "/user-portal",        portalName: "NxtSft.com Concierge",demoEmail: "ananya@example.com",     demoName: "Ananya Gupta",  city: "Delhi",        phone: "+91 98xxx 11001" },
 };

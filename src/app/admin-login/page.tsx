@@ -2,10 +2,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Shield, Crown, UserCog, TrendingUp, ChevronRight, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Shield, Crown, UserCog, TrendingUp, HeadphonesIcon, ChevronRight, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { ROLE_META, useAuth, type Role } from '@/lib/auth';
 
-type AdminRole = 'super-admin' | 'admin' | 'supervisor' | 'sales';
+type AdminRole = 'super-admin' | 'admin' | 'supervisor' | 'sales' | 'support-admin';
 
 const ROLES: {
   role: AdminRole;
@@ -61,6 +61,17 @@ const ROLES: {
     ringAccent: 'ring-amber-400/30',
     badgeBg: 'bg-amber-50 text-amber-700',
     description: 'Leads, pipeline, closings & commissions',
+  },
+  {
+    role: 'support-admin',
+    icon: <HeadphonesIcon size={22} />,
+    accent: 'from-blue-500 to-blue-600',
+    cardAccent: 'bg-blue-500',
+    textAccent: 'text-blue-700',
+    borderAccent: 'border-blue-400/40',
+    ringAccent: 'ring-blue-400/30',
+    badgeBg: 'bg-blue-50 text-blue-700',
+    description: 'Tickets, TAT tracking & knowledge base',
   },
 ];
 

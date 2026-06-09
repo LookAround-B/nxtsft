@@ -9,6 +9,8 @@ import {
 import { PortalShell, StatCard, Section, Badge } from '@/components/portal/PortalShell';
 import { useActiveHash } from '@/lib/use-active-hash';
 import { kpis, leads, activities, properties, teamMembers, propertyViews, seekerPlans, ownerRentalPlans, ownerSellPlans } from '@/data/static';
+import { reportTickets } from '@/data/reports';
+import { ReportsDashboard } from '@/components/portal/ReportsDashboard';
 
 /* ─── CSV download helper ─────────────────────────────────── */
 const downloadCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -35,7 +37,8 @@ const nav = [
   { label: 'Billing & Revenue', to: '/sa-portal#bill',         icon: <CreditCard size={14} /> },
   { label: 'Role Permissions',  to: '/sa-portal#permissions',  icon: <Shield size={14} /> },
   { label: 'Plans Manager',     to: '/sa-portal#plans',        icon: <PackageOpen size={14} /> },
-  { label: 'Reports',           to: '/sa-portal#reports',      icon: <FileText size={14} /> },
+  { label: 'Support Tickets',  to: '/sa-portal#tickets',      icon: <FileText size={14} /> },
+  { label: 'Reports',          to: '/sa-portal#reports',      icon: <FileText size={14} /> },
 ];
 
 /* ─── Root page ───────────────────────────────────────────── */
@@ -62,6 +65,7 @@ function renderTab(hash: string) {
     case 'bill':        return <BillingTab />;
     case 'permissions': return <PermissionsTab />;
     case 'plans':       return <PlansManagerTab />;
+    case 'tickets':     return <SupportTicketsTab />;
     case 'reports':     return <ReportsTab />;
     default:            return <Dashboard />;
   }
@@ -1043,113 +1047,139 @@ function PermissionsTab() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   REPORTS TAB
+   SUPPORT TICKETS TAB
 ═══════════════════════════════════════════════════════════ */
-interface ReportDef {
-  name: string;
-  description: string;
-  rowCount: number;
-  lastGenerated: string;
-  headers: string[];
-  rows: (string | number)[][];
-}
+function SupportTicketsTab() {
+  const [tickets, setTickets] = useState(reportTickets.map((t) => ({ ...t })));
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Open' | 'Resolved' | 'Escalated'>('All');
+  const [search, setSearch] = useState('');
 
-function ReportsTab() {
-  const [previews, setPreviews] = useState<Record<string, boolean>>({});
+  const filtered = tickets.filter((t) => {
+    if (statusFilter !== 'All' && t.status !== statusFilter) return false;
+    if (search && !t.subject.toLowerCase().includes(search.toLowerCase()) && !t.raisedBy.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
 
-  const togglePreview = (name: string) =>
-    setPreviews((p) => ({ ...p, [name]: !p[name] }));
+  const resolve = (id: string) => {
+    setTickets((prev) => prev.map((t) =>
+      t.id === id ? { ...t, status: 'Resolved' as const, resolvedOn: '2026-06-09' } : t
+    ));
+    toast.success(`Ticket ${id} resolved`);
+  };
 
-  const kpiRows: (string | number)[][] = [
-    ['Total Listings', kpis.totalListings, '+8.2%'],
-    ['Active Leads',   kpis.activeLeads,  '+12.4%'],
-    ['Revenue (Cr)',   kpis.revenueCr,    '+24%'],
-    ['DAU',            kpis.dau,          '+3.1%'],
-    ['MAU',            kpis.mau,          '+9.6%'],
-    ['Conversion %',   kpis.conversion,   '+0.4pts'],
-  ];
-
-  const reports: ReportDef[] = [
-    {
-      name: 'Platform KPIs',
-      description: 'Core platform metrics including listings, leads, revenue, and engagement.',
-      rowCount: kpiRows.length,
-      lastGenerated: '2026-06-06 10:00',
-      headers: ['Metric', 'Value', 'Change'],
-      rows: kpiRows,
-    },
-    {
-      name: 'All Leads',
-      description: 'Complete leads database with city, status, value and assigned owner.',
-      rowCount: leads.length,
-      lastGenerated: '2026-06-06 09:45',
-      headers: ['ID', 'Name', 'City', 'Status', 'Value', 'Owner'],
-      rows: leads.map((l) => [l.id, l.name, l.city, l.status, l.value, l.owner]),
-    },
-    {
-      name: 'Property Views',
-      description: 'All property view events including session duration and contact unlock status.',
-      rowCount: propertyViews.length,
-      lastGenerated: '2026-06-06 10:55',
-      headers: ['ID', 'User', 'Email', 'Property', 'City', 'Duration', 'Unlocked'],
-      rows: propertyViews.map((v) => [v.id, v.userName, v.userEmail, v.propertyTitle, v.city, v.durationSec, v.contactUnlocked ? 'Yes' : 'No']),
-    },
-    {
-      name: 'Team Directory',
-      description: 'Full staff roster with roles, cities and account status.',
-      rowCount: allUsers.length,
-      lastGenerated: '2026-06-06 08:30',
-      headers: ['ID', 'Name', 'Role', 'City', 'Status'],
-      rows: allUsers.map((u) => [u.id, u.name, u.role, u.city, u.status]),
-    },
-    {
-      name: 'Audit Trail',
-      description: 'Timestamped log of all privileged user actions and system events.',
-      rowCount: activities.length,
-      lastGenerated: '2026-06-06 10:42',
-      headers: ['Time', 'User', 'Action', 'Outcome'],
-      rows: activities.map((a) => [a.ts, a.user, a.action, a.outcome]),
-    },
-  ];
+  const open     = tickets.filter((t) => t.status === 'Open').length;
+  const escalated= tickets.filter((t) => t.status === 'Escalated').length;
+  const resolved = tickets.filter((t) => t.status === 'Resolved').length;
+  const withinTAT= tickets.filter((t) => t.withinTAT === true).length;
+  const tatPct   = resolved > 0 ? Math.round((withinTAT / resolved) * 100) : 0;
 
   return (
     <>
       <TabHeader
-        title="Reports"
-        subtitle="Download or preview platform data reports as CSV."
-        action={<Badge tone="success">{reports.length} reports available</Badge>}
-      />
-      <div className="grid gap-6 md:grid-cols-2">
-        {reports.map((r) => (
-          <Section key={r.name} title={r.name}>
-            <p className="text-sm text-muted-foreground">{r.description}</p>
-            <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-              <span>{r.rowCount} rows</span>
-              <span>Last generated: {r.lastGenerated}</span>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => downloadCSV(`${r.name.replace(/\s+/g, '-').toLowerCase()}.csv`, r.headers, r.rows)}
-                className="rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-navy-deep hover:opacity-90 transition"
-              >
-                Download CSV
-              </button>
-              <button
-                onClick={() => togglePreview(r.name)}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-navy hover:bg-secondary transition"
-              >
-                {previews[r.name] ? 'Hide Preview' : 'Preview'}
-              </button>
-            </div>
-            {previews[r.name] && (
-              <pre className="mt-4 overflow-x-auto rounded-lg bg-secondary/60 p-3 text-[11px] leading-relaxed text-foreground/80">
-                {[r.headers, ...r.rows.slice(0, 3)].map((row) => row.join('\t')).join('\n')}
-              </pre>
+        title="Support Tickets"
+        subtitle="Platform-wide customer support ticket management and TAT tracking."
+        action={
+          <button
+            onClick={() => downloadCSV('tickets.csv',
+              ['ID','Subject','Raised By','Category','City','Assigned To','Supervisor','Status','Raised On','Resolved On','TAT (hrs)','Within TAT'],
+              tickets.map((t) => [t.id,t.subject,t.raisedBy,t.category,t.city,t.assignedTo,t.supervisor,t.status,t.raisedOn,t.resolvedOn??'—',t.tatHours,t.withinTAT===null?'—':t.withinTAT?'Yes':'No'])
             )}
-          </Section>
+            className="text-xs font-semibold text-accent hover:underline"
+          >
+            Export CSV →
+          </button>
+        }
+      />
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <StatCard label="Open"       value={String(open)}      sub="needs action"  accent="text-amber-600" />
+        <StatCard label="Escalated"  value={String(escalated)} sub="SLA breach"    accent="text-red-600" />
+        <StatCard label="Resolved"   value={String(resolved)}  />
+        <StatCard label="Within TAT" value={`${tatPct}%`}      sub={`${withinTAT}/${resolved}`} />
+      </div>
+
+      <div className="mb-4 mt-2 flex flex-wrap items-center gap-3">
+        <input
+          placeholder="Search subject or name…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+        />
+        {(['All','Open','Resolved','Escalated'] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+              statusFilter === s ? 'bg-accent text-white' : 'border border-border text-navy hover:border-accent'
+            }`}
+          >
+            {s}
+          </button>
         ))}
       </div>
+
+      <Section title={`${filtered.length} tickets`}>
+        <div className="overflow-x-auto">
+          <table className="portal-table">
+            <thead>
+              <tr>
+                <th className="py-2">ID</th><th>Subject</th><th>Raised By</th><th>Category</th>
+                <th>City</th><th>Assigned To</th><th>Supervisor</th><th>TAT</th>
+                <th>Raised On</th><th>Status</th><th>Within TAT</th><th className="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((t) => (
+                <tr key={t.id}>
+                  <td className="font-mono text-xs">{t.id}</td>
+                  <td className="max-w-[160px] truncate text-xs font-semibold text-navy">{t.subject}</td>
+                  <td className="text-xs">{t.raisedBy}</td>
+                  <td className="text-xs">{t.category}</td>
+                  <td className="text-xs">{t.city}</td>
+                  <td className="text-xs">{t.assignedTo}</td>
+                  <td className="text-xs">{t.supervisor}</td>
+                  <td className="font-mono text-xs">{t.tatHours}h</td>
+                  <td className="font-mono text-xs">{t.raisedOn}</td>
+                  <td>
+                    <Badge tone={t.status === 'Resolved' ? 'success' : t.status === 'Escalated' ? 'hot' : 'warm'}>
+                      {t.status}
+                    </Badge>
+                  </td>
+                  <td>
+                    {t.withinTAT === null
+                      ? <span className="text-xs text-muted-foreground">—</span>
+                      : <Badge tone={t.withinTAT ? 'success' : 'hot'}>{t.withinTAT ? 'Yes' : 'Breached'}</Badge>
+                    }
+                  </td>
+                  <td className="text-right">
+                    {t.status === 'Open' && (
+                      <button
+                        onClick={() => resolve(t.id)}
+                        className="rounded-md bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-600 transition"
+                      >
+                        Resolve
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
     </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   REPORTS TAB
+═══════════════════════════════════════════════════════════ */
+function ReportsTab() {
+  return (
+    <ReportsDashboard
+      title="Reports"
+      subtitle="Platform-wide calendar-filtered reports across all CRM dimensions."
+    />
   );
 }
 

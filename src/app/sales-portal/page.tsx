@@ -4,11 +4,12 @@ import { toast } from 'sonner';
 import {
   Target, FileText, ClipboardList, Phone,
   Building, Wallet, LayoutGrid, Download,
-  MapPin, CheckCircle2, XCircle, Clock, Calendar,
+  MapPin, CheckCircle2, XCircle, Clock, Calendar, BarChart2,
 } from 'lucide-react';
 import { PortalShell, StatCard, Section, Badge } from '@/components/portal/PortalShell';
 import { useActiveHash } from '@/lib/use-active-hash';
 import { leads, activities, properties, propertyViews } from '@/data/static';
+import { ReportsDashboard } from '@/components/portal/ReportsDashboard';
 
 const nav = [
   { label: 'My Leads',      to: '/sales-portal',            icon: <Target size={14} /> },
@@ -18,6 +19,7 @@ const nav = [
   { label: 'Site Visits',   to: '/sales-portal#visits',     icon: <Building size={14} /> },
   { label: 'My Commission', to: '/sales-portal#commission', icon: <Wallet size={14} /> },
   { label: 'Listings',      to: '/sales-portal#listings',   icon: <LayoutGrid size={14} /> },
+  { label: 'Reports',       to: '/sales-portal#reports',    icon: <BarChart2 size={14} /> },
 ];
 
 // ─── CSV helper ──────────────────────────────────────────────────────────────
@@ -57,6 +59,7 @@ function renderTab(h: string) {
     case 'visits':     return <Visits />;
     case 'commission': return <Commission />;
     case 'listings':   return <Listings />;
+    case 'reports':    return <ReportsDashboard defaultSales="Priya Sharma" title="My Reports" subtitle="Reports filtered to your activity — Priya Sharma." />;
     default:           return <MyLeads />;
   }
 }
