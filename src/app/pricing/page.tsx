@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  Check, Zap, Shield, Home, Users, TrendingUp, UserCheck, PhoneCall,
-  ChevronDown, ChevronUp, ArrowRight, Sparkles,
+  Check, Zap, Shield, Building2, Users, Key, UserCheck, PhoneCall,
+  ChevronDown, ChevronUp, ArrowRight, Sparkles, BadgeCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SiteHeader } from '@/components/site/SiteHeader';
@@ -117,6 +117,120 @@ function SeekerPlanCard({ plan, onBuy }: { plan: SeekerPlan; onBuy: (p: SeekerPl
   );
 }
 
+/* ── Reseller plans ─────────────────────────────────────────────── */
+type ResellerPlan = {
+  id: string;
+  name: string;
+  priceLabel: string;
+  leads: number;
+  validity: string;
+  badge: string | null;
+  features: string[];
+};
+
+const RESELLER_PLANS: ResellerPlan[] = [
+  {
+    id: 'resell-standard',
+    name: 'Standard Pack',
+    priceLabel: '₹2,999',
+    leads: 10,
+    validity: '30 days',
+    badge: null,
+    features: [
+      '10 Verified Buyer Leads',
+      '1 Property Listing',
+      'Dedicated RM Assigned',
+      'Up to 5 Physical Walkthroughs',
+      'Legal / Paperwork Help',
+    ],
+  },
+  {
+    id: 'resell-pro',
+    name: 'Pro Assisted',
+    priceLabel: '₹4,999',
+    leads: 30,
+    validity: '45 days',
+    badge: null,
+    features: [
+      '30 Verified Buyer Leads',
+      'Dedicated RM + Premium Search',
+      'Up to 5 Site Visits Managed',
+      'End-to-End Lease / Sale Closing',
+    ],
+  },
+  {
+    id: 'resell-executive',
+    name: 'Executive Premium',
+    priceLabel: '₹9,999',
+    leads: 50,
+    validity: '60 days',
+    badge: 'Best Value',
+    features: [
+      '50 Verified Buyer Leads',
+      'Dedicated RM + Premium Search',
+      'Up to 15 Site Visits Managed',
+      'End-to-End Lease / Sale Closing',
+    ],
+  },
+];
+
+function ResellerPlanCard({ plan, onBuy }: { plan: ResellerPlan; onBuy: (p: ResellerPlan) => void }) {
+  const isBest = plan.badge === 'Best Value';
+  return (
+    <div className={`relative flex h-full flex-col rounded-2xl border-2 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl
+      ${isBest ? 'border-accent shadow-accent/10' : 'border-border'}`}
+    >
+      {plan.badge && (
+        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap">
+          <span className="rounded-full bg-accent px-4 py-1 text-[11px] font-bold uppercase tracking-widest text-white shadow">
+            {plan.badge}
+          </span>
+        </div>
+      )}
+
+      {/* Lead count */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className={`flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl font-display font-black leading-none
+          ${isBest ? 'bg-accent text-white' : 'bg-navy/8 text-navy'}`}>
+          <span className="text-2xl">{plan.leads}</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider opacity-60">Leads</span>
+        </div>
+        <div>
+          <div className="font-display text-lg font-black text-navy">{plan.name}</div>
+          <div className="flex items-center gap-1 text-xs text-emerald-600">
+            <BadgeCheck size={12} />
+            Verified Buyer Leads
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-baseline gap-1.5">
+        <span className="font-display text-3xl font-black text-navy">{plan.priceLabel}</span>
+        <span className="text-xs text-muted-foreground">/ {plan.validity}</span>
+      </div>
+
+      <ul className="mt-5 flex-1 space-y-2.5">
+        {plan.features.map((f: string) => (
+          <li key={f} className="flex items-start gap-2.5 text-sm text-foreground/80">
+            <Check size={14} className="mt-0.5 shrink-0 text-emerald-500" strokeWidth={2.5} />
+            {f}
+          </li>
+        ))}
+      </ul>
+
+      <button
+        onClick={() => onBuy(plan)}
+        className={`mt-7 w-full rounded-xl py-2.5 font-display text-sm font-bold transition
+          ${isBest
+            ? 'bg-accent text-white shadow-lg shadow-accent/25 hover:opacity-90'
+            : 'bg-navy text-white hover:opacity-90'}`}
+      >
+        Get Plan — {plan.priceLabel}
+      </button>
+    </div>
+  );
+}
+
 /* ── Wallet trust row ───────────────────────────────────────────── */
 function WalletTrustRow() {
   const items = [
@@ -141,9 +255,37 @@ function WalletTrustRow() {
   );
 }
 
+/* ── Reseller trust row ─────────────────────────────────────────── */
+function ResellerTrustRow() {
+  const items = [
+    { icon: <BadgeCheck size={20} className="text-emerald-500" />, title: 'Intent-Verified Leads', desc: 'Every buyer lead has a verified identity and active property search — no cold contacts, no time wasters.' },
+    { icon: <UserCheck size={20} className="text-accent" />, title: 'Dedicated RM from Day 1', desc: 'Your Relationship Manager is assigned within 2 hours of purchase and stays with you until closing.' },
+    { icon: <Shield size={20} className="text-gold" />, title: 'Zero Commission', desc: 'Flat-fee plans only. We charge nothing on your sale proceeds — every rupee from the deal is yours.' },
+  ];
+  return (
+    <div className="mx-auto mt-8 max-w-6xl px-5 sm:px-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        {items.map(({ icon, title, desc }) => (
+          <div key={title} className="flex gap-4 rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <div className="mt-0.5 shrink-0">{icon}</div>
+            <div>
+              <div className="font-display text-sm font-bold text-navy">{title}</div>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── How it works ───────────────────────────────────────────────── */
-function HowItWorks({ forSeeker }: { forSeeker: boolean }) {
-  const steps = forSeeker ? [
+function HowItWorks({ forSeeker, forReseller }: { forSeeker: boolean; forReseller?: boolean }) {
+  const steps = forReseller ? [
+    { step: '01', title: 'Choose your lead pack', body: 'Pick a plan based on how many verified buyer leads you need. Your dedicated Relationship Manager is assigned within 2 hours of purchase.' },
+    { step: '02', title: 'Receive curated leads', body: 'Your RM matches your property to intent-verified buyers on NxtSft.com and delivers their details — name, number, budget, requirements — directly to your WhatsApp.' },
+    { step: '03', title: 'Close with full support', body: 'Your RM coordinates site visits, handles price negotiations, and assists with documentation so you close every deal stress-free.' },
+  ] : forSeeker ? [
     { step: '01', title: 'Choose a plan', body: 'Pick a plan based on how many properties you want to enquire about. Credits are stored in your wallet.' },
     { step: '02', title: 'Unlock a contact', body: "On any property page, tap \"Unlock Contact\". One credit is deducted and the owner's phone and address are revealed instantly." },
     { step: '03', title: 'Call directly', body: 'Call or WhatsApp the owner directly — zero brokerage, no middlemen. Mark the deal as closed in your dashboard when done.' },
@@ -204,7 +346,7 @@ function FAQ({ faqs, title }: { faqs: string[][]; title?: string }) {
 }
 
 /* ── Plan Chooser ────────────────────────────────────────────────── */
-type ChooserVariant = 'owner-rent' | 'owner-sell' | 'seeker';
+type ChooserVariant = 'owner-rent' | 'owner-sell' | 'seeker' | 'reseller';
 
 const CHOOSER_FLOWS: Record<ChooserVariant, {
   steps: { q: string; options: { label: string; sub?: string; value: string }[] }[];
@@ -311,6 +453,39 @@ const CHOOSER_FLOWS: Record<ChooserVariant, {
       if (count === '7-12') return { planId: 'standard', name: 'Standard Pack', why: '6 unlocks over 30 days — the best value option for a focused search across a few neighbourhoods.' };
       if (count === '1-2' && when === 'explore') return { planId: 'micro', name: 'Micro Match', why: '1 unlock at ₹99 — perfect for testing one lead with zero commitment.' };
       return { planId: 'trial', name: 'Trial Pack', why: '3 unlocks over 15 days — enough to test a couple of options before committing to a bigger plan.' };
+    },
+  },
+  reseller: {
+    steps: [
+      {
+        q: 'How many properties do you want to sell or lease?',
+        options: [
+          { label: '1 property', sub: 'Single owner', value: '1' },
+          { label: '2 – 3', sub: 'Small portfolio', value: '2-3' },
+          { label: '4 or more', sub: 'Active reseller', value: '4+' },
+        ],
+      },
+      {
+        q: 'How much closing support do you need?',
+        options: [
+          { label: 'Full end-to-end', sub: 'RM + site visits + closing', value: 'full' },
+          { label: 'Partial support', sub: 'RM + walkthrough help', value: 'partial' },
+          { label: 'Just the leads', sub: 'I\'ll handle closings myself', value: 'self' },
+        ],
+      },
+      {
+        q: 'What is your target timeline to close?',
+        options: [
+          { label: 'Within 30 days', sub: 'Urgent', value: '30' },
+          { label: '30 – 45 days', sub: 'Normal pace', value: '45' },
+          { label: '45 – 60 days', sub: 'Relaxed', value: '60' },
+        ],
+      },
+    ],
+    recommend: ([props, support]) => {
+      if (props === '4+' || support === 'full') return { planId: 'resell-executive', name: 'Executive Premium', why: '50 verified buyer leads, dedicated RM + premium search, and up to 15 managed site visits with end-to-end closing — the complete package for serious resellers.' };
+      if (props === '2-3' || support === 'partial') return { planId: 'resell-pro', name: 'Pro Assisted', why: '30 verified buyer leads with a dedicated RM, premium buyer search, and up to 5 managed site visits — the sweet spot for active resellers.' };
+      return { planId: 'resell-standard', name: 'Standard Pack', why: '10 verified buyer leads, 1 property listing, a dedicated RM and legal/paperwork support — the ideal start for a single property sale or lease.' };
     },
   },
 };
@@ -503,8 +678,29 @@ const ownerSellFaqs: string[][] = [
    'All payments are processed by Razorpay (PCI-DSS Level 1 compliant). We accept UPI, net banking, debit/credit cards, and EMI on select plans. NxtSft.com does not store any card or banking credentials.'],
 ];
 
+const resellerFaqs: string[][] = [
+  ['What exactly is a Verified Buyer Lead?',
+   'A Verified Buyer Lead is a pre-qualified buyer who has registered on NxtSft.com with a verified identity and an active property search that matches your listing. Unlike cold leads, they have expressed genuine purchase or lease intent — meaning higher conversion rates and far less time wasted on unqualified enquiries.'],
+  ['How are leads delivered to me?',
+   'Within 24 hours of plan activation, your dedicated Relationship Manager reaches out to understand your property requirements. Leads are then delivered to your WhatsApp — including the buyer\'s name, phone number, budget range, and property requirements — so you always have context before the first call.'],
+  ['What is the difference between the 3 plans?',
+   'Standard Pack (₹2,999) gives you 10 leads for a single listing with RM support and walkthrough assistance over 30 days. Pro Assisted (₹4,999) gives 30 leads with RM-managed site visits and end-to-end closing over 45 days. Executive Premium (₹9,999) gives 50 leads, premium buyer search access, up to 15 managed site visits, and full closing support over 60 days — best value if you want maximum reach with zero effort.'],
+  ['Is there a commission when my property sells?',
+   'No. These are flat-fee plans — NxtSft.com charges zero commission on your transaction. Every rupee from your sale or lease goes entirely to you.'],
+  ['What does "End-to-End Lease/Sale Closing" mean?',
+   'Your dedicated RM handles everything after lead matching — scheduling and accompanying site visits, negotiating price on your behalf, coordinating with lawyers for documentation, and assisting with the sale or lease agreement. You only need to approve the final deal.'],
+  ['What if leads don\'t convert?',
+   'We focus on quality over quantity — all leads are intent-verified and matched to your property type, location, and budget. If leads delivered are unresponsive or clearly irrelevant, contact care@nxtsft.com within 48 hours and our team will review and replace them at no extra cost.'],
+  ['Can I get more leads if I exhaust my pack before validity ends?',
+   'Yes. You can top up by purchasing an additional plan or upgrading mid-validity. Contact care@nxtsft.com for a seamless upgrade with pro-rated pricing.'],
+  ['How quickly is my RM assigned after purchase?',
+   'Your Relationship Manager is assigned within 2 hours of payment confirmation. They will reach out via WhatsApp to introduce themselves and schedule an onboarding call to understand your property and expectations.'],
+  ['Is my payment secure?',
+   'All payments are processed by Razorpay (PCI-DSS Level 1 compliant). We accept UPI, net banking, debit/credit cards. NxtSft.com does not store card or banking credentials.'],
+];
+
 /* ── Main page ──────────────────────────────────────────────────── */
-const TABS = ['Owners & Agents', 'Tenants', 'Buyers'];
+const TABS = ['Builders & Consultants', 'Tenants', 'Resellers & Owners'];
 
 export default function PricingPage() {
   const { session, addCredits } = useAuth();
@@ -520,6 +716,11 @@ export default function PricingPage() {
     if (!session) { toast.error('Please sign in first'); return; }
     addCredits(plan.credits);
     toast.success(`${plan.name} plan activated!`, { description: `${plan.credits} credit${plan.credits > 1 ? 's' : ''} added to your wallet.`, duration: 5000 });
+  };
+
+  const handleBuyReseller = (plan: ResellerPlan) => {
+    if (!session) { toast.error('Please sign in first'); return; }
+    toast.success(`${plan.name} activated!`, { description: `Your RM will contact you within 2 hours. Valid for ${plan.validity}.`, duration: 5000 });
   };
 
   const ownerPlans = ownerMode === 'renting' ? ownerRentalPlans : ownerSellPlans;
@@ -545,7 +746,7 @@ export default function PricingPage() {
             <span className="text-gold">No commissions.</span>
           </h1>
           <p className="mt-5 text-base text-white/70 sm:text-lg">
-            Whether you own, rent or are searching for your dream home — NxtSft.com has a plan sized exactly for you.
+            Whether you build, consult, rent or are reselling a property — NxtSft.com has a plan sized exactly for you.
           </p>
         </div>
       </section>
@@ -554,7 +755,7 @@ export default function PricingPage() {
       <div className="sticky top-16 z-30 border-b border-border bg-background/95 backdrop-blur sm:top-20">
         <div className="mx-auto flex max-w-6xl items-center gap-0 overflow-x-auto px-5 sm:px-6">
           {TABS.map((tab, i) => {
-            const icons = [<Home size={15} key="h" />, <Users size={15} key="u" />, <TrendingUp size={15} key="t" />];
+            const icons = [<Building2 size={15} key="b" />, <Users size={15} key="u" />, <Key size={15} key="k" />];
             return (
               <button
                 key={tab}
@@ -569,7 +770,7 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* ── OWNERS & AGENTS ── */}
+      {/* ── BUILDERS & CONSULTANTS ── */}
       {activeTab === 0 && (
         <>
           {/* Sub-toggle */}
@@ -606,7 +807,7 @@ export default function PricingPage() {
           <PlanChooser variant={ownerMode === 'renting' ? 'owner-rent' : 'owner-sell'} onScrollToPlans={scrollToPlan} />
 
           <HowItWorks forSeeker={false} />
-          <FAQ faqs={ownerMode === 'renting' ? ownerFaqs : ownerSellFaqs} title={ownerMode === 'renting' ? 'Owner rental plan FAQs' : 'Owner selling plan FAQs'} />
+          <FAQ faqs={ownerMode === 'renting' ? ownerFaqs : ownerSellFaqs} title={ownerMode === 'renting' ? 'Builder & consultant rental plan FAQs' : 'Builder & consultant selling plan FAQs'} />
           <CTABanner session={session} />
         </>
       )}
@@ -639,30 +840,42 @@ export default function PricingPage() {
         </>
       )}
 
-      {/* ── BUYERS ── */}
+      {/* ── RESELLERS & OWNERS ── */}
       {activeTab === 2 && (
         <>
-          <section className="mx-auto max-w-6xl px-5 pb-6 pt-10 sm:px-6">
-            <div className="grid grid-cols-1 items-stretch gap-6 pt-5 sm:grid-cols-2 lg:grid-cols-3">
-              {seekerPlans.map((plan) => (
+          {/* Intro blurb */}
+          <div className="mx-auto max-w-2xl px-5 pt-10 text-center sm:px-6">
+            <div className="mb-2 text-xs font-bold uppercase tracking-widest text-accent">Verified Lead Packs</div>
+            <h2 className="font-display text-2xl font-black text-navy sm:text-3xl">
+              Sell or lease your property faster with intent-verified buyer leads.
+            </h2>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Choose a pack based on how many qualified leads you need. Your dedicated Relationship Manager handles the rest — from site visits to closing.
+            </p>
+          </div>
+
+          {/* Cards */}
+          <section className="mx-auto max-w-5xl px-5 pb-6 pt-8 sm:px-6">
+            <div className="grid grid-cols-1 items-stretch gap-6 pt-5 sm:grid-cols-3">
+              {RESELLER_PLANS.map((plan) => (
                 <div id={`plan-${plan.id}`} key={plan.id} className="h-full">
-                  <SeekerPlanCard plan={plan} onBuy={handleBuySeeker} />
+                  <ResellerPlanCard plan={plan} onBuy={handleBuyReseller} />
                 </div>
               ))}
             </div>
             <p className="mt-8 text-center text-xs text-muted-foreground">
-              Secure payment via Razorpay · One-time only, no recurring charges · Dispute refund within 24 hrs
+              Secure payment via Razorpay · Flat fee, zero commission · Dedicated RM assigned within 2 hrs of purchase
             </p>
           </section>
 
-          <WalletTrustRow />
+          <ResellerTrustRow />
           <div className="pb-4" />
 
           {/* Plan Chooser */}
-          <PlanChooser variant="seeker" onScrollToPlans={scrollToPlan} />
+          <PlanChooser variant="reseller" onScrollToPlans={scrollToPlan} />
 
-          <HowItWorks forSeeker={true} />
-          <FAQ faqs={seekerFaqs} title="Buyer plan FAQs" />
+          <HowItWorks forSeeker={false} forReseller={true} />
+          <FAQ faqs={resellerFaqs} title="Reseller & owner plan FAQs" />
           <CTABanner session={session} />
         </>
       )}

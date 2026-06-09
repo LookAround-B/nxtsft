@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -13,7 +13,7 @@ import { SiteHeader } from '@/components/site/SiteHeader';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { properties, portals } from '@/data/static';
 
-/* ─── static data ─────────────────────────────────────────── */
+/* ─── static data ──────────────────────────────────── */
 
 const img = (id: string) =>
   `https://images.unsplash.com/${id}?w=1600&q=80&auto=format&fit=crop`;
@@ -44,19 +44,17 @@ const KPI_BAND = [
   { v: '100%',    l: 'RERA Verified' },
 ];
 
-const TOP_STATS = [
-  { v: '10K+',  l: 'Properties' },
-  { v: '2K+',   l: 'Projects' },
-  { v: '50+',   l: 'Cities' },
-  { v: '100K+', l: 'Customers' },
+/* Numeric versions for count-up animation */
+const TOP_STATS_DATA = [
+  { num: 10,  suffix: 'K+',  l: 'Properties' },
+  { num: 2,   suffix: 'K+',  l: 'Projects' },
+  { num: 50,  suffix: '+',   l: 'Cities' },
+  { num: 100, suffix: 'K+',  l: 'Customers' },
 ];
 
 const PROPERTY_TABS = ['All', 'Apartments', 'Villas', 'Commercial', 'PG'];
 const TAB_TYPE_MAP: Record<string, string> = {
-  Apartments: 'Apartment',
-  Villas:     'Villa',
-  Commercial: 'Commercial',
-  PG:         'PG',
+  Apartments: 'Apartment', Villas: 'Villa', Commercial: 'Commercial', PG: 'PG',
 };
 
 const CATEGORIES = [
@@ -84,12 +82,12 @@ const CITIES = [
 ];
 
 const SERVICES = [
-  { Icon: Sparkles,    title: 'AI Property Matching',   desc: 'Smart recommendations based on budget, lifestyle and location.' },
-  { Icon: ShieldCheck, title: 'RERA Verified Listings',  desc: '100% authentic properties with full legal documentation.' },
-  { Icon: DollarSign,  title: 'Zero Brokerage',          desc: 'No middlemen. Connect directly with owners and builders.' },
-  { Icon: UserCheck,   title: 'Relationship Manager',   desc: 'Dedicated expert for site visits, paperwork and closing.' },
-  { Icon: BarChart2,   title: 'Price Analytics',         desc: 'Market trends, price history and locality comparisons.' },
-  { Icon: Lock,        title: 'Secure Transactions',     desc: 'Escrow-backed payments and fraud protection guarantee.' },
+  { Icon: Sparkles,    title: 'AI Property Matching',  desc: 'Smart recommendations based on budget, lifestyle and location.' },
+  { Icon: ShieldCheck, title: 'RERA Verified Listings', desc: '100% authentic properties with full legal documentation.' },
+  { Icon: DollarSign,  title: 'Zero Brokerage',         desc: 'No middlemen. Connect directly with owners and builders.' },
+  { Icon: UserCheck,   title: 'Relationship Manager',  desc: 'Dedicated expert for site visits, paperwork and closing.' },
+  { Icon: BarChart2,   title: 'Price Analytics',        desc: 'Market trends, price history and locality comparisons.' },
+  { Icon: Lock,        title: 'Secure Transactions',    desc: 'Escrow-backed payments and fraud protection guarantee.' },
 ];
 
 const REVIEWS = [
@@ -122,7 +120,7 @@ const PORTAL_COLORS: Record<string, string> = {
   Amber: 'bg-orange-100 text-orange-600',
 };
 
-/* ─── helpers ─────────────────────────────────────────────── */
+/* ─── helpers ──────────────────────────────────────── */
 
 function portalInitials(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
@@ -138,18 +136,255 @@ function Stars({ n }: { n: number }) {
   );
 }
 
-/* ─── page ────────────────────────────────────────────────── */
+/* ── Count-up hook ─────────────────────────────────── */
+function useCountUp(target: number, duration = 1600, active = false) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setValue(Math.round(eased * target));
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [active, target, duration]);
+  return value;
+}
+
+/* ─── ILLUSTRATION COMPONENTS ──────────────────────── */
+
+/* Floating blobs behind hero content */
+function HeroBlobs() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      <div
+        className="absolute -right-24 -top-8 h-[420px] w-[420px] animate-blob rounded-full opacity-25 blur-[90px]"
+        style={{ background: 'oklch(0.72 0.12 186)' }}
+      />
+      <div
+        className="absolute -left-16 top-1/3 h-[300px] w-[300px] animate-blob-slow rounded-full opacity-20 blur-[70px]"
+        style={{ background: 'oklch(0.76 0.14 76)' }}
+      />
+      <div
+        className="absolute bottom-8 right-1/3 h-[200px] w-[200px] animate-float rounded-full opacity-10 blur-[60px]"
+        style={{ background: 'oklch(0.72 0.12 186)' }}
+      />
+      {/* Spinning ring top-left */}
+      <div className="absolute left-8 top-8 h-20 w-20 animate-spin-slow rounded-full border border-white/10" />
+      <div className="absolute right-16 bottom-16 h-12 w-12 animate-spin-slow-r rounded-full border border-white/8" />
+    </div>
+  );
+}
+
+/* Animated stat card with count-up */
+function AnimatedStatCard({ num, suffix, l, delay }: { num: number; suffix: string; l: string; delay: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(false);
+  const count = useCountUp(num, 1500, active);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setActive(true); obs.disconnect(); } },
+      { threshold: 0.5 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      data-reveal="scale"
+      data-visible=""
+      className="flex flex-col items-center justify-center rounded-2xl border border-border bg-white p-3 text-center shadow-sm sm:p-5"
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      <div className="font-display text-lg font-black text-navy sm:text-2xl lg:text-3xl">
+        {active ? count : 0}{suffix}
+      </div>
+      <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:text-[11px]">{l}</div>
+    </div>
+  );
+}
+
+/* Property / house illustration for Services section */
+function PropertyIllustration({ className = '' }: { className?: string }) {
+  return (
+    <div className={`pointer-events-none relative select-none ${className}`} aria-hidden>
+      <div className="animate-float">
+        <svg width="280" height="260" viewBox="0 0 280 260" fill="none">
+          {/* shadow */}
+          <ellipse cx="140" cy="250" rx="90" ry="8" fill="oklch(0.20 0.07 258)" opacity="0.06"/>
+          {/* body */}
+          <rect x="50" y="110" width="180" height="132" rx="10" fill="oklch(0.20 0.07 258)" opacity="0.05"/>
+          <rect x="50" y="110" width="180" height="132" rx="10" stroke="oklch(0.72 0.12 186)" strokeWidth="1.2" opacity="0.18"/>
+          {/* roof */}
+          <path d="M140 28 L242 110 L38 110 Z" fill="oklch(0.20 0.07 258)" opacity="0.08"/>
+          <path d="M140 28 L242 110 L38 110 Z" stroke="oklch(0.72 0.12 186)" strokeWidth="1.5" strokeLinejoin="round" opacity="0.3"/>
+          {/* chimney */}
+          <rect x="188" y="54" width="14" height="38" rx="3" fill="oklch(0.20 0.07 258)" opacity="0.1"/>
+          <rect x="186" y="50" width="18" height="8" rx="2" fill="oklch(0.20 0.07 258)" opacity="0.12"/>
+          {/* left window */}
+          <rect x="72" y="130" width="48" height="42" rx="5" fill="oklch(0.72 0.12 186)" opacity="0.12"/>
+          <rect x="72" y="130" width="48" height="42" rx="5" stroke="oklch(0.72 0.12 186)" strokeWidth="1" opacity="0.3"/>
+          <line x1="96" y1="130" x2="96" y2="172" stroke="oklch(0.72 0.12 186)" strokeWidth="0.8" opacity="0.5"/>
+          <line x1="72" y1="151" x2="120" y2="151" stroke="oklch(0.72 0.12 186)" strokeWidth="0.8" opacity="0.5"/>
+          {/* right window */}
+          <rect x="160" y="130" width="48" height="42" rx="5" fill="oklch(0.72 0.12 186)" opacity="0.12"/>
+          <rect x="160" y="130" width="48" height="42" rx="5" stroke="oklch(0.72 0.12 186)" strokeWidth="1" opacity="0.3"/>
+          <line x1="184" y1="130" x2="184" y2="172" stroke="oklch(0.72 0.12 186)" strokeWidth="0.8" opacity="0.5"/>
+          <line x1="160" y1="151" x2="208" y2="151" stroke="oklch(0.72 0.12 186)" strokeWidth="0.8" opacity="0.5"/>
+          {/* door */}
+          <rect x="112" y="182" width="56" height="60" rx="5" fill="oklch(0.20 0.07 258)" opacity="0.07"/>
+          <rect x="112" y="182" width="56" height="60" rx="5" stroke="oklch(0.72 0.12 186)" strokeWidth="1" opacity="0.2"/>
+          <path d="M112 186 Q140 163 168 186" fill="none" stroke="oklch(0.72 0.12 186)" strokeWidth="1.2" opacity="0.3"/>
+          <circle cx="162" cy="212" r="3.5" fill="oklch(0.76 0.14 76)" opacity="0.7"/>
+          {/* trees */}
+          <ellipse cx="28" cy="204" rx="16" ry="18" fill="oklch(0.72 0.12 186)" opacity="0.1"/>
+          <rect x="25" y="220" width="6" height="22" rx="3" fill="oklch(0.20 0.07 258)" opacity="0.08"/>
+          <ellipse cx="252" cy="200" rx="16" ry="18" fill="oklch(0.72 0.12 186)" opacity="0.1"/>
+          <rect x="249" y="216" width="6" height="26" rx="3" fill="oklch(0.20 0.07 258)" opacity="0.08"/>
+          {/* ground */}
+          <rect x="38" y="241" width="204" height="3" rx="1.5" fill="oklch(0.20 0.07 258)" opacity="0.07"/>
+          {/* decorative dots */}
+          <circle cx="18" cy="95" r="5.5" fill="oklch(0.76 0.14 76)" opacity="0.45"/>
+          <circle cx="262" cy="72" r="4.5" fill="oklch(0.72 0.12 186)" opacity="0.4"/>
+          <circle cx="258" cy="200" r="4" fill="oklch(0.76 0.14 76)" opacity="0.3"/>
+          <circle cx="20" cy="175" r="3" fill="oklch(0.72 0.12 186)" opacity="0.3"/>
+        </svg>
+      </div>
+      {/* floating badges */}
+      <div className="absolute -top-3 right-4 animate-float-slow rounded-xl border border-border bg-white px-3 py-1.5 shadow-lg">
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="font-bold text-emerald-500">✓</span>
+          <span className="font-semibold text-navy">RERA Verified</span>
+        </div>
+      </div>
+      <div className="absolute bottom-14 -left-5 animate-float-r rounded-xl border border-border bg-white px-3 py-1.5 shadow-lg">
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="text-amber-400">★</span>
+          <span className="font-semibold text-navy">4.8 Rating</span>
+        </div>
+      </div>
+      <div className="absolute bottom-28 right-0 animate-float rounded-xl border border-border bg-white px-3 py-1.5 shadow-lg" style={{ animationDelay: '1.2s' }}>
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="font-bold text-accent">₹0</span>
+          <span className="font-semibold text-navy">Brokerage</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* City skyline silhouette — used in KPI band */
+function CitySkySVG() {
+  return (
+    <svg
+      className="absolute bottom-0 left-0 w-full opacity-[0.06] select-none pointer-events-none"
+      viewBox="0 0 1200 100"
+      preserveAspectRatio="xMidYMax slice"
+      fill="white"
+      aria-hidden
+    >
+      <rect x="0"    y="70"  width="38"  height="30"/>
+      <rect x="40"   y="48"  width="28"  height="52"/>
+      <rect x="44"   y="36"  width="6"   height="14"/> {/* antenna */}
+      <rect x="70"   y="60"  width="18"  height="40"/>
+      <rect x="90"   y="34"  width="40"  height="66"/>
+      <rect x="95"   y="22"  width="7"   height="14"/>
+      <rect x="132"  y="55"  width="24"  height="45"/>
+      <rect x="158"  y="42"  width="45"  height="58"/>
+      <rect x="163"  y="28"  width="6"   height="16"/>
+      <rect x="175"  y="26"  width="6"   height="18"/>
+      <rect x="205"  y="63"  width="20"  height="37"/>
+      <rect x="227"  y="47"  width="38"  height="53"/>
+      <rect x="267"  y="72"  width="16"  height="28"/>
+      <rect x="285"  y="32"  width="44"  height="68"/>
+      <rect x="291"  y="18"  width="7"   height="16"/>
+      <rect x="331"  y="55"  width="26"  height="45"/>
+      <rect x="359"  y="42"  width="32"  height="58"/>
+      <rect x="393"  y="65"  width="20"  height="35"/>
+      <rect x="415"  y="44"  width="40"  height="56"/>
+      <rect x="420"  y="30"  width="7"   height="16"/>
+      <rect x="457"  y="68"  width="18"  height="32"/>
+      <rect x="477"  y="28"  width="52"  height="72"/>
+      <rect x="484"  y="14"  width="8"   height="16"/>
+      <rect x="531"  y="54"  width="24"  height="46"/>
+      <rect x="557"  y="44"  width="36"  height="56"/>
+      <rect x="595"  y="66"  width="20"  height="34"/>
+      <rect x="617"  y="38"  width="44"  height="62"/>
+      <rect x="663"  y="60"  width="18"  height="40"/>
+      <rect x="683"  y="24"  width="38"  height="76"/>
+      <rect x="688"  y="10"  width="8"   height="16"/>
+      <rect x="723"  y="50"  width="26"  height="50"/>
+      <rect x="751"  y="42"  width="36"  height="58"/>
+      <rect x="789"  y="62"  width="20"  height="38"/>
+      <rect x="811"  y="34"  width="46"  height="66"/>
+      <rect x="817"  y="20"  width="7"   height="16"/>
+      <rect x="859"  y="56"  width="24"  height="44"/>
+      <rect x="885"  y="44"  width="34"  height="56"/>
+      <rect x="921"  y="68"  width="18"  height="32"/>
+      <rect x="941"  y="36"  width="44"  height="64"/>
+      <rect x="987"  y="62"  width="20"  height="38"/>
+      <rect x="1009" y="46"  width="36"  height="54"/>
+      <rect x="1047" y="54"  width="24"  height="46"/>
+      <rect x="1073" y="40"  width="34"  height="60"/>
+      <rect x="1109" y="64"  width="20"  height="36"/>
+      <rect x="1131" y="38"  width="40"  height="62"/>
+      <rect x="1173" y="58"  width="27"  height="42"/>
+      {/* ground line */}
+      <rect x="0" y="98" width="1200" height="4"/>
+    </svg>
+  );
+}
+
+/* Decorative elements for the CTA section */
+function CTADecorations() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      {/* dot grid */}
+      <div className="absolute inset-0 bg-dots opacity-[0.18]" />
+      {/* blobs */}
+      <div className="absolute -right-20 -top-20 h-72 w-72 animate-blob rounded-full bg-accent/20 blur-3xl" />
+      <div className="absolute -left-12 bottom-0 h-56 w-56 animate-blob-slow rounded-full bg-gold/15 blur-3xl" />
+      {/* spinning rings */}
+      <div className="absolute left-10 top-10 h-24 w-24 animate-spin-slow rounded-full border border-white/10" />
+      <div className="absolute right-10 bottom-8 h-16 w-16 animate-spin-slow-r rounded-full border border-white/8" />
+      {/* floating dots */}
+      <div className="absolute right-14 top-8 h-3 w-3 animate-float rounded-full bg-white/25" />
+      <div className="absolute left-1/4 top-6 h-2 w-2 animate-float-slow rounded-full bg-white/18" />
+      <div className="absolute right-1/3 bottom-6 h-2 w-2 animate-float-r rounded-full bg-gold/40" />
+      {/* city skyline */}
+      <CitySkySVG />
+    </div>
+  );
+}
+
+/* Section eyebrow label */
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-1 text-xs font-bold uppercase tracking-widest text-gradient-accent">
+      {children}
+    </div>
+  );
+}
+
+/* ─── page ─────────────────────────────────────────── */
 
 export default function HomePage() {
   const router   = useRouter();
   const featured = properties.filter((p) => p.featured);
 
-  const [tab,        setTab]        = useState<'Buy' | 'Rent' | 'Commercial' | 'PG'>('Buy');
-  const [query,      setQuery]      = useState('');
-  const [statIdx,    setStatIdx]    = useState(0);
-  const [fade,       setFade]       = useState(true);
-  const [propTab,    setPropTab]    = useState('All');
-  const [heroSlide,  setHeroSlide]  = useState(0);
+  const [tab,       setTab]       = useState<'Buy' | 'Rent' | 'Commercial' | 'PG'>('Buy');
+  const [query,     setQuery]     = useState('');
+  const [statIdx,   setStatIdx]   = useState(0);
+  const [fade,      setFade]      = useState(true);
+  const [propTab,   setPropTab]   = useState('All');
+  const [heroSlide, setHeroSlide] = useState(0);
 
   const carouselRef = useRef<HTMLDivElement>(null);
   const reviewRef   = useRef<HTMLDivElement>(null);
@@ -172,18 +407,35 @@ export default function HomePage() {
     return () => clearInterval(id);
   }, []);
 
-  const handleSearch = () => {
+  /* global scroll reveal observer */
+  useEffect(() => {
+    const els = document.querySelectorAll<HTMLElement>('[data-reveal]:not([data-visible])');
+    if (!els.length) return;
+    const obs = new IntersectionObserver(
+      (entries) => entries.forEach((e) => {
+        if (e.isIntersecting) {
+          (e.target as HTMLElement).setAttribute('data-visible', '');
+          obs.unobserve(e.target);
+        }
+      }),
+      { threshold: 0.08, rootMargin: '0px 0px -52px 0px' }
+    );
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, []);
+
+  const handleSearch = useCallback(() => {
     const q = query.trim();
     router.push(q ? `/properties?q=${encodeURIComponent(q)}` : '/properties');
-  };
+  }, [query, router]);
 
   return (
     <div className="min-h-screen" style={{ background: '#F4F5F7' }}>
       <SiteHeader />
 
-      {/* ── Hero with image carousel ──────────────────────────── */}
+      {/* ── Hero ───────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-navy">
-        {/* Carousel images */}
+        {/* carousel images */}
         <div className="absolute inset-0">
           {HERO_IMAGES.map((src, i) => (
             <div
@@ -194,14 +446,16 @@ export default function HomePage() {
               <img src={src} alt="" className="h-full w-full object-cover" aria-hidden />
             </div>
           ))}
-          {/* Dark overlay for readability */}
           <div className="absolute inset-0 bg-navy/65" />
           <div className="absolute inset-0 bg-gradient-to-b from-navy/30 via-transparent to-navy/50" />
         </div>
 
-        {/* Content */}
+        {/* animated blobs above overlay */}
+        <HeroBlobs />
+
+        {/* content */}
         <div className="relative z-10 mx-auto max-w-4xl px-4 pb-14 pt-10 text-center sm:px-6 sm:pb-18 sm:pt-16">
-          {/* Trust badge */}
+          {/* trust badge */}
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-bold backdrop-blur-sm">
             <span className="text-amber-400">★</span>
             <span className="text-white">4.8</span>
@@ -210,14 +464,14 @@ export default function HomePage() {
           </div>
 
           <h1 className="font-display text-3xl font-black leading-[1.1] tracking-tight text-white sm:text-5xl md:text-[3.75rem]">
-            Find a home
-            <span className="text-accent"> that fits your life.</span>
+            Find a home<br />
+            <span className="text-gradient-hero">that fits your life.</span>
           </h1>
           <p className="mt-4 text-sm text-white/75 sm:text-base">
             Verified properties. Trusted experts. Seamless experience.
           </p>
 
-          {/* Search widget */}
+          {/* search widget */}
           <div className="mx-auto mt-6 max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl sm:mt-8">
             <div className="no-scrollbar flex overflow-x-auto border-b border-border px-3 pt-3 sm:px-4">
               {(['Buy', 'Rent', 'Commercial', 'PG'] as const).map((t) => (
@@ -249,7 +503,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Rotating ticker */}
+          {/* rotating ticker */}
           <div className="mt-5 h-5 overflow-hidden">
             <p
               className="text-center text-[11px] font-medium text-white/60 transition-opacity duration-200"
@@ -259,7 +513,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Slide dot indicators */}
+          {/* slide dots */}
           <div className="mt-6 flex justify-center gap-1.5">
             {HERO_IMAGES.map((_, i) => (
               <button
@@ -273,28 +527,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Stat cards ────────────────────────────────────────── */}
+      {/* ── Animated stat cards ─────────────────────── */}
       <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6">
         <div className="grid grid-cols-4 gap-3">
-          {TOP_STATS.map(({ v, l }, i) => (
-            <div
-              key={l}
-              className="animate-fade-up flex flex-col items-center justify-center rounded-2xl border border-border bg-white p-3 text-center shadow-sm sm:p-5"
-              style={{ animationDelay: `${i * 70}ms` }}
-            >
-              <div className="font-display text-lg font-black text-navy sm:text-2xl lg:text-3xl">{v}</div>
-              <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:text-[11px]">{l}</div>
-            </div>
+          {TOP_STATS_DATA.map((s, i) => (
+            <AnimatedStatCard key={s.l} {...s} delay={i * 70} />
           ))}
         </div>
       </div>
 
-      {/* ── Trending Properties ───────────────────────────────── */}
+      {/* ── Trending Properties ─────────────────────── */}
       <section className="px-4 py-2 sm:px-6 sm:py-3">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-7">
-            <div className="mb-4">
-              <div className="text-xs font-bold uppercase tracking-widest text-accent">Hand Picked</div>
+            <div className="mb-4" data-reveal>
+              <Eyebrow>Hand Picked</Eyebrow>
               <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">Trending Properties in India</h2>
               <p className="mt-1 text-sm text-muted-foreground">A handpicked collection of India&apos;s most in-demand verified listings.</p>
             </div>
@@ -313,15 +560,14 @@ export default function HomePage() {
             </div>
 
             <div className="relative">
-              <div
-                ref={carouselRef}
-                className="no-scrollbar flex gap-4 overflow-x-auto pb-1"
-              >
-                {displayProps.map((p) => (
+              <div ref={carouselRef} className="no-scrollbar flex gap-4 overflow-x-auto pb-1">
+                {displayProps.map((p, i) => (
                   <Link
                     key={p.id}
                     href={`/properties/${p.id}`}
+                    data-reveal="scale"
                     className="group w-[255px] shrink-0 overflow-hidden rounded-xl border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                    style={{ transitionDelay: `${i * 60}ms` }}
                   >
                     <div className="relative aspect-[4/3] overflow-hidden">
                       <img src={p.image} alt={p.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
@@ -364,13 +610,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── KPI Band ──────────────────────────────────────────── */}
-      <section className="bg-navy px-4 py-8 sm:px-6">
-        <div className="mx-auto max-w-7xl">
+      {/* ── KPI Band ────────────────────────────────── */}
+      <section className="relative overflow-hidden bg-navy px-4 py-8 sm:px-6">
+        <CitySkySVG />
+        <div className="relative z-10 mx-auto max-w-7xl">
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6 lg:gap-0 lg:divide-x lg:divide-white/10">
-            {KPI_BAND.map((s) => (
-              <div key={s.l} className="flex flex-col items-center text-center lg:px-6">
-                <span className="font-display text-2xl font-black text-gold sm:text-3xl">{s.v}</span>
+            {KPI_BAND.map((s, i) => (
+              <div
+                key={s.l}
+                data-reveal="fade"
+                className="flex flex-col items-center text-center lg:px-6"
+                style={{ transitionDelay: `${i * 80}ms` }}
+              >
+                <span className="font-display text-2xl font-black text-gradient-gold sm:text-3xl">{s.v}</span>
                 <span className="mt-1 text-xs font-medium text-white/60">{s.l}</span>
               </div>
             ))}
@@ -378,12 +630,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Categories ────────────────────────────────────────── */}
+      {/* ── Categories ─────────────────────────────── */}
       <section className="px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-7">
-            <div className="mb-5">
-              <div className="text-xs font-bold uppercase tracking-widest text-accent">Browse by Type</div>
+            <div className="mb-5" data-reveal>
+              <Eyebrow>Browse by Type</Eyebrow>
               <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">Top Categories</h2>
             </div>
             <div className="grid grid-cols-3 gap-3 sm:gap-4 md:grid-cols-6">
@@ -391,8 +643,9 @@ export default function HomePage() {
                 <Link
                   key={label}
                   href={`/properties?type=${encodeURIComponent(type)}`}
-                  className="group animate-fade-up flex flex-col items-center gap-2 rounded-2xl border border-border bg-secondary/40 p-4 text-center transition hover:-translate-y-1 hover:border-accent/40 hover:shadow-lg sm:gap-3 sm:p-5"
-                  style={{ animationDelay: `${i * 60}ms` }}
+                  data-reveal="scale"
+                  className="group flex flex-col items-center gap-2 rounded-2xl border border-border bg-secondary/40 p-4 text-center transition hover:-translate-y-1 hover:border-accent/40 hover:shadow-lg sm:gap-3 sm:p-5"
+                  style={{ transitionDelay: `${i * 55}ms` }}
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent/10 text-accent transition group-hover:bg-accent group-hover:text-white sm:h-12 sm:w-12">
                     <Icon size={18} strokeWidth={1.75} className="sm:hidden" />
@@ -406,63 +659,75 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Services ──────────────────────────────────────────── */}
+      {/* ── Services ───────────────────────────────── */}
       <section className="px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-7">
-            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-widest text-accent">Platform Features</div>
-                <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">Everything You Need at One Place</h2>
-                <p className="mt-1 text-sm text-muted-foreground">From discovery to possession — NxtSft.com covers every step.</p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                {['For Buyers', 'For Sellers'].map((t, i) => (
-                  <span
-                    key={t}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold
-                      ${i === 0 ? 'border-transparent bg-navy text-white' : 'border-border bg-white text-muted-foreground'}`}
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {SERVICES.map(({ Icon, title, desc }) => (
-                <div
-                  key={title}
-                  className="group flex flex-col items-center rounded-2xl border border-border bg-secondary/30 p-4 text-center transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
-                >
-                  <span className="mb-3 grid h-12 w-12 place-items-center rounded-xl bg-accent/10 text-accent transition group-hover:bg-accent group-hover:text-white">
-                    <Icon size={22} strokeWidth={1.75} />
-                  </span>
-                  <h3 className="mb-1 text-sm font-bold leading-tight text-navy">{title}</h3>
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">{desc}</p>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+
+              {/* left: heading + grid */}
+              <div className="flex-1">
+                <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div data-reveal>
+                    <Eyebrow>Platform Features</Eyebrow>
+                    <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">Everything You Need at One Place</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">From discovery to possession — NxtSft.com covers every step.</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    {['For Buyers', 'For Sellers'].map((t, i) => (
+                      <span
+                        key={t}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold
+                          ${i === 0 ? 'border-transparent bg-navy text-white' : 'border-border bg-white text-muted-foreground'}`}
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              ))}
+
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {SERVICES.map(({ Icon, title, desc }, i) => (
+                    <div
+                      key={title}
+                      data-reveal="scale"
+                      className="group flex flex-col items-center rounded-2xl border border-border bg-secondary/30 p-4 text-center transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
+                      style={{ transitionDelay: `${i * 60}ms` }}
+                    >
+                      <span className="mb-3 grid h-12 w-12 place-items-center rounded-xl bg-accent/10 text-accent transition group-hover:bg-accent group-hover:text-white">
+                        <Icon size={22} strokeWidth={1.75} />
+                      </span>
+                      <h3 className="mb-1 text-sm font-bold leading-tight text-navy">{title}</h3>
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">{desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* right: house illustration (desktop only) */}
+              <PropertyIllustration className="hidden lg:block lg:w-[300px] lg:shrink-0" />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Cities ────────────────────────────────────────────── */}
+      {/* ── Cities ─────────────────────────────────── */}
       <section className="px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-7">
-            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-widest text-accent">Pan India Coverage</div>
-                <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">Explore Real Estate in Popular Cities</h2>
-                <p className="mt-1 text-sm text-muted-foreground">From metro hubs to emerging markets — find properties wherever you need to be.</p>
-              </div>
+            <div className="mb-5" data-reveal>
+              <Eyebrow>Pan India Coverage</Eyebrow>
+              <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">Explore Real Estate in Popular Cities</h2>
+              <p className="mt-1 text-sm text-muted-foreground">From metro hubs to emerging markets — find properties wherever you need to be.</p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-              {CITIES.map(({ label, Icon, tagline }) => (
+              {CITIES.map(({ label, Icon, tagline }, i) => (
                 <Link
                   key={label}
                   href={`/properties?city=${encodeURIComponent(label)}`}
+                  data-reveal="scale"
                   className="group flex flex-col items-center rounded-xl border border-border bg-secondary/30 p-4 text-center transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
+                  style={{ transitionDelay: `${i * 40}ms` }}
                 >
                   <span className="mb-2 grid h-11 w-11 place-items-center rounded-xl bg-accent/10 text-accent transition group-hover:bg-accent group-hover:text-white">
                     <Icon size={20} strokeWidth={1.75} />
@@ -481,13 +746,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Reviews ───────────────────────────────────────────── */}
+      {/* ── Reviews ────────────────────────────────── */}
       <section className="px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-7">
             <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-widest text-accent">Customer Stories</div>
+              <div data-reveal>
+                <Eyebrow>Customer Stories</Eyebrow>
                 <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">What People Say About Us</h2>
                 <div className="mt-2 flex items-center gap-2">
                   <span className="font-display text-3xl font-black text-navy">4.8</span>
@@ -514,8 +779,13 @@ export default function HomePage() {
             </div>
 
             <div ref={reviewRef} className="no-scrollbar flex gap-4 overflow-x-auto pb-1">
-              {REVIEWS.map((r) => (
-                <div key={r.name} className="w-[285px] shrink-0 rounded-xl border border-border bg-secondary/30 p-4">
+              {REVIEWS.map((r, i) => (
+                <div
+                  key={r.name}
+                  data-reveal="scale"
+                  className="w-[285px] shrink-0 rounded-xl border border-border bg-secondary/30 p-4"
+                  style={{ transitionDelay: `${i * 60}ms` }}
+                >
                   <div className="mb-3 flex items-center gap-3">
                     <div
                       className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
@@ -537,34 +807,43 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Why NxtSft.com ───────────────────────────────────────── */}
+      {/* ── Why NxtSft.com ─────────────────────────── */}
       <section className="px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-7">
-            <div className="mb-5 text-center">
-              <div className="text-xs font-bold uppercase tracking-widest text-accent">Why NxtSft.com?</div>
-              <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">Built for every journey</h2>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3 sm:gap-5">
-              {WHY.map(({ Icon, t, d }, i) => (
-                <div
-                  key={t}
-                  className="animate-fade-up flex flex-col rounded-2xl border border-border bg-secondary/30 p-5 transition hover:-translate-y-1 hover:shadow-lg"
-                  style={{ animationDelay: `${i * 80}ms` }}
-                >
-                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-accent/10 text-accent">
-                    <Icon size={22} strokeWidth={1.75} />
-                  </span>
-                  <h3 className="mt-4 font-display text-base font-bold text-navy">{t}</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{d}</p>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+
+              {/* illustration left on desktop */}
+              <PropertyIllustration className="hidden lg:block lg:w-[280px] lg:shrink-0" />
+
+              <div className="flex-1">
+                <div className="mb-5 text-center lg:text-left" data-reveal>
+                  <Eyebrow>Why NxtSft.com?</Eyebrow>
+                  <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">Built for every journey</h2>
                 </div>
-              ))}
+                <div className="grid gap-4 sm:grid-cols-3 sm:gap-5">
+                  {WHY.map(({ Icon, t, d }, i) => (
+                    <div
+                      key={t}
+                      data-reveal="scale"
+                      className="flex flex-col rounded-2xl border border-border bg-secondary/30 p-5 transition hover:-translate-y-1 hover:shadow-lg"
+                      style={{ transitionDelay: `${i * 90}ms` }}
+                    >
+                      <span className="grid h-11 w-11 place-items-center rounded-xl bg-accent/10 text-accent">
+                        <Icon size={22} strokeWidth={1.75} />
+                      </span>
+                      <h3 className="mt-4 font-display text-base font-bold text-navy">{t}</h3>
+                      <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{d}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Press marquee ─────────────────────────────────────── */}
+      {/* ── Press marquee ──────────────────────────── */}
       <section className="overflow-hidden border-y border-border bg-white py-5">
         <div
           className="flex whitespace-nowrap"
@@ -580,12 +859,12 @@ export default function HomePage() {
         <style>{`@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
       </section>
 
-      {/* ── Portals ───────────────────────────────────────────── */}
+      {/* ── Portals ────────────────────────────────── */}
       <section className="px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-7">
-            <div className="mb-5 text-center">
-              <div className="text-xs font-bold uppercase tracking-widest text-accent">For Every Stakeholder</div>
+            <div className="mb-5 text-center" data-reveal>
+              <Eyebrow>For Every Stakeholder</Eyebrow>
               <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">Five purpose-built portals</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
                 From super-admin command to first-time buyers — everyone gets a dedicated workspace.
@@ -598,9 +877,10 @@ export default function HomePage() {
                   <Link
                     key={p.path}
                     href={p.path}
-                    className={`spotlight group animate-fade-up relative overflow-hidden rounded-2xl border border-border bg-secondary/30 p-5 text-center transition hover:-translate-y-1.5 hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10
+                    data-reveal="scale"
+                    className={`spotlight group relative overflow-hidden rounded-2xl border border-border bg-secondary/30 p-5 text-center transition hover:-translate-y-1.5 hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10
                       ${i === 4 ? 'col-span-2 sm:col-span-1' : ''}`}
-                    style={{ animationDelay: `${i * 80}ms` }}
+                    style={{ transitionDelay: `${i * 80}ms` }}
                   >
                     <div className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full text-sm font-black tracking-tight transition group-hover:scale-110 sm:h-14 sm:w-14 sm:text-base ${colorClass}`}>
                       {portalInitials(p.name)}
@@ -616,27 +896,36 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── CTA ───────────────────────────────────────────────── */}
+      {/* ── CTA ────────────────────────────────────── */}
       <section className="px-4 pb-14 pt-5 sm:px-6 sm:pb-16">
         <div className="mx-auto max-w-7xl">
-          <div className="animate-fade-up overflow-hidden rounded-3xl bg-navy px-5 py-10 text-center text-white shadow-2xl sm:px-14 sm:py-16">
-            <h2 className="font-display text-2xl font-black sm:text-3xl md:text-4xl">Ready to find your perfect home?</h2>
-            <p className="mx-auto mt-3 max-w-md text-sm text-white/70 sm:mt-4 sm:text-base">
-              Join over 1 lakh buyers who discovered their dream home on NxtSft.com.
-            </p>
-            <div className="mt-6 flex flex-col items-center gap-3 sm:mt-8 sm:flex-row sm:justify-center sm:gap-4">
-              <Link
-                href="/properties"
-                className="w-full rounded-xl bg-accent px-8 py-3.5 font-display text-sm font-bold text-white shadow-lg shadow-accent/40 transition hover:opacity-90 sm:w-auto"
-              >
-                Browse Properties
-              </Link>
-              <Link
-                href="/register"
-                className="w-full rounded-xl border border-white/25 bg-white/10 px-8 py-3.5 font-display text-sm font-bold text-white backdrop-blur transition hover:bg-white/20 sm:w-auto"
-              >
-                Create Free Account
-              </Link>
+          <div
+            data-reveal
+            className="relative overflow-hidden rounded-3xl bg-navy px-5 py-10 text-center text-white shadow-2xl sm:px-14 sm:py-16"
+          >
+            <CTADecorations />
+            <div className="relative z-10">
+              <h2 className="font-display text-2xl font-black sm:text-3xl md:text-4xl">
+                Ready to find your{' '}
+                <span className="text-gradient-gold">perfect home?</span>
+              </h2>
+              <p className="mx-auto mt-3 max-w-md text-sm text-white/70 sm:mt-4 sm:text-base">
+                Join over 1 lakh buyers who discovered their dream home on NxtSft.com.
+              </p>
+              <div className="mt-6 flex flex-col items-center gap-3 sm:mt-8 sm:flex-row sm:justify-center sm:gap-4">
+                <Link
+                  href="/properties"
+                  className="w-full rounded-xl bg-accent px-8 py-3.5 font-display text-sm font-bold text-white shadow-lg shadow-accent/40 transition hover:opacity-90 sm:w-auto"
+                >
+                  Browse Properties
+                </Link>
+                <Link
+                  href="/register"
+                  className="w-full rounded-xl border border-white/25 bg-white/10 px-8 py-3.5 font-display text-sm font-bold text-white backdrop-blur transition hover:bg-white/20 sm:w-auto"
+                >
+                  Create Free Account
+                </Link>
+              </div>
             </div>
           </div>
         </div>

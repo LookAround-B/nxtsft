@@ -23,6 +23,7 @@ const PROPERTY_CITIES = [
 const NAV_ITEMS = [
   { to: '/',           label: 'Home' },
   { to: '/properties', label: 'Properties', hasMega: true },
+  { to: '/agents',     label: 'Agents' },
   { to: '/pricing',    label: 'Pricing' },
   { to: '/refer',      label: 'Refer & Earn' },
   { to: '/about',      label: 'About' },
@@ -42,7 +43,7 @@ export function SiteHeader() {
 
           {/* Logo */}
           <Link href="/" className="group flex shrink-0 items-center">
-            <img src="/navbar.png" alt="NxtSft.com" className="h-16 w-auto object-contain transition group-hover:opacity-90 sm:h-20" />
+            <img src="/logo.png" alt="NxtSft.com" className="h-16 w-auto object-contain transition group-hover:opacity-90 sm:h-20" />
           </Link>
 
           {/* Desktop nav */}

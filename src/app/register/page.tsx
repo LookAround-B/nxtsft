@@ -209,7 +209,7 @@ export default function RegisterPage() {
                 </div>
                 <span className="text-sm text-foreground/80 leading-relaxed">
                   I accept the{' '}
-                  <Link href="/contact" className="font-semibold text-accent hover:underline">Terms &amp; Conditions</Link>{' '}
+                  <Link href="/terms" className="font-semibold text-accent hover:underline">Terms &amp; Conditions</Link>{' '}
                   and agree to receive communication from NxtSft.com.
                 </span>
               </label>

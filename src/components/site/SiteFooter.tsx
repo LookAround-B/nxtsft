@@ -22,6 +22,7 @@ const FOOTER_LINKS = {
     { href: '/login',           label: 'Sign In' },
     { href: '/register',        label: 'Create Account' },
     { href: '/pricing',         label: 'View Plans' },
+    { href: '/agents',          label: 'Find an Agent' },
     { href: '/refer',           label: 'Refer & Earn' },
     { href: '/admin-login',     label: 'Staff Portal', external: true },
     { href: '/terms',           label: 'Terms of Use' },
@@ -116,7 +117,7 @@ export function SiteFooter() {
           {/* About Us */}
           <div>
             <div className="flex items-center gap-3 mb-5">
-              <img src="/navbar.png" alt="NxtSft.com" className="h-20 w-auto object-contain brightness-0 invert" />
+              <img src="/logo.png" alt="NxtSft.com" className="h-20 w-auto object-contain brightness-0 invert" />
             </div>
             <h3 className={HL} style={{ color: 'var(--gold)' }}>About Us</h3>
             <p className="text-sm leading-relaxed text-white/70">

@@ -1,14 +1,16 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, notFound } from 'next/navigation';
-import { Lock, MapPin, Phone, MessageCircle, Check, Star, Share2 } from 'lucide-react';
+import { Lock, MapPin, Phone, MessageCircle, Check, Star, Share2, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
 import { SiteHeader } from '@/components/site/SiteHeader';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { properties, ownerSlug } from '@/data/static';
 import { useAuth } from '@/lib/auth';
 import { captureLead } from '@/lib/leads';
+
+const SECTION_IDS = ['section-overview', 'section-about', 'section-amenities', 'section-visit', 'section-nearby', 'section-emi'];
 
 function estimateEMI(principal: number) {
   const P = principal * 0.8;
@@ -23,10 +25,45 @@ export default function PropertyDetail() {
   const [active, setActive] = useState(0);
   const [contactUnlocked, setContactUnlocked] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [tourDay, setTourDay] = useState(0);
+  const [tourSlot, setTourSlot] = useState(0);
+  const [tourRequested, setTourRequested] = useState(false);
+  const [tabsVisible, setTabsVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('section-overview');
   const { session, credits, useCredit } = useAuth();
+
+  useEffect(() => {
+    const galleryEl = document.getElementById('property-gallery');
+    if (!galleryEl) return;
+    const visObs = new IntersectionObserver(([e]) => setTabsVisible(!e.isIntersecting), { threshold: 0 });
+    visObs.observe(galleryEl);
+    const sectionObs: IntersectionObserver[] = [];
+    SECTION_IDS.forEach((sid) => {
+      const el = document.getElementById(sid);
+      if (!el) return;
+      const o = new IntersectionObserver(
+        ([e]) => { if (e.isIntersecting) setActiveTab(sid); },
+        { rootMargin: '-80px 0px -60% 0px', threshold: 0 },
+      );
+      o.observe(el);
+      sectionObs.push(o);
+    });
+    return () => { visObs.disconnect(); sectionObs.forEach((o) => o.disconnect()); };
+  }, []);
 
   const p = properties.find((x) => x.id === id);
   if (!p) { notFound(); return null; }
+
+  const TOUR_SLOTS = ['10:00 AM – 12:00 PM', '12:00 PM – 02:00 PM', '02:00 PM – 04:00 PM', '04:00 PM – 06:00 PM', '06:00 PM – 08:00 PM'];
+  const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MON_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const today = new Date();
+  const tourDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    return { short: DAY_SHORT[d.getDay()], date: d.getDate(), mon: MON_SHORT[d.getMonth()] };
+  });
+  const enquiryCount = ((p.id.charCodeAt(0) + p.id.charCodeAt(p.id.length - 1)) % 7) + 2;
 
   const handleShare = () => {
     const url = window.location.href;
@@ -40,6 +77,21 @@ export default function PropertyDetail() {
     }
   };
   const signedIn = !!session;
+
+  const SECTION_TABS = [
+    { id: 'section-overview',  label: 'Overview' },
+    { id: 'section-about',     label: 'About' },
+    { id: 'section-amenities', label: 'Amenities' },
+    { id: 'section-visit',     label: 'Schedule Visit' },
+    { id: 'section-nearby',    label: 'Nearby' },
+    ...(p.purpose === 'Sale' ? [{ id: 'section-emi', label: 'EMI Calculator' }] : []),
+  ];
+  const scrollToSection = (sid: string) => {
+    const el = document.getElementById(sid);
+    if (!el) return;
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' });
+  };
+
   const similar = properties.filter((x) => x.id !== p.id && x.city === p.city).slice(0, 3);
   const similarFallback = similar.length ? similar : properties.filter((x) => x.id !== p.id).slice(0, 3);
 
@@ -81,7 +133,7 @@ export default function PropertyDetail() {
         </div>
 
         {/* Hero gallery */}
-        <div className="mt-5 grid gap-3 lg:grid-cols-4 lg:grid-rows-2 lg:h-[520px]">
+        <div id="property-gallery" className="mt-5 grid gap-3 lg:grid-cols-4 lg:grid-rows-2 lg:h-[520px]">
           <button
             onClick={() => setActive(0)}
             className="relative col-span-1 row-span-2 overflow-hidden rounded-2xl border border-border lg:col-span-2 group"
@@ -120,7 +172,7 @@ export default function PropertyDetail() {
         <div className="mt-8 grid gap-8 lg:grid-cols-3">
           {/* Main column */}
           <div className="space-y-6 lg:col-span-2">
-            <div>
+            <div id="section-overview">
               <div className="text-xs uppercase tracking-widest text-muted-foreground">{p.locality}, {p.city}</div>
               <h1 className="mt-1 font-display text-3xl font-bold leading-tight text-navy sm:text-4xl">{p.title}</h1>
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -180,7 +232,7 @@ export default function PropertyDetail() {
             </div>
 
             {/* Description */}
-            <div className="rounded-xl border border-border bg-white p-5 sm:p-6">
+            <div id="section-about" className="rounded-xl border border-border bg-white p-5 sm:p-6">
               <h2 className="font-display text-xl font-bold text-navy">About this property</h2>
               <p className="mt-3 text-sm leading-relaxed text-foreground/80 sm:text-base">{p.description}</p>
               <div className="mt-5 grid grid-cols-3 gap-3 border-t border-border pt-5 text-center">
@@ -200,7 +252,7 @@ export default function PropertyDetail() {
             </div>
 
             {/* Amenities */}
-            <div className="rounded-xl border border-border bg-white p-5 sm:p-6">
+            <div id="section-amenities" className="rounded-xl border border-border bg-white p-5 sm:p-6">
               <h2 className="font-display text-xl font-bold text-navy">Amenities ({p.amenities.length})</h2>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {p.amenities.map((a: string) => (
@@ -212,8 +264,97 @@ export default function PropertyDetail() {
               </div>
             </div>
 
+            {/* Site visit scheduler */}
+            <div id="section-visit" className="overflow-hidden rounded-xl border border-border bg-white">
+              {/* Card header with social proof */}
+              <div className="flex items-center justify-between gap-4 border-b border-border bg-gradient-to-r from-accent/6 to-transparent px-5 py-5 sm:px-6">
+                <div>
+                  <h2 className="font-display text-xl font-bold text-navy">Request a site visit</h2>
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                    <strong className="text-navy">{enquiryCount} people</strong>&nbsp;already requested a visit for this property
+                  </div>
+                </div>
+                <div className="hidden shrink-0 rounded-xl bg-accent/10 p-3 sm:block">
+                  <CalendarDays size={22} className="text-accent" />
+                </div>
+              </div>
+
+              <div className="p-5 sm:p-6">
+                {/* Day chips */}
+                <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Select a date</div>
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
+                  {tourDays.map((d, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setTourDay(i)}
+                      className={`flex shrink-0 flex-col items-center rounded-xl border-2 px-4 py-2.5 transition ${
+                        tourDay === i
+                          ? 'border-accent bg-accent/8 text-accent'
+                          : 'border-border bg-white text-foreground/60 hover:border-accent/50 hover:text-accent'
+                      }`}
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-wide">{d.short}</span>
+                      <span className="font-display text-xl font-black leading-none mt-0.5">{d.date}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Time slot chips */}
+                <div className="mt-4 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Select a time</div>
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
+                  {TOUR_SLOTS.map((slot, i) => (
+                    <button
+                      key={slot}
+                      onClick={() => setTourSlot(i)}
+                      className={`shrink-0 rounded-xl border-2 px-4 py-2 text-xs font-semibold transition ${
+                        tourSlot === i
+                          ? 'border-accent bg-accent/8 text-accent'
+                          : 'border-border bg-white text-foreground/60 hover:border-accent/50 hover:text-accent'
+                      }`}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Selected slot summary */}
+                <div className="mt-4 rounded-xl bg-accent/6 px-4 py-3 text-sm font-semibold text-accent">
+                  {tourDays[tourDay].short} {tourDays[tourDay].date} {tourDays[tourDay].mon} &nbsp;·&nbsp; {TOUR_SLOTS[tourSlot]}
+                </div>
+
+                {/* CTA */}
+                {signedIn ? (
+                  <button
+                    onClick={() => {
+                      if (tourRequested) return;
+                      captureLead('Schedule Visit', p, session!);
+                      setTourRequested(true);
+                      toast.success('Site visit requested!', {
+                        description: `${p.owner.name} will confirm your slot for ${tourDays[tourDay].short} ${tourDays[tourDay].date} ${tourDays[tourDay].mon}, ${TOUR_SLOTS[tourSlot]}.`,
+                      });
+                    }}
+                    className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-display text-sm font-bold shadow-sm transition ${
+                      tourRequested
+                        ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'bg-accent text-white shadow-accent/20 hover:opacity-90'
+                    }`}
+                  >
+                    {tourRequested ? <><Check size={15} strokeWidth={2.5} /> Visit Requested</> : 'Request a Site Visit'}
+                  </button>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 font-display text-sm font-bold text-white shadow-sm shadow-accent/20 transition hover:opacity-90"
+                  >
+                    <Lock size={14} /> Sign in to request a visit
+                  </Link>
+                )}
+              </div>
+            </div>
+
             {/* Nearby */}
-            <div className="rounded-xl border border-border bg-white p-5 sm:p-6">
+            <div id="section-nearby" className="rounded-xl border border-border bg-white p-5 sm:p-6">
               <h2 className="font-display text-xl font-bold text-navy">What's nearby</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {(p.nearby as [string, string][]).map(([name, dist]) => (
@@ -230,7 +371,7 @@ export default function PropertyDetail() {
 
             {/* EMI estimator */}
             {p.purpose === 'Sale' && (
-              <div className="rounded-xl border border-border bg-gradient-to-br from-secondary to-muted p-5 sm:p-6">
+              <div id="section-emi" className="rounded-xl border border-border bg-gradient-to-br from-secondary to-muted p-5 sm:p-6">
                 <h2 className="font-display text-xl font-bold text-navy">EMI Estimator</h2>
                 <div className="mt-4 grid gap-4 sm:grid-cols-4">
                   {[
@@ -251,7 +392,10 @@ export default function PropertyDetail() {
           </div>
 
           {/* Sticky sidebar */}
-          <aside className="space-y-5 lg:sticky lg:top-20 lg:self-start">
+          <aside
+            className="space-y-5 lg:sticky lg:self-start transition-[top] duration-300"
+            style={{ top: tabsVisible ? '7.75rem' : '5rem' }}
+          >
             <div className="hidden rounded-xl border border-border bg-white p-6 shadow-sm lg:block">
               <div className="text-xs uppercase tracking-widest text-muted-foreground">Asking Price</div>
               <div className="mt-1 font-display text-4xl font-bold text-accent">{p.priceLabel}</div>
@@ -282,7 +426,7 @@ export default function PropertyDetail() {
 
             <div className="rounded-xl border border-border bg-white p-6">
               <div className="text-xs uppercase tracking-widest text-muted-foreground">Listed By</div>
-              <Link href={'/owners/' + ownerSlug(p.owner.name)} className="mt-3 flex items-center gap-3 rounded-lg p-2 -mx-2 transition hover:bg-secondary/60">
+              <Link href={'/agents/' + ownerSlug(p.owner.name)} className="mt-3 flex items-center gap-3 rounded-lg p-2 -mx-2 transition hover:bg-secondary/60">
                 <div className="grid h-14 w-14 place-items-center rounded-full bg-mid-blue text-white font-display text-lg font-bold">{p.owner.initials}</div>
                 <div>
                   <div className="font-display font-bold text-navy">{p.owner.name}</div>
@@ -410,6 +554,35 @@ export default function PropertyDetail() {
           </div>
         </div>
       </div>
+
+      {/* Sticky section tab bar — slides in from above after scrolling past gallery */}
+      <nav
+        aria-label="Page sections"
+        className={`fixed left-0 right-0 top-0 z-30 border-b border-border bg-white/96 shadow-sm backdrop-blur-md transition-transform duration-300 ${
+          tabsVisible ? 'translate-y-16 sm:translate-y-20' : '-translate-y-full'
+        }`}
+      >
+        <div className="mx-auto max-w-7xl overflow-x-auto px-4 sm:px-6 [&::-webkit-scrollbar]:hidden">
+          <div className="flex">
+            {SECTION_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => { setActiveTab(tab.id); scrollToSection(tab.id); }}
+                className={`relative shrink-0 px-4 py-3.5 text-[13px] font-semibold transition-colors ${
+                  activeTab === tab.id
+                    ? 'text-accent'
+                    : 'text-foreground/55 hover:text-foreground'
+                }`}
+              >
+                {tab.label}
+                {activeTab === tab.id && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-accent" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </nav>
 
       <SiteFooter />
     </div>

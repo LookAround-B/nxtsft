@@ -248,7 +248,7 @@ export default function ReferPage() {
             </div>
 
             {/* Right — social proof card */}
-            <div className="hidden lg:block">
+            <div>
               <div className="rounded-3xl border border-white/15 bg-white/10 p-8 backdrop-blur-md">
                 <div className="mb-6 text-[11px] font-bold uppercase tracking-widest text-white/50">Top referrers this month</div>
                 <div className="space-y-4">
@@ -362,7 +362,7 @@ export default function ReferPage() {
                 </tr>
               </thead>
               <tbody>
-                {REWARD_TIERS.map((r, i) => (
+                {REWARD_TIERS.map((r) => (
                   <tr key={r.label} className={`border-b border-border last:border-0 transition hover:bg-secondary/30 ${r.highlight ? 'bg-accent/4' : ''}`}>
                     <td className="px-6 py-4 font-medium text-navy">{r.label}</td>
                     <td className="px-6 py-4">

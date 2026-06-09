@@ -479,7 +479,7 @@ export default function ListPropertyPage() {
 
               <div className="mt-6 rounded-xl border border-border bg-secondary/50 p-4 text-xs text-muted-foreground">
                 By submitting, you agree to NxtSft.com&apos;s{' '}
-                <Link href="/contact" className="font-semibold text-accent hover:underline">Terms of Service</Link>.
+                <Link href="/terms" className="font-semibold text-accent hover:underline">Terms of Service</Link>.
                 Our team will verify your listing within 24 hours before it goes live.
               </div>
             </>

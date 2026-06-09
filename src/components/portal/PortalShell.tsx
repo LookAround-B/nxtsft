@@ -59,7 +59,7 @@ export function PortalShell({ brand, role, accent = 'red', user, nav, basePath, 
       >
         {/* Brand */}
         <div className={`flex items-center border-b border-white/8 py-4 ${collapsed ? 'justify-center px-0' : 'gap-3 px-4'}`}>
-          <img src="/navbar.png" alt="NxtSft.com" className="h-16 w-auto flex-shrink-0 object-contain brightness-0 invert" />
+          <img src="/logo.png" alt="NxtSft.com" className="h-16 w-auto flex-shrink-0 object-contain brightness-0 invert" />
           {!collapsed && (
             <div className="min-w-0">
               <div className="truncate font-display text-[14px] font-bold tracking-tight text-white">{brand}</div>

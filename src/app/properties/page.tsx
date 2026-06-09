@@ -7,10 +7,13 @@ import { SiteHeader } from '@/components/site/SiteHeader';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { properties } from '@/data/static';
 
-const CITIES   = ['All', ...Array.from(new Set(properties.map((p) => p.city)))];
-const TYPES    = ['All', ...Array.from(new Set(properties.map((p) => p.type)))];
-const PURPOSES = ['All', 'Sale', 'Rent'];
-const BHKS     = ['All', '1 BHK', '2 BHK', '3 BHK', '4 BHK'];
+const CITIES      = ['All', ...Array.from(new Set(properties.map((p) => p.city)))];
+const TYPES       = ['All', ...Array.from(new Set(properties.map((p) => p.type)))];
+const PURPOSES    = ['All', 'Sale', 'Rent'];
+const BHKS        = ['All', '1 BHK', '2 BHK', '3 BHK', '4 BHK'];
+const FURNISHINGS = ['All', 'Fully Furnished', 'Semi-Furnished', 'Unfurnished', 'Warm Shell'];
+const POSSESSIONS = ['All', 'Ready to Move', 'Under Construction'];
+const POSTED_BY   = ['All', 'Owner', 'Agent'];
 const SORTS = [
   { id: 'match',      label: 'Best Match' },
   { id: 'price-asc',  label: 'Price: Low → High' },
@@ -25,6 +28,10 @@ export default function PropertiesPage() {
   const [type,         setType]        = useState('All');
   const [bhk,          setBhk]         = useState('All');
   const [maxBudget,    setMaxBudget]   = useState(50_000_000);
+  const [minArea,      setMinArea]     = useState(0);
+  const [furnishing,   setFurnishing]  = useState('All');
+  const [possession,   setPossession]  = useState('All');
+  const [postedBy,     setPostedBy]    = useState('All');
   const [featuredOnly, setFeaturedOnly]= useState(false);
   const [sort,         setSort]        = useState<(typeof SORTS)[number]['id']>('match');
   const [showMobile,   setShowMobile]  = useState(false);
@@ -42,12 +49,18 @@ export default function PropertiesPage() {
   const filtered = useMemo(() => {
     let r = properties.filter((p) => {
       if (q && !`${p.title} ${p.city} ${p.locality} ${p.builder}`.toLowerCase().includes(q.toLowerCase())) return false;
-      if (city    !== 'All' && p.city    !== city)    return false;
-      if (purpose !== 'All' && p.purpose !== purpose) return false;
-      if (type    !== 'All' && p.type    !== type)    return false;
-      if (bhk     !== 'All' && p.bhk     !== bhk)    return false;
-      if (featuredOnly && !p.featured)                return false;
-      if (p.purpose === 'Sale' && p.price > maxBudget) return false;
+      if (city       !== 'All' && p.city       !== city)       return false;
+      if (purpose    !== 'All' && p.purpose    !== purpose)    return false;
+      if (type       !== 'All' && p.type       !== type)       return false;
+      if (bhk        !== 'All' && p.bhk        !== bhk)        return false;
+      if (furnishing !== 'All' && p.furnishing !== furnishing) return false;
+      if (possession === 'Ready to Move'      && p.age === 'Under Construction')  return false;
+      if (possession === 'Under Construction' && p.age !== 'Under Construction')  return false;
+      if (postedBy   === 'Owner' && !p.owner.role.toLowerCase().includes('owner')) return false;
+      if (postedBy   === 'Agent' &&  p.owner.role.toLowerCase().includes('owner')) return false;
+      if (minArea > 0 && p.area < minArea)                     return false;
+      if (featuredOnly && !p.featured)                         return false;
+      if (p.purpose === 'Sale' && p.price > maxBudget)         return false;
       return true;
     });
     if (sort === 'price-asc')  r = [...r].sort((a, b) => a.price - b.price);
@@ -55,12 +68,20 @@ export default function PropertiesPage() {
     if (sort === 'area-desc')  r = [...r].sort((a, b) => b.area  - a.area);
     if (sort === 'match')      r = [...r].sort((a, b) => b.matchScore - a.matchScore);
     return r;
-  }, [q, city, purpose, type, bhk, featuredOnly, maxBudget, sort]);
+  }, [q, city, purpose, type, bhk, furnishing, possession, postedBy, minArea, featuredOnly, maxBudget, sort]);
 
   const reset = () => {
     setQ(''); setCity('All'); setPurpose('All'); setType('All');
-    setBhk('All'); setMaxBudget(50_000_000); setFeaturedOnly(false); setSort('match');
+    setBhk('All'); setMaxBudget(50_000_000); setMinArea(0);
+    setFurnishing('All'); setPossession('All'); setPostedBy('All');
+    setFeaturedOnly(false); setSort('match');
   };
+
+  const activeFilterCount = [
+    city !== 'All', purpose !== 'All', type !== 'All', bhk !== 'All',
+    maxBudget < 50_000_000, minArea > 0, furnishing !== 'All',
+    possession !== 'All', postedBy !== 'All', featuredOnly,
+  ].filter(Boolean).length;
 
   const fmtBudget = (n: number) =>
     n >= 10_000_000 ? `₹${(n / 10_000_000).toFixed(2)} Cr` : `₹${(n / 100_000).toFixed(0)} L`;
@@ -93,12 +114,15 @@ export default function PropertiesPage() {
         </div>
       </div>
 
-      <FilterGroup label="Purpose"       options={PURPOSES} value={purpose} onChange={setPurpose} />
-      <FilterGroup label="City"          options={CITIES}   value={city}    onChange={setCity} />
-      <FilterGroup label="Type"          options={TYPES}    value={type}    onChange={setType} />
-      <FilterGroup label="Configuration" options={BHKS}     value={bhk}     onChange={setBhk} />
+      <FilterGroup label="Purpose"       options={PURPOSES}    value={purpose}    onChange={setPurpose} />
+      <FilterGroup label="City"          options={CITIES}      value={city}       onChange={setCity} />
+      <FilterGroup label="Type"          options={TYPES}       value={type}       onChange={setType} />
+      <FilterGroup label="Configuration" options={BHKS}        value={bhk}        onChange={setBhk} />
+      <FilterGroup label="Furnishing"    options={FURNISHINGS} value={furnishing} onChange={setFurnishing} />
+      <FilterGroup label="Possession"    options={POSSESSIONS} value={possession} onChange={setPossession} />
+      <FilterGroup label="Posted By"     options={POSTED_BY}   value={postedBy}   onChange={setPostedBy} />
 
-      {/* Budget slider */}
+      {/* Max Budget slider */}
       <div>
         <div className="flex items-center justify-between">
           <label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Max Budget</label>
@@ -118,6 +142,28 @@ export default function PropertiesPage() {
         </div>
       </div>
 
+      {/* Min Area slider */}
+      <div>
+        <div className="flex items-center justify-between">
+          <label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Min Area</label>
+          <span className="font-display text-sm font-bold text-accent">
+            {minArea === 0 ? 'Any' : `${minArea.toLocaleString('en-IN')} sqft`}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={3000}
+          step={100}
+          value={minArea}
+          onChange={(e) => setMinArea(Number(e.target.value))}
+          className="mt-3 w-full accent-accent"
+        />
+        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+          <span>Any</span><span>3,000 sqft</span>
+        </div>
+      </div>
+
       {/* Featured toggle */}
       <label className="flex cursor-pointer items-center gap-2 text-sm">
         <input
@@ -128,6 +174,15 @@ export default function PropertiesPage() {
         />
         <span>Featured only</span>
       </label>
+
+      {activeFilterCount > 0 && (
+        <button
+          onClick={reset}
+          className="w-full rounded-lg border border-accent bg-accent/6 py-2.5 text-sm font-semibold text-accent transition hover:bg-accent hover:text-white"
+        >
+          Clear {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''}
+        </button>
+      )}
 
       <button
         onClick={reset}
@@ -178,7 +233,13 @@ export default function PropertiesPage() {
                 onClick={() => setShowMobile(true)}
                 className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition hover:border-accent hover:text-accent lg:hidden"
               >
-                <SlidersHorizontal className="h-4 w-4" /> Filters
+                <SlidersHorizontal className="h-4 w-4" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white">
+                    {activeFilterCount}
+                  </span>
+                )}
               </button>
 
               <span className="text-xs text-muted-foreground">{filtered.length} results</span>
