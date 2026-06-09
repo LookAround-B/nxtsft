@@ -1,0 +1,38 @@
+{
+  "$schema": "https://turbo.build/json-schema.json",
+  "globalDependencies": ["**/.env.local", "**/.env"],
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "interactive": true,
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": ["src/**", "tsconfig.json"]
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**", "build/**"],
+      "inputs": ["src/**", "package.json", "tsconfig.json"]
+    },
+    "test": {
+      "cache": false,
+      "outputs": ["coverage/**"]
+    },
+    "lint": {
+      "outputs": []
+    },
+    "type-check": {
+      "outputs": []
+    },
+    "db:migrate": {
+      "cache": false,
+      "inputs": ["prisma/**"]
+    },
+    "db:generate": {
+      "cache": true,
+      "inputs": ["prisma/schema.prisma"]
+    }
+  },
+  "globalEnv": ["NODE_ENV", "DATABASE_URL", "REDIS_URL", "ENVIRONMENT"],
+  "ui": "tui"
+}

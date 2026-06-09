@@ -1,0 +1,131 @@
+/\*\*
+
+- Complete Architecture Justification
+- =====================================
+-
+- FRONTEND LAYER
+- - Next.js 15: Full-stack React framework with App Router, Server Components, built-in API routes
+- - React 19: Latest React with Suspense, hydration improvements
+- - TailwindCSS 4.2: Utility-first CSS, performance, JIT compilation
+- - Radix UI: Unstyled accessible components (WAI-ARIA compliant)
+-
+- BACKEND LAYER
+- - Fastify: High-performance HTTP server (2x faster than Express)
+- - Justification: Real estate platform needs sub-100ms latency for listings
+- - Workers pattern: Handle concurrent requests without blocking
+- - tRPC: End-to-end type-safe APIs
+- - Justification: Prevents runtime type errors, autocompletion for frontend
+- - Better than REST for complex real estate queries (filters, aggregations)
+-
+- DATABASE LAYER
+- - PostgreSQL 16: Relational database with JSONB, Full-Text Search, advanced indexing
+- - Justification: Real estate data is highly relational (properties, owners, agents, listings)
+- - PgVector support for semantic search on property descriptions
+- - Native spatial queries for location-based searches
+- - Prisma 6: ORM with type safety, migration management, generated types
+- - Justification: Prevents SQL injection, provides auto-completion, schema validation
+- - Monorepo-friendly: Shared schema across web/api apps
+-
+- CACHING LAYER
+- - Redis: In-memory cache for hot data
+- - Justification: Property listings, agent profiles, search filters cached for instant access
+- - Session storage: JWT token validation cache to reduce DB hits
+- - Rate limiting: Protect APIs from abuse
+- - Job queue backend for BullMQ
+-
+- FILE STORAGE
+- - Cloudflare R2: S3-compatible object storage with CDN
+- - Justification: Cheaper than AWS S3 ($3.50/TB vs $23/TB), global CDN, 100% ACID transactions
+- - Use cases: Property images, agent photos, documents (KYC, contracts)
+- - Integration: Signed URLs for secure direct uploads from browser
+-
+- JOB QUEUE
+- - BullMQ + Redis: Distributed job queue for async tasks
+- - Justification: Non-blocking operations (email, SMS, image processing)
+- - Use cases:
+-     - Send confirmation emails (Resend)
+-     - SMS notifications (Twilio)
+-     - WhatsApp messaging (WATI)
+-     - Image optimization and CDN refresh
+-     - PDF report generation (pdfkit)
+-
+- PAYMENTS
+- - Razorpay: Payment gateway for Indian market
+- - Justification: Native UPI, NetBanking, Cards support
+- - Use cases: Premium plan subscriptions, lead credit purchases
+- - Webhooks: Auto-update subscription status on payment success/failure
+-
+- COMMUNICATIONS
+- - Resend: Email API with React component support
+- - Justification: Better deliverability than SMTP, supports React templates
+- - Use cases: Signup confirmations, property alerts, invoice delivery
+-
+- - Twilio: SMS API for OTP and notifications
+- - Justification: Reliable 99.99% uptime, global coverage
+- - Use cases: Login OTP, appointment reminders
+-
+- - WATI: WhatsApp Business API
+- - Justification: 92% open rate on WhatsApp vs 20% on email
+- - Use cases: Property notifications, lead follow-ups, appointment confirmations
+-
+- SEARCH ENGINE
+- - Typesense: Full-text search (open-source Elasticsearch alternative)
+- - Justification: Better UX than DB full-text search, instant search, typo tolerance
+- - Use cases: Search 10K+ properties by description, location, amenities
+- - Replication from PostgreSQL via change streams
+-
+- VECTOR SEARCH
+- - pgvector: PostgreSQL vector extension
+- - Justification: Semantic search on property descriptions using embeddings
+- - Use cases: "Find properties similar to this description" using AI embeddings
+- - Integration: OpenAI embeddings → pgvector → Typesense
+-
+- ANALYTICS
+- - PostHog: Product analytics (privacy-first alternative to Mixpanel)
+- - Justification: Self-hostable, GDPR compliant, event replay
+- - Use cases: Track user funnels (browse → contact → visit → offer)
+- - A/B testing for listing recommendations
+-
+- ERROR TRACKING
+- - Sentry: Real-time error tracking and performance monitoring
+- - Justification: Catch production errors before customers report
+- - Use cases: Monitor API latency, track JS errors, replay user sessions
+-
+- INFRASTRUCTURE
+- - Terraform: Infrastructure as Code
+- - Justification: Reproducible environments, version control for infra
+- - Use cases: Provision AWS/GCP resources, PostgreSQL cluster, Redis, DNS records
+-
+- - Docker: Containerization
+- - Justification: Consistent dev/prod environments
+- - Services: Web, API, Workers, Postgres, Redis (docker-compose)
+-
+- - GitHub Actions: CI/CD pipeline
+- - Justification: GitHub-native, free for public repos
+- - Pipelines: Test, build, deploy on push/PR
+-
+- MONOREPO MANAGEMENT
+- - Turborepo: Build system for monorepos
+- - Justification:
+-     - Speed: Incremental builds, only build changed packages
+-     - Remote caching: Team-wide cache, no redundant builds
+-     - Tasks: Shared build/lint/test commands
+-
+- - pnpm: Fast npm alternative
+- - Justification: Disk efficient, faster installs, strict dependency management
+- - Workspaces: Seamless monorepo support
+-
+- PACKAGE STRUCTURE
+- ├── apps/
+- │ ├── web → Next.js 15 frontend (Server & Client Components)
+- │ └── api → Fastify backend (tRPC endpoints, Workers)
+- ├── packages/
+- │ ├── db → Prisma schema, migrations, types
+- │ ├── shared → TypeScript types, utilities shared across apps
+- │ ├── config → Shared configs (eslint, prettier, tsconfig)
+- │ ├── trpc → tRPC router setup, typed procedures
+- │ └── jobs → BullMQ job definitions, workers
+- └── infrastructure/ → Terraform, docker-compose, deployment scripts
+  \*/
+
+export const ARCHITECTURE = "Complete enterprise-grade real estate platform";

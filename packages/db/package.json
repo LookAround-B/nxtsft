@@ -1,0 +1,27 @@
+{
+  "name": "@nxtsft/db",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./client.ts",
+    "./seeds": "./seeds/index.ts"
+  },
+  "scripts": {
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:seed": "tsx seeds/index.ts",
+    "db:reset": "prisma migrate reset",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "@nxtsft/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.5",
+    "prisma": "^6.0.0",
+    "typescript": "^5.8.3",
+    "tsx": "^4.7.0"
+  }
+}
