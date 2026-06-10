@@ -490,6 +490,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
               onUnlock={() => { unlockedRef.current = true; }}
             />
 
+            <InquiryForm property={property} session={session} />
+
             {/* Price info card */}
             <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -527,6 +529,90 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
       </div>
 
       <SiteFooter />
+    </div>
+  );
+}
+
+/* ─── Inquiry / "I'm interested" form ──────────────────────────────────────── */
+function InquiryForm({
+  property,
+  session,
+}: {
+  property: FullProperty;
+  session: ReturnType<typeof useAuth>["session"];
+}) {
+  const router = useRouter();
+  const [sent, setSent] = useState(false);
+  const [form, setForm] = useState({ name: "", phone: "", notes: "" });
+
+  const createLead = trpc.leads.create.useMutation({
+    onSuccess: () => { setSent(true); toast.success("Enquiry sent! An agent will reach out shortly."); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // Prefill name once the session is known
+  useEffect(() => {
+    if (session) setForm((f) => (f.name ? f : { ...f, name: session.name }));
+  }, [session]);
+
+  const submit = () => {
+    if (!session) { router.push("/login"); return; }
+    if (form.name.trim().length < 2) return toast.error("Please enter your name.");
+    if (!/^[6-9]\d{9}$/.test(form.phone)) return toast.error("Enter a valid 10-digit mobile number.");
+    createLead.mutate({
+      propertyId: property.id,
+      name: form.name.trim(),
+      phone: form.phone,
+      city: property.location.city,
+      interest: `${property.bhk ? property.bhk + " " : ""}${property.type} · ${property.purpose}`,
+      notes: form.notes.trim() || undefined,
+      source: "Portal",
+    });
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+      <h3 className="font-display text-base font-bold text-navy">Interested in this property?</h3>
+      {sent ? (
+        <div className="mt-4 flex flex-col items-center gap-2 rounded-xl bg-emerald-50 px-4 py-8 text-center">
+          <ShieldCheck size={28} className="text-emerald-500" />
+          <p className="text-sm font-semibold text-navy">Enquiry sent!</p>
+          <p className="text-xs text-muted-foreground">Our team will contact you about this {property.type.toLowerCase()}.</p>
+        </div>
+      ) : (
+        <>
+          <p className="mt-1 text-xs text-muted-foreground">Send an enquiry and a relationship manager will get in touch.</p>
+          <div className="mt-4 space-y-2.5">
+            <input
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Your name"
+              className="w-full rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+            />
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+              placeholder="10-digit mobile"
+              className="w-full rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+            />
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              rows={2}
+              placeholder="Anything specific you'd like to know? (optional)"
+              className="w-full resize-none rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+            />
+            <button
+              onClick={submit}
+              disabled={createLead.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-navy py-3 font-display text-sm font-bold text-white transition hover:opacity-95 disabled:opacity-60"
+            >
+              {createLead.isPending ? "Sending…" : session ? "Send Enquiry" : "Sign in to enquire"}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

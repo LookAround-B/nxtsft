@@ -26,6 +26,7 @@ import {
 import { Activity as ActivityIcon, Calendar as CalendarIcon } from "lucide-react";
 import { PortalShell, StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { leads, teamMembers, activities, propertyViews } from "@/data/static";
@@ -538,53 +539,57 @@ function Reassignment() {
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">Lead</label>
-            <select
-              value={lead}
-              onChange={(e) => setLead(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-            >
-              {leads.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.id} — {l.name}
-                </option>
-              ))}
-            </select>
+            <Select value={lead} onValueChange={setLead}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {leads.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.id} — {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">From</label>
-            <select
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-            >
-              {teamMembers.map((m) => (
-                <option key={m.id}>{m.name}</option>
-              ))}
-            </select>
+            <Select value={from} onValueChange={setFrom}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {teamMembers.map((m) => (
+                  <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">To</label>
-            <select
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-            >
-              {teamMembers.map((m) => (
-                <option key={m.id}>{m.name}</option>
-              ))}
-            </select>
+            <Select value={to} onValueChange={setTo}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {teamMembers.map((m) => (
+                  <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">Reason</label>
-            <select
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-            >
-              {REASSIGN_REASONS.map((r) => (
-                <option key={r}>{r}</option>
-              ))}
-            </select>
+            <Select value={reason} onValueChange={setReason}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REASSIGN_REASONS.map((r) => (
+                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <button

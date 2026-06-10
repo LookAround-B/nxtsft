@@ -19,6 +19,7 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { useAuth } from "@/lib/auth";
 import { submitListing, type ListerType, type PendingListing } from "@/lib/listings";
 import { trpc } from "@/lib/trpc";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Plot", "Commercial", "PG / Co-living", "Studio"];
 const CITIES = [
@@ -467,18 +468,18 @@ export default function ListPropertyPage() {
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-semibold text-foreground">City</label>
-                  <select
-                    value={data.city}
-                    onChange={(e) => set("city", e.target.value)}
-                    className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.city ? "border-rose-400" : "border-input"}`}
-                  >
-                    <option value="">Select city…</option>
-                    {CITIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={data.city || undefined} onValueChange={(v) => set("city", v)}>
+                    <SelectTrigger className={`mt-1.5 rounded-xl px-3.5 py-3 ${errors.city ? "border-rose-400" : ""}`}>
+                      <SelectValue placeholder="Select city…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CITIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors.city && <p className="mt-1 text-xs text-rose-500">{errors.city}</p>}
                 </div>
                 <div>

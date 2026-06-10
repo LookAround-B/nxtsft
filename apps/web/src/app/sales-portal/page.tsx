@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { PortalShell, StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { leads, activities, properties, propertyViews } from "@/data/static";
@@ -322,15 +323,16 @@ function Detail() {
             <label className="text-[10px] uppercase tracking-widest text-muted-foreground">
               Action Type
             </label>
-            <select
-              value={nextAction}
-              onChange={(e) => setNextAction(e.target.value)}
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-navy focus:outline-none focus:ring-2 focus:ring-accent"
-            >
-              {["Call", "WhatsApp", "Site Visit", "Send Brochure"].map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
+            <Select value={nextAction} onValueChange={setNextAction}>
+              <SelectTrigger className="min-w-[10rem] font-semibold text-navy">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["Call", "WhatsApp", "Site Visit", "Send Brochure"].map((o) => (
+                  <SelectItem key={o} value={o}>{o}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-[10px] uppercase tracking-widest text-muted-foreground">

@@ -819,14 +819,14 @@ function CRMTab() {
                         {l.property && (
                           <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{l.property.title}</div>
                         )}
-                        <select
-                          value={l.status}
-                          onChange={(e) => move(l.id, e.target.value as CrmStage)}
-                          disabled={updateStatus.isPending}
-                          className="mt-2 w-full rounded border border-border bg-secondary/40 px-1.5 py-1 text-[10px] font-semibold outline-none focus:border-accent disabled:opacity-50"
-                        >
-                          {CRM_STAGES.map((st) => <option key={st} value={st}>{st}</option>)}
-                        </select>
+                        <Select value={l.status} onValueChange={(v) => move(l.id, v as CrmStage)} disabled={updateStatus.isPending}>
+                          <SelectTrigger size="sm" className="mt-2 w-full px-1.5 py-1 text-[10px] font-semibold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CRM_STAGES.map((st) => <SelectItem key={st} value={st}>{st}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
                     ))}
                     {items.length === 0 && (
@@ -1409,25 +1409,27 @@ function InviteModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Role</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as NewMemberInput["role"])}
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                {INVITE_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </select>
+              <Select value={role} onValueChange={(v) => setRole(v as NewMemberInput["role"])}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INVITE_ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">City</label>
-              <select
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                {["Mumbai", "Bengaluru", "Pune", "Delhi", "Hyderabad", "Chennai"].map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
+              <Select value={city} onValueChange={setCity}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Mumbai", "Bengaluru", "Pune", "Delhi", "Hyderabad", "Chennai"].map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>

@@ -26,6 +26,7 @@ import { PortalShell, StatCard, Section, Badge } from "@/components/portal/Porta
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import {
   properties,
   subscriptions,
@@ -340,16 +341,17 @@ function Saved() {
           ))}
         </div>
         {/* Filter City */}
-        <select
-          value={filterCity}
-          onChange={(e) => setFilterCity(e.target.value)}
-          className="rounded-md border border-border bg-white px-3 py-1 text-xs"
-        >
-          <option value="">All Cities</option>
-          {cityOptions.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
+        <Select value={filterCity || "__all"} onValueChange={(v) => setFilterCity(v === "__all" ? "" : v)}>
+          <SelectTrigger size="sm" className="min-w-[7.5rem]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all">All Cities</SelectItem>
+            {cityOptions.map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {filterCity && (
           <button
             onClick={() => setFilterCity("")}
@@ -688,8 +690,18 @@ function Credits() {
 
   const creditsQ = trpc.users.credits.useQuery();
   const plansQ = trpc.subscriptions.plans.useQuery({ type: "seeker" });
+  const planQ = trpc.subscriptions.myCurrent.useQuery();
   const createOrder = trpc.subscriptions.createOrder.useMutation();
   const verifyPayment = trpc.subscriptions.verifyPayment.useMutation();
+  const cancelPlan = trpc.subscriptions.cancel.useMutation({
+    onSuccess: () => { planQ.refetch(); toast.success("Subscription cancelled"); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  type CurrentPlan = { id: string; planName: string; amount: number; status: string; startDate: string; endDate: string; renewalDate: string | null };
+  const plan = planQ.data as CurrentPlan | null | undefined;
+  const planFmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const daysLeft = plan ? Math.max(0, Math.ceil((new Date(plan.endDate).getTime() - Date.now()) / 86_400_000)) : 0;
 
   type TxItem = { id: string; type: string; amount: number; reason: string | null; createdAt: string };
   const balance = creditsQ.data?.balance ?? credits;
@@ -757,6 +769,51 @@ function Credits() {
           sub={`${myDisputes.filter((d) => d.status === "Resolved").length} resolved`}
         />
       </div>
+
+      {/* Active plan (PRD §5.4) */}
+      <Section title="Active Plan">
+        {planQ.isLoading ? (
+          <p className="py-4 text-sm text-muted-foreground">Loading plan…</p>
+        ) : plan ? (
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-lg font-bold text-navy">{plan.planName}</span>
+                <Badge tone="success">{plan.status}</Badge>
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                ₹{plan.amount.toLocaleString("en-IN")} · started {planFmtDate(plan.startDate)} · valid till {planFmtDate(plan.endDate)}
+                <span className="ml-1 font-semibold text-accent">({daysLeft} day{daysLeft !== 1 ? "s" : ""} left)</span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowTopUp(true)}
+                className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
+              >
+                Renew / Upgrade
+              </button>
+              <button
+                onClick={() => cancelPlan.mutate({ subscriptionId: plan.id })}
+                disabled={cancelPlan.isPending}
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">No active plan. Buy credits to unlock owner contacts.</p>
+            <button
+              onClick={() => setShowTopUp(true)}
+              className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
+            >
+              View plans
+            </button>
+          </div>
+        )}
+      </Section>
 
       {/* Plan usage */}
       <Section title="Credit Balance">
@@ -1086,15 +1143,16 @@ function Profile() {
           </div>
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">City</label>
-            <select
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
-            >
-              {["Mumbai", "Bengaluru", "Pune", "Delhi", "Hyderabad", "Chennai"].map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
+            <Select value={city} onValueChange={setCity}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["Mumbai", "Bengaluru", "Pune", "Delhi", "Hyderabad", "Chennai"].map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <button
@@ -1123,45 +1181,46 @@ function Profile() {
             <label className="text-xs uppercase tracking-wider text-muted-foreground">
               Budget Range
             </label>
-            <select
-              value={budget}
-              onChange={(e) => setBudget(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
-            >
-              {["Under ₹50L", "₹50L – ₹1.5Cr", "₹1.5Cr – ₹3Cr", "₹3Cr – ₹6Cr", "₹6Cr+"].map((b) => (
-                <option key={b}>{b}</option>
-              ))}
-            </select>
+            <Select value={budget} onValueChange={setBudget}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["Under ₹50L", "₹50L – ₹1.5Cr", "₹1.5Cr – ₹3Cr", "₹3Cr – ₹6Cr", "₹6Cr+"].map((b) => (
+                  <SelectItem key={b} value={b}>{b}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">
               Preferred Type
             </label>
-            <select
-              value={propType}
-              onChange={(e) => setPropType(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
-            >
-              {["Apartment", "Villa", "Studio", "Bungalow", "Commercial"].map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
+            <Select value={propType} onValueChange={setPropType}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["Apartment", "Villa", "Studio", "Bungalow", "Commercial"].map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">
               Buy Timeline
             </label>
-            <select
-              value={timeline}
-              onChange={(e) => setTimeline(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
-            >
-              {["Immediately", "1–3 months", "3–6 months", "6–12 months", "Just exploring"].map(
-                (t) => (
-                  <option key={t}>{t}</option>
-                ),
-              )}
-            </select>
+            <Select value={timeline} onValueChange={setTimeline}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["Immediately", "1–3 months", "3–6 months", "6–12 months", "Just exploring"].map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <button
@@ -1348,27 +1407,29 @@ function SearchAlerts() {
                 placeholder="City / locality"
                 className="rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
               />
-              <select
-                value={form.bhk}
-                onChange={(e) => setForm((f) => ({ ...f, bhk: e.target.value }))}
-                className="rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
-              >
-                <option value="">Any BHK</option>
-                {ALERT_BHK.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
+              <Select value={form.bhk || "__any"} onValueChange={(v) => setForm((f) => ({ ...f, bhk: v === "__any" ? "" : v }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__any">Any BHK</SelectItem>
+                  {ALERT_BHK.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <input
                 value={form.budget}
                 onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))}
                 placeholder="Budget (e.g. Up to ₹4 Cr)"
                 className="rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
               />
-              <select
-                value={form.frequency}
-                onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value }))}
-                className="rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
-              >
-                {ALERT_FREQ.map((fq) => <option key={fq} value={fq}>{fq[0].toUpperCase() + fq.slice(1)}</option>)}
-              </select>
+              <Select value={form.frequency} onValueChange={(v) => setForm((f) => ({ ...f, frequency: v }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALERT_FREQ.map((fq) => <SelectItem key={fq} value={fq}>{fq[0].toUpperCase() + fq.slice(1)}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="mt-3 flex gap-2">
               <button

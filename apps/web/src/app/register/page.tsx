@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { useAuth, ROLE_META } from "@/lib/auth";
 import { toast } from "sonner";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 const CITIES = [
   "Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Pune", "Chennai",
@@ -192,15 +193,15 @@ export default function RegisterPage() {
             {/* City */}
             <div>
               <label className="block text-sm font-semibold text-foreground">Your City</label>
-              <select
-                value={form.city}
-                onChange={set("city")}
-                className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.city ? "border-rose-400" : "border-input"}`}
-              >
-                <option value="">Select your city</option>
-                {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                <option value="Other">Other</option>
-              </select>
+              <Select value={form.city || undefined} onValueChange={(v) => setForm((f) => ({ ...f, city: v }))}>
+                <SelectTrigger className={`mt-1.5 rounded-xl px-3.5 py-3 ${errors.city ? "border-rose-400" : ""}`}>
+                  <SelectValue placeholder="Select your city" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CITIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
               {errors.city && <p className="mt-1 text-xs text-rose-500">{errors.city}</p>}
             </div>
 

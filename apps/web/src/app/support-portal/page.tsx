@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { PortalShell, StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { reportTickets } from "@/data/reports";
@@ -303,24 +304,26 @@ function QueueTab() {
           onChange={(e) => setSearch(e.target.value)}
           className="rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
         />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none"
-        >
-          {["All", "Open", "In Progress", "Resolved", "Closed", "Escalated"].map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        <select
-          value={catFilter}
-          onChange={(e) => setCatFilter(e.target.value)}
-          className="rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none"
-        >
-          {categories.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger size="sm" className="min-w-[8rem]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {["All", "Open", "In Progress", "Resolved", "Closed", "Escalated"].map((s) => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={catFilter} onValueChange={setCatFilter}>
+          <SelectTrigger size="sm" className="min-w-[8rem]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Section title={listQ.isLoading ? "Loading…" : `${filtered.length} tickets`}>

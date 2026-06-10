@@ -16,10 +16,10 @@ import {
   Building2,
   SlidersHorizontal,
   X,
-  ChevronDown,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ownerSlug } from "@/data/static";
 import { AGENTS, type Agent } from "@/data/agents";
 import { useAuth } from "@/lib/auth";
@@ -369,22 +369,19 @@ export default function AgentsPage() {
             </div>
 
             {/* Sort (always visible) */}
-            <div className="relative ml-auto shrink-0">
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                className="appearance-none rounded-xl border border-border bg-white py-2 pl-3 pr-8 text-xs font-semibold text-navy outline-none focus:border-accent"
-              >
-                {SORTS.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={12}
-                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
+            <div className="ml-auto shrink-0">
+              <Select value={sort} onValueChange={setSort}>
+                <SelectTrigger size="sm" className="min-w-[9rem] rounded-xl font-semibold text-navy">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORTS.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>

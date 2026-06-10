@@ -127,14 +127,16 @@
 - [x] Admin portal — CRM Pipeline (§6.5) → `trpc.admin.leads.list` + `leads.updateStatus` ✅ *(06-10, verified live)* — live kanban over real `Lead.status` enum (New/Hot/Warm/Cold/Converted/Lost) with per-card stage move; removed dead static `pipeline`/`leadMeta`. (DB has no funnel-stage model, so columns = the status enum that actually persists)
 - [x] Notification Bell → `trpc.notifications.{unreadCount,list,markRead,markAllRead}` ✅ *(06-10, verified live)* — reusable `NotificationBell` in both PortalShell + SiteHeader; unread badge (60s poll), dropdown, mark-read/all-read. Closes the loop on SA broadcast
 - [ ] Agents page — No tRPC router for agents; **decision (06-10): keep static for now**
-- [ ] Home page — KPI band count-up (still static numbers)
+- [x] Home page — KPI band count-up (§4.1) ✅ *(06-10)* — `KpiBandStat` animates on scroll (decimal-aware, locale-formatted, gold gradient) for all 6 band stats
+- [x] Subscriptions — "My current plan" UI (§5.4) → `trpc.subscriptions.{myCurrent,cancel}` ✅ *(06-10, verified live)* — user portal Credits tab "Active Plan" section: name/amount/start/expiry/days-left + Renew-Upgrade + Cancel
+- [x] Property detail — Lead inquiry form → `trpc.leads.create` ✅ *(06-10, verified live)* — "Interested in this property?" sidebar form (name/phone/notes), prefills user name + property interest, signed-out → /login, success state; creates New/Portal lead flowing into CRM
 
 ### Design System / Polish *(06-10)*
 - [x] `ui/select.tsx` — branded Radix Select (animated, accent focus, check-marked item, sm/md, mobile/keyboard accessible). Added `@radix-ui/react-select` dep
 - [x] `ui/skeleton.tsx` — added `TableSkeleton`, `CardGridSkeleton`, `ListSkeleton`
 - [x] `ui/load-more.tsx` — `LoadMore` cursor-pagination control (spinner + "showing N of M")
 - [x] Applied: `/properties` (CardGridSkeleton + LoadMore); polished `Select` on Admin Team/Subscriptions + SA Users filters (`__all` sentinel for the reserved empty value)
-- [ ] Roll `Select` across remaining native dropdowns (CRM card status, InviteModal, broadcast audience, plan-type, etc.) — mechanical, not yet done
+- [x] Rolled `Select` across ~20 native dropdowns ✅ *(06-10)* — user-portal (7), sales (1), support (2), supervisor (4), admin (3: CRM card + invite role/city), sa (3: row-role/broadcast/complexity), agents sort, ReportsDashboard (×4 portals), /list + /register city. Empty options handled via `__all`/`__any` sentinels or Radix placeholder. Only the SA invite *demo* modal (uncontrolled, non-functional) left native
 
 ### Backend / DB
 - [x] `DATABASE_URL` configured in gitignored root `.env` (`%40`-encoded password) — connection verified
@@ -147,7 +149,7 @@
 
 ### Features
 - [ ] Image upload on `/list` (currently no gallery upload UI)
-- [ ] Lead creation from property detail page → `trpc.leads.create` (button exists but no form wired)
+- [x] Lead creation from property detail page → `trpc.leads.create` ✅ *(06-10, verified live)* — inquiry form in detail sidebar; see "Property detail — Lead inquiry form" above
 - [ ] Notifications bell → `trpc.notifications.list`
 - [ ] Email / SMS OTP verification on register
 - [ ] EMI Calculator tab (user portal) — UI exists but calc is static

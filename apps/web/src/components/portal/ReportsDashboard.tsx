@@ -15,6 +15,7 @@ import {
   REPORT_SUPERVISORS,
   REPORT_SALES,
 } from "@/data/reports";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 type DatePreset = "today" | "week" | "month" | "lastmonth" | "all";
@@ -82,18 +83,18 @@ function Sel({
       <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
         {label}
       </label>
-      <select
-        value={value}
-        disabled={locked}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:opacity-60"
-      >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
+      <Select value={value} onValueChange={onChange} disabled={locked}>
+        <SelectTrigger size="sm" className="min-w-[7rem]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o} value={o}>
+              {o}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

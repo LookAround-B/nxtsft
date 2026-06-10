@@ -647,14 +647,18 @@ function UsersTab() {
                     <td className="font-semibold text-navy">{u.name}</td>
                     <td className="text-xs text-muted-foreground">{u.email}</td>
                     <td>
-                      <select
+                      <Select
                         value={u.role}
-                        onChange={(e) => updateRole.mutate({ userId: u.id, role: e.target.value as (typeof SA_ROLES)[number] })}
+                        onValueChange={(v) => updateRole.mutate({ userId: u.id, role: v as (typeof SA_ROLES)[number] })}
                         disabled={updateRole.isPending}
-                        className="rounded-md border border-border bg-white px-2 py-1 text-xs outline-none focus:border-accent disabled:opacity-50"
                       >
-                        {SA_ROLES.map((r) => <option key={r} value={r}>{SA_ROLE_LABEL[r]}</option>)}
-                      </select>
+                        <SelectTrigger size="sm" className="min-w-[7.5rem]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SA_ROLES.map((r) => <SelectItem key={r} value={r}>{SA_ROLE_LABEL[r]}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className="text-xs">{u.city}</td>
                     <td className="text-xs text-muted-foreground">{fmtJoined(u.joined)}</td>
@@ -1266,13 +1270,19 @@ function NotifyTab() {
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Audience</label>
-              <select
-                value={form.targetRole}
-                onChange={(e) => setForm((f) => ({ ...f, targetRole: e.target.value }))}
-                className="mt-1 block rounded-md border border-border bg-white px-2.5 py-2 text-sm outline-none focus:border-accent"
+              <Select
+                value={form.targetRole || "__all"}
+                onValueChange={(v) => setForm((f) => ({ ...f, targetRole: v === "__all" ? "" : v }))}
               >
-                {BROADCAST_ROLES.map((r) => <option key={r.value || "all"} value={r.value}>{r.label}</option>)}
-              </select>
+                <SelectTrigger className="mt-1 min-w-[10rem]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BROADCAST_ROLES.map((r) => (
+                    <SelectItem key={r.value || "__all"} value={r.value || "__all"}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <button
               onClick={send}
@@ -1533,13 +1543,17 @@ function SecurityTab() {
           </div>
           <div>
             <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Complexity</label>
-            <select
+            <Select
               value={policy.passwordComplexity}
-              onChange={(e) => setPolicy((p) => ({ ...p, passwordComplexity: e.target.value as typeof p.passwordComplexity }))}
-              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+              onValueChange={(v) => setPolicy((p) => ({ ...p, passwordComplexity: v as typeof p.passwordComplexity }))}
             >
-              {["low", "medium", "high"].map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+              <SelectTrigger className="mt-1 capitalize">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["low", "medium", "high"].map((c) => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Expiry (days, 0 = never)</label>
