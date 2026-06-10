@@ -44,6 +44,7 @@ model User {
   searchAlerts SearchAlert[]
   notifications Notification[] @relation("UserNotifications")
   tickets      Ticket[]
+  propertyViews PropertyView[] @relation("UserPropertyViews")
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -110,6 +111,7 @@ model Property {
   leads       Lead[]
   favorites   User[]   @relation("UserFavorites")
   reviews     Review[]
+  propertyViews PropertyView[]
 
   views       Int      @default(0)
   contacts    Int      @default(0)
@@ -145,6 +147,21 @@ model Location {
 
   @@index([city])
   @@index([locality])
+}
+
+model PropertyView {
+  id              String   @id @default(cuid())
+  propertyId      String
+  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?    @relation("UserPropertyViews", fields: [userId], references: [id])
+  durationSec     Int      @default(0)
+  contactUnlocked Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

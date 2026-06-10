@@ -15,10 +15,44 @@ import {
 import { PortalShell, StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
+import { trpc } from "@/lib/trpc";
 import { reportTickets } from "@/data/reports";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 type TicketStatus = "Open" | "Resolved" | "Escalated";
+
+/* ─── DB ticket mapping (tickets.* router) ──────────────────── */
+type DbTicket = {
+  id: string;
+  subject: string;
+  category: string; // payment | property | agent | technical | other
+  priority: string; // low | medium | high | urgent
+  status: string; // open | in_progress | resolved | closed
+  assignedTo: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  user: { id: string; name: string; email: string } | null;
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  open: "Open",
+  in_progress: "In Progress",
+  resolved: "Resolved",
+  closed: "Closed",
+};
+
+const isEscalated = (priority: string) => priority === "high" || priority === "urgent";
+
+const ticketTone = (t: DbTicket): "success" | "hot" | "warm" | "default" => {
+  if (t.status === "resolved" || t.status === "closed") return "success";
+  if (isEscalated(t.priority)) return "hot";
+  return "warm";
+};
+
+const capitalize = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+const fmtTicketDate = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
 const downloadCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
   const csv = [headers, ...rows]
@@ -109,109 +143,84 @@ function PageHead({
    DASHBOARD
 ═══════════════════════════════════════════════════════════ */
 function Dashboard() {
-  const open = reportTickets.filter((t) => t.status === "Open").length;
-  const escalated = reportTickets.filter((t) => t.status === "Escalated").length;
-  const resolved = reportTickets.filter((t) => t.status === "Resolved").length;
-  const withinTAT = reportTickets.filter((t) => t.withinTAT === true).length;
-  const tatPct = resolved > 0 ? Math.round((withinTAT / resolved) * 100) : 0;
+  const statsQ = trpc.tickets.stats.useQuery();
+  const listQ = trpc.tickets.list.useQuery({ limit: 100 });
+  const s = statsQ.data;
+  const items = (listQ.data?.items ?? []) as unknown as DbTicket[];
+
+  const escalated = s ? s.byPriority.high + s.byPriority.urgent : 0;
+  const recent = items.slice(0, 5);
 
   const categoryCount: Record<string, number> = {};
-  for (const t of reportTickets) {
-    categoryCount[t.category] = (categoryCount[t.category] ?? 0) + 1;
-  }
-
-  const recent = reportTickets.slice(0, 5);
+  for (const t of items) categoryCount[capitalize(t.category)] = (categoryCount[capitalize(t.category)] ?? 0) + 1;
 
   return (
     <>
       <PageHead
         title="Support Dashboard"
-        subtitle="Live overview of all support tickets and TAT performance."
+        subtitle="Live overview of all support tickets across the platform."
       />
 
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard
-          label="Open Tickets"
-          value={String(open)}
-          sub="needs action"
-          accent="text-amber-600"
-        />
-        <StatCard
-          label="Escalated"
-          value={String(escalated)}
-          sub="SLA breach risk"
-          accent="text-red-600"
-        />
-        <StatCard label="Resolved Today" value={String(resolved)} sub="this filter set" />
-        <StatCard
-          label="Within TAT"
-          value={`${tatPct}%`}
-          sub={`${withinTAT}/${resolved} resolved`}
-        />
+        <StatCard label="Open Tickets" value={s ? String(s.open) : "…"} sub="needs action" accent="text-amber-600" />
+        <StatCard label="Escalated" value={s ? String(escalated) : "…"} sub="high / urgent priority" accent="text-red-600" />
+        <StatCard label="In Progress" value={s ? String(s.inProgress) : "…"} sub="being handled" />
+        <StatCard label="Resolved" value={s ? String(s.resolved) : "…"} sub={s ? `of ${s.total} total` : ""} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Section title="Recent Tickets">
-          <div className="overflow-x-auto">
-            <table className="portal-table">
-              <thead>
-                <tr>
-                  <th className="py-2">ID</th>
-                  <th>Subject</th>
-                  <th>Raised By</th>
-                  <th>Status</th>
-                  <th>Raised On</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((t) => (
-                  <tr key={t.id}>
-                    <td className="font-mono text-xs">{t.id}</td>
-                    <td className="max-w-[160px] truncate text-sm font-semibold text-navy">
-                      {t.subject}
-                    </td>
-                    <td className="text-xs">{t.raisedBy}</td>
-                    <td>
-                      <Badge
-                        tone={
-                          t.status === "Resolved"
-                            ? "success"
-                            : t.status === "Escalated"
-                              ? "hot"
-                              : "warm"
-                        }
-                      >
-                        {t.status}
-                      </Badge>
-                    </td>
-                    <td className="font-mono text-xs">{t.raisedOn}</td>
+          {listQ.isLoading ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+          ) : recent.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No tickets yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="portal-table">
+                <thead>
+                  <tr>
+                    <th className="py-2">ID</th>
+                    <th>Subject</th>
+                    <th>Raised By</th>
+                    <th>Status</th>
+                    <th>Raised On</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {recent.map((t) => (
+                    <tr key={t.id}>
+                      <td className="font-mono text-xs">{t.id.slice(0, 8)}</td>
+                      <td className="max-w-[160px] truncate text-sm font-semibold text-navy">{t.subject}</td>
+                      <td className="text-xs">{t.user?.name ?? "—"}</td>
+                      <td><Badge tone={ticketTone(t)}>{STATUS_LABEL[t.status] ?? t.status}</Badge></td>
+                      <td className="font-mono text-xs">{fmtTicketDate(t.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Section>
 
         <Section title="Tickets by Category">
-          <div className="space-y-3">
-            {Object.entries(categoryCount).map(([cat, count]) => {
-              const pct = Math.round((count / reportTickets.length) * 100);
-              return (
-                <div key={cat} className="flex items-center gap-3">
-                  <span className="w-32 shrink-0 text-xs font-semibold text-navy">{cat}</span>
-                  <div className="flex-1 overflow-hidden rounded-full bg-secondary h-3">
-                    <div
-                      className="h-3 rounded-full bg-accent transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
+          {items.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No data yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(categoryCount).map(([cat, count]) => {
+                const pct = Math.round((count / items.length) * 100);
+                return (
+                  <div key={cat} className="flex items-center gap-3">
+                    <span className="w-32 shrink-0 text-xs font-semibold text-navy">{cat}</span>
+                    <div className="flex-1 overflow-hidden rounded-full bg-secondary h-3">
+                      <div className="h-3 rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="w-6 shrink-0 text-right font-mono text-xs font-bold text-navy">{count}</span>
                   </div>
-                  <span className="w-6 shrink-0 text-right font-mono text-xs font-bold text-navy">
-                    {count}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </Section>
       </div>
     </>
@@ -222,51 +231,39 @@ function Dashboard() {
    TICKET QUEUE
 ═══════════════════════════════════════════════════════════ */
 function QueueTab() {
-  const [tickets, setTickets] = useState(reportTickets.map((t) => ({ ...t })));
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | "All">("All");
+  const listQ = trpc.tickets.list.useQuery({ limit: 100 });
+  const updateTicket = trpc.tickets.update.useMutation({
+    onSuccess: () => listQ.refetch(),
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+  const all = (listQ.data?.items ?? []) as unknown as DbTicket[];
+
+  const [statusFilter, setStatusFilter] = useState("All");
   const [catFilter, setCatFilter] = useState("All");
-  const [cityFilter, setCityFilter] = useState("All");
   const [search, setSearch] = useState("");
 
-  const categories = ["All", ...Array.from(new Set(reportTickets.map((t) => t.category)))];
-  const cities = ["All", ...Array.from(new Set(reportTickets.map((t) => t.city)))];
+  const categories = ["All", ...Array.from(new Set(all.map((t) => capitalize(t.category))))];
 
-  const filtered = tickets.filter((t) => {
-    if (statusFilter !== "All" && t.status !== statusFilter) return false;
-    if (catFilter !== "All" && t.category !== catFilter) return false;
-    if (cityFilter !== "All" && t.city !== cityFilter) return false;
+  const filtered = all.filter((t) => {
+    if (statusFilter === "Escalated") {
+      if (!isEscalated(t.priority)) return false;
+    } else if (statusFilter !== "All" && (STATUS_LABEL[t.status] ?? t.status) !== statusFilter) {
+      return false;
+    }
+    if (catFilter !== "All" && capitalize(t.category) !== catFilter) return false;
     if (
       search &&
       !t.subject.toLowerCase().includes(search.toLowerCase()) &&
-      !t.raisedBy.toLowerCase().includes(search.toLowerCase())
+      !(t.user?.name ?? "").toLowerCase().includes(search.toLowerCase())
     )
       return false;
     return true;
   });
 
-  const resolve = (id: string) => {
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              status: "Resolved" as const,
-              resolvedOn: "2026-06-09",
-              actualHours: t.tatHours - 4,
-              withinTAT: true,
-            }
-          : t,
-      ),
-    );
-    toast.success(`Ticket ${id} marked as resolved`);
-  };
-
-  const escalate = (id: string) => {
-    setTickets((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: "Escalated" as const } : t)),
-    );
-    toast.error(`Ticket ${id} escalated`);
-  };
+  const resolve = (id: string) =>
+    updateTicket.mutate({ id, status: "resolved" }, { onSuccess: () => toast.success("Ticket resolved") });
+  const escalate = (id: string) =>
+    updateTicket.mutate({ id, priority: "urgent" }, { onSuccess: () => toast.success("Ticket escalated") });
 
   return (
     <>
@@ -278,25 +275,16 @@ function QueueTab() {
             onClick={() =>
               downloadCSV(
                 "ticket-queue.csv",
-                [
-                  "ID",
-                  "Subject",
-                  "Raised By",
-                  "Category",
-                  "City",
-                  "Assigned To",
-                  "Status",
-                  "Raised On",
-                ],
+                ["ID", "Subject", "Raised By", "Category", "Priority", "Assigned To", "Status", "Raised On"],
                 filtered.map((t) => [
                   t.id,
                   t.subject,
-                  t.raisedBy,
-                  t.category,
-                  t.city,
-                  t.assignedTo,
-                  t.status,
-                  t.raisedOn,
+                  t.user?.name ?? "",
+                  capitalize(t.category),
+                  capitalize(t.priority),
+                  t.assignedTo ?? "",
+                  STATUS_LABEL[t.status] ?? t.status,
+                  fmtTicketDate(t.createdAt),
                 ]),
               )
             }
@@ -317,13 +305,11 @@ function QueueTab() {
         />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as TicketStatus | "All")}
+          onChange={(e) => setStatusFilter(e.target.value)}
           className="rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none"
         >
-          {["All", "Open", "Resolved", "Escalated"].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
+          {["All", "Open", "In Progress", "Resolved", "Closed", "Escalated"].map((s) => (
+            <option key={s} value={s}>{s}</option>
           ))}
         </select>
         <select
@@ -332,101 +318,80 @@ function QueueTab() {
           className="rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none"
         >
           {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <select
-          value={cityFilter}
-          onChange={(e) => setCityFilter(e.target.value)}
-          className="rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none"
-        >
-          {cities.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
       </div>
 
-      <Section title={`${filtered.length} tickets`}>
-        <div className="overflow-x-auto">
-          <table className="portal-table">
-            <thead>
-              <tr>
-                <th className="py-2">ID</th>
-                <th>Subject</th>
-                <th>Raised By</th>
-                <th>Category</th>
-                <th>City</th>
-                <th>Assigned To</th>
-                <th>TAT</th>
-                <th>Raised On</th>
-                <th>Status</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((t) => (
-                <tr key={t.id}>
-                  <td className="font-mono text-xs">{t.id}</td>
-                  <td className="max-w-[160px] truncate text-sm font-semibold text-navy">
-                    {t.subject}
-                  </td>
-                  <td className="text-xs">{t.raisedBy}</td>
-                  <td className="text-xs">{t.category}</td>
-                  <td className="text-xs">{t.city}</td>
-                  <td className="text-xs">{t.assignedTo}</td>
-                  <td className="font-mono text-xs">{t.tatHours}h</td>
-                  <td className="font-mono text-xs">{t.raisedOn}</td>
-                  <td>
-                    <Badge
-                      tone={
-                        t.status === "Resolved"
-                          ? "success"
-                          : t.status === "Escalated"
-                            ? "hot"
-                            : "warm"
-                      }
-                    >
-                      {t.status}
-                    </Badge>
-                  </td>
-                  <td className="text-right">
-                    {t.status === "Open" && (
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => resolve(t.id)}
-                          className="rounded-md bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-600 transition"
-                        >
-                          Resolve
-                        </button>
-                        <button
-                          onClick={() => escalate(t.id)}
-                          className="rounded-md bg-red-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-600 transition"
-                        >
-                          Escalate
-                        </button>
-                      </div>
-                    )}
-                    {t.status === "Escalated" && (
-                      <button
-                        onClick={() => resolve(t.id)}
-                        className="rounded-md bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-600 transition"
-                      >
-                        Resolve
-                      </button>
-                    )}
-                    {t.status === "Resolved" && (
-                      <span className="text-xs text-muted-foreground">{t.resolvedOn}</span>
-                    )}
-                  </td>
+      <Section title={listQ.isLoading ? "Loading…" : `${filtered.length} tickets`}>
+        {listQ.isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading tickets…</p>
+        ) : filtered.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No tickets match this filter.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="portal-table">
+              <thead>
+                <tr>
+                  <th className="py-2">ID</th>
+                  <th>Subject</th>
+                  <th>Raised By</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Assigned To</th>
+                  <th>Raised On</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((t) => {
+                  const done = t.status === "resolved" || t.status === "closed";
+                  return (
+                    <tr key={t.id}>
+                      <td className="font-mono text-xs">{t.id.slice(0, 8)}</td>
+                      <td className="max-w-[160px] truncate text-sm font-semibold text-navy">{t.subject}</td>
+                      <td className="text-xs">{t.user?.name ?? "—"}</td>
+                      <td className="text-xs">{capitalize(t.category)}</td>
+                      <td className="text-xs">
+                        <span className={isEscalated(t.priority) ? "font-semibold text-red-600" : ""}>
+                          {capitalize(t.priority)}
+                        </span>
+                      </td>
+                      <td className="text-xs">{t.assignedTo ?? "—"}</td>
+                      <td className="font-mono text-xs">{fmtTicketDate(t.createdAt)}</td>
+                      <td><Badge tone={ticketTone(t)}>{STATUS_LABEL[t.status] ?? t.status}</Badge></td>
+                      <td className="text-right">
+                        {done ? (
+                          <span className="text-xs text-muted-foreground">{fmtTicketDate(t.resolvedAt)}</span>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => resolve(t.id)}
+                              disabled={updateTicket.isPending}
+                              className="rounded-md bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-600 transition disabled:opacity-50"
+                            >
+                              Resolve
+                            </button>
+                            {!isEscalated(t.priority) && (
+                              <button
+                                onClick={() => escalate(t.id)}
+                                disabled={updateTicket.isPending}
+                                className="rounded-md bg-red-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-600 transition disabled:opacity-50"
+                              >
+                                Escalate
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Section>
     </>
   );
@@ -436,68 +401,62 @@ function QueueTab() {
    ESCALATIONS
 ═══════════════════════════════════════════════════════════ */
 function EscalationsTab() {
-  const [tickets, setTickets] = useState(
-    reportTickets.filter((t) => t.status === "Escalated").map((t) => ({ ...t })),
-  );
+  const listQ = trpc.tickets.list.useQuery({ limit: 100 });
+  const updateTicket = trpc.tickets.update.useMutation({
+    onSuccess: () => listQ.refetch(),
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+  const all = (listQ.data?.items ?? []) as unknown as DbTicket[];
 
-  const resolve = (id: string) => {
-    setTickets((prev) => prev.filter((t) => t.id !== id));
-    toast.success(`Ticket ${id} resolved and removed from escalations`);
-  };
+  const escalated = all.filter((t) => isEscalated(t.priority) && t.status !== "resolved" && t.status !== "closed");
+  const openCount = all.filter((t) => t.status === "open").length;
+
+  const resolve = (id: string) =>
+    updateTicket.mutate({ id, status: "resolved" }, { onSuccess: () => toast.success("Ticket resolved") });
 
   return (
     <>
       <PageHead
         title="Escalations"
-        subtitle="Tickets that have breached SLA or require management attention."
+        subtitle="High-priority tickets requiring urgent attention or management intervention."
       />
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          label="Escalated"
-          value={String(tickets.length)}
-          sub="active"
-          accent="text-red-600"
-        />
-        <StatCard label="Avg TAT (hrs)" value="48" sub="SLA threshold" />
-        <StatCard
-          label="At Risk"
-          value={String(reportTickets.filter((t) => t.status === "Open").length)}
-          sub="open tickets"
-          accent="text-amber-600"
-        />
+        <StatCard label="Escalated" value={String(escalated.length)} sub="active" accent="text-red-600" />
+        <StatCard label="Open Tickets" value={String(openCount)} sub="platform-wide" accent="text-amber-600" />
+        <StatCard label="Total" value={String(all.length)} sub="all tickets" />
       </div>
 
-      {tickets.length === 0 ? (
+      {listQ.isLoading ? (
         <Section title="Escalated Tickets">
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No escalated tickets — all clear!
-          </p>
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+        </Section>
+      ) : escalated.length === 0 ? (
+        <Section title="Escalated Tickets">
+          <p className="py-8 text-center text-sm text-muted-foreground">No escalated tickets — all clear!</p>
         </Section>
       ) : (
-        <Section title={`${tickets.length} escalated tickets`}>
+        <Section title={`${escalated.length} escalated tickets`}>
           <div className="space-y-4">
-            {tickets.map((t) => (
+            {escalated.map((t) => (
               <div key={t.id} className="rounded-xl border-2 border-red-200 bg-red-50/50 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-muted-foreground">{t.id}</span>
-                      <Badge tone="hot">Escalated</Badge>
+                      <span className="font-mono text-xs text-muted-foreground">{t.id.slice(0, 8)}</span>
+                      <Badge tone="hot">{capitalize(t.priority)}</Badge>
                     </div>
-                    <div className="mt-1 font-display text-base font-bold text-navy">
-                      {t.subject}
-                    </div>
+                    <div className="mt-1 font-display text-base font-bold text-navy">{t.subject}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      Raised by {t.raisedBy} · {t.city} · {t.category} · TAT: {t.tatHours}h ·
-                      Raised: {t.raisedOn}
+                      Raised by {t.user?.name ?? "—"} · {capitalize(t.category)} · Raised: {fmtTicketDate(t.createdAt)}
                     </div>
                     <div className="mt-1 text-xs font-semibold text-navy">
-                      Assigned to: {t.assignedTo} · Supervisor: {t.supervisor}
+                      Assigned to: {t.assignedTo ?? "Unassigned"}
                     </div>
                   </div>
                   <button
                     onClick={() => resolve(t.id)}
-                    className="shrink-0 rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-600 transition"
+                    disabled={updateTicket.isPending}
+                    className="shrink-0 rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-600 transition disabled:opacity-50"
                   >
                     Mark Resolved
                   </button>
@@ -515,79 +474,77 @@ function EscalationsTab() {
    MY ASSIGNMENTS
 ═══════════════════════════════════════════════════════════ */
 function MyAssignmentsTab() {
-  const myTickets = reportTickets
-    .filter((t) => t.assignedTo === "Priya Sharma" || t.status === "Open")
-    .slice(0, 8);
-  const [tickets, setTickets] = useState(myTickets.map((t) => ({ ...t })));
+  const { session } = useAuth();
+  const listQ = trpc.tickets.list.useQuery({ limit: 100 });
+  const updateTicket = trpc.tickets.update.useMutation({
+    onSuccess: () => listQ.refetch(),
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+  const all = (listQ.data?.items ?? []) as unknown as DbTicket[];
 
-  const resolve = (id: string) => {
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, status: "Resolved" as const, resolvedOn: "2026-06-09" } : t,
-      ),
-    );
-    toast.success(`Ticket ${id} resolved`);
-  };
+  const mine = all.filter((t) => session && t.assignedTo === session.id);
+  const openCount = mine.filter((t) => t.status === "open" || t.status === "in_progress").length;
+  const resolvedCount = mine.filter((t) => t.status === "resolved" || t.status === "closed").length;
+
+  const resolve = (id: string) =>
+    updateTicket.mutate({ id, status: "resolved" }, { onSuccess: () => toast.success("Ticket resolved") });
 
   return (
     <>
       <PageHead title="My Assignments" subtitle="Tickets assigned to you — respond within SLA." />
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Assigned to Me" value={String(tickets.length)} sub="total" />
-        <StatCard
-          label="Open"
-          value={String(tickets.filter((t) => t.status === "Open").length)}
-          sub="action needed"
-          accent="text-amber-600"
-        />
-        <StatCard
-          label="Resolved"
-          value={String(tickets.filter((t) => t.status === "Resolved").length)}
-          sub="this period"
-        />
+        <StatCard label="Assigned to Me" value={String(mine.length)} sub="total" />
+        <StatCard label="Open" value={String(openCount)} sub="action needed" accent="text-amber-600" />
+        <StatCard label="Resolved" value={String(resolvedCount)} sub="this period" />
       </div>
       <Section title="My Queue">
-        <div className="overflow-x-auto">
-          <table className="portal-table">
-            <thead>
-              <tr>
-                <th className="py-2">ID</th>
-                <th>Subject</th>
-                <th>Raised By</th>
-                <th>Category</th>
-                <th>City</th>
-                <th>TAT</th>
-                <th>Status</th>
-                <th className="text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickets.map((t) => (
-                <tr key={t.id}>
-                  <td className="font-mono text-xs">{t.id}</td>
-                  <td className="font-semibold text-navy">{t.subject}</td>
-                  <td className="text-xs">{t.raisedBy}</td>
-                  <td className="text-xs">{t.category}</td>
-                  <td className="text-xs">{t.city}</td>
-                  <td className="font-mono text-xs">{t.tatHours}h</td>
-                  <td>
-                    <Badge tone={t.status === "Resolved" ? "success" : "warm"}>{t.status}</Badge>
-                  </td>
-                  <td className="text-right">
-                    {t.status === "Open" && (
-                      <button
-                        onClick={() => resolve(t.id)}
-                        className="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-600 transition"
-                      >
-                        Resolve
-                      </button>
-                    )}
-                  </td>
+        {listQ.isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+        ) : mine.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No tickets assigned to you.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="portal-table">
+              <thead>
+                <tr>
+                  <th className="py-2">ID</th>
+                  <th>Subject</th>
+                  <th>Raised By</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th className="text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {mine.map((t) => {
+                  const done = t.status === "resolved" || t.status === "closed";
+                  return (
+                    <tr key={t.id}>
+                      <td className="font-mono text-xs">{t.id.slice(0, 8)}</td>
+                      <td className="font-semibold text-navy">{t.subject}</td>
+                      <td className="text-xs">{t.user?.name ?? "—"}</td>
+                      <td className="text-xs">{capitalize(t.category)}</td>
+                      <td className="text-xs">{capitalize(t.priority)}</td>
+                      <td><Badge tone={ticketTone(t)}>{STATUS_LABEL[t.status] ?? t.status}</Badge></td>
+                      <td className="text-right">
+                        {!done && (
+                          <button
+                            onClick={() => resolve(t.id)}
+                            disabled={updateTicket.isPending}
+                            className="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-600 transition disabled:opacity-50"
+                          >
+                            Resolve
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Section>
     </>
   );

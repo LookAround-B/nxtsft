@@ -1,5 +1,5 @@
 "use client";
-import { use, useState } from "react";
+import { use, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -79,11 +79,13 @@ function ContactCard({
   session,
   credits,
   refreshCredits,
+  onUnlock,
 }: {
   property: FullProperty;
   session: ReturnType<typeof useAuth>["session"];
   credits: number;
   refreshCredits: () => Promise<void>;
+  onUnlock?: () => void;
 }) {
   const router = useRouter();
   const [phone, setPhone] = useState<string | null>(null);
@@ -91,6 +93,7 @@ function ContactCard({
   const unlock = trpc.properties.unlockContact.useMutation({
     onSuccess: (data) => {
       setPhone(data.phone);
+      onUnlock?.();
       toast.success("Owner contact unlocked! 1 credit used.");
       void refreshCredits();
     },
@@ -235,6 +238,28 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
     onSuccess: () => { setSaved(false); toast.success("Removed from favourites."); },
     onError: (e) => toast.error(e.message),
   });
+
+  // ── View tracking: record a single PropertyView on unmount (real dwell time) ──
+  const recordView = trpc.propertyViews.record.useMutation();
+  const recordViewRef = useRef(recordView.mutate);
+  recordViewRef.current = recordView.mutate;
+  const mountedAt = useRef(0);
+  const unlockedRef = useRef(false);
+  const recordedRef = useRef(false);
+  const propertyId = property?.id;
+
+  useEffect(() => {
+    if (!propertyId) return;
+    mountedAt.current = Date.now();
+    recordedRef.current = false;
+    unlockedRef.current = false;
+    return () => {
+      if (recordedRef.current) return;
+      recordedRef.current = true;
+      const durationSec = Math.min(86_400, Math.round((Date.now() - mountedAt.current) / 1000));
+      recordViewRef.current({ propertyId, durationSec, contactUnlocked: unlockedRef.current });
+    };
+  }, [propertyId]);
 
   if (isLoading) {
     return (
@@ -462,6 +487,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
               session={session}
               credits={credits}
               refreshCredits={refreshCredits}
+              onUnlock={() => { unlockedRef.current = true; }}
             />
 
             {/* Price info card */}

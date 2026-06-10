@@ -7,7 +7,6 @@ import {
   Heart,
   Building2,
   Calendar,
-  Search,
   Calculator,
   FileCheck,
   Settings2,
@@ -57,7 +56,6 @@ const nav = [
   { label: "Site Visits", to: "/user-portal#visits", icon: <Calendar size={14} /> },
   { label: "EMI Calculator", to: "/user-portal#emi", icon: <Calculator size={14} /> },
   { label: "Documents (KYC)", to: "/user-portal#kyc", icon: <FileCheck size={14} /> },
-  { label: "Saved Searches", to: "/user-portal#search", icon: <Search size={14} /> },
 ];
 
 /* ─── Root ───────────────────────────────────────────────────── */
@@ -97,6 +95,12 @@ const Head = ({ t, s }: { t: string; s?: string }) => (
 
 const fmtDur = (s: number) => (s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`);
 
+const fmtPrice = (p: number) =>
+  p >= 1e7 ? `₹${(p / 1e7).toFixed(2)} Cr` : p >= 1e5 ? `₹${(p / 1e5).toFixed(1)} L` : `₹${p.toLocaleString("en-IN")}`;
+
+const fmtDate = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Never";
+
 function greeting() {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -126,8 +130,6 @@ function renderTab(h: string, userEmail: string) {
       return <RecentlyViewed />;
     case "visits":
       return <Visits />;
-    case "search":
-      return <Searches />;
     case "emi":
       return <EMI />;
     case "kyc":
@@ -430,46 +432,137 @@ function Saved() {
 /* ═══════════════════════════════════════════════════════════════
    MY LISTINGS
 ═══════════════════════════════════════════════════════════════ */
+type ListingItem = {
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  views: number;
+  price: number;
+  bhk: string | null;
+  images: string[];
+  createdAt: string;
+  location: { city: string; locality: string } | null;
+};
+
+const listingTone: Record<string, "success" | "warm" | "cold" | "new" | "default"> = {
+  Active: "success",
+  Sold: "default",
+  Rented: "default",
+  Inactive: "cold",
+  Pending: "warm",
+};
+
 function MyListings() {
+  const { session } = useAuth();
+  const listingsQ = trpc.users.myListings.useQuery(undefined, { enabled: !!session });
+  const updateStatus = trpc.properties.update.useMutation({
+    onSuccess: () => listingsQ.refetch(),
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+  const items = (listingsQ.data ?? []) as unknown as ListingItem[];
+
+  const setStatus = (id: string, status: "Active" | "Inactive", label: string) =>
+    updateStatus.mutate({ id, status }, { onSuccess: () => toast.success(label) });
+
   return (
     <>
       <Head t="My Listings" s="What you've put on the market." />
       <Section
-        title="Active"
+        title={items.length ? `${items.length} listing${items.length > 1 ? "s" : ""}` : "Listings"}
         action={
-          <button
-            onClick={() => toast.success("New listing draft created")}
+          <Link
+            href="/list"
             className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
           >
             + Post Another
-          </button>
+          </Link>
         }
       >
-        <div className="overflow-hidden rounded-lg border border-border">
-          <img src={properties[2].image} alt="" className="h-40 w-full object-cover" />
-          <div className="p-4">
-            <div className="text-sm font-semibold text-navy">My 1 BHK Koregaon Park</div>
-            <div className="text-xs text-muted-foreground">Posted 12 days ago</div>
-            <div className="mt-2 flex gap-2">
-              <Badge tone="success">Active</Badge>
-              <Badge tone="new">142 views</Badge>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => toast.success("Listing boosted")}
-                className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
-              >
-                Boost
-              </button>
-              <button
-                onClick={() => toast("Edit mode")}
-                className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold"
-              >
-                Edit
-              </button>
-            </div>
+        {listingsQ.isLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[1, 2].map((i) => (
+              <div key={i} className="animate-pulse overflow-hidden rounded-lg border border-border">
+                <div className="h-40 w-full bg-secondary" />
+                <div className="space-y-2 p-4">
+                  <div className="h-4 w-40 rounded bg-secondary" />
+                  <div className="h-3 w-24 rounded bg-secondary" />
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        ) : items.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-secondary/20 py-14 text-center">
+            <Building2 size={32} className="mx-auto mb-3 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">You haven&apos;t listed any properties yet.</p>
+            <Link
+              href="/list"
+              className="mt-4 inline-block rounded-md bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground"
+            >
+              List a property
+            </Link>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {items.map((p) => {
+              const img = p.images?.[0] ?? "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=70";
+              return (
+                <div key={p.id} className="overflow-hidden rounded-lg border border-border">
+                  <img src={img} alt={p.title} className="h-40 w-full object-cover" />
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-navy">{p.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {p.location?.locality ? `${p.location.locality}, ` : ""}{p.location?.city ?? ""} · Listed {fmtDate(p.createdAt)}
+                        </div>
+                      </div>
+                      <div className="shrink-0 font-display text-sm font-bold text-accent">{fmtPrice(p.price)}</div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Badge tone={listingTone[p.status] ?? "default"}>{p.status}</Badge>
+                      <Badge tone="new">
+                        <span className="flex items-center gap-1"><Eye size={11} /> {p.views} views</span>
+                      </Badge>
+                      {p.bhk && <Badge tone="default">{p.bhk}</Badge>}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => toast("Boost is a paid upgrade — coming soon")}
+                        className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
+                      >
+                        Boost
+                      </button>
+                      <Link
+                        href={`/properties/${p.slug}`}
+                        className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold"
+                      >
+                        View
+                      </Link>
+                      {p.status === "Active" ? (
+                        <button
+                          onClick={() => setStatus(p.id, "Inactive", "Listing deactivated")}
+                          disabled={updateStatus.isPending}
+                          className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:border-accent hover:text-accent disabled:opacity-50"
+                        >
+                          Deactivate
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setStatus(p.id, "Active", "Listing reactivated")}
+                          disabled={updateStatus.isPending}
+                          className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:border-emerald-500 disabled:opacity-50"
+                        >
+                          Reactivate
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Section>
     </>
   );
@@ -478,90 +571,91 @@ function MyListings() {
 /* ═══════════════════════════════════════════════════════════════
    RECENTLY VIEWED
 ═══════════════════════════════════════════════════════════════ */
-function RecentlyViewed() {
-  const [history, setHistory] = useState(
-    [...propertyViews].sort((a, b) => b.ts.localeCompare(a.ts)),
-  );
+type ViewItem = {
+  id: string;
+  durationSec: number;
+  contactUnlocked: boolean;
+  createdAt: string;
+  property: {
+    id: string; slug: string; title: string; price: number; bhk: string | null;
+    images: string[]; location: { city: string; locality: string } | null;
+  } | null;
+};
 
-  const unlocked = history.filter((v) => v.contactUnlocked).length;
-  const avgSec = Math.round(history.reduce((a, v) => a + v.durationSec, 0) / (history.length || 1));
-  const uniqueCities = new Set(history.map((v) => v.city)).size;
-  const totalSec = history.reduce((a, v) => a + v.durationSec, 0);
-  const totalMinutes = Math.round(totalSec / 60);
+function RecentlyViewed() {
+  const { session } = useAuth();
+  const viewsQ = trpc.propertyViews.mine.useQuery(undefined, { enabled: !!session });
+  const items = (viewsQ.data?.items ?? []) as unknown as ViewItem[];
+  const stats = viewsQ.data?.stats ?? {
+    totalViews: 0, contactsUnlocked: 0, citiesExplored: 0, totalDurationSec: 0, avgDurationSec: 0,
+  };
+  const totalMinutes = Math.round(stats.totalDurationSec / 60);
 
   return (
     <>
-      <Head t="Recently Viewed" s={`${history.length} properties checked in the last 30 days.`} />
+      <Head t="Recently Viewed" s={`${stats.totalViews} propert${stats.totalViews === 1 ? "y" : "ies"} you've explored.`} />
 
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Properties Viewed" value={String(history.length)} sub="Last 30 days" />
-        <StatCard
-          label="Contacts Unlocked"
-          value={String(unlocked)}
-          sub={`of ${history.length} views`}
-        />
-        <StatCard label="Avg. Time on Page" value={fmtDur(avgSec)} sub="Per property visit" />
-        <StatCard label="Cities Explored" value={String(uniqueCities)} sub="Unique locations" />
+        <StatCard label="Properties Viewed" value={String(stats.totalViews)} sub="all time" />
+        <StatCard label="Contacts Unlocked" value={String(stats.contactsUnlocked)} sub={`of ${stats.totalViews} views`} />
+        <StatCard label="Avg. Time on Page" value={fmtDur(stats.avgDurationSec)} sub="per property visit" />
+        <StatCard label="Cities Explored" value={String(stats.citiesExplored)} sub="unique locations" />
       </div>
 
-      {/* Time spent metric */}
-      <div className="mt-4 mb-2 flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-4 py-3">
-        <div className="flex items-center gap-2 text-sm">
-          <Clock size={14} className="text-accent" />
-          <span className="font-semibold text-navy">Total time browsing:</span>
-          <span className="font-mono text-sm text-accent font-bold">{totalMinutes} min</span>
-          <span className="text-xs text-muted-foreground">across all viewed properties</span>
-        </div>
-        <button
-          onClick={() => {
-            setHistory([]);
-            toast("History cleared");
-          }}
-          className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-xs font-semibold text-muted-foreground hover:border-accent hover:text-accent transition-colors"
-        >
-          <X size={12} /> Clear History
-        </button>
+      <div className="mt-4 mb-2 flex items-center gap-2 rounded-lg border border-border bg-secondary/30 px-4 py-3 text-sm">
+        <Clock size={14} className="text-accent" />
+        <span className="font-semibold text-navy">Total time browsing:</span>
+        <span className="font-mono text-sm font-bold text-accent">{totalMinutes} min</span>
+        <span className="text-xs text-muted-foreground">across all viewed properties</span>
       </div>
 
       <Section title="View History">
-        {history.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No properties viewed yet.</p>
+        {viewsQ.isLoading ? (
+          <div className="space-y-3 py-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex animate-pulse items-center gap-4">
+                <div className="h-14 w-20 rounded-lg bg-secondary" />
+                <div className="flex-1 space-y-2"><div className="h-4 w-48 rounded bg-secondary" /><div className="h-3 w-32 rounded bg-secondary" /></div>
+              </div>
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="py-10 text-center">
+            <Eye size={28} className="mx-auto mb-3 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">No properties viewed yet.</p>
+            <Link href="/properties" className="mt-3 inline-block text-xs font-semibold text-accent hover:underline">
+              Browse properties →
+            </Link>
+          </div>
         ) : (
           <div className="divide-y divide-border">
-            {history.map((v) => {
-              const prop = properties.find((p) => p.id === v.propertyId);
-              return (
-                <div key={v.id} className="flex items-center gap-4 py-4">
-                  {prop && (
-                    <img
-                      src={prop.image}
-                      alt={prop.title}
-                      className="h-14 w-20 flex-shrink-0 rounded-lg object-cover"
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-navy truncate">{v.propertyTitle}</div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                      <span>{v.city}</span>
-                      <span className="flex items-center gap-1">
-                        <Clock size={10} />
-                        {fmtDur(v.durationSec)} spent
-                      </span>
-                      <span className="font-mono">{v.ts}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-shrink-0 flex-col items-end gap-2">
-                    {v.contactUnlocked && <Badge tone="success">Contact Unlocked</Badge>}
-                    <Link
-                      href={`/properties/${v.propertyId}`}
-                      className="text-xs font-semibold text-accent hover:underline"
-                    >
-                      View →
-                    </Link>
+            {items.map((v) => (
+              <div key={v.id} className="flex items-center gap-4 py-4">
+                <img
+                  src={v.property?.images?.[0] ?? "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=70"}
+                  alt={v.property?.title ?? "Property"}
+                  className="h-14 w-20 flex-shrink-0 rounded-lg object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold text-navy">{v.property?.title ?? "Property removed"}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                    <span>{v.property?.location?.city ?? "—"}</span>
+                    {v.durationSec > 0 && (
+                      <span className="flex items-center gap-1"><Clock size={10} />{fmtDur(v.durationSec)} spent</span>
+                    )}
+                    <span className="font-mono">{fmtDate(v.createdAt)}</span>
                   </div>
                 </div>
-              );
-            })}
+                <div className="flex flex-shrink-0 flex-col items-end gap-2">
+                  {v.contactUnlocked && <Badge tone="success">Contact Unlocked</Badge>}
+                  {v.property && (
+                    <Link href={`/properties/${v.property.slug}`} className="text-xs font-semibold text-accent hover:underline">
+                      View →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </Section>
@@ -1172,49 +1266,56 @@ function Profile() {
 /* ═══════════════════════════════════════════════════════════════
    SEARCH ALERTS  (NEW TAB)
 ═══════════════════════════════════════════════════════════════ */
-const demoAlerts = [
-  {
-    id: "alert-1",
-    name: "3 BHK in Bandra under ₹4 Cr",
-    location: "Bandra West, Mumbai",
-    bhk: "3 BHK",
-    budget: "Up to ₹4 Cr",
-    lastMatchCount: 8,
-    active: true,
-  },
-  {
-    id: "alert-2",
-    name: "Villas in Whitefield",
-    location: "Whitefield, Bengaluru",
-    bhk: "4 BHK",
-    budget: "₹3 Cr – ₹6 Cr",
-    lastMatchCount: 3,
-    active: true,
-  },
-  {
-    id: "alert-3",
-    name: "Rentals in Pune under ₹40K",
-    location: "Koregaon Park, Pune",
-    bhk: "1–2 BHK",
-    budget: "Up to ₹40,000/mo",
-    lastMatchCount: 14,
-    active: false,
-  },
-];
+type AlertFilters = { city?: string; bhk?: string; budget?: string };
+type AlertItem = {
+  id: string;
+  name: string | null;
+  filters: AlertFilters | null;
+  active: boolean;
+  frequency: string;
+  lastTriggered: string | null;
+};
+
+const ALERT_BHK = ["1 BHK", "2 BHK", "3 BHK", "4 BHK", "4+ BHK"];
+const ALERT_FREQ = ["instant", "daily", "weekly"] as const;
+
+const emptyAlertForm = { name: "", city: "", bhk: "", budget: "", frequency: "daily" as string };
 
 function SearchAlerts() {
-  const [alerts, setAlerts] = useState(demoAlerts);
+  const { session } = useAuth();
+  const alertsQ = trpc.searchAlerts.list.useQuery(undefined, { enabled: !!session });
+  const refetch = () => alertsQ.refetch();
 
-  const toggleAlert = (id: string) => {
-    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, active: !a.active } : a)));
-    const alert = alerts.find((a) => a.id === id);
-    if (alert) toast(alert.active ? `Alert paused: ${alert.name}` : `Alert resumed: ${alert.name}`);
-  };
+  const createAlert = trpc.searchAlerts.create.useMutation({
+    onSuccess: () => refetch(),
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+  const toggleAlert = trpc.searchAlerts.toggle.useMutation({ onSuccess: () => refetch() });
+  const deleteAlert = trpc.searchAlerts.delete.useMutation({ onSuccess: () => refetch() });
 
-  const removeAlert = (id: string) => {
-    const alert = alerts.find((a) => a.id === id);
-    setAlerts((prev) => prev.filter((a) => a.id !== id));
-    if (alert) toast(`Alert removed: ${alert.name}`);
+  const alerts = (alertsQ.data ?? []) as unknown as AlertItem[];
+
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(emptyAlertForm);
+
+  const submit = async () => {
+    if (!form.city.trim() && !form.bhk && !form.budget.trim()) {
+      toast.error("Add at least one criterion (city, BHK, or budget).");
+      return;
+    }
+    const name = form.name.trim() || [form.bhk, form.city].filter(Boolean).join(" in ") || "New alert";
+    const filters: AlertFilters = {};
+    if (form.city.trim()) filters.city = form.city.trim();
+    if (form.bhk) filters.bhk = form.bhk;
+    if (form.budget.trim()) filters.budget = form.budget.trim();
+    await createAlert.mutateAsync({
+      name,
+      filters,
+      frequency: form.frequency as "daily" | "weekly" | "instant",
+    });
+    toast.success("Search alert created");
+    setForm(emptyAlertForm);
+    setShowForm(false);
   };
 
   return (
@@ -1225,82 +1326,138 @@ function SearchAlerts() {
         title="Your Saved Searches"
         action={
           <button
-            onClick={() => toast.success("New alert created (demo)")}
+            onClick={() => setShowForm((v) => !v)}
             className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
           >
             <Plus size={12} /> New Alert
           </button>
         }
       >
-        {alerts.length === 0 ? (
+        {showForm && (
+          <div className="mb-4 rounded-xl border border-border bg-secondary/20 p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Alert name (optional)"
+                className="rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+              <input
+                value={form.city}
+                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                placeholder="City / locality"
+                className="rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+              <select
+                value={form.bhk}
+                onChange={(e) => setForm((f) => ({ ...f, bhk: e.target.value }))}
+                className="rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+              >
+                <option value="">Any BHK</option>
+                {ALERT_BHK.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+              <input
+                value={form.budget}
+                onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))}
+                placeholder="Budget (e.g. Up to ₹4 Cr)"
+                className="rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+              <select
+                value={form.frequency}
+                onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value }))}
+                className="rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+              >
+                {ALERT_FREQ.map((fq) => <option key={fq} value={fq}>{fq[0].toUpperCase() + fq.slice(1)}</option>)}
+              </select>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={submit}
+                disabled={createAlert.isPending}
+                className="rounded-md bg-accent px-4 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-50"
+              >
+                {createAlert.isPending ? "Saving…" : "Create alert"}
+              </button>
+              <button
+                onClick={() => { setShowForm(false); setForm(emptyAlertForm); }}
+                className="rounded-md border border-border px-4 py-1.5 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {alertsQ.isLoading ? (
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="animate-pulse rounded-xl border border-border p-4">
+                <div className="h-4 w-48 rounded bg-secondary" />
+                <div className="mt-2 h-3 w-32 rounded bg-secondary" />
+              </div>
+            ))}
+          </div>
+        ) : alerts.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-secondary/20 py-14 text-center">
             <Bell size={32} className="mx-auto mb-3 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">No search alerts yet.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {alerts.map((a) => (
-              <div
-                key={a.id}
-                className={`rounded-xl border p-4 transition-colors ${a.active ? "border-border bg-white" : "border-border bg-secondary/20"}`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-navy">{a.name}</span>
-                      {!a.active && (
-                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                          Paused
-                        </span>
-                      )}
+            {alerts.map((a) => {
+              const tags = [a.filters?.city, a.filters?.bhk, a.filters?.budget].filter(Boolean) as string[];
+              return (
+                <div
+                  key={a.id}
+                  className={`rounded-xl border p-4 transition-colors ${a.active ? "border-border bg-white" : "border-border bg-secondary/20"}`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-navy">{a.name ?? "Untitled alert"}</span>
+                        {!a.active && (
+                          <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                            Paused
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {tags.length ? tags.map((t, i) => (
+                          <span key={i} className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            {t}
+                          </span>
+                        )) : (
+                          <span className="text-[10px] text-muted-foreground">No criteria set</span>
+                        )}
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <span className="capitalize">{a.frequency}</span> alerts · Last checked: {fmtDate(a.lastTriggered)}
+                      </div>
                     </div>
-                    {/* Criteria */}
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {a.location}
-                      </span>
-                      <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {a.bhk}
-                      </span>
-                      <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {a.budget}
-                      </span>
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      <button
+                        onClick={() => toggleAlert.mutate({ id: a.id, active: !a.active })}
+                        disabled={toggleAlert.isPending}
+                        className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                          a.active
+                            ? "border border-border text-muted-foreground hover:border-accent hover:text-accent"
+                            : "bg-accent text-accent-foreground"
+                        }`}
+                      >
+                        {a.active ? (<><Pause size={12} /> Pause</>) : (<><Play size={12} /> Resume</>)}
+                      </button>
+                      <button
+                        onClick={() => deleteAlert.mutate({ id: a.id })}
+                        disabled={deleteAlert.isPending}
+                        className="rounded-md p-1.5 text-muted-foreground hover:text-accent transition-colors disabled:opacity-50"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      <span className="font-semibold text-accent">{a.lastMatchCount}</span>{" "}
-                      properties matched in the last check
-                    </div>
-                  </div>
-                  {/* Actions */}
-                  <div className="flex flex-shrink-0 items-center gap-2">
-                    <button
-                      onClick={() => toggleAlert(a.id)}
-                      className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                        a.active
-                          ? "border border-border text-muted-foreground hover:border-accent hover:text-accent"
-                          : "bg-accent text-accent-foreground"
-                      }`}
-                    >
-                      {a.active ? (
-                        <>
-                          <Pause size={12} /> Pause
-                        </>
-                      ) : (
-                        <>
-                          <Play size={12} /> Resume
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => removeAlert(a.id)}
-                      className="rounded-md p-1.5 text-muted-foreground hover:text-accent transition-colors"
-                    >
-                      <X size={14} />
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Section>
@@ -1397,40 +1554,6 @@ function Visits() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SAVED SEARCHES  (legacy tab)
-═══════════════════════════════════════════════════════════════ */
-function Searches() {
-  const saved = [
-    { name: "3 BHK in Bandra under ₹4 Cr", new: 3 },
-    { name: "Villas in Whitefield", new: 1 },
-    { name: "Rentals in Pune under ₹40K", new: 7 },
-  ];
-  return (
-    <>
-      <Head t="Saved Searches" s="We'll ping you when new homes match." />
-      <Section title="Your alerts">
-        {saved.map((s) => (
-          <div
-            key={s.name}
-            className="flex items-center justify-between border-b border-border py-3 last:border-0"
-          >
-            <div>
-              <div className="font-semibold text-navy">{s.name}</div>
-              <div className="text-xs text-muted-foreground">{s.new} new this week</div>
-            </div>
-            <button
-              onClick={() => toast("Alert deleted")}
-              className="text-xs font-semibold text-accent"
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-      </Section>
-    </>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════════
    EMI CALCULATOR

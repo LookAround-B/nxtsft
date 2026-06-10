@@ -11,6 +11,7 @@ import { siteVisitsRouter } from "./routers/siteVisits.js";
 import { searchAlertsRouter } from "./routers/searchAlerts.js";
 import { reviewsRouter } from "./routers/reviews.js";
 import { superAdminRouter } from "./routers/superAdmin.js";
+import { propertyViewsRouter } from "./routers/propertyViews.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -25,6 +26,7 @@ export const appRouter = router({
   searchAlerts: searchAlertsRouter,
   reviews: reviewsRouter,
   superAdmin: superAdminRouter,
+  propertyViews: propertyViewsRouter,
 });
 
 export type AppRouter = typeof appRouter;
