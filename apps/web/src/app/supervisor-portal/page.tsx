@@ -170,30 +170,23 @@ const repStatus: Record<string, "green" | "amber"> = {
 
 function Dashboard() {
   const team = teamMembers.slice(0, 4);
+  const statsQ = trpc.leads.stats.useQuery();
+  const s = statsQ.data;
+  const openLeads = s ? s.hot + s.warm + s.cold + s.new : 0;
+  const conversionRate = s && s.total > 0 ? Math.round((s.converted / s.total) * 100) : 0;
+
   return (
     <>
-      <PageHead title="Team Dashboard" sub="West Region — 4 reps live now." />
+      <PageHead title="Team Dashboard" sub="Live lead pipeline across your team." />
 
-      {/* 6 stat cards */}
+      {/* 6 stat cards — lead pipeline from leads.stats */}
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-        <StatCard
-          label="Team Open Leads"
-          value={String(team.reduce((s, m) => s + m.leadsOpen, 0))}
-          sub="+4 today"
-        />
-        <StatCard
-          label="Closed MTD"
-          value={String(team.reduce((s, m) => s + m.closedMTD, 0))}
-          sub="+2 yesterday"
-        />
-        <StatCard
-          label="Avg Conversion"
-          value={`${Math.round(team.reduce((s, m) => s + m.conversion, 0) / team.length)}%`}
-          sub="+1.2 pts"
-        />
-        <StatCard label="Site Visits This Wk" value="22" sub="6 scheduled today" />
-        <StatCard label="Avg Response Time" value="2.4h" sub="-0.3h vs yesterday" />
-        <StatCard label="Overdue Leads" value="5" sub="Needs attention" accent="text-red-500" />
+        <StatCard label="Team Open Leads" value={s ? String(openLeads) : "…"} sub="hot + warm + cold + new" />
+        <StatCard label="Hot Leads" value={s ? String(s.hot) : "…"} sub="need action" accent="text-red-500" />
+        <StatCard label="Converted" value={s ? String(s.converted) : "…"} sub="closed deals" accent="text-emerald-600" />
+        <StatCard label="Conversion Rate" value={s ? `${conversionRate}%` : "…"} sub={s ? `of ${s.total} leads` : ""} />
+        <StatCard label="Total Leads" value={s ? String(s.total) : "…"} sub="all-time" />
+        <StatCard label="Lost" value={s ? String(s.lost) : "…"} sub="closed-lost" />
       </div>
 
       {/* Team members */}

@@ -34,6 +34,16 @@ export const subscriptionsRouter = router({
       return plan;
     }),
 
+  // Admin: list ALL plans incl. inactive (for the Plans Manager)
+  plansAdmin: adminProcedure
+    .input(z.object({ type: z.enum(["seeker", "owner-rent", "owner-sell"]).optional() }))
+    .query(async ({ input }) => {
+      return prisma.plan.findMany({
+        where: input.type ? { type: input.type } : {},
+        orderBy: { price: "asc" },
+      });
+    }),
+
   // Create a Razorpay order (stub — wire up Razorpay SDK in production)
   createOrder: protectedProcedure
     .input(z.object({ planId: z.string() }))
@@ -116,10 +126,11 @@ export const subscriptionsRouter = router({
 
   // Active subscription for current user
   myCurrent: protectedProcedure.query(async ({ ctx }) => {
-    return prisma.subscription.findFirst({
+    const sub = await prisma.subscription.findFirst({
       where: { userId: ctx.user.id, status: "Active" },
       orderBy: { createdAt: "desc" },
     });
+    return sub ? { ...sub, amount: Number(sub.amount) } : null;
   }),
 
   cancel: protectedProcedure
@@ -135,10 +146,11 @@ export const subscriptionsRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to cancel this subscription." });
       }
 
-      return prisma.subscription.update({
+      const updated = await prisma.subscription.update({
         where: { id: input.subscriptionId },
         data: { status: "Cancelled", updatedAt: new Date() },
       });
+      return { ...updated, amount: Number(updated.amount) };
     }),
 
   createPlan: adminProcedure

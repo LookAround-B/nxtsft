@@ -16,6 +16,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const PROPERTY_TYPES = [
   { label: "Apartments", Icon: Building2, type: "Apartment" },
@@ -156,6 +157,7 @@ export function SiteHeader() {
 
           {/* Right actions */}
           <div className="flex shrink-0 items-center gap-2">
+            {session && <NotificationBell />}
             {session ? (
               <Link
                 href="/profile"

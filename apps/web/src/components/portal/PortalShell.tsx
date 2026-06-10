@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { Menu, X, ChevronLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useActiveHash } from "@/lib/use-active-hash";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export interface PortalNav {
   label: string;
@@ -185,6 +186,7 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <div className="hidden text-right sm:block">
               <div className="text-sm font-semibold text-foreground">{user.name}</div>
               <div className="text-xs text-muted-foreground">{role}</div>

@@ -38,9 +38,7 @@ import {
   leads,
   teamMembers,
   properties,
-  pipeline,
   activities,
-  subscriptions,
   unlockedContacts,
   disputes as disputeData,
   seekerPlans,
@@ -48,6 +46,7 @@ import {
   ownerSellPlans,
 } from "@/data/static";
 import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 
 // ─── CSV helper ────────────────────────────────────────────────────────────────
@@ -341,16 +340,17 @@ function TeamTab() {
               placeholder="Search name / email…"
               className="rounded-md border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-accent"
             />
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="rounded-md border border-border bg-white px-2.5 py-1.5 text-xs outline-none focus:border-accent"
-            >
-              <option value="">All roles</option>
-              {["admin", "supervisor", "sales", "support-admin"].map((r) => (
-                <option key={r} value={r}>{ROLE_LABEL[r]}</option>
-              ))}
-            </select>
+            <Select value={roleFilter || "__all"} onValueChange={(v) => setRoleFilter(v === "__all" ? "" : v)}>
+              <SelectTrigger size="sm" className="min-w-[8.5rem]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">All roles</SelectItem>
+                {["admin", "supervisor", "sales", "support-admin"].map((r) => (
+                  <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <button
               onClick={() => setShowInvite(true)}
               className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
@@ -755,83 +755,89 @@ function LeadsTab() {
   );
 }
 
-// ─── CRM enrichment lookup ─────────────────────────────────────────────────
-const leadMeta: Record<string, { name: string; city: string; value: string }> = {
-  "L-1042": { name: "Rohan Mehta", city: "Mumbai", value: "₹3.25 Cr" },
-  "L-1043": { name: "Aisha Khan", city: "Bengaluru", value: "₹4.10 Cr" },
-  "L-1044": { name: "Vikram Singh", city: "Pune", value: "₹35K/mo" },
-  "L-1045": { name: "Neha Reddy", city: "Hyderabad", value: "₹1.75L/mo" },
-  "L-1046": { name: "Suresh Iyer", city: "Delhi", value: "₹6.80 Cr" },
-  "L-1047": { name: "Kavya Nair", city: "Mumbai", value: "₹2.85 Cr" },
-  "L-1051": { name: "Amit Verma", city: "Pune", value: "₹42L" },
-  "L-1055": { name: "Riya Desai", city: "Mumbai", value: "₹1.9 Cr" },
-  "L-1058": { name: "Dev Kumar", city: "Chennai", value: "₹68L" },
-  "L-1062": { name: "Meena Pillai", city: "Delhi", value: "₹3.5 Cr" },
-  "L-1031": { name: "Tarun Seth", city: "Bengaluru", value: "₹2.1 Cr" },
-  "L-1037": { name: "Preethi R.", city: "Hyderabad", value: "₹1.4 Cr" },
-  "L-1024": { name: "Harish Nair", city: "Mumbai", value: "₹5.2 Cr" },
-  "L-1019": { name: "Sonia Kapoor", city: "Delhi", value: "₹62L" },
-  "L-1011": { name: "Raj Malhotra", city: "Pune", value: "₹88L" },
+// Kanban columns map to the real Lead.status enum values
+const CRM_STAGES = ["New", "Hot", "Warm", "Cold", "Converted", "Lost"] as const;
+type CrmStage = (typeof CRM_STAGES)[number];
+
+const stageAccent: Record<CrmStage, string> = {
+  New: "border-t-sky-400",
+  Hot: "border-t-red-500",
+  Warm: "border-t-amber-500",
+  Cold: "border-t-blue-400",
+  Converted: "border-t-emerald-500",
+  Lost: "border-t-zinc-400",
 };
 
-const colAccent: Record<string, string> = {
-  New: "border-t-sky-400",
-  Contacted: "border-t-blue-500",
-  Qualified: "border-t-violet-500",
-  "Site Visit": "border-t-amber-500",
-  Negotiation: "border-t-orange-500",
-  Closed: "border-t-emerald-500",
+type CrmLead = {
+  id: string;
+  name: string;
+  city: string | null;
+  status: string;
+  value: number | null;
+  interest: string | null;
+  property: { id: string; title: string; slug: string } | null;
 };
 
 function CRMTab() {
+  const leadsQ = trpc.admin.leads.list.useQuery({ limit: 100 });
+  const updateStatus = trpc.leads.updateStatus.useMutation({
+    onSuccess: () => leadsQ.refetch(),
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+  const leads = (leadsQ.data?.items ?? []) as unknown as CrmLead[];
+
+  const fmtValue = (v: number | null) =>
+    v == null ? "—" : v >= 1e7 ? `₹${(v / 1e7).toFixed(1)}Cr` : v >= 1e5 ? `₹${(v / 1e5).toFixed(1)}L` : `₹${v.toLocaleString("en-IN")}`;
+
+  const move = (id: string, status: CrmStage) =>
+    updateStatus.mutate({ id, status }, { onSuccess: () => toast.success(`Moved to ${status}`) });
+
   return (
     <>
-      <PageHead title="CRM Pipeline" subtitle="Drag-style kanban across the full funnel." />
-      <Section title="Pipeline — All Teams" action={<Badge tone="new">Real-time</Badge>}>
-        <div className="grid gap-3 md:grid-cols-6">
-          {Object.entries(pipeline).map(([col, items]) => (
-            <div
-              key={col}
-              className={`rounded-lg bg-secondary/60 p-3 border-t-4 ${colAccent[col] ?? "border-t-border"}`}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-navy">{col}</span>
-                <span className="rounded-full bg-white px-1.5 text-[10px] font-bold text-mid-blue">
-                  {items.length}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {items.map((id) => {
-                  const meta = leadMeta[id];
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => toast(`Opened lead ${id}`)}
-                      className="block w-full rounded-md bg-white p-2.5 text-left text-xs shadow-sm hover:shadow-md"
-                    >
-                      <div className="font-mono text-[10px] text-muted-foreground">{id}</div>
-                      {meta ? (
-                        <>
-                          <div className="mt-0.5 font-semibold text-navy leading-tight">
-                            {meta.name}
-                          </div>
-                          <div className="mt-0.5 flex items-center justify-between">
-                            <span className="text-[10px] text-muted-foreground">{meta.city}</span>
-                            <span className="font-mono text-[10px] font-bold text-accent">
-                              {meta.value}
-                            </span>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="mt-0.5 font-semibold text-navy">Lead #{id.slice(-2)}</div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
+      <PageHead title="CRM Pipeline" subtitle="Lead funnel across all teams — move a lead to update its stage." />
+      <Section title="Pipeline — All Teams" action={<Badge tone="new">{leads.length} leads</Badge>}>
+        {leadsQ.isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading pipeline…</p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {CRM_STAGES.map((stage) => {
+              const items = leads.filter((l) => l.status === stage);
+              return (
+                <div key={stage} className={`rounded-lg border-t-4 bg-secondary/60 p-3 ${stageAccent[stage]}`}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-navy">{stage}</span>
+                    <span className="rounded-full bg-white px-1.5 text-[10px] font-bold text-mid-blue">{items.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {items.map((l) => (
+                      <div key={l.id} className="rounded-md bg-white p-2.5 text-xs shadow-sm">
+                        <div className="font-semibold leading-tight text-navy">{l.name}</div>
+                        <div className="mt-0.5 flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">{l.city ?? "—"}</span>
+                          <span className="font-mono text-[10px] font-bold text-accent">{fmtValue(l.value)}</span>
+                        </div>
+                        {l.property && (
+                          <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{l.property.title}</div>
+                        )}
+                        <select
+                          value={l.status}
+                          onChange={(e) => move(l.id, e.target.value as CrmStage)}
+                          disabled={updateStatus.isPending}
+                          className="mt-2 w-full rounded border border-border bg-secondary/40 px-1.5 py-1 text-[10px] font-semibold outline-none focus:border-accent disabled:opacity-50"
+                        >
+                          {CRM_STAGES.map((st) => <option key={st} value={st}>{st}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                    {items.length === 0 && (
+                      <p className="py-2 text-center text-[10px] text-muted-foreground">Empty</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Section>
     </>
   );
@@ -1446,14 +1452,36 @@ function InviteModal({
   );
 }
 
+type AdminSub = {
+  id: string;
+  planName: string;
+  amount: number; // paise
+  status: string;
+  cycle: string;
+  startDate: string;
+  endDate: string;
+  renewalDate: string | null;
+  user: { id: string; name: string; email: string } | null;
+};
+
 function SubscriptionsTab() {
+  const [statusFilter, setStatusFilter] = useState("");
+  const subQ = trpc.subscriptions.adminList.useQuery({ status: statusFilter || undefined, limit: 100 });
+  const subs = (subQ.data?.items ?? []) as unknown as AdminSub[];
+  const cancelSub = trpc.subscriptions.cancel.useMutation({
+    onSuccess: () => { subQ.refetch(); toast.success("Subscription cancelled"); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
   const [unlocks, setUnlocks] = useState(unlockedContacts.map((u) => ({ ...u })));
   const [disputeList, setDisputeList] = useState(disputeData.map((d) => ({ ...d })));
 
-  const totalRevenue = subscriptions.reduce((s, sub) => s + sub.amount, 0);
-  const activeCount = subscriptions.filter((s) => s.status === "Active").length;
+  const totalRevenue = subs.reduce((s, sub) => s + sub.amount, 0) / 100;
+  const activeCount = subs.filter((s) => s.status === "Active").length;
   const totalUnlocks = unlocks.length;
   const closedDeals = unlocks.filter((u) => u.closed).length;
+
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
   const toggleClosed = (id: string) => {
     setUnlocks((prev) => prev.map((u) => (u.id === id ? { ...u, closed: !u.closed } : u)));
@@ -1477,16 +1505,8 @@ function SubscriptionsTab() {
       />
 
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard
-          label="Total Revenue"
-          value={`₹${totalRevenue.toLocaleString()}`}
-          sub={`${subscriptions.length} purchases`}
-        />
-        <StatCard
-          label="Active Plans"
-          value={String(activeCount)}
-          sub={`${subscriptions.length - activeCount} exhausted`}
-        />
+        <StatCard label="Total Revenue" value={`₹${totalRevenue.toLocaleString("en-IN")}`} sub={`${subs.length} subscription${subs.length !== 1 ? "s" : ""}`} />
+        <StatCard label="Active Plans" value={String(activeCount)} sub={`${subs.length - activeCount} inactive`} />
         <StatCard label="Contacts Unlocked" value={String(totalUnlocks)} sub="Across all users" />
         <StatCard
           label="Deals Closed"
@@ -1496,57 +1516,73 @@ function SubscriptionsTab() {
         />
       </div>
 
-      <Section title="Plan Purchases">
-        <div className="overflow-x-auto">
-          <table className="portal-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>User</th>
-                <th>Contact</th>
-                <th>Plan</th>
-                <th>Amount</th>
-                <th>Credits</th>
-                <th>Remaining</th>
-                <th>Date</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subscriptions.map((sub) => (
-                <tr key={sub.id}>
-                  <td className="font-mono text-xs">{sub.id}</td>
-                  <td className="font-semibold text-navy">{sub.user}</td>
-                  <td>
-                    <div className="text-xs text-muted-foreground">{sub.email}</div>
-                    <div className="font-mono text-xs">{sub.phone}</div>
-                  </td>
-                  <td>
-                    <Badge
-                      tone={
-                        sub.plan === "Premium" ? "new" : sub.plan === "Basic" ? "success" : "warm"
-                      }
-                    >
-                      {sub.plan}
-                    </Badge>
-                  </td>
-                  <td className="font-mono text-sm font-semibold text-navy">₹{sub.amount}</td>
-                  <td className="text-center">{sub.creditsTotal}</td>
-                  <td
-                    className="text-center font-semibold"
-                    style={{ color: sub.creditsLeft === 0 ? "var(--color-accent)" : "inherit" }}
-                  >
-                    {sub.creditsLeft}
-                  </td>
-                  <td className="text-xs text-muted-foreground">{sub.date}</td>
-                  <td>
-                    <Badge tone={sub.status === "Active" ? "success" : "cold"}>{sub.status}</Badge>
-                  </td>
-                </tr>
+      <Section
+        title="Plan Purchases"
+        action={
+          <Select value={statusFilter || "__all"} onValueChange={(v) => setStatusFilter(v === "__all" ? "" : v)}>
+            <SelectTrigger size="sm" className="min-w-[9rem]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">All statuses</SelectItem>
+              {["Active", "Cancelled", "Expired", "Failed"].map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </SelectContent>
+          </Select>
+        }
+      >
+        {subQ.isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading subscriptions…</p>
+        ) : subs.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No subscriptions yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="portal-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Plan</th>
+                  <th>Amount</th>
+                  <th>Cycle</th>
+                  <th>Start</th>
+                  <th>Renewal</th>
+                  <th>Status</th>
+                  <th className="text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subs.map((sub) => (
+                  <tr key={sub.id}>
+                    <td>
+                      <div className="font-semibold text-navy">{sub.user?.name ?? "—"}</div>
+                      <div className="text-[10px] text-muted-foreground">{sub.user?.email ?? ""}</div>
+                    </td>
+                    <td><Badge tone="new">{sub.planName}</Badge></td>
+                    <td className="font-mono text-sm font-semibold text-navy">₹{(sub.amount / 100).toLocaleString("en-IN")}</td>
+                    <td className="text-xs">{sub.cycle}</td>
+                    <td className="text-xs text-muted-foreground">{fmtDate(sub.startDate)}</td>
+                    <td className="text-xs text-muted-foreground">{sub.renewalDate ? fmtDate(sub.renewalDate) : "—"}</td>
+                    <td><Badge tone={sub.status === "Active" ? "success" : "cold"}>{sub.status}</Badge></td>
+                    <td className="text-right">
+                      {sub.status === "Active" ? (
+                        <button
+                          onClick={() => cancelSub.mutate({ subscriptionId: sub.id })}
+                          disabled={cancelSub.isPending}
+                          className="text-xs font-semibold text-rose-600 hover:underline disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Section>
 
       <Section title="Contact Unlock Records">

@@ -105,13 +105,13 @@
 ## 🔲 Not Yet Done / Remaining
 
 ### Frontend Data Wiring (backend endpoints exist — frontend not yet consuming them)
-- [ ] Supervisor portal — Dashboard stat cards → `trpc.leads.stats` + `trpc.admin.teamMembers` (still computes from static `teamMembers`)
+- [x] Supervisor portal — Dashboard KPIs → `trpc.leads.stats` ✅ *(06-10, verified live)* — open/hot/converted/conversion-rate/total/lost from real pipeline counts. "Team Members — Live Status" list stays static (supervisors can't call admin-only `teamMembers`; per-rep online/calls have no backend)
 - [x] Support portal — Dashboard, Ticket Queue, Escalations, My Assignments → `trpc.tickets.{stats,list,update}` ✅ *(06-10, full workflow + consumer scoping verified live)* — Dashboard KPIs from `stats`; Queue with status/category/search filters, Resolve (→resolved) & Escalate (→priority urgent) actions, CSV export; Escalations = high/urgent priority; My Assignments filtered to `assignedTo === session.id`. **TAT Report + Knowledge Base stay static** (no backend: no TAT-metric aggregates, no KB article model). Escalation modelled as priority (DB has no "Escalated" status); city/supervisor/TAT columns dropped (not in DB schema).
-- [ ] SA portal — Dashboard → `trpc.superAdmin.stats` + `trpc.superAdmin.systemHealth`
+- [x] SA portal — Command Dashboard (§10.1) → `trpc.superAdmin.stats` + `systemHealth` ✅ *(06-10, verified live)* — KPIs (users/active-sessions/revenue) + live System Health panel (uptime, DB, cache, Razorpay/R2/SMS)
 - [x] SA portal — User Management → `trpc.admin.users.list` + inline `updateRole` (super-admin) + `verify` ✅ *(06-10, verified live)* — search/role filters, CSV, role enforcement confirmed ("Super-admin access only")
-- [ ] SA portal — Security console → `trpc.superAdmin.{securityLog,failedLogins,getIpRules,updateIpRules,getPolicyConfig,updatePolicyConfig}`
-- [ ] SA portal — Notifications → `trpc.superAdmin.broadcastNotification`
-- [ ] SA portal — Plans Manager tab → `trpc.subscriptions.{adminList,createPlan,updatePlan,deletePlan}`
+- [x] SA portal — Security Console (§10.10) → `trpc.superAdmin.{failedLogins,securityLog,getIpRules,updateIpRules,getPolicyConfig,updatePolicyConfig}` ✅ *(06-10, verified live)* — failed-login feed, security log, IP whitelist/blacklist editor, password+2FA policy editor
+- [x] SA portal — Notifications (§10.8) → `trpc.superAdmin.broadcastNotification` ✅ *(06-10, verified live)* — broadcast composer (title/message/audience-role); surfaces via the new notification bell
+- [x] SA portal — Plans Manager (§10.13) → `trpc.subscriptions.{plansAdmin,createPlan,updatePlan,deletePlan}` ✅ *(06-10, verified live)* — DB-backed plan groups (seeker/owner-rent/owner-sell), inline edit/create/activate/deactivate; added admin-only `plansAdmin` query (lists inactive too)
 - [x] SA portal — Audit Trail (§10.6) → `trpc.admin.auditLog` ✅ *(06-10, verified live)* — adapted to real `AuditLog` model (Time/Actor/Action/Entity/IP; dropped fake severity/outcome); 6 demo audit entries seeded
 - [x] Admin portal — Team Management (§6.2) → `trpc.admin.teamMembers` + `createTeamMember` ✅ *(06-10, verified live)* — role filter + search, real "Add Member" modal creates a working staff login; removed dead static roster/PerfBar code
 - [x] User portal — Alerts tab → `trpc.searchAlerts.{list,create,toggle,delete}` ✅ *(06-10, full CRUD verified live)* — adds inline create form (name/city/BHK/budget/frequency), pause/resume, delete; no fake "match count" (no backend match job yet)
@@ -123,9 +123,18 @@
 - [x] Profile page — Security panel → `trpc.users.{changePassword,sessions,terminateSession,toggleTwoFactor}` ✅ *(06-10, verified live)* — inline change-password form, live 2FA toggle, active-sessions list with per-session sign-out; added `twoFactorEnabled` to `safeUserSelect` so `users.me` exposes it
 - [ ] User portal — KYC tab (stub, no backend yet)
 - [x] Property detail — Reviews section → `trpc.reviews.{list,create,markHelpful}` ✅ *(06-10, verified live)* — new full-width section: avg rating + count, interactive star write-form (1 review/user, server CONFLICT-guarded), helpful button, loading/empty states
-- [ ] Subscriptions — "My current plan" UI → `trpc.subscriptions.{myCurrent,cancel}`
-- [ ] Agents page — No tRPC router for agents; still uses `AGENTS` static fixture
+- [x] Admin portal — Subscriptions (§6.6) → `trpc.subscriptions.adminList` + `cancel` ✅ *(06-10, verified live)* — plan-purchases table (user/plan/amount/status), status filter, cancel action; unlock-records/disputes sections left static (no backend). **Fixed BigInt-serialization bug in `subscriptions.cancel`/`myCurrent`** (returned raw Prisma rows → tRPC 500)
+- [x] Admin portal — CRM Pipeline (§6.5) → `trpc.admin.leads.list` + `leads.updateStatus` ✅ *(06-10, verified live)* — live kanban over real `Lead.status` enum (New/Hot/Warm/Cold/Converted/Lost) with per-card stage move; removed dead static `pipeline`/`leadMeta`. (DB has no funnel-stage model, so columns = the status enum that actually persists)
+- [x] Notification Bell → `trpc.notifications.{unreadCount,list,markRead,markAllRead}` ✅ *(06-10, verified live)* — reusable `NotificationBell` in both PortalShell + SiteHeader; unread badge (60s poll), dropdown, mark-read/all-read. Closes the loop on SA broadcast
+- [ ] Agents page — No tRPC router for agents; **decision (06-10): keep static for now**
 - [ ] Home page — KPI band count-up (still static numbers)
+
+### Design System / Polish *(06-10)*
+- [x] `ui/select.tsx` — branded Radix Select (animated, accent focus, check-marked item, sm/md, mobile/keyboard accessible). Added `@radix-ui/react-select` dep
+- [x] `ui/skeleton.tsx` — added `TableSkeleton`, `CardGridSkeleton`, `ListSkeleton`
+- [x] `ui/load-more.tsx` — `LoadMore` cursor-pagination control (spinner + "showing N of M")
+- [x] Applied: `/properties` (CardGridSkeleton + LoadMore); polished `Select` on Admin Team/Subscriptions + SA Users filters (`__all` sentinel for the reserved empty value)
+- [ ] Roll `Select` across remaining native dropdowns (CRM card status, InviteModal, broadcast audience, plan-type, etc.) — mechanical, not yet done
 
 ### Backend / DB
 - [x] `DATABASE_URL` configured in gitignored root `.env` (`%40`-encoded password) — connection verified

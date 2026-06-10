@@ -16,6 +16,8 @@ import {
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { trpc } from "@/lib/trpc";
+import { CardGridSkeleton } from "@/components/ui/skeleton";
+import { LoadMore } from "@/components/ui/load-more";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Studio", "Office", "Bungalow", "Plot", "PG"] as const;
 const PURPOSES = ["Sale", "Rent"] as const;
@@ -290,20 +292,7 @@ function PropertiesInner() {
         </div>
 
         {/* Loading skeleton */}
-        {query.isLoading && (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="animate-pulse overflow-hidden rounded-2xl border border-border bg-white">
-                <div className="h-48 bg-secondary" />
-                <div className="space-y-2.5 p-4">
-                  <div className="h-6 w-32 rounded bg-secondary" />
-                  <div className="h-4 w-48 rounded bg-secondary" />
-                  <div className="h-3 w-36 rounded bg-secondary" />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {query.isLoading && <CardGridSkeleton count={6} />}
 
         {/* Error */}
         {query.isError && (
@@ -346,24 +335,13 @@ function PropertiesInner() {
               ))}
             </div>
 
-            {hasMore && (
-              <div className="mt-10 text-center">
-                <button
-                  onClick={() => query.fetchNextPage()}
-                  disabled={query.isFetchingNextPage}
-                  className="rounded-xl border-2 border-navy px-8 py-3 font-display text-sm font-bold text-navy transition hover:bg-navy hover:text-white disabled:opacity-60"
-                >
-                  {query.isFetchingNextPage ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-navy/30 border-t-navy" />
-                      Loading…
-                    </span>
-                  ) : (
-                    "Load more properties"
-                  )}
-                </button>
-              </div>
-            )}
+            <LoadMore
+              onClick={() => query.fetchNextPage()}
+              isLoading={query.isFetchingNextPage}
+              hasMore={hasMore}
+              shown={properties.length}
+              noun="properties"
+            />
           </>
         )}
       </main>

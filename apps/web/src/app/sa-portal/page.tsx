@@ -31,12 +31,10 @@ import {
   properties,
   teamMembers,
   propertyViews,
-  seekerPlans,
-  ownerRentalPlans,
-  ownerSellPlans,
 } from "@/data/static";
 import { reportTickets } from "@/data/reports";
 import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 /* ─── CSV download helper ─────────────────────────────────── */
 const downloadCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -303,16 +301,27 @@ const allUsers: Array<{
 ═══════════════════════════════════════════════════════════ */
 function Dashboard() {
   const statsQ = trpc.admin.stats.useQuery();
+  const saStatsQ = trpc.superAdmin.stats.useQuery();
+  const healthQ = trpc.superAdmin.systemHealth.useQuery();
   const s = statsQ.data;
+  const sa = saStatsQ.data;
+  const health = healthQ.data;
+
+  const fmtUptime = (sec: number) => {
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
 
   return (
     <>
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Total Listings" value={s ? s.totalProperties.toLocaleString() : "…"} sub="↑ +8.2% wk" />
         <StatCard label="Active Leads" value={s ? s.totalLeads.toLocaleString() : "…"} sub="↑ +12.4% wk" />
-        <StatCard label="Revenue YTD" value={s ? `₹${(s.totalRevenue / 1_00_00_000).toFixed(1)}Cr` : "…"} sub="↑ +24% YoY" />
-        <StatCard label="Total Users" value={s ? s.totalUsers.toLocaleString() : "…"} sub="registered" />
-        <StatCard label="Hot Leads" value={s ? s.hotLeads.toLocaleString() : "…"} sub="high priority" />
+        <StatCard label="Revenue YTD" value={sa ? `₹${(sa.totalRevenue / 1_00_00_000).toFixed(1)}Cr` : "…"} sub="payments to date" />
+        <StatCard label="Total Users" value={sa ? sa.usersCount.toLocaleString() : "…"} sub="registered" />
+        <StatCard label="Active Sessions" value={sa ? sa.activeSessionsCount.toLocaleString() : "…"} sub="logged in now" />
         <StatCard label="Active Listings" value={s ? s.activeListings.toLocaleString() : "…"} sub="approved" />
       </div>
 
@@ -347,21 +356,21 @@ function Dashboard() {
             </div>
           </Section>
         </div>
-        <Section title="System Health">
-          {[
-            ["API p50", "84ms", "ok"],
-            ["DB Replication", "1.2s lag", "ok"],
-            ["AI Model Drift", "0.4%", "ok"],
-            ["Failed Logins (24h)", "12", "warn"],
-          ].map(([l, v, s]) => (
+        <Section title="System Health" action={health ? <Badge tone="success">{health.status}</Badge> : null}>
+          {([
+            ["Uptime", health ? fmtUptime(health.uptimeSeconds) : "…", "ok"],
+            ["Database", health?.databaseConnection ?? "…", health?.databaseConnection === "Connected" ? "ok" : "warn"],
+            ["Cache", health?.cacheConnection ?? "…", health?.cacheConnection === "Connected" ? "ok" : "warn"],
+            ["Razorpay", health?.services.razorpay ?? "…", health?.services.razorpay === "Online" ? "ok" : "warn"],
+            ["Cloudflare R2", health?.services.cloudflareR2 ?? "…", health?.services.cloudflareR2 === "Online" ? "ok" : "warn"],
+            ["SMS Gateway", health?.services.smsGateway ?? "…", health?.services.smsGateway === "Online" ? "ok" : "warn"],
+          ] as const).map(([l, v, st]) => (
             <div
               key={l}
               className="flex items-center justify-between border-b border-border py-3 last:border-0"
             >
               <span className="text-sm">{l}</span>
-              <span
-                className={`font-mono text-sm font-bold ${s === "warn" ? "text-amber-600" : "text-emerald-600"}`}
-              >
+              <span className={`font-mono text-sm font-bold ${st === "warn" ? "text-amber-600" : "text-emerald-600"}`}>
                 {v}
               </span>
             </div>
@@ -602,14 +611,15 @@ function UsersTab() {
               placeholder="Search name / email…"
               className="rounded-md border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-accent"
             />
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="rounded-md border border-border bg-white px-2.5 py-1.5 text-xs outline-none focus:border-accent"
-            >
-              <option value="">All roles</option>
-              {SA_ROLES.map((r) => <option key={r} value={r}>{SA_ROLE_LABEL[r]}</option>)}
-            </select>
+            <Select value={roleFilter || "__all"} onValueChange={(v) => setRoleFilter(v === "__all" ? "" : v)}>
+              <SelectTrigger size="sm" className="min-w-[8.5rem]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">All roles</SelectItem>
+                {SA_ROLES.map((r) => <SelectItem key={r} value={r}>{SA_ROLE_LABEL[r]}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         }
       >
@@ -1196,76 +1206,83 @@ function AITab() {
 /* ═══════════════════════════════════════════════════════════
    NOTIFICATIONS TAB
 ═══════════════════════════════════════════════════════════ */
-function NotifyTab() {
-  const items: Array<[string, string, string, "warn" | "ok"]> = [
-    ["System", "AI model drift exceeded 2%", "5m ago", "warn"],
-    ["Billing", "Razorpay payout ₹4.2L succeeded", "1h ago", "ok"],
-    ["Security", "12 failed logins from 1 IP", "2h ago", "warn"],
-    ["Ops", "New builder onboarded — Lodha", "5h ago", "ok"],
-    ["CRM", "Lead L-1046 marked Hot", "6h ago", "ok"],
-  ];
-  const [channels, setChannels] = useState<Array<[string, boolean]>>([
-    ["Email digests", true],
-    ["Slack #ops alerts", true],
-    ["SMS for security events", true],
-    ["Weekly KPI summary", false],
-  ]);
+const BROADCAST_ROLES = [
+  { label: "All users", value: "" },
+  { label: "Home Buyers", value: "user" },
+  { label: "Customers", value: "customer" },
+  { label: "Admins", value: "admin" },
+  { label: "Supervisors", value: "supervisor" },
+  { label: "Sales Reps", value: "sales" },
+  { label: "Support Admins", value: "support-admin" },
+];
 
-  const toggleChannel = (idx: number) =>
-    setChannels((prev) => prev.map((c, i) => (i === idx ? [c[0], !c[1]] : c)));
+function NotifyTab() {
+  const broadcast = trpc.superAdmin.broadcastNotification.useMutation({
+    onSuccess: (res: { count: number }) => {
+      toast.success(`Broadcast sent to ${res.count} user${res.count !== 1 ? "s" : ""}`);
+      setForm({ title: "", content: "", targetRole: "" });
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+  const [form, setForm] = useState({ title: "", content: "", targetRole: "" });
+
+  const send = () => {
+    if (form.title.trim().length < 5) return toast.error("Title must be at least 5 characters.");
+    if (form.content.trim().length < 10) return toast.error("Message must be at least 10 characters.");
+    broadcast.mutate({
+      title: form.title.trim(),
+      content: form.content.trim(),
+      targetRole: form.targetRole || undefined,
+    });
+  };
 
   return (
     <>
       <TabHeader
         title="Notifications"
-        subtitle="Platform alerts, system events and digests."
-        action={
-          <button
-            onClick={() => toast.success("All notifications marked as read")}
-            className="text-xs font-semibold text-accent hover:underline"
-          >
-            Mark all read
-          </button>
-        }
+        subtitle="Broadcast platform-wide announcements to users."
       />
-      <Section title="Inbox">
-        {items.map(([cat, msg, ts, tone], i) => (
-          <div
-            key={i}
-            className="flex items-start justify-between gap-4 border-b border-border py-4 last:border-0"
-          >
-            <div className="flex items-start gap-3">
-              <span
-                className={`mt-0.5 grid h-8 w-8 place-items-center rounded-full text-xs font-bold ${tone === "warn" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}
+      <Section title="Compose Broadcast">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Title</label>
+            <input
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              placeholder="e.g. Scheduled maintenance this weekend"
+              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Message</label>
+            <textarea
+              value={form.content}
+              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              rows={4}
+              placeholder="Write the announcement users will receive…"
+              className="mt-1 w-full resize-none rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Audience</label>
+              <select
+                value={form.targetRole}
+                onChange={(e) => setForm((f) => ({ ...f, targetRole: e.target.value }))}
+                className="mt-1 block rounded-md border border-border bg-white px-2.5 py-2 text-sm outline-none focus:border-accent"
               >
-                {cat[0]}
-              </span>
-              <div>
-                <div className="text-sm font-semibold text-navy">{msg}</div>
-                <div className="text-xs text-muted-foreground">
-                  {cat} · {ts}
-                </div>
-              </div>
+                {BROADCAST_ROLES.map((r) => <option key={r.value || "all"} value={r.value}>{r.label}</option>)}
+              </select>
             </div>
             <button
-              onClick={() => toast(`Viewing: ${msg}`)}
-              className="text-xs font-semibold text-accent hover:underline"
+              onClick={send}
+              disabled={broadcast.isPending}
+              className="rounded-md bg-gold px-4 py-2 text-sm font-bold text-navy-deep hover:opacity-90 disabled:opacity-50"
             >
-              View
+              {broadcast.isPending ? "Sending…" : "Send Broadcast"}
             </button>
           </div>
-        ))}
-      </Section>
-      <Section title="Notification Channels">
-        {channels.map(([l, on], idx) => (
-          <div
-            key={l}
-            className="flex items-center justify-between border-b border-border py-3 last:border-0"
-          >
-            <span className="text-sm font-semibold text-navy">{l}</span>
-            <Toggle on={on} onToggle={() => toggleChannel(idx)} />
-          </div>
-        ))}
+        </div>
       </Section>
     </>
   );
@@ -1334,58 +1351,225 @@ function CMSTab() {
    SECURITY CONSOLE TAB
 ═══════════════════════════════════════════════════════════ */
 function SecurityTab() {
-  const threats: Array<[string, string, string]> = [
-    ["Brute force", "203.0.113.42", "Blocked"],
-    ["Suspicious login (TOR)", "198.51.100.7", "Challenged"],
-    ["Phishing report", "user@gmail.com", "Investigating"],
-    ["Rate limit hit", "10.0.4.21", "Mitigated"],
-  ];
-  const [policies, setPolicies] = useState<Array<[string, boolean]>>([
-    ["Require MFA for admins", true],
-    ["Block logins outside India", false],
-    ["Session timeout 30m", true],
-    ["Audit log retention 365d", true],
-  ]);
+  const saStatsQ = trpc.superAdmin.stats.useQuery();
+  const failedQ = trpc.superAdmin.failedLogins.useQuery({ limit: 20 });
+  const logQ = trpc.superAdmin.securityLog.useQuery({ limit: 20 });
+  const ipQ = trpc.superAdmin.getIpRules.useQuery();
+  const policyQ = trpc.superAdmin.getPolicyConfig.useQuery();
 
-  const togglePolicy = (idx: number) =>
-    setPolicies((prev) => prev.map((p, i) => (i === idx ? [p[0], !p[1]] : p)));
+  const updateIp = trpc.superAdmin.updateIpRules.useMutation({
+    onSuccess: () => { ipQ.refetch(); toast.success("IP rules updated"); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+  const updatePolicy = trpc.superAdmin.updatePolicyConfig.useMutation({
+    onSuccess: () => { policyQ.refetch(); toast.success("Security policy saved"); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const failed = (failedQ.data ?? []) as unknown as Array<{ id: string; entityId: string; ipAddress: string | null; createdAt: string }>;
+  const logs = (logQ.data?.items ?? []) as unknown as Array<{ id: string; action: string; entity: string; ipAddress: string | null; createdAt: string }>;
+  const activeSessions = saStatsQ.data?.activeSessionsCount ?? 0;
+
+  const [whitelist, setWhitelist] = useState<string[]>([]);
+  const [blacklist, setBlacklist] = useState<string[]>([]);
+  const [newWhite, setNewWhite] = useState("");
+  const [newBlack, setNewBlack] = useState("");
+  useEffect(() => {
+    if (ipQ.data) {
+      setWhitelist(ipQ.data.whitelistedIps ?? []);
+      setBlacklist(ipQ.data.blacklistedIps ?? []);
+    }
+  }, [ipQ.data]);
+
+  const [policy, setPolicy] = useState({
+    passwordMinLength: 8,
+    passwordComplexity: "medium" as "low" | "medium" | "high",
+    passwordExpiryDays: 90,
+    enforce2faRoles: [] as string[],
+  });
+  useEffect(() => {
+    if (policyQ.data) setPolicy(policyQ.data as typeof policy);
+  }, [policyQ.data]);
+
+  const isValidIp = (ip: string) => /^(\d{1,3}\.){3}\d{1,3}$/.test(ip);
+  const addIp = (list: "w" | "b") => {
+    const v = (list === "w" ? newWhite : newBlack).trim();
+    if (!isValidIp(v)) return toast.error("Enter a valid IPv4 address.");
+    if (list === "w") { setWhitelist((p) => [...new Set([...p, v])]); setNewWhite(""); }
+    else { setBlacklist((p) => [...new Set([...p, v])]); setNewBlack(""); }
+  };
+  const removeIp = (list: "w" | "b", ip: string) =>
+    list === "w" ? setWhitelist((p) => p.filter((x) => x !== ip)) : setBlacklist((p) => p.filter((x) => x !== ip));
+
+  const ROLES_FOR_2FA = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+  const toggle2faRole = (role: string) =>
+    setPolicy((p) => ({
+      ...p,
+      enforce2faRoles: p.enforce2faRoles.includes(role)
+        ? p.enforce2faRoles.filter((r) => r !== role)
+        : [...p.enforce2faRoles, role],
+    }));
+
+  const fmt = (iso: string) => new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 
   return (
     <>
-      <TabHeader title="Security Console" subtitle="Sessions, MFA coverage and threats." />
+      <TabHeader title="Security Console" subtitle="Failed logins, IP access rules, sessions and policy." />
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="MFA Coverage" value="96%" sub="↑ +2 pts" />
-        <StatCard label="Active Sessions" value="218" />
-        <StatCard label="Threats (24h)" value="4" sub="2 mitigated" accent="text-amber-600" />
-        <StatCard label="Open Incidents" value="0" sub="All clear" />
+        <StatCard label="Active Sessions" value={String(activeSessions)} sub="logged in now" />
+        <StatCard label="Failed Logins" value={String(failed.length)} sub="recent attempts" accent={failed.length ? "text-amber-600" : undefined} />
+        <StatCard label="Whitelisted IPs" value={String(whitelist.length)} />
+        <StatCard label="Blacklisted IPs" value={String(blacklist.length)} accent={blacklist.length ? "text-amber-600" : undefined} />
       </div>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Section title="Recent Threats">
-          {threats.map(([k, src, st]) => (
-            <div
-              key={k + src}
-              className="flex items-center justify-between border-b border-border py-3 last:border-0"
-            >
-              <div>
-                <div className="text-sm font-semibold text-navy">{k}</div>
-                <div className="font-mono text-xs text-muted-foreground">{src}</div>
+        <Section title="Failed Login Attempts">
+          {failedQ.isLoading ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>
+          ) : failed.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No failed login attempts recorded.</p>
+          ) : (
+            failed.map((f) => (
+              <div key={f.id} className="flex items-center justify-between border-b border-border py-3 last:border-0">
+                <div>
+                  <div className="text-sm font-semibold text-navy">{f.entityId}</div>
+                  <div className="font-mono text-xs text-muted-foreground">{f.ipAddress ?? "—"}</div>
+                </div>
+                <span className="font-mono text-xs text-muted-foreground">{fmt(f.createdAt)}</span>
               </div>
-              <Badge tone={st === "Blocked" || st === "Mitigated" ? "success" : "warm"}>{st}</Badge>
-            </div>
-          ))}
+            ))
+          )}
         </Section>
-        <Section title="Policies">
-          {policies.map(([l, on], idx) => (
-            <div
-              key={l}
-              className="flex items-center justify-between border-b border-border py-3 last:border-0"
-            >
-              <span className="text-sm font-semibold text-navy">{l}</span>
-              <Toggle on={on} onToggle={() => togglePolicy(idx)} />
-            </div>
-          ))}
+
+        <Section title="Security Log">
+          {logQ.isLoading ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>
+          ) : logs.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No security events yet.</p>
+          ) : (
+            logs.map((l) => (
+              <div key={l.id} className="flex items-center justify-between border-b border-border py-3 last:border-0">
+                <div>
+                  <div className="text-sm font-semibold text-navy">{l.action}</div>
+                  <div className="text-xs text-muted-foreground">{l.entity}</div>
+                </div>
+                <span className="font-mono text-xs text-muted-foreground">{fmt(l.createdAt)}</span>
+              </div>
+            ))
+          )}
         </Section>
       </div>
+
+      <Section
+        title="IP Access Rules"
+        action={
+          <button
+            onClick={() => updateIp.mutate({ whitelistedIps: whitelist, blacklistedIps: blacklist })}
+            disabled={updateIp.isPending}
+            className="rounded-md bg-gold px-3 py-1.5 text-xs font-bold text-navy-deep hover:opacity-90 disabled:opacity-50"
+          >
+            {updateIp.isPending ? "Saving…" : "Save IP Rules"}
+          </button>
+        }
+      >
+        <div className="grid gap-6 md:grid-cols-2">
+          {([
+            ["Whitelist", whitelist, "w", newWhite, setNewWhite] as const,
+            ["Blacklist", blacklist, "b", newBlack, setNewBlack] as const,
+          ]).map(([label, list, key, val, setVal]) => (
+            <div key={label}>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</div>
+              <div className="flex gap-2">
+                <input
+                  value={val}
+                  onChange={(e) => setVal(e.target.value)}
+                  placeholder="e.g. 203.0.113.10"
+                  className="flex-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-accent"
+                />
+                <button onClick={() => addIp(key)} className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:border-accent">
+                  Add
+                </button>
+              </div>
+              <div className="mt-2 space-y-1">
+                {list.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">None configured.</p>
+                ) : (
+                  list.map((ip) => (
+                    <div key={ip} className="flex items-center justify-between rounded-md bg-secondary/40 px-3 py-1.5">
+                      <span className="font-mono text-xs text-navy">{ip}</span>
+                      <button onClick={() => removeIp(key, ip)} className="text-xs font-semibold text-rose-600 hover:underline">Remove</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section
+        title="Password & 2FA Policy"
+        action={
+          <button
+            onClick={() => updatePolicy.mutate(policy)}
+            disabled={updatePolicy.isPending}
+            className="rounded-md bg-gold px-3 py-1.5 text-xs font-bold text-navy-deep hover:opacity-90 disabled:opacity-50"
+          >
+            {updatePolicy.isPending ? "Saving…" : "Save Policy"}
+          </button>
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Min password length</label>
+            <input
+              type="number"
+              min={6}
+              max={32}
+              value={policy.passwordMinLength}
+              onChange={(e) => setPolicy((p) => ({ ...p, passwordMinLength: Number(e.target.value) }))}
+              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Complexity</label>
+            <select
+              value={policy.passwordComplexity}
+              onChange={(e) => setPolicy((p) => ({ ...p, passwordComplexity: e.target.value as typeof p.passwordComplexity }))}
+              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+            >
+              {["low", "medium", "high"].map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Expiry (days, 0 = never)</label>
+            <input
+              type="number"
+              min={0}
+              value={policy.passwordExpiryDays}
+              onChange={(e) => setPolicy((p) => ({ ...p, passwordExpiryDays: Number(e.target.value) }))}
+              className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Enforce 2FA for roles</div>
+          <div className="flex flex-wrap gap-2">
+            {ROLES_FOR_2FA.map((role) => {
+              const on = policy.enforce2faRoles.includes(role);
+              return (
+                <button
+                  key={role}
+                  onClick={() => toggle2faRole(role)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${on ? "border-accent bg-accent text-white" : "border-border bg-white text-muted-foreground hover:border-accent/50"}`}
+                >
+                  {role}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Section>
     </>
   );
 }
@@ -1785,17 +1969,20 @@ function ReportsTab() {
 /* ═══════════════════════════════════════════════════════════
    PLANS MANAGER TAB
 ═══════════════════════════════════════════════════════════ */
+type PlanType = "seeker" | "owner-rent" | "owner-sell";
+
 type EditablePlan = {
   id: string;
   name: string;
   price: number;
   priceLabel: string;
-  credits?: number;
-  validity: string;
+  credits: number;
+  validity: number; // days
   tagline: string;
   features: string[];
   active: boolean;
-  badge?: string | null;
+  popular: boolean;
+  type: PlanType;
 };
 
 function PlanCard({
@@ -1847,9 +2034,9 @@ function PlanCard({
           ) : (
             <div className="font-display text-sm font-bold text-navy">{plan.name}</div>
           )}
-          {plan.badge && (
+          {plan.popular && (
             <span className="mt-1 inline-block rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
-              {plan.badge}
+              Popular
             </span>
           )}
         </div>
@@ -1924,15 +2111,16 @@ function PlanCard({
           </label>
           {editing ? (
             <input
+              type="number"
               value={draft.validity}
-              onChange={(e) => setDraft((d) => ({ ...d, validity: e.target.value }))}
+              onChange={(e) => setDraft((d) => ({ ...d, validity: Number(e.target.value) }))}
               className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
             />
           ) : (
-            <div className="mt-1 text-sm font-semibold text-navy">{plan.validity}</div>
+            <div className="mt-1 text-sm font-semibold text-navy">{plan.validity} days</div>
           )}
         </div>
-        {plan.credits !== undefined && (
+        {(editing || plan.credits > 0) && (
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Credits
@@ -1940,7 +2128,7 @@ function PlanCard({
             {editing ? (
               <input
                 type="number"
-                value={draft.credits ?? 0}
+                value={draft.credits}
                 onChange={(e) => setDraft((d) => ({ ...d, credits: Number(e.target.value) }))}
                 className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               />
@@ -2008,39 +2196,59 @@ function PlanCard({
   );
 }
 
-function usePlanGroup(initial: EditablePlan[]) {
-  const [plans, setPlans] = useState<EditablePlan[]>(initial);
+function usePlanGroup(type: PlanType) {
+  const plansQ = trpc.subscriptions.plansAdmin.useQuery({ type });
+  const refetch = () => plansQ.refetch();
+  const onError = (e: { message: string }) => toast.error(e.message);
 
-  const save = (id: string, updated: EditablePlan) =>
-    setPlans((ps) => ps.map((p) => (p.id === id ? updated : p)));
+  const updatePlan = trpc.subscriptions.updatePlan.useMutation({ onSuccess: () => refetch(), onError });
+  const deletePlan = trpc.subscriptions.deletePlan.useMutation({ onSuccess: () => refetch(), onError });
+  const createPlan = trpc.subscriptions.createPlan.useMutation({ onSuccess: () => refetch(), onError });
 
-  const toggle = (id: string) =>
-    setPlans((ps) => ps.map((p) => (p.id === id ? { ...p, active: !p.active } : p)));
+  const plans = (plansQ.data ?? []) as unknown as EditablePlan[];
 
-  const remove = (id: string) => {
-    setPlans((ps) => ps.filter((p) => p.id !== id));
-    toast.success("Plan removed");
-  };
-
-  const add = (name: string) => {
-    const id = `plan-${Date.now()}`;
-    setPlans((ps) => [
-      ...ps,
+  const save = (id: string, u: EditablePlan) =>
+    updatePlan.mutate(
       {
         id,
+        name: u.name,
+        price: u.price,
+        priceLabel: u.priceLabel,
+        credits: u.credits,
+        validity: u.validity,
+        tagline: u.tagline,
+        features: u.features,
+        popular: u.popular,
+      },
+      { onSuccess: () => toast.success(`"${u.name}" saved`) },
+    );
+
+  const toggle = (id: string) => {
+    const plan = plans.find((p) => p.id === id);
+    if (!plan) return;
+    updatePlan.mutate({ id, active: !plan.active });
+  };
+
+  const remove = (id: string) =>
+    deletePlan.mutate({ id }, { onSuccess: () => toast.success("Plan deactivated") });
+
+  const add = (name: string) =>
+    createPlan.mutate(
+      {
         name,
         price: 0,
         priceLabel: "₹0",
-        validity: "30 days",
+        credits: 0,
+        validity: 30,
         tagline: "New plan",
         features: ["Feature 1"],
-        active: false,
+        popular: false,
+        type,
       },
-    ]);
-    toast.success(`"${name}" created — edit to configure`);
-  };
+      { onSuccess: () => toast.success(`"${name}" created — edit to configure`) },
+    );
 
-  return { plans, save, toggle, remove, add };
+  return { plans, isLoading: plansQ.isLoading, save, toggle, remove, add };
 }
 
 function PlanGroup({
@@ -2106,67 +2314,46 @@ function PlanGroup({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {group.plans.map((plan) => (
-          <PlanCard
-            key={plan.id}
-            plan={plan}
-            onSave={(updated) => group.save(plan.id, updated)}
-            onToggle={() => group.toggle(plan.id)}
-            onDelete={() => group.remove(plan.id)}
-          />
-        ))}
-      </div>
+      {group.isLoading ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">Loading plans…</p>
+      ) : group.plans.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">No plans in this group yet.</p>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {group.plans.map((plan) => (
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              onSave={(updated) => group.save(plan.id, updated)}
+              onToggle={() => group.toggle(plan.id)}
+              onDelete={() => group.remove(plan.id)}
+            />
+          ))}
+        </div>
+      )}
     </Section>
   );
 }
 
 function PlansManagerTab() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const toEditable = (p: Record<string, any>): EditablePlan => ({
-    id: p.id,
-    name: p.name,
-    price: p.price,
-    priceLabel: p.priceLabel,
-    credits: p.credits,
-    validity: p.validity,
-    tagline: p.tagline,
-    features: [...p.features],
-    active: true,
-    badge: "badge" in p ? (p.badge ?? null) : null,
-  });
+  const seekerGroup = usePlanGroup("seeker");
+  const ownerRentalGroup = usePlanGroup("owner-rent");
+  const ownerSellGroup = usePlanGroup("owner-sell");
 
-  const seekerGroup = usePlanGroup(seekerPlans.map(toEditable));
-  const ownerRentalGroup = usePlanGroup(ownerRentalPlans.map(toEditable));
-  const ownerSellGroup = usePlanGroup(ownerSellPlans.map(toEditable));
-
-  const totalPlans =
-    seekerGroup.plans.length + ownerRentalGroup.plans.length + ownerSellGroup.plans.length;
-  const activePlans = [
-    ...seekerGroup.plans,
-    ...ownerRentalGroup.plans,
-    ...ownerSellGroup.plans,
-  ].filter((p) => p.active).length;
+  const allPlans = [...seekerGroup.plans, ...ownerRentalGroup.plans, ...ownerSellGroup.plans];
+  const activePlans = allPlans.filter((p) => p.active).length;
 
   return (
     <>
       <TabHeader
         title="Plans Manager"
         subtitle="Create, edit, price and activate plans across all customer segments."
-        action={
-          <button
-            onClick={() => toast.success("All plan changes published to production")}
-            className="rounded-md bg-gold px-4 py-2 text-xs font-bold text-navy-deep hover:opacity-90 transition"
-          >
-            Publish All Changes
-          </button>
-        }
       />
 
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Total Plans" value={String(totalPlans)} sub={`${activePlans} active`} />
+        <StatCard label="Total Plans" value={String(allPlans.length)} sub={`${activePlans} active`} />
         <StatCard label="Plan Groups" value="3" sub="Seeker · Owner Rent · Owner Sell" />
-        <StatCard label="MRR from Plans" value="₹12.4 Cr" sub="↑ +8.4% this month" />
+        <StatCard label="Active Plans" value={String(activePlans)} sub="live on pricing page" />
       </div>
 
       <div className="mt-6 space-y-6">

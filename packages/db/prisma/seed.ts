@@ -380,6 +380,29 @@ async function main() {
   }
   console.log(`✓ Seeded ${auditSeed.length} audit-log entries`);
 
+  // ── Subscriptions (idempotent: explicit ids) ────────────────────────────────
+  const DAY = 86_400_000;
+  const subSeed = [
+    { id: "seed-sub-01", userId: rohan, planId: "seeker-premium", planName: "Premium", amount: 69900, status: "Active", startAgo: 12, endIn: 78 },
+    { id: "seed-sub-02", userId: ananya, planId: "seeker-basic", planName: "Basic", amount: 29900, status: "Active", startAgo: 5, endIn: 55 },
+    { id: "seed-sub-03", userId: rohan, planId: "seeker-instant", planName: "Instant", amount: 9900, status: "Expired", startAgo: 60, endIn: -30 },
+  ];
+  for (const s of subSeed) {
+    const { startAgo, endIn, ...rest } = s;
+    const start = new Date(Date.now() - startAgo * DAY);
+    const end = new Date(Date.now() + endIn * DAY);
+    const data = {
+      ...rest,
+      amount: BigInt(s.amount),
+      cycle: "one-time",
+      startDate: start,
+      endDate: end,
+      renewalDate: s.status === "Active" ? end : null,
+    };
+    await prisma.subscription.upsert({ where: { id: s.id }, update: data, create: { id: s.id, ...data } });
+  }
+  console.log(`✓ Seeded ${subSeed.length} subscriptions`);
+
   console.log(`\nDemo password for all users: ${DEMO_PASSWORD}`);
 }
 
