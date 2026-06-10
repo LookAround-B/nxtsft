@@ -108,20 +108,21 @@
 - [ ] Supervisor portal — Dashboard stat cards → `trpc.leads.stats` + `trpc.admin.teamMembers` (still computes from static `teamMembers`)
 - [x] Support portal — Dashboard, Ticket Queue, Escalations, My Assignments → `trpc.tickets.{stats,list,update}` ✅ *(06-10, full workflow + consumer scoping verified live)* — Dashboard KPIs from `stats`; Queue with status/category/search filters, Resolve (→resolved) & Escalate (→priority urgent) actions, CSV export; Escalations = high/urgent priority; My Assignments filtered to `assignedTo === session.id`. **TAT Report + Knowledge Base stay static** (no backend: no TAT-metric aggregates, no KB article model). Escalation modelled as priority (DB has no "Escalated" status); city/supervisor/TAT columns dropped (not in DB schema).
 - [ ] SA portal — Dashboard → `trpc.superAdmin.stats` + `trpc.superAdmin.systemHealth`
-- [ ] SA portal — Users tab → `trpc.admin.users.list` (+ `updateRole`, `verify`)
+- [x] SA portal — User Management → `trpc.admin.users.list` + inline `updateRole` (super-admin) + `verify` ✅ *(06-10, verified live)* — search/role filters, CSV, role enforcement confirmed ("Super-admin access only")
 - [ ] SA portal — Security console → `trpc.superAdmin.{securityLog,failedLogins,getIpRules,updateIpRules,getPolicyConfig,updatePolicyConfig}`
 - [ ] SA portal — Notifications → `trpc.superAdmin.broadcastNotification`
 - [ ] SA portal — Plans Manager tab → `trpc.subscriptions.{adminList,createPlan,updatePlan,deletePlan}`
-- [ ] Admin portal — Audit tab → `trpc.admin.auditLog`; Team tab → `trpc.admin.{teamMembers,createTeamMember}`
+- [x] SA portal — Audit Trail (§10.6) → `trpc.admin.auditLog` ✅ *(06-10, verified live)* — adapted to real `AuditLog` model (Time/Actor/Action/Entity/IP; dropped fake severity/outcome); 6 demo audit entries seeded
+- [x] Admin portal — Team Management (§6.2) → `trpc.admin.teamMembers` + `createTeamMember` ✅ *(06-10, verified live)* — role filter + search, real "Add Member" modal creates a working staff login; removed dead static roster/PerfBar code
 - [x] User portal — Alerts tab → `trpc.searchAlerts.{list,create,toggle,delete}` ✅ *(06-10, full CRUD verified live)* — adds inline create form (name/city/BHK/budget/frequency), pause/resume, delete; no fake "match count" (no backend match job yet)
 - [x] User portal — Listings tab → `trpc.users.myListings` + `properties.update` for Deactivate/Reactivate ✅ *(06-10, verified live)* — real status/views/price, loading + empty states; Boost is a toast (paid, not built), Edit→View links to live detail page
-- [ ] User portal — Site Visits → `trpc.siteVisits.{list,reschedule,cancel}` (currently read-only via `users.siteVisits`)
+- [x] User portal — Site Visits → `trpc.siteVisits.{reschedule,cancel}` ✅ *(06-10, verified live)* — `users.siteVisits` enriched with a manual property join (title/image/city); upcoming cards get inline datetime reschedule + cancel; past visits read-only
 - [x] User portal — Removed the redundant `#search` "Saved Searches" tab (nav entry, route case, component, unused `Search` import) ✅ *(06-10)* — `#alerts` is now the single source of truth
 - [x] User portal — Recently Viewed (§5.3) → `trpc.propertyViews.mine` ✅ *(06-10, verified live)* — real view history + stats (total/contacts-unlocked/cities/avg-dwell); records on property-detail unmount with real dwell time + final unlock state (anon-friendly)
 - [x] Admin portal — Property Views Analytics (§6.7) → `trpc.propertyViews.analytics` ✅ *(06-10, verified live)* — total/unique/unlock-rate KPIs, views-by-property bars, searchable records + CSV (dropped Lead column — `PropertyView` has no leadId)
-- [ ] User portal — Profile security → `trpc.users.{changePassword,sessions,terminateSession,toggleTwoFactor}`
+- [x] Profile page — Security panel → `trpc.users.{changePassword,sessions,terminateSession,toggleTwoFactor}` ✅ *(06-10, verified live)* — inline change-password form, live 2FA toggle, active-sessions list with per-session sign-out; added `twoFactorEnabled` to `safeUserSelect` so `users.me` exposes it
 - [ ] User portal — KYC tab (stub, no backend yet)
-- [ ] Property detail — Reviews section → `trpc.reviews.{list,create,markHelpful}`
+- [x] Property detail — Reviews section → `trpc.reviews.{list,create,markHelpful}` ✅ *(06-10, verified live)* — new full-width section: avg rating + count, interactive star write-form (1 review/user, server CONFLICT-guarded), helpful button, loading/empty states
 - [ ] Subscriptions — "My current plan" UI → `trpc.subscriptions.{myCurrent,cancel}`
 - [ ] Agents page — No tRPC router for agents; still uses `AGENTS` static fixture
 - [ ] Home page — KPI band count-up (still static numbers)

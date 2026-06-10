@@ -515,185 +515,160 @@ function Dashboard() {
 /* ═══════════════════════════════════════════════════════════
    USER MANAGEMENT TAB
 ═══════════════════════════════════════════════════════════ */
+type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  city: string;
+  verified: boolean;
+  credits: number;
+  joined: string;
+  lastActive: string;
+};
+
+const SA_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin", "user", "customer"] as const;
+const SA_ROLE_LABEL: Record<string, string> = {
+  "super-admin": "Super Admin",
+  admin: "Admin",
+  supervisor: "Supervisor",
+  sales: "Sales Rep",
+  "support-admin": "Support Admin",
+  user: "Home Buyer",
+  customer: "Customer",
+};
+
 function UsersTab() {
-  const [showInvite, setShowInvite] = useState(false);
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const usersQ = trpc.admin.users.list.useQuery({
+    search: search || undefined,
+    role: roleFilter ? (roleFilter as (typeof SA_ROLES)[number]) : undefined,
+    limit: 100,
+  });
+  const users = (usersQ.data?.items ?? []) as unknown as AdminUser[];
 
-  const toggleCheck = (id: string) =>
-    setChecked((prev) => {
-      const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
-    });
+  const updateRole = trpc.admin.users.updateRole.useMutation({
+    onSuccess: () => { usersQ.refetch(); toast.success("Role updated"); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+  const verifyUser = trpc.admin.users.verify.useMutation({
+    onSuccess: () => { usersQ.refetch(); toast.success("User verified"); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
 
-  const toggleAll = () =>
-    setChecked(checked.size === allUsers.length ? new Set() : new Set(allUsers.map((u) => u.id)));
+  const adminCount = users.filter((u) => u.role === "admin" || u.role === "super-admin").length;
+  const salesCount = users.filter((u) => u.role === "sales").length;
+  const consumerCount = users.filter((u) => u.role === "user" || u.role === "customer").length;
+
+  const fmtJoined = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
   return (
     <>
       <TabHeader
         title="User Management"
-        subtitle="Roles, permissions and lifecycle for the whole platform."
+        subtitle="Roles, verification and lifecycle for the whole platform."
         action={
-          <div className="flex items-center gap-2">
-            {checked.size > 0 && (
-              <button
-                onClick={() => {
-                  toast.success(`${checked.size} users actioned`);
-                  setChecked(new Set());
-                }}
-                className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100 transition"
-              >
-                Bulk Action ({checked.size})
-              </button>
-            )}
-            <button
-              onClick={() =>
-                downloadCSV(
-                  "users.csv",
-                  ["ID", "Name", "Email", "Role", "City", "Status"],
-                  allUsers.map((u) => [u.id, u.name, u.email, u.role, u.city, u.status]),
-                )
-              }
-              className="text-xs font-semibold text-accent hover:underline"
-            >
-              Export CSV →
-            </button>
-            <button
-              onClick={() => setShowInvite(true)}
-              className="rounded-md bg-gold px-3 py-2 text-xs font-bold text-navy-deep hover:opacity-90 transition"
-            >
-              + Invite User
-            </button>
-          </div>
+          <button
+            onClick={() =>
+              downloadCSV(
+                "users.csv",
+                ["ID", "Name", "Email", "Role", "City", "Verified"],
+                users.map((u) => [u.id, u.name, u.email, SA_ROLE_LABEL[u.role] ?? u.role, u.city, u.verified ? "Yes" : "No"]),
+              )
+            }
+            className="text-xs font-semibold text-accent hover:underline"
+          >
+            Export CSV →
+          </button>
         }
       />
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Total Users" value="184" sub="↑ +6 this wk" />
-        <StatCard label="Admins" value="12" />
-        <StatCard label="Sales Reps" value="64" sub="↑ +2 this wk" />
-        <StatCard label="Suspended" value="3" accent="text-amber-600" />
+        <StatCard label="Total Users" value={String(users.length)} sub="in directory" />
+        <StatCard label="Admins" value={String(adminCount)} />
+        <StatCard label="Sales Reps" value={String(salesCount)} />
+        <StatCard label="Consumers" value={String(consumerCount)} />
       </div>
-      <Section title="Directory">
-        <div className="overflow-x-auto">
-          <table className="portal-table">
-            <thead>
-              <tr>
-                <th className="w-8">
-                  <input
-                    type="checkbox"
-                    checked={checked.size === allUsers.length}
-                    onChange={toggleAll}
-                    className="rounded"
-                  />
-                </th>
-                <th className="py-2">ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>City</th>
-                <th>Last Login</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {allUsers.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={checked.has(u.id)}
-                      onChange={() => toggleCheck(u.id)}
-                      className="rounded"
-                    />
-                  </td>
-                  <td className="font-mono text-xs">{u.id}</td>
-                  <td className="font-semibold text-navy">{u.name}</td>
-                  <td className="text-xs text-muted-foreground">{u.email}</td>
-                  <td className="text-xs">{u.role}</td>
-                  <td className="text-xs">{u.city}</td>
-                  <td className="text-xs text-muted-foreground">{u.last}</td>
-                  <td>
-                    <Badge
-                      tone={
-                        u.status === "Active"
-                          ? "success"
-                          : u.status === "Suspended"
-                            ? "warm"
-                            : "new"
-                      }
-                    >
-                      {u.status}
-                    </Badge>
-                  </td>
-                  <td className="text-right">
-                    <button
-                      onClick={() => toast(`Managing ${u.name} (${u.role})…`)}
-                      className="text-xs font-semibold text-accent hover:underline"
-                    >
-                      Manage →
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Section>
 
-      {showInvite && (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
-          onClick={() => setShowInvite(false)}
-        >
-          <div
-            className="animate-scale-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-1 text-[11px] font-bold uppercase tracking-widest text-accent">
-              NxtSft.com Platform
-            </div>
-            <h3 className="font-display text-xl font-bold text-navy">Invite a user</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              They'll receive an email with a one-time sign-in link.
-            </p>
-            <div className="mt-5 space-y-3">
-              <input
-                placeholder="Full name"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-              />
-              <input
-                type="email"
-                placeholder="Work email"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-              />
-              <select className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm">
-                <option>Admin</option>
-                <option>Supervisor</option>
-                <option>Sales Rep</option>
-              </select>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                onClick={() => setShowInvite(false)}
-                className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-navy hover:bg-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowInvite(false);
-                  toast.success("Invite sent successfully!");
-                }}
-                className="rounded-xl bg-gold px-4 py-2 text-sm font-bold text-navy-deep hover:opacity-90"
-              >
-                Send invite →
-              </button>
-            </div>
+      <Section
+        title="Directory"
+        action={
+          <div className="flex items-center gap-2">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name / email…"
+              className="rounded-md border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-accent"
+            />
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="rounded-md border border-border bg-white px-2.5 py-1.5 text-xs outline-none focus:border-accent"
+            >
+              <option value="">All roles</option>
+              {SA_ROLES.map((r) => <option key={r} value={r}>{SA_ROLE_LABEL[r]}</option>)}
+            </select>
           </div>
-        </div>
-      )}
+        }
+      >
+        {usersQ.isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading users…</p>
+        ) : users.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No users match this filter.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="portal-table">
+              <thead>
+                <tr>
+                  <th className="py-2">Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>City</th>
+                  <th>Joined</th>
+                  <th>Status</th>
+                  <th className="text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id}>
+                    <td className="font-semibold text-navy">{u.name}</td>
+                    <td className="text-xs text-muted-foreground">{u.email}</td>
+                    <td>
+                      <select
+                        value={u.role}
+                        onChange={(e) => updateRole.mutate({ userId: u.id, role: e.target.value as (typeof SA_ROLES)[number] })}
+                        disabled={updateRole.isPending}
+                        className="rounded-md border border-border bg-white px-2 py-1 text-xs outline-none focus:border-accent disabled:opacity-50"
+                      >
+                        {SA_ROLES.map((r) => <option key={r} value={r}>{SA_ROLE_LABEL[r]}</option>)}
+                      </select>
+                    </td>
+                    <td className="text-xs">{u.city}</td>
+                    <td className="text-xs text-muted-foreground">{fmtJoined(u.joined)}</td>
+                    <td><Badge tone={u.verified ? "success" : "warm"}>{u.verified ? "Verified" : "Unverified"}</Badge></td>
+                    <td className="text-right">
+                      {u.verified ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <button
+                          onClick={() => verifyUser.mutate({ userId: u.id })}
+                          disabled={verifyUser.isPending}
+                          className="text-xs font-semibold text-accent hover:underline disabled:opacity-50"
+                        >
+                          Verify
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
     </>
   );
 }
@@ -1083,20 +1058,22 @@ function AnalyticsTab() {
 /* ═══════════════════════════════════════════════════════════
    AUDIT TRAIL TAB
 ═══════════════════════════════════════════════════════════ */
+type AuditRow = {
+  id: string;
+  userId: string | null;
+  action: string;
+  entity: string;
+  entityId: string;
+  ipAddress: string | null;
+  createdAt: string;
+};
+
 function AuditTab() {
-  const rows = [
-    ...activities.map((a, i) => ({
-      ...a,
-      ip: `10.0.${i}.${(i * 7) % 250}`,
-      severity: "info" as const,
-    })),
-    ...activities.map((a, i) => ({
-      ...a,
-      ts: a.ts.replace("10", "08"),
-      ip: `192.168.${i}.${(i * 13) % 200}`,
-      severity: i % 3 === 0 ? ("warn" as const) : ("info" as const),
-    })),
-  ];
+  const auditQ = trpc.admin.auditLog.useQuery({ limit: 100 });
+  const rows = (auditQ.data?.items ?? []) as unknown as AuditRow[];
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+
   return (
     <>
       <TabHeader
@@ -1107,8 +1084,8 @@ function AuditTab() {
             onClick={() =>
               downloadCSV(
                 "audit-trail.csv",
-                ["Time", "User", "Action", "Outcome", "IP", "Severity"],
-                rows.map((r) => [r.ts, r.user, r.action, r.outcome, r.ip, r.severity]),
+                ["Time", "Actor", "Action", "Entity", "Entity ID", "IP"],
+                rows.map((r) => [fmt(r.createdAt), r.userId ?? "system", r.action, r.entity, r.entityId, r.ipAddress ?? ""]),
               )
             }
             className="text-xs font-semibold text-accent hover:underline"
@@ -1117,35 +1094,39 @@ function AuditTab() {
           </button>
         }
       />
-      <Section title="Last 24 hours">
-        <div className="overflow-x-auto">
-          <table className="portal-table">
-            <thead>
-              <tr>
-                <th className="py-2">Time</th>
-                <th>User</th>
-                <th>Action</th>
-                <th>Outcome</th>
-                <th>IP</th>
-                <th>Severity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((a, i) => (
-                <tr key={i}>
-                  <td className="font-mono text-xs">{a.ts}</td>
-                  <td className="font-semibold text-navy">{a.user}</td>
-                  <td className="text-sm">{a.action}</td>
-                  <td className="text-xs text-muted-foreground">{a.outcome}</td>
-                  <td className="font-mono text-xs">{a.ip}</td>
-                  <td>
-                    <Badge tone={a.severity === "warn" ? "warm" : "success"}>{a.severity}</Badge>
-                  </td>
+      <Section title="Recent activity">
+        {auditQ.isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading audit trail…</p>
+        ) : rows.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No audit entries recorded yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="portal-table">
+              <thead>
+                <tr>
+                  <th className="py-2">Time</th>
+                  <th>Actor</th>
+                  <th>Action</th>
+                  <th>Entity</th>
+                  <th>Entity ID</th>
+                  <th>IP</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((a) => (
+                  <tr key={a.id}>
+                    <td className="font-mono text-xs">{fmt(a.createdAt)}</td>
+                    <td className="font-mono text-xs text-muted-foreground">{a.userId ? a.userId.slice(0, 8) : "system"}</td>
+                    <td className="text-sm font-semibold text-navy">{a.action}</td>
+                    <td><Badge tone="default">{a.entity}</Badge></td>
+                    <td className="font-mono text-xs text-muted-foreground">{a.entityId ? a.entityId.slice(0, 8) : "—"}</td>
+                    <td className="font-mono text-xs">{a.ipAddress ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Section>
     </>
   );

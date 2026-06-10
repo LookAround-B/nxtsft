@@ -389,50 +389,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Security */}
-            <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="font-display text-base font-bold text-navy">Security</h2>
-              <div className="mt-4 space-y-2">
-                {[
-                  {
-                    icon: Shield,
-                    label: "Password",
-                    sub: "Last changed 14 days ago",
-                    btn: "Change",
-                  },
-                  {
-                    icon: Phone,
-                    label: "Two-factor auth",
-                    sub: "OTP via +91 ●●●●● 4291",
-                    btn: "Manage",
-                  },
-                  {
-                    icon: Clock,
-                    label: "Active sessions",
-                    sub: "2 devices · Mumbai, Pune",
-                    btn: "Review",
-                  },
-                ].map(({ icon: Icon, label, sub, btn }) => (
-                  <div
-                    key={label}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-4 py-3 transition hover:bg-secondary/60"
-                  >
-                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white shadow-sm">
-                      <Icon size={14} className="text-accent" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-navy">{label}</div>
-                      <div className="truncate text-xs text-muted-foreground">{sub}</div>
-                    </div>
-                    <button
-                      onClick={() => toast(`${label}: action opened`)}
-                      className="shrink-0 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white"
-                    >
-                      {btn}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <SecurityPanel />
 
             {/* Activity */}
             <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
@@ -530,6 +487,164 @@ export default function ProfilePage() {
 
       <div className="mt-16" />
       <SiteFooter />
+    </div>
+  );
+}
+
+/* ─── Security panel (change password · 2FA · active sessions) ─── */
+type SessionRow = {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+};
+
+function SecurityPanel() {
+  const meQ = trpc.users.me.useQuery();
+  const sessionsQ = trpc.users.sessions.useQuery();
+
+  const changePassword = trpc.users.changePassword.useMutation({
+    onSuccess: () => {
+      setPw({ current: "", next: "", confirm: "" });
+      setShowPw(false);
+      toast.success("Password updated");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+  const terminate = trpc.users.terminateSession.useMutation({
+    onSuccess: () => { sessionsQ.refetch(); toast.success("Session signed out"); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+  const toggle2FA = trpc.users.toggleTwoFactor.useMutation({
+    onSuccess: () => { meQ.refetch(); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const [showPw, setShowPw] = useState(false);
+  const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
+  const [showSessions, setShowSessions] = useState(false);
+
+  const twoFA = meQ.data?.twoFactorEnabled ?? false;
+  const sessions = (sessionsQ.data ?? []) as unknown as SessionRow[];
+
+  const submitPw = () => {
+    if (!pw.current) return toast.error("Enter your current password.");
+    if (pw.next.length < 8) return toast.error("New password must be at least 8 characters.");
+    if (pw.next !== pw.confirm) return toast.error("New passwords don't match.");
+    changePassword.mutate({ currentPassword: pw.current, newPassword: pw.next });
+  };
+
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+  return (
+    <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
+      <h2 className="font-display text-base font-bold text-navy">Security</h2>
+      <div className="mt-4 space-y-2">
+        {/* Password */}
+        <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white shadow-sm">
+              <Shield size={14} className="text-accent" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-navy">Password</div>
+              <div className="truncate text-xs text-muted-foreground">Update your account password</div>
+            </div>
+            <button
+              onClick={() => setShowPw((v) => !v)}
+              className="shrink-0 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white"
+            >
+              {showPw ? "Close" : "Change"}
+            </button>
+          </div>
+          {showPw && (
+            <div className="mt-3 space-y-2">
+              {(["current", "next", "confirm"] as const).map((k) => (
+                <input
+                  key={k}
+                  type="password"
+                  value={pw[k]}
+                  onChange={(e) => setPw((p) => ({ ...p, [k]: e.target.value }))}
+                  placeholder={k === "current" ? "Current password" : k === "next" ? "New password" : "Confirm new password"}
+                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+                />
+              ))}
+              <button
+                onClick={submitPw}
+                disabled={changePassword.isPending}
+                className="rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                {changePassword.isPending ? "Updating…" : "Update password"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Two-factor */}
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-4 py-3">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white shadow-sm">
+            <Smartphone size={14} className="text-accent" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-navy">Two-factor authentication</div>
+            <div className="truncate text-xs text-muted-foreground">
+              {twoFA ? "Enabled · OTP required at login" : "Disabled · add an extra layer of security"}
+            </div>
+          </div>
+          <button
+            onClick={() => toggle2FA.mutate({ enabled: !twoFA })}
+            disabled={toggle2FA.isPending || meQ.isLoading}
+            className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+              twoFA ? "border-border bg-white text-rose-600 hover:bg-rose-50" : "border-accent bg-accent text-white hover:opacity-90"
+            }`}
+          >
+            {twoFA ? "Disable" : "Enable"}
+          </button>
+        </div>
+
+        {/* Active sessions */}
+        <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white shadow-sm">
+              <Clock size={14} className="text-accent" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-navy">Active sessions</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {sessionsQ.isLoading ? "Loading…" : `${sessions.length} active device${sessions.length !== 1 ? "s" : ""}`}
+              </div>
+            </div>
+            <button
+              onClick={() => setShowSessions((v) => !v)}
+              className="shrink-0 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white"
+            >
+              {showSessions ? "Hide" : "Review"}
+            </button>
+          </div>
+          {showSessions && sessions.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {sessions.map((s) => (
+                <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-xs font-medium text-navy">{s.userAgent ?? "Unknown device"}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {s.ipAddress ?? "—"} · since {fmt(s.createdAt)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => terminate.mutate({ sessionId: s.id })}
+                    disabled={terminate.isPending}
+                    className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -16,6 +16,7 @@ const safeUserSelect = {
   state: true,
   bio: true,
   credits: true,
+  twoFactorEnabled: true,
   joined: true,
   lastActive: true,
 };
@@ -130,10 +131,26 @@ export const usersRouter = router({
     }),
 
   siteVisits: protectedProcedure.query(async ({ ctx }) => {
-    return prisma.siteVisit.findMany({
+    const visits = await prisma.siteVisit.findMany({
       where: { userId: ctx.user.id },
       orderBy: { scheduledAt: "desc" },
     });
+
+    // SiteVisit has no Prisma relation to Property, so join manually by id.
+    const propertyIds = [...new Set(visits.map((v) => v.propertyId))];
+    const properties = await prisma.property.findMany({
+      where: { id: { in: propertyIds } },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        images: true,
+        location: { select: { city: true, locality: true } },
+      },
+    });
+    const byId = new Map(properties.map((p) => [p.id, p]));
+
+    return visits.map((v) => ({ ...v, property: byId.get(v.propertyId) ?? null }));
   }),
 
   changePassword: protectedProcedure

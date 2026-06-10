@@ -520,9 +520,220 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
             </Link>
           </div>
         </div>
+
+        <div className="mt-6">
+          <PropertyReviews propertyId={property.id} session={session} />
+        </div>
       </div>
 
       <SiteFooter />
+    </div>
+  );
+}
+
+/* ─── Reviews ──────────────────────────────────────────────────────────────── */
+type ReviewItem = {
+  id: string;
+  rating: number;
+  title: string;
+  content: string | null;
+  helpful: number;
+  createdAt: string;
+  author: { id: string; name: string; avatar: string | null } | null;
+};
+
+function StarRow({
+  value,
+  size = 14,
+  onSelect,
+}: {
+  value: number;
+  size?: number;
+  onSelect?: (n: number) => void;
+}) {
+  return (
+    <span className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((i) => {
+        const filled = i <= value;
+        const star = (
+          <Star
+            size={size}
+            className={filled ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}
+          />
+        );
+        return onSelect ? (
+          <button key={i} type="button" onClick={() => onSelect(i)} className="cursor-pointer transition hover:scale-110">
+            {star}
+          </button>
+        ) : (
+          <span key={i}>{star}</span>
+        );
+      })}
+    </span>
+  );
+}
+
+function PropertyReviews({
+  propertyId,
+  session,
+}: {
+  propertyId: string;
+  session: ReturnType<typeof useAuth>["session"];
+}) {
+  const router = useRouter();
+  const reviewsQ = trpc.reviews.list.useQuery({ propertyId });
+  const items = (reviewsQ.data?.items ?? []) as unknown as ReviewItem[];
+
+  const createReview = trpc.reviews.create.useMutation({
+    onSuccess: () => {
+      reviewsQ.refetch();
+      setForm({ rating: 0, title: "", content: "" });
+      setShowForm(false);
+      toast.success("Review posted!");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const markHelpful = trpc.reviews.markHelpful.useMutation({ onSuccess: () => reviewsQ.refetch() });
+
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ rating: 0, title: "", content: "" });
+
+  const avg = items.length ? items.reduce((a, r) => a + r.rating, 0) / items.length : 0;
+  const alreadyReviewed = !!session && items.some((r) => r.author?.id === session.id);
+
+  const fmtWhen = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+  const submit = () => {
+    if (form.rating < 1) return toast.error("Pick a star rating.");
+    if (form.title.trim().length < 3) return toast.error("Title must be at least 3 characters.");
+    createReview.mutate({
+      propertyId,
+      rating: form.rating,
+      title: form.title.trim(),
+      content: form.content.trim() || undefined,
+    });
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display text-lg font-bold text-navy">Reviews</h2>
+          {items.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <StarRow value={Math.round(avg)} size={15} />
+              <span className="text-sm font-bold text-navy">{avg.toFixed(1)}</span>
+              <span className="text-xs text-muted-foreground">({items.length})</span>
+            </div>
+          )}
+        </div>
+
+        {alreadyReviewed ? (
+          <span className="text-xs font-semibold text-emerald-600">✓ You reviewed this</span>
+        ) : (
+          <button
+            onClick={() => {
+              if (!session) {
+                router.push("/login");
+                return;
+              }
+              setShowForm((v) => !v);
+            }}
+            className="rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
+          >
+            {session ? (showForm ? "Cancel" : "Write a review") : "Sign in to review"}
+          </button>
+        )}
+      </div>
+
+      {showForm && !alreadyReviewed && (
+        <div className="mt-4 space-y-3 rounded-xl border border-border bg-secondary/20 p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-navy">Your rating:</span>
+            <StarRow value={form.rating} size={20} onSelect={(n) => setForm((f) => ({ ...f, rating: n }))} />
+          </div>
+          <input
+            value={form.title}
+            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+            placeholder="Summarise your experience"
+            maxLength={100}
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          <textarea
+            value={form.content}
+            onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+            placeholder="Tell others about the property, locality, owner experience… (optional)"
+            rows={3}
+            maxLength={1000}
+            className="w-full resize-none rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          <button
+            onClick={submit}
+            disabled={createReview.isPending}
+            className="rounded-xl bg-accent px-4 py-2 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+          >
+            {createReview.isPending ? "Posting…" : "Post review"}
+          </button>
+        </div>
+      )}
+
+      <div className="mt-5">
+        {reviewsQ.isLoading ? (
+          <div className="space-y-4">
+            {[1, 2].map((i) => (
+              <div key={i} className="animate-pulse space-y-2 border-b border-border pb-4">
+                <div className="h-4 w-40 rounded bg-secondary" />
+                <div className="h-3 w-full rounded bg-secondary" />
+              </div>
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="py-8 text-center">
+            <Star size={26} className="mx-auto mb-2 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">No reviews yet. Be the first to review this property.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {items.map((r) => {
+              const initials = (r.author?.name ?? "?")
+                .split(" ")
+                .map((s) => s[0] ?? "")
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
+              return (
+                <div key={r.id} className="py-4 first:pt-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-navy to-accent text-xs font-black text-white">
+                        {initials}
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-navy">{r.author?.name ?? "User"}</div>
+                        <StarRow value={r.rating} size={12} />
+                      </div>
+                    </div>
+                    <span className="font-mono text-[11px] text-muted-foreground">{fmtWhen(r.createdAt)}</span>
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-foreground">{r.title}</div>
+                  {r.content && <p className="mt-1 text-sm text-muted-foreground">{r.content}</p>}
+                  <button
+                    onClick={() => {
+                      if (!session) return router.push("/login");
+                      markHelpful.mutate({ id: r.id });
+                    }}
+                    disabled={markHelpful.isPending}
+                    className="mt-2 text-xs font-semibold text-muted-foreground hover:text-accent disabled:opacity-50"
+                  >
+                    👍 Helpful ({r.helpful})
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

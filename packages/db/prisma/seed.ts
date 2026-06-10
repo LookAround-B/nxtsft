@@ -364,6 +364,22 @@ async function main() {
   });
   console.log(`✓ Seeded ${visitSeed.length} site visits + favorites for demo buyer`);
 
+  // ── Audit log (idempotent: explicit ids) ────────────────────────────────────
+  const auditSeed = [
+    { id: "seed-audit-01", userId: uid("sa@nxtsft.com"), action: "user.role_changed", entity: "User", entityId: priya, ipAddress: "203.0.113.10", hoursAgo: 1 },
+    { id: "seed-audit-02", userId: uid("admin@nxtsft.com"), action: "property.approved", entity: "Property", entityId: propIdBySlug["skyline-3bhk-bandra-west-mumbai"], ipAddress: "203.0.113.22", hoursAgo: 3 },
+    { id: "seed-audit-03", userId: uid("admin@nxtsft.com"), action: "plan.updated", entity: "Plan", entityId: "seeker-basic", ipAddress: "203.0.113.22", hoursAgo: 6 },
+    { id: "seed-audit-04", userId: uid("supervisor@nxtsft.com"), action: "lead.reassigned", entity: "Lead", entityId: "seed-lead-03", ipAddress: "203.0.113.31", hoursAgo: 9 },
+    { id: "seed-audit-05", userId: uid("sa@nxtsft.com"), action: "config.updated", entity: "PlatformConfig", entityId: "gst_rate", ipAddress: "203.0.113.10", hoursAgo: 20 },
+    { id: "seed-audit-06", userId: uid("support@nxtsft.com"), action: "ticket.resolved", entity: "Ticket", entityId: "seed-tkt-04", ipAddress: "203.0.113.44", hoursAgo: 26 },
+  ];
+  for (const a of auditSeed) {
+    const { hoursAgo, ...rest } = a;
+    const data = { ...rest, createdAt: new Date(Date.now() - hoursAgo * 3_600_000) };
+    await prisma.auditLog.upsert({ where: { id: a.id }, update: data, create: data });
+  }
+  console.log(`✓ Seeded ${auditSeed.length} audit-log entries`);
+
   console.log(`\nDemo password for all users: ${DEMO_PASSWORD}`);
 }
 
