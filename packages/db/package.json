@@ -8,6 +8,7 @@
     "./seeds": "./seeds/index.ts"
   },
   "scripts": {
+    "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",

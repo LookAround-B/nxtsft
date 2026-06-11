@@ -1,6 +1,6 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-06-10
+> Last updated: 2026-06-11
 > Stack: Next.js 15 · tRPC v11 · Prisma 6 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
@@ -25,6 +25,8 @@
 - [x] `transpilePackages: ["@nxtsft/trpc", "@nxtsft/db", "@nxtsft/shared"]`
 - [x] `prisma.config.ts` in `packages/db` (Prisma 7-ready config)
 - [x] `.env.example` with required keys
+- [x] **Vercel deploy** *(06-11)* — deploys `apps/web` only (it hosts the site **and** the API via `/api/trpc` + `/api/v1/*`; Fastify `apps/api` is not deployed). Set Vercel **Root Directory = `apps/web`** and env var `DATABASE_URL`. Prisma client is generated on Vercel via `packages/db` `postinstall: prisma generate`; `schema.prisma` `binaryTargets` includes `rhel-openssl-3.0.x` for the Vercel runtime. Full guide: `docs/DEPLOYMENT.md`.
+  - ⚠️ Serverless connection pooling not yet hardened (`pg.Pool` opens per function instance) — use a pooled `DATABASE_URL` + cap pool `max` before real traffic.
 
 ### Database (`packages/db`)
 - [x] Prisma schema: `User`, `Session`, `Property`, `Location`, `Lead`, `Favorite`, `SiteVisit`, `CreditTransaction`, `Plan`, `Subscription`, `Payment`, `Ticket`, `Notification`
