@@ -821,7 +821,9 @@ export default function HomePage() {
     );
     els.forEach((el) => obs.observe(el));
     return () => obs.disconnect();
-  }, []);
+    // Re-run when async content (e.g. featured cards) mounts after first paint,
+    // otherwise those late elements never get observed and stay hidden.
+  }, [featuredQ.data]);
 
   const handleSearch = useCallback(() => {
     const q = query.trim();
@@ -925,6 +927,27 @@ export default function HomePage() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* ── Press marquee ──────────────────────────── */}
+      <section className="overflow-hidden border-y border-border bg-white py-5">
+        <div
+          className="flex whitespace-nowrap"
+          style={{ animation: "marquee 42s linear infinite", width: "max-content" }}
+        >
+          {[...PRESS, ...PRESS].map((item, i) => (
+            <div
+              key={i}
+              className="inline-flex shrink-0 items-center gap-3 border-r border-border px-8"
+            >
+              <span className="text-xs font-bold uppercase tracking-widest text-accent">
+                {item.outlet}
+              </span>
+              <span className="text-sm text-muted-foreground">&ldquo;{item.headline}&rdquo;</span>
+            </div>
+          ))}
+        </div>
+        <style>{`@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
       </section>
 
       {/* ── Animated stat cards ─────────────────────── */}
@@ -1291,27 +1314,6 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-      </section>
-
-      {/* ── Press marquee ──────────────────────────── */}
-      <section className="overflow-hidden border-y border-border bg-white py-5">
-        <div
-          className="flex whitespace-nowrap"
-          style={{ animation: "marquee 42s linear infinite", width: "max-content" }}
-        >
-          {[...PRESS, ...PRESS].map((item, i) => (
-            <div
-              key={i}
-              className="inline-flex shrink-0 items-center gap-3 border-r border-border px-8"
-            >
-              <span className="text-xs font-bold uppercase tracking-widest text-accent">
-                {item.outlet}
-              </span>
-              <span className="text-sm text-muted-foreground">&ldquo;{item.headline}&rdquo;</span>
-            </div>
-          ))}
-        </div>
-        <style>{`@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
       </section>
 
       {/* ── Portals ────────────────────────────────── */}
