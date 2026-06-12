@@ -213,6 +213,21 @@ export default function AgentsPage() {
 
   const featured = useMemo(() => AGENTS.filter((a) => a.featured), []);
 
+  // Instant typeahead matches (query only) shown right under the search box.
+  const qMatches = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return [];
+    return AGENTS.filter((a) =>
+      `${a.name} ${a.role} ${a.cities.join(" ")} ${a.specialties.join(" ")}`
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [q]);
+  const quickResults = qMatches.slice(0, 5);
+
+  const scrollToResults = () =>
+    document.getElementById("agent-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+
   const activeFilters = [
     city !== "All" && city,
     type !== "All" && type,
@@ -272,6 +287,63 @@ export default function AgentsPage() {
               >
                 <X size={15} />
               </button>
+            )}
+
+            {/* Instant results — appear inline as you type */}
+            {q.trim() && (
+              <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-white text-left shadow-2xl">
+                {quickResults.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    No agents match &ldquo;{q.trim()}&rdquo;. Try a city or speciality.
+                  </div>
+                ) : (
+                  <>
+                    <div className="border-b border-border bg-secondary/40 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {qMatches.length} match{qMatches.length !== 1 ? "es" : ""}
+                    </div>
+                    <ul className="max-h-[19rem] overflow-y-auto">
+                      {quickResults.map((a) => (
+                        <li key={a.name} className="border-b border-border last:border-0">
+                          <Link
+                            href={`/agents/${ownerSlug(a.name)}`}
+                            className="flex items-center gap-3 px-4 py-3 transition hover:bg-secondary"
+                          >
+                            <div
+                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-display text-sm font-black text-white ${a.color}`}
+                            >
+                              {a.initials}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="truncate font-display text-sm font-bold text-navy">
+                                  {a.name}
+                                </span>
+                                {a.verified && (
+                                  <ShieldCheck size={12} className="shrink-0 text-accent" />
+                                )}
+                              </div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {a.role} · {a.cities.slice(0, 2).join(", ")}
+                              </div>
+                            </div>
+                            <span className="flex shrink-0 items-center gap-0.5 text-xs font-bold text-navy">
+                              <Star size={11} className="fill-amber-400 text-amber-400" /> {a.rating}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                    {qMatches.length > quickResults.length && (
+                      <button
+                        onClick={scrollToResults}
+                        className="flex w-full items-center justify-center gap-1 bg-secondary/50 px-4 py-2.5 text-center text-xs font-bold text-accent transition hover:bg-secondary"
+                      >
+                        View all {qMatches.length} results <ArrowRight size={11} />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             )}
           </div>
 
@@ -535,7 +607,7 @@ export default function AgentsPage() {
         )}
 
         {/* ── Agent grid ──────────────────────────────────────────── */}
-        <div className="mb-2 text-xs font-bold uppercase tracking-widest text-accent">
+        <div id="agent-results" className="mb-2 scroll-mt-32 text-xs font-bold uppercase tracking-widest text-accent">
           {!q && city === "All" ? "All agents" : "Results"}
         </div>
         <h2 className="mb-6 font-display text-2xl font-black text-navy">
