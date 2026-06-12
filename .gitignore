@@ -18,6 +18,9 @@ dist/
 .env.test.local
 .env.production.local
 
+# Local secrets — never commit
+passwords.md
+
 # Logs
 logs/
 *.log
