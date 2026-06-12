@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Heart,
   ArrowLeft,
+  ChevronLeft,
   ChevronRight,
   Building2,
   Coins,
@@ -331,6 +332,34 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                   sizes="(max-width: 1024px) 100vw, 67vw"
                   priority
                 />
+                {/* Carousel arrows */}
+                {images.length > 1 && (
+                  <>
+                    <button
+                      aria-label="Previous image"
+                      onClick={() => setActiveImage((i) => (i - 1 + images.length) % images.length)}
+                      className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy shadow transition hover:bg-white"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <button
+                      aria-label="Next image"
+                      onClick={() => setActiveImage((i) => (i + 1) % images.length)}
+                      className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy shadow transition hover:bg-white"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                    <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+                      {images.map((_, i) => (
+                        <span
+                          key={i}
+                          className={`h-2 rounded-full transition-all ${i === activeImage ? "w-5 bg-white" : "w-2 bg-white/60"}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
                 {/* Purpose badge */}
                 <div className="absolute left-4 top-4">
                   <span className={`rounded-full px-3 py-1 text-xs font-bold text-white ${property.purpose === "Sale" ? "bg-accent" : "bg-emerald-500"}`}>

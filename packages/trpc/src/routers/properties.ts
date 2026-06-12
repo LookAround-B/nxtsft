@@ -89,8 +89,9 @@ export const propertiesRouter = router({
 
       const hasMore = items.length > limit;
       const page = hasMore ? items.slice(0, limit) : items;
+      const total = await prisma.property.count({ where });
 
-      return serializeProperty({ items: page, nextCursor: page.at(-1)?.id ?? null, hasMore });
+      return serializeProperty({ items: page, nextCursor: page.at(-1)?.id ?? null, hasMore, total });
     }),
 
   // Single property by id or slug

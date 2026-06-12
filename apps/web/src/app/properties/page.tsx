@@ -11,6 +11,8 @@ import {
   SquareStack,
   X,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   BadgeCheck,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -50,9 +52,17 @@ type PropertyItem = {
 };
 
 function PropertyCard({ p }: { p: PropertyItem }) {
-  const img =
-    p.images[0] ??
-    "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80";
+  const images =
+    p.images.length > 0
+      ? p.images
+      : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80"];
+  const [active, setActive] = useState(0);
+
+  const step = (e: React.MouseEvent, dir: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActive((i) => (i + dir + images.length) % images.length);
+  };
 
   return (
     <Link
@@ -61,13 +71,42 @@ function PropertyCard({ p }: { p: PropertyItem }) {
     >
       <div className="relative h-48 overflow-hidden bg-secondary">
         <Image
-          src={img}
+          src={images[active] ?? images[0]!}
           alt={p.title}
           fill
           className="object-cover transition-transform duration-300 group-hover:scale-105"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              aria-label="Previous image"
+              onClick={(e) => step(e, -1)}
+              className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy opacity-0 shadow transition group-hover:opacity-100 hover:bg-white"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="Next image"
+              onClick={(e) => step(e, 1)}
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy opacity-0 shadow transition group-hover:opacity-100 hover:bg-white"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+              {images.map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all ${i === active ? "w-4 bg-white" : "w-1.5 bg-white/60"}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
           <span
             className={`rounded-full px-2.5 py-1 text-[11px] font-bold text-white ${p.purpose === "Sale" ? "bg-accent" : "bg-emerald-500"}`}
@@ -170,6 +209,7 @@ function PropertiesInner() {
 
   const properties = (query.data?.pages.flatMap((p: { items: unknown[] }) => p.items) ?? []) as PropertyItem[];
   const hasMore = query.data?.pages.at(-1)?.hasMore ?? false;
+  const total = (query.data?.pages[0] as { total?: number } | undefined)?.total ?? properties.length;
   const activeCount = [city, type, purpose, bedrooms].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -285,8 +325,7 @@ function PropertiesInner() {
           </h1>
           {!query.isLoading && (
             <p className="mt-1 text-sm text-muted-foreground">
-              {properties.length} listing{properties.length !== 1 ? "s" : ""} found
-              {hasMore && " · more available"}
+              {total} listing{total !== 1 ? "s" : ""} found
             </p>
           )}
         </div>
@@ -340,6 +379,7 @@ function PropertiesInner() {
               isLoading={query.isFetchingNextPage}
               hasMore={hasMore}
               shown={properties.length}
+              total={total}
               noun="properties"
             />
           </>
