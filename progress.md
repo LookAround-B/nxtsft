@@ -27,6 +27,8 @@
 - [x] `.env.example` with required keys
 - [x] **Vercel deploy** *(06-11)* — deploys `apps/web` only (it hosts the site **and** the API via `/api/trpc` + `/api/v1/*`; Fastify `apps/api` is not deployed). Set Vercel **Root Directory = `apps/web`** and env var `DATABASE_URL`. Prisma client is generated on Vercel via `packages/db` `postinstall: prisma generate`; `schema.prisma` `binaryTargets` includes `rhel-openssl-3.0.x` for the Vercel runtime. Full guide: `docs/DEPLOYMENT.md`.
   - ⚠️ Serverless connection pooling not yet hardened (`pg.Pool` opens per function instance) — use a pooled `DATABASE_URL` + cap pool `max` before real traffic.
+  - **DB = Vercel-managed Neon Postgres** *(06-12)*; `DATABASE_URL` (pooled) injected by the integration. Schema pushed + seeded against it. Local `.env` still points at the separate dev DB.
+- [x] **Property catalog + browse UX** *(06-12)* — seed expanded to **53 listings** spanning all 12 home cities (3-6 each) and BHK buckets 1→6; each gets a varied 4-5 image gallery. `/properties` shows the true filtered **total** (not just loaded count); listing cards + detail page have image **carousels**. Home "Trending" reveal-animation fixed (async cards now observed); press marquee moved above the KPI band.
 
 ### Database (`packages/db`)
 - [x] Prisma schema: `User`, `Session`, `Property`, `Location`, `Lead`, `Favorite`, `SiteVisit`, `CreditTransaction`, `Plan`, `Subscription`, `Payment`, `Ticket`, `Notification`

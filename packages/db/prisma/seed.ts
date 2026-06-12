@@ -290,20 +290,424 @@ async function main() {
       image: IMG("photo-1567496898669-ee935f5f647a"), city: "Hyderabad", state: "Telangana", locality: "Gachibowli",
       amenities: ["Swimming Pool", "Gym / Fitness Centre", "Clubhouse", "24/7 Security", "Landscaped Garden"],
     },
+
+    // ── Apartments ───────────────────────────────────────────────────────────
+    {
+      slug: "lakeside-2bhk-powai-mumbai", title: "Lakeside 2 BHK, Powai",
+      type: "Apartment", purpose: "Sale", price: 21000000, area: 1240, bhk: "2 BHK", bedrooms: 2, bathrooms: 2, parking: 1,
+      furnishing: "Semi-Furnished", facing: "North-East", possession: "Ready to Move", builder: "Hiranandani",
+      rera: "P51800000011", featured: true, ownerId: rohan, views: 256, matchScore: 89,
+      image: IMG("photo-1502672260266-1c1ef2d93688"), city: "Mumbai", state: "Maharashtra", locality: "Powai",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "24/7 Security", "Clubhouse", "Power Backup"],
+    },
+    {
+      slug: "sunrise-1bhk-wakad-pune", title: "Sunrise 1 BHK, Wakad",
+      type: "Apartment", purpose: "Rent", price: 22000, area: 680, bhk: "1 BHK", bedrooms: 1, bathrooms: 1, parking: 1,
+      furnishing: "Furnished", facing: "East", possession: "Ready to Move", builder: "Kolte Patil",
+      rera: "P52100000012", featured: false, ownerId: ananya, views: 112, matchScore: 75,
+      image: IMG("photo-1494526585095-c41746248156"), city: "Pune", state: "Maharashtra", locality: "Wakad",
+      amenities: ["Gym / Fitness Centre", "Power Backup", "Elevator / Lift", "Visitor Parking"],
+    },
+    {
+      slug: "orchid-3bhk-indiranagar-bengaluru", title: "Orchid 3 BHK, Indiranagar",
+      type: "Apartment", purpose: "Sale", price: 18500000, area: 1580, bhk: "3 BHK", bedrooms: 3, bathrooms: 3, parking: 2,
+      furnishing: "Semi-Furnished", facing: "West", possession: "Ready to Move", builder: "Brigade Group",
+      rera: "PRM/KA/RERA/1251/446/PR/000013", featured: true, ownerId: priya, views: 298, matchScore: 90,
+      image: IMG("photo-1567496898669-ee935f5f647a"), city: "Bengaluru", state: "Karnataka", locality: "Indiranagar",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "Clubhouse", "24/7 Security", "Landscaped Garden"],
+    },
+    {
+      slug: "crystal-2bhk-kondapur-hyderabad", title: "Crystal 2 BHK, Kondapur",
+      type: "Apartment", purpose: "Rent", price: 32000, area: 1080, bhk: "2 BHK", bedrooms: 2, bathrooms: 2, parking: 1,
+      furnishing: "Furnished", facing: "North", possession: "Ready to Move", builder: "My Home Group",
+      rera: "P02400000014", featured: false, ownerId: ananya, views: 134, matchScore: 81,
+      image: IMG("photo-1512917774080-9991f1c4c750"), city: "Hyderabad", state: "Telangana", locality: "Kondapur",
+      amenities: ["Gym / Fitness Centre", "Power Backup", "24/7 Security", "Children's Play Area"],
+    },
+
+    // ── Villas ───────────────────────────────────────────────────────────────
+    {
+      slug: "emerald-villa-ecr-chennai", title: "Emerald 4 BHK Villa, ECR",
+      type: "Villa", purpose: "Sale", price: 36000000, area: 3000, bhk: "4 BHK", bedrooms: 4, bathrooms: 4, parking: 2,
+      furnishing: "Unfurnished", facing: "East", possession: "Ready to Move", builder: "Casagrand",
+      rera: "TN/29/Building/0015", featured: true, ownerId: rohan, views: 187, matchScore: 86,
+      image: IMG("photo-1564013799919-ab600027ffc6"), city: "Chennai", state: "Tamil Nadu", locality: "ECR",
+      amenities: ["Swimming Pool", "Landscaped Garden", "Covered Parking", "24/7 Security", "Children's Play Area"],
+    },
+    {
+      slug: "serene-villa-new-town-kolkata", title: "Serene 4 BHK Villa, New Town",
+      type: "Villa", purpose: "Sale", price: 28000000, area: 2800, bhk: "4 BHK", bedrooms: 4, bathrooms: 4, parking: 2,
+      furnishing: "Semi-Furnished", facing: "South", possession: "Ready to Move", builder: "PS Group",
+      rera: "WB/RERA/0016", featured: false, ownerId: ananya, views: 121, matchScore: 80,
+      image: IMG("photo-1564013799919-ab600027ffc6"), city: "Kolkata", state: "West Bengal", locality: "New Town",
+      amenities: ["Landscaped Garden", "Covered Parking", "24/7 Security", "Clubhouse"],
+    },
+
+    // ── Studios ──────────────────────────────────────────────────────────────
+    {
+      slug: "cozy-studio-andheri-east-mumbai", title: "Cozy Studio, Andheri East",
+      type: "Studio", purpose: "Rent", price: 26000, area: 450, bhk: "1 BHK", bedrooms: 1, bathrooms: 1, parking: 0,
+      furnishing: "Furnished", facing: "West", possession: "Ready to Move", builder: "Independent",
+      rera: "P51800000017", featured: false, ownerId: priya, views: 98, matchScore: 72,
+      image: IMG("photo-1522708323590-d24dbb6b0267"), city: "Mumbai", state: "Maharashtra", locality: "Andheri East",
+      amenities: ["Power Backup", "24/7 Security", "Elevator / Lift", "CCTV Surveillance"],
+    },
+    {
+      slug: "smart-studio-electronic-city-bengaluru", title: "Smart Studio, Electronic City",
+      type: "Studio", purpose: "Rent", price: 19000, area: 480, bhk: "1 BHK", bedrooms: 1, bathrooms: 1, parking: 1,
+      furnishing: "Furnished", facing: "East", possession: "Ready to Move", builder: "Salarpuria Sattva",
+      rera: "PRM/KA/RERA/1251/446/PR/000018", featured: false, ownerId: rohan, views: 156, matchScore: 76,
+      image: IMG("photo-1522708323590-d24dbb6b0267"), city: "Bengaluru", state: "Karnataka", locality: "Electronic City",
+      amenities: ["Power Backup", "24/7 Security", "Gym / Fitness Centre", "CCTV Surveillance"],
+    },
+
+    // ── Offices ──────────────────────────────────────────────────────────────
+    {
+      slug: "premium-office-bkc-mumbai", title: "Premium Office Floor, BKC",
+      type: "Office", purpose: "Rent", price: 450000, area: 5200, bhk: null, bedrooms: 0, bathrooms: 3, parking: 8,
+      furnishing: "Furnished", facing: "North", possession: "Ready to Move", builder: "K Raheja Corp",
+      rera: "P51800000019", featured: true, ownerId: priya, views: 276, matchScore: 84,
+      image: IMG("photo-1497366216548-37526070297c"), city: "Mumbai", state: "Maharashtra", locality: "Bandra Kurla Complex",
+      amenities: ["Power Backup", "24/7 Security", "Covered Parking", "Elevator / Lift", "CCTV Surveillance"],
+    },
+    {
+      slug: "tech-office-hinjewadi-pune", title: "Tech Park Office, Hinjewadi",
+      type: "Office", purpose: "Sale", price: 32000000, area: 3800, bhk: null, bedrooms: 0, bathrooms: 2, parking: 6,
+      furnishing: "Semi-Furnished", facing: "East", possession: "Ready to Move", builder: "Panchshil",
+      rera: "P52100000020", featured: false, ownerId: ananya, views: 143, matchScore: 79,
+      image: IMG("photo-1497366216548-37526070297c"), city: "Pune", state: "Maharashtra", locality: "Hinjewadi",
+      amenities: ["Power Backup", "24/7 Security", "Covered Parking", "Elevator / Lift"],
+    },
+
+    // ── Bungalows ──────────────────────────────────────────────────────────────
+    {
+      slug: "royal-bungalow-jubilee-hills-hyderabad", title: "Royal 5 BHK Bungalow, Jubilee Hills",
+      type: "Bungalow", purpose: "Sale", price: 95000000, area: 6000, bhk: "5 BHK", bedrooms: 5, bathrooms: 6, parking: 4,
+      furnishing: "Semi-Furnished", facing: "East", possession: "Ready to Move", builder: "Independent",
+      rera: "P02400000021", featured: true, ownerId: rohan, views: 312, matchScore: 92,
+      image: IMG("photo-1605276374104-dee2a0ed3cd6"), city: "Hyderabad", state: "Telangana", locality: "Jubilee Hills",
+      amenities: ["Swimming Pool", "Landscaped Garden", "Covered Parking", "24/7 Security", "Smart Home"],
+    },
+    {
+      slug: "garden-bungalow-koregaon-park-pune", title: "Garden 4 BHK Bungalow, Koregaon Park",
+      type: "Bungalow", purpose: "Sale", price: 52000000, area: 4200, bhk: "4 BHK", bedrooms: 4, bathrooms: 5, parking: 3,
+      furnishing: "Unfurnished", facing: "North", possession: "Ready to Move", builder: "Independent",
+      rera: "P52100000022", featured: false, ownerId: ananya, views: 167, matchScore: 85,
+      image: IMG("photo-1605276374104-dee2a0ed3cd6"), city: "Pune", state: "Maharashtra", locality: "Koregaon Park",
+      amenities: ["Landscaped Garden", "Covered Parking", "24/7 Security", "Power Backup"],
+    },
+
+    // ── Plots ──────────────────────────────────────────────────────────────────
+    {
+      slug: "premium-plot-sarjapur-bengaluru", title: "DTCP-Approved Plot, Sarjapur Road",
+      type: "Plot", purpose: "Sale", price: 12000000, area: 2000, bhk: null, bedrooms: 0, bathrooms: 0, parking: 0,
+      furnishing: "Unfurnished", facing: "East", possession: "Ready to Move", builder: "Independent",
+      rera: "PRM/KA/RERA/1251/446/PR/000023", featured: false, ownerId: priya, views: 87, matchScore: 73,
+      image: IMG("photo-1500382017468-9049fed747ef"), city: "Bengaluru", state: "Karnataka", locality: "Sarjapur Road",
+      amenities: ["24/7 Security", "Jogging Track"],
+    },
+    {
+      slug: "corner-plot-kompally-hyderabad", title: "Corner Residential Plot, Kompally",
+      type: "Plot", purpose: "Sale", price: 6800000, area: 1800, bhk: null, bedrooms: 0, bathrooms: 0, parking: 0,
+      furnishing: "Unfurnished", facing: "North-East", possession: "Ready to Move", builder: "Independent",
+      rera: "P02400000024", featured: false, ownerId: ananya, views: 76, matchScore: 70,
+      image: IMG("photo-1500382017468-9049fed747ef"), city: "Hyderabad", state: "Telangana", locality: "Kompally",
+      amenities: ["24/7 Security", "Gated Community"],
+    },
+
+    // ── PGs ────────────────────────────────────────────────────────────────────
+    {
+      slug: "elite-pg-hsr-layout-bengaluru", title: "Elite Co-living PG, HSR Layout",
+      type: "PG", purpose: "Rent", price: 16000, area: 200, bhk: "1 BHK", bedrooms: 1, bathrooms: 1, parking: 0,
+      furnishing: "Furnished", facing: "South", possession: "Ready to Move", builder: "Zolo",
+      rera: "PRM/KA/RERA/1251/446/PR/000025", featured: false, ownerId: rohan, views: 189, matchScore: 75,
+      image: IMG("photo-1555854877-bab0e564b8d5"), city: "Bengaluru", state: "Karnataka", locality: "HSR Layout",
+      amenities: ["Power Backup", "24/7 Security", "Community Hall", "CCTV Surveillance"],
+    },
+    {
+      slug: "urban-pg-viman-nagar-pune", title: "Urban PG, Viman Nagar",
+      type: "PG", purpose: "Rent", price: 14000, area: 180, bhk: "1 BHK", bedrooms: 1, bathrooms: 1, parking: 0,
+      furnishing: "Furnished", facing: "West", possession: "Ready to Move", builder: "Stanza Living",
+      rera: "P52100000026", featured: false, ownerId: ananya, views: 145, matchScore: 73,
+      image: IMG("photo-1555854877-bab0e564b8d5"), city: "Pune", state: "Maharashtra", locality: "Viman Nagar",
+      amenities: ["Power Backup", "24/7 Security", "Community Hall", "CCTV Surveillance"],
+    },
+
+    // ── Delhi NCR ──────────────────────────────────────────────────────────────
+    {
+      slug: "saket-2bhk-delhi", title: "Garden Estate 2 BHK, Saket",
+      type: "Apartment", purpose: "Sale", price: 16500000, area: 1150, bhk: "2 BHK", bedrooms: 2, bathrooms: 2, parking: 1,
+      furnishing: "Semi-Furnished", facing: "East", possession: "Ready to Move", builder: "DLF",
+      rera: "DLRERA2024P0027", featured: false, ownerId: rohan, views: 221, matchScore: 87,
+      image: IMG("photo-1502672260266-1c1ef2d93688"), city: "Delhi NCR", state: "Delhi", locality: "Saket",
+      amenities: ["Gym / Fitness Centre", "Power Backup", "Elevator / Lift", "24/7 Security"],
+    },
+    {
+      slug: "dwarka-3bhk-delhi", title: "Sky Court 3 BHK, Dwarka",
+      type: "Apartment", purpose: "Sale", price: 19500000, area: 1620, bhk: "3 BHK", bedrooms: 3, bathrooms: 3, parking: 2,
+      furnishing: "Semi-Furnished", facing: "North", possession: "Ready to Move", builder: "Godrej Properties",
+      rera: "DLRERA2024P0028", featured: true, ownerId: ananya, views: 305, matchScore: 90,
+      image: IMG("photo-1512917774080-9991f1c4c750"), city: "Delhi NCR", state: "Delhi", locality: "Dwarka",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "24/7 Security", "Clubhouse", "Power Backup"],
+    },
+    {
+      slug: "vasant-kunj-bungalow-delhi", title: "Vasant 5 BHK Bungalow, Vasant Kunj",
+      type: "Bungalow", purpose: "Sale", price: 120000000, area: 6500, bhk: "5 BHK", bedrooms: 5, bathrooms: 6, parking: 4,
+      furnishing: "Semi-Furnished", facing: "East", possession: "Ready to Move", builder: "Independent",
+      rera: "DLRERA2024P0029", featured: false, ownerId: priya, views: 198, matchScore: 91,
+      image: IMG("photo-1605276374104-dee2a0ed3cd6"), city: "Delhi NCR", state: "Delhi", locality: "Vasant Kunj",
+      amenities: ["Swimming Pool", "Landscaped Garden", "Covered Parking", "24/7 Security", "Smart Home"],
+    },
+    {
+      slug: "rohini-1bhk-delhi", title: "Compact 1 BHK, Rohini",
+      type: "Apartment", purpose: "Rent", price: 24000, area: 620, bhk: "1 BHK", bedrooms: 1, bathrooms: 1, parking: 1,
+      furnishing: "Furnished", facing: "West", possession: "Ready to Move", builder: "Ansal API",
+      rera: "DLRERA2024P0030", featured: false, ownerId: rohan, views: 109, matchScore: 74,
+      image: IMG("photo-1494526585095-c41746248156"), city: "Delhi NCR", state: "Delhi", locality: "Rohini",
+      amenities: ["Power Backup", "Elevator / Lift", "Visitor Parking", "24/7 Security"],
+    },
+
+    // ── Jaipur ───────────────────────────────────────────────────────────────
+    {
+      slug: "malviya-nagar-2bhk-jaipur", title: "Pink City 2 BHK, Malviya Nagar",
+      type: "Apartment", purpose: "Sale", price: 7200000, area: 1080, bhk: "2 BHK", bedrooms: 2, bathrooms: 2, parking: 1,
+      furnishing: "Semi-Furnished", facing: "East", possession: "Ready to Move", builder: "Mahima Group",
+      rera: "RAJ/P/2024/0031", featured: false, ownerId: ananya, views: 132, matchScore: 79,
+      image: IMG("photo-1502672260266-1c1ef2d93688"), city: "Jaipur", state: "Rajasthan", locality: "Malviya Nagar",
+      amenities: ["Gym / Fitness Centre", "Power Backup", "Elevator / Lift", "24/7 Security"],
+    },
+    {
+      slug: "vaishali-3bhk-jaipur", title: "Royal Residency 3 BHK, Vaishali Nagar",
+      type: "Apartment", purpose: "Sale", price: 11000000, area: 1550, bhk: "3 BHK", bedrooms: 3, bathrooms: 3, parking: 2,
+      furnishing: "Semi-Furnished", facing: "North-East", possession: "Ready to Move", builder: "Okay Plus",
+      rera: "RAJ/P/2024/0032", featured: true, ownerId: rohan, views: 247, matchScore: 88,
+      image: IMG("photo-1567496898669-ee935f5f647a"), city: "Jaipur", state: "Rajasthan", locality: "Vaishali Nagar",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "Clubhouse", "24/7 Security", "Landscaped Garden"],
+    },
+    {
+      slug: "mansarovar-villa-jaipur", title: "Heritage 4 BHK Villa, Mansarovar",
+      type: "Villa", purpose: "Sale", price: 24000000, area: 2700, bhk: "4 BHK", bedrooms: 4, bathrooms: 4, parking: 2,
+      furnishing: "Unfurnished", facing: "South", possession: "Ready to Move", builder: "Independent",
+      rera: "RAJ/P/2024/0033", featured: false, ownerId: priya, views: 118, matchScore: 83,
+      image: IMG("photo-1564013799919-ab600027ffc6"), city: "Jaipur", state: "Rajasthan", locality: "Mansarovar",
+      amenities: ["Landscaped Garden", "Covered Parking", "24/7 Security", "Clubhouse"],
+    },
+    {
+      slug: "c-scheme-studio-jaipur", title: "City Studio, C-Scheme",
+      type: "Studio", purpose: "Rent", price: 17000, area: 480, bhk: "1 BHK", bedrooms: 1, bathrooms: 1, parking: 1,
+      furnishing: "Furnished", facing: "East", possession: "Ready to Move", builder: "Independent",
+      rera: "RAJ/P/2024/0034", featured: false, ownerId: ananya, views: 94, matchScore: 71,
+      image: IMG("photo-1522708323590-d24dbb6b0267"), city: "Jaipur", state: "Rajasthan", locality: "C-Scheme",
+      amenities: ["Power Backup", "24/7 Security", "Elevator / Lift", "CCTV Surveillance"],
+    },
+
+    // ── Kochi ──────────────────────────────────────────────────────────────────
+    {
+      slug: "marine-drive-3bhk-kochi", title: "Backwater 3 BHK, Marine Drive",
+      type: "Apartment", purpose: "Sale", price: 13500000, area: 1600, bhk: "3 BHK", bedrooms: 3, bathrooms: 3, parking: 2,
+      furnishing: "Semi-Furnished", facing: "West", possession: "Ready to Move", builder: "Sobha Ltd",
+      rera: "K-RERA/P/2024/0035", featured: true, ownerId: rohan, views: 268, matchScore: 89,
+      image: IMG("photo-1512917774080-9991f1c4c750"), city: "Kochi", state: "Kerala", locality: "Marine Drive",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "24/7 Security", "Clubhouse", "Power Backup"],
+    },
+    {
+      slug: "kakkanad-2bhk-kochi", title: "InfoPark 2 BHK, Kakkanad",
+      type: "Apartment", purpose: "Rent", price: 28000, area: 1120, bhk: "2 BHK", bedrooms: 2, bathrooms: 2, parking: 1,
+      furnishing: "Furnished", facing: "East", possession: "Ready to Move", builder: "Skyline Builders",
+      rera: "K-RERA/P/2024/0036", featured: false, ownerId: ananya, views: 141, matchScore: 80,
+      image: IMG("photo-1502672260266-1c1ef2d93688"), city: "Kochi", state: "Kerala", locality: "Kakkanad",
+      amenities: ["Gym / Fitness Centre", "Power Backup", "Elevator / Lift", "24/7 Security"],
+    },
+    {
+      slug: "panampilly-villa-kochi", title: "Lagoon 4 BHK Villa, Panampilly Nagar",
+      type: "Villa", purpose: "Sale", price: 30000000, area: 2900, bhk: "4 BHK", bedrooms: 4, bathrooms: 4, parking: 2,
+      furnishing: "Unfurnished", facing: "North-East", possession: "Ready to Move", builder: "Asset Homes",
+      rera: "K-RERA/P/2024/0037", featured: false, ownerId: priya, views: 126, matchScore: 84,
+      image: IMG("photo-1564013799919-ab600027ffc6"), city: "Kochi", state: "Kerala", locality: "Panampilly Nagar",
+      amenities: ["Landscaped Garden", "Covered Parking", "24/7 Security", "Clubhouse"],
+    },
+    {
+      slug: "edappally-pg-kochi", title: "Riverside Co-living PG, Edappally",
+      type: "PG", purpose: "Rent", price: 13000, area: 190, bhk: "1 BHK", bedrooms: 1, bathrooms: 1, parking: 0,
+      furnishing: "Furnished", facing: "South", possession: "Ready to Move", builder: "Independent",
+      rera: "K-RERA/P/2024/0038", featured: false, ownerId: rohan, views: 152, matchScore: 72,
+      image: IMG("photo-1555854877-bab0e564b8d5"), city: "Kochi", state: "Kerala", locality: "Edappally",
+      amenities: ["Power Backup", "24/7 Security", "Community Hall", "CCTV Surveillance"],
+    },
+
+    // ── Gurgaon ──────────────────────────────────────────────────────────────
+    {
+      slug: "golf-course-4bhk-gurgaon", title: "Aralias 4 BHK, Golf Course Road",
+      type: "Apartment", purpose: "Sale", price: 38000000, area: 2600, bhk: "4 BHK", bedrooms: 4, bathrooms: 4, parking: 2,
+      furnishing: "Furnished", facing: "East", possession: "Ready to Move", builder: "DLF",
+      rera: "GGM/456/188/2024/0039", featured: true, ownerId: ananya, views: 334, matchScore: 92,
+      image: IMG("photo-1567496898669-ee935f5f647a"), city: "Gurgaon", state: "Haryana", locality: "Golf Course Road",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "24/7 Security", "Clubhouse", "Landscaped Garden"],
+    },
+    {
+      slug: "sohna-2bhk-gurgaon", title: "Sohna Heights 2 BHK, Sohna Road",
+      type: "Apartment", purpose: "Sale", price: 9500000, area: 1180, bhk: "2 BHK", bedrooms: 2, bathrooms: 2, parking: 1,
+      furnishing: "Unfurnished", facing: "North", possession: "Under Construction", builder: "M3M",
+      rera: "GGM/457/189/2024/0040", featured: false, ownerId: rohan, views: 145, matchScore: 78,
+      image: IMG("photo-1494526585095-c41746248156"), city: "Gurgaon", state: "Haryana", locality: "Sohna Road",
+      amenities: ["Gym / Fitness Centre", "Power Backup", "Elevator / Lift", "24/7 Security"],
+    },
+    {
+      slug: "sector56-studio-gurgaon", title: "Urban Studio, Sector 56",
+      type: "Studio", purpose: "Rent", price: 21000, area: 500, bhk: "1 BHK", bedrooms: 1, bathrooms: 1, parking: 1,
+      furnishing: "Furnished", facing: "West", possession: "Ready to Move", builder: "Independent",
+      rera: "GGM/458/190/2024/0041", featured: false, ownerId: priya, views: 103, matchScore: 73,
+      image: IMG("photo-1522708323590-d24dbb6b0267"), city: "Gurgaon", state: "Haryana", locality: "Sector 56",
+      amenities: ["Power Backup", "24/7 Security", "Elevator / Lift", "CCTV Surveillance"],
+    },
+
+    // ── Ahmedabad ──────────────────────────────────────────────────────────────
+    {
+      slug: "satellite-3bhk-ahmedabad", title: "Satellite Square 3 BHK, Satellite",
+      type: "Apartment", purpose: "Sale", price: 12000000, area: 1700, bhk: "3 BHK", bedrooms: 3, bathrooms: 3, parking: 2,
+      furnishing: "Semi-Furnished", facing: "East", possession: "Ready to Move", builder: "Adani Realty",
+      rera: "PR/GJ/AHMEDABAD/0042", featured: false, ownerId: ananya, views: 188, matchScore: 85,
+      image: IMG("photo-1512917774080-9991f1c4c750"), city: "Ahmedabad", state: "Gujarat", locality: "Satellite",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "24/7 Security", "Clubhouse"],
+    },
+    {
+      slug: "bodakdev-bungalow-ahmedabad", title: "Grand 6 BHK Bungalow, Bodakdev",
+      type: "Bungalow", purpose: "Sale", price: 65000000, area: 5500, bhk: "6 BHK", bedrooms: 6, bathrooms: 6, parking: 4,
+      furnishing: "Semi-Furnished", facing: "North", possession: "Ready to Move", builder: "Independent",
+      rera: "PR/GJ/AHMEDABAD/0043", featured: false, ownerId: priya, views: 174, matchScore: 88,
+      image: IMG("photo-1605276374104-dee2a0ed3cd6"), city: "Ahmedabad", state: "Gujarat", locality: "Bodakdev",
+      amenities: ["Swimming Pool", "Landscaped Garden", "Covered Parking", "24/7 Security", "Smart Home"],
+    },
+    {
+      slug: "sg-highway-office-ahmedabad", title: "Corporate Office, SG Highway",
+      type: "Office", purpose: "Rent", price: 220000, area: 3000, bhk: null, bedrooms: 0, bathrooms: 2, parking: 5,
+      furnishing: "Furnished", facing: "East", possession: "Ready to Move", builder: "Safal Group",
+      rera: "PR/GJ/AHMEDABAD/0044", featured: false, ownerId: rohan, views: 137, matchScore: 79,
+      image: IMG("photo-1497366216548-37526070297c"), city: "Ahmedabad", state: "Gujarat", locality: "SG Highway",
+      amenities: ["Power Backup", "24/7 Security", "Covered Parking", "Elevator / Lift", "CCTV Surveillance"],
+    },
+
+    // ── Noida ──────────────────────────────────────────────────────────────────
+    {
+      slug: "sector150-3bhk-noida", title: "Sports City 3 BHK, Sector 150",
+      type: "Apartment", purpose: "Sale", price: 14000000, area: 1750, bhk: "3 BHK", bedrooms: 3, bathrooms: 3, parking: 2,
+      furnishing: "Semi-Furnished", facing: "North-East", possession: "Ready to Move", builder: "ATS Group",
+      rera: "UPRERAPRJ0045", featured: true, ownerId: ananya, views: 256, matchScore: 87,
+      image: IMG("photo-1567496898669-ee935f5f647a"), city: "Noida", state: "Uttar Pradesh", locality: "Sector 150",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "24/7 Security", "Clubhouse", "Landscaped Garden"],
+    },
+    {
+      slug: "sector137-2bhk-noida", title: "Express Park 2 BHK, Sector 137",
+      type: "Apartment", purpose: "Rent", price: 26000, area: 1050, bhk: "2 BHK", bedrooms: 2, bathrooms: 2, parking: 1,
+      furnishing: "Furnished", facing: "East", possession: "Ready to Move", builder: "Paras Buildtech",
+      rera: "UPRERAPRJ0046", featured: false, ownerId: rohan, views: 128, matchScore: 77,
+      image: IMG("photo-1502672260266-1c1ef2d93688"), city: "Noida", state: "Uttar Pradesh", locality: "Sector 137",
+      amenities: ["Gym / Fitness Centre", "Power Backup", "Elevator / Lift", "24/7 Security"],
+    },
+    {
+      slug: "sector78-plot-noida", title: "Residential Plot, Sector 78",
+      type: "Plot", purpose: "Sale", price: 8500000, area: 1600, bhk: null, bedrooms: 0, bathrooms: 0, parking: 0,
+      furnishing: "Unfurnished", facing: "South-East", possession: "Ready to Move", builder: "Independent",
+      rera: "UPRERAPRJ0047", featured: false, ownerId: priya, views: 91, matchScore: 72,
+      image: IMG("photo-1500382017468-9049fed747ef"), city: "Noida", state: "Uttar Pradesh", locality: "Sector 78",
+      amenities: ["24/7 Security", "Gated Community"],
+    },
+
+    // ── Kolkata ──────────────────────────────────────────────────────────────
+    {
+      slug: "salt-lake-2bhk-kolkata", title: "Salt Lake 2 BHK, Sector V",
+      type: "Apartment", purpose: "Sale", price: 8500000, area: 1150, bhk: "2 BHK", bedrooms: 2, bathrooms: 2, parking: 1,
+      furnishing: "Semi-Furnished", facing: "East", possession: "Ready to Move", builder: "Merlin Group",
+      rera: "WBRERA/P/0048", featured: false, ownerId: ananya, views: 163, matchScore: 81,
+      image: IMG("photo-1494526585095-c41746248156"), city: "Kolkata", state: "West Bengal", locality: "Salt Lake",
+      amenities: ["Gym / Fitness Centre", "Power Backup", "Elevator / Lift", "24/7 Security"],
+    },
+    {
+      slug: "ballygunge-4bhk-kolkata", title: "Heritage 4 BHK, Ballygunge",
+      type: "Apartment", purpose: "Sale", price: 26000000, area: 2300, bhk: "4 BHK", bedrooms: 4, bathrooms: 4, parking: 2,
+      furnishing: "Furnished", facing: "South", possession: "Ready to Move", builder: "PS Group",
+      rera: "WBRERA/P/0049", featured: false, ownerId: rohan, views: 201, matchScore: 86,
+      image: IMG("photo-1512917774080-9991f1c4c750"), city: "Kolkata", state: "West Bengal", locality: "Ballygunge",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "24/7 Security", "Clubhouse", "Power Backup"],
+    },
+    {
+      slug: "rajarhat-1bhk-kolkata", title: "New Town 1 BHK, Rajarhat",
+      type: "Apartment", purpose: "Rent", price: 18000, area: 650, bhk: "1 BHK", bedrooms: 1, bathrooms: 1, parking: 1,
+      furnishing: "Furnished", facing: "West", possession: "Ready to Move", builder: "Bengal Peerless",
+      rera: "WBRERA/P/0050", featured: false, ownerId: priya, views: 117, matchScore: 75,
+      image: IMG("photo-1494526585095-c41746248156"), city: "Kolkata", state: "West Bengal", locality: "Rajarhat",
+      amenities: ["Power Backup", "Elevator / Lift", "Visitor Parking", "24/7 Security"],
+    },
+
+    // ── Chennai (top-up) ───────────────────────────────────────────────────────
+    {
+      slug: "adyar-3bhk-chennai", title: "Marina 3 BHK, Adyar",
+      type: "Apartment", purpose: "Sale", price: 16000000, area: 1600, bhk: "3 BHK", bedrooms: 3, bathrooms: 3, parking: 2,
+      furnishing: "Semi-Furnished", facing: "East", possession: "Ready to Move", builder: "Casagrand",
+      rera: "TN/29/Building/0051", featured: false, ownerId: ananya, views: 192, matchScore: 85,
+      image: IMG("photo-1567496898669-ee935f5f647a"), city: "Chennai", state: "Tamil Nadu", locality: "Adyar",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "24/7 Security", "Clubhouse"],
+    },
+    {
+      slug: "anna-nagar-2bhk-chennai", title: "Tower Park 2 BHK, Anna Nagar",
+      type: "Apartment", purpose: "Rent", price: 30000, area: 1100, bhk: "2 BHK", bedrooms: 2, bathrooms: 2, parking: 1,
+      furnishing: "Furnished", facing: "North", possession: "Ready to Move", builder: "Akshaya",
+      rera: "TN/29/Building/0052", featured: false, ownerId: rohan, views: 138, matchScore: 78,
+      image: IMG("photo-1502672260266-1c1ef2d93688"), city: "Chennai", state: "Tamil Nadu", locality: "Anna Nagar",
+      amenities: ["Gym / Fitness Centre", "Power Backup", "Elevator / Lift", "24/7 Security"],
+    },
+
+    // ── Mumbai (5+ BHK penthouse for BHK variety) ────────────────────────────────
+    {
+      slug: "worli-penthouse-mumbai", title: "Sea-Facing 5 BHK Penthouse, Worli",
+      type: "Apartment", purpose: "Sale", price: 180000000, area: 4200, bhk: "5 BHK", bedrooms: 5, bathrooms: 5, parking: 3,
+      furnishing: "Furnished", facing: "West", possession: "Ready to Move", builder: "Lodha Group",
+      rera: "P51800000053", featured: true, ownerId: priya, views: 421, matchScore: 95,
+      image: IMG("photo-1512917774080-9991f1c4c750"), city: "Mumbai", state: "Maharashtra", locality: "Worli",
+      amenities: ["Swimming Pool", "Gym / Fitness Centre", "24/7 Security", "Clubhouse", "Smart Home", "Power Backup"],
+    },
   ];
 
+  // Image pools for varied galleries — verified Unsplash property photos.
+  const INTERIORS = [
+    "photo-1567496898669-ee935f5f647a", "photo-1560448204-e02f11c3d0e2", "photo-1545324418-cc1a3fa10c00",
+    "photo-1560185007-cde436f6a4d0", "photo-1576941089067-2de3c901e126", "photo-1600585154340-be6161a56a0c",
+    "photo-1600607687939-ce8a6c25118c", "photo-1600566753086-00f18fb6b3ea", "photo-1600210492486-724fe5c67fb0",
+    "photo-1600047509807-ba8f99d2cdde", "photo-1502005229762-cf1b2da7c5d6", "photo-1484154218962-a197022b5858",
+    "photo-1556909114-f6e7ad7d3136", "photo-1505691938895-1758d7feb511", "photo-1522444195799-478538b28823",
+  ];
+  const EXTERIORS = [
+    "photo-1570129477492-45c003edd2be", "photo-1583608205776-bfd35f0d9f83", "photo-1512453979798-5ea266f8880c",
+    "photo-1493809842364-78817add7ffb", "photo-1568605114967-8130f3a36994", "photo-1580587771525-78b9dba3b914",
+    "photo-1600596542815-ffad4c1539a9", "photo-1486304873000-235643847519", "photo-1600573472550-8090b5e0745e",
+    "photo-1600121848594-d8644e57abab", "photo-1598928506311-c55ded91a20c", "photo-1599809275671-b5942cabc7a2",
+    "photo-1613977257363-707ba9348227", "photo-1502005097973-6a7082348e28",
+  ];
+  const pick = (pool: string[], start: number, n: number) =>
+    Array.from({ length: n }, (_, k) => IMG(pool[(start + k) % pool.length]!));
+
+  // Each property gets the type-appropriate hero + rotating extras, offset by
+  // index so neighbouring listings never share the same gallery.
+  function buildGallery(hero: string, type: string, idx: number): string[] {
+    if (type === "Plot") return [hero, ...pick(EXTERIORS, idx, 3)];
+    if (type === "Office") return [hero, ...pick(INTERIORS, idx * 2, 2), ...pick(EXTERIORS, idx, 1)];
+    return [hero, ...pick(EXTERIORS, idx, 1), ...pick(INTERIORS, idx * 3, 3)];
+  }
+
   const propIdBySlug: Record<string, string> = {};
+  let propIdx = 0;
   for (const p of propertySeed) {
     const { city, state, locality, image, ...rest } = p;
+    const images = buildGallery(image, p.type, propIdx++);
     const prop = await prisma.property.upsert({
       where: { slug: p.slug },
       update: {
         ...rest, price: BigInt(p.price), pricePerSqft: Math.round(p.price / p.area),
-        images: [image], status: "Active",
+        images, status: "Active",
       },
       create: {
         ...rest, price: BigInt(p.price), pricePerSqft: Math.round(p.price / p.area),
-        images: [image], status: "Active",
+        images, status: "Active",
         location: { create: { city, state, locality, latitude: 0, longitude: 0 } },
       },
     });
