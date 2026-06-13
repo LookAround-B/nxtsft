@@ -75,7 +75,12 @@ export const propertiesRouter = router({
         where.OR = [
           { title: { contains: search, mode: "insensitive" } },
           { description: { contains: search, mode: "insensitive" } },
+          { type: { contains: search, mode: "insensitive" } },
+          { bhk: { contains: search, mode: "insensitive" } },
+          { builder: { contains: search, mode: "insensitive" } },
           { location: { locality: { contains: search, mode: "insensitive" } } },
+          { location: { city: { contains: search, mode: "insensitive" } } },
+          { location: { state: { contains: search, mode: "insensitive" } } },
         ];
       }
 
