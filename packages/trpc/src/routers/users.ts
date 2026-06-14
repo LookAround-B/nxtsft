@@ -185,6 +185,7 @@ export const usersRouter = router({
       where: { ownerId: ctx.user.id, deletedAt: null },
       include: {
         location: true,
+        _count: { select: { leads: true, favoritedBy: true } },
       },
       orderBy: { createdAt: "desc" },
     });

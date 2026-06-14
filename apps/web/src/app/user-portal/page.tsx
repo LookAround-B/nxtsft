@@ -445,6 +445,7 @@ type ListingItem = {
   images: string[];
   createdAt: string;
   location: { city: string; locality: string } | null;
+  _count?: { leads: number; favoritedBy: number };
 };
 
 const listingTone: Record<string, "success" | "warm" | "cold" | "new" | "default"> = {
@@ -526,6 +527,12 @@ function MyListings() {
                       <Badge tone="new">
                         <span className="flex items-center gap-1"><Eye size={11} /> {p.views} views</span>
                       </Badge>
+                      {p._count && (
+                        <>
+                          <Badge tone="hot">{p._count.leads} interested</Badge>
+                          <Badge tone="warm">{p._count.favoritedBy} wishlisted</Badge>
+                        </>
+                      )}
                       {p.bhk && <Badge tone="default">{p.bhk}</Badge>}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">

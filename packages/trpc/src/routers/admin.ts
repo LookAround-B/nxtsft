@@ -146,6 +146,7 @@ export const adminRouter = router({
           include: {
             location: true,
             owner: { select: { id: true, name: true, email: true, role: true } },
+            _count: { select: { leads: true, favoritedBy: true } },
           },
           orderBy: { createdAt: "desc" },
           take: limit + 1,
