@@ -1,4 +1,7 @@
 import bcrypt from "bcryptjs";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import prisma from "../client.js";
 
 const DEMO_PASSWORD = "demo1234";
@@ -836,6 +839,20 @@ async function main() {
     await prisma.subscription.upsert({ where: { id: s.id }, update: data, create: { id: s.id, ...data } });
   }
   console.log(`✓ Seeded ${subSeed.length} subscriptions`);
+
+  // ── Builders directory (bulk-imported from the Andhra Pradesh list) ──────────
+  const buildersPath = join(dirname(fileURLToPath(import.meta.url)), "ap-builders.json");
+  const buildersData = JSON.parse(readFileSync(buildersPath, "utf8")) as Array<{
+    companyName: string; ownerName: string; mobile: string;
+    projectType: string; state: string; district: string; city: string;
+  }>;
+  const CHUNK = 1000;
+  let builderTotal = 0;
+  for (let i = 0; i < buildersData.length; i += CHUNK) {
+    const res = await prisma.builder.createMany({ data: buildersData.slice(i, i + CHUNK), skipDuplicates: true });
+    builderTotal += res.count;
+  }
+  console.log(`✓ Seeded ${builderTotal} builders (of ${buildersData.length} in file)`);
 
   console.log(`\nDemo password for all users: ${DEMO_PASSWORD}`);
 }

@@ -12,10 +12,12 @@ import { searchAlertsRouter } from "./routers/searchAlerts.js";
 import { reviewsRouter } from "./routers/reviews.js";
 import { superAdminRouter } from "./routers/superAdmin.js";
 import { propertyViewsRouter } from "./routers/propertyViews.js";
+import { buildersRouter } from "./routers/builders.js";
 
 export const appRouter = router({
   auth: authRouter,
   properties: propertiesRouter,
+  builders: buildersRouter,
   leads: leadsRouter,
   users: usersRouter,
   subscriptions: subscriptionsRouter,

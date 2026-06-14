@@ -245,6 +245,24 @@ model Favorite {
   @@index([userId])
 }
 
+// Builders / developers directory — bulk-uploadable (Excel/CSV).
+model Builder {
+  id          String   @id @default(cuid())
+  companyName String
+  ownerName   String?
+  mobile      String?
+  projectType String?
+  state       String?
+  district    String?
+  city        String?
+  createdAt   DateTime @default(now())
+
+  @@unique([companyName, mobile, city])
+  @@index([state])
+  @@index([city])
+  @@index([projectType])
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // REVIEW & RATING
 // ═══════════════════════════════════════════════════════════════════════════
