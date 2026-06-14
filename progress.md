@@ -8,7 +8,8 @@
 ## Overall Status
 
 **Phase:** v1.0 Demo / Prototype  
-**DB:** ✅ LIVE — shared remote PostgreSQL 18 (`DATABASE_URL` in gitignored root `.env`). Schema pushed (18 tables), seeded with 7 users, 11 plans, **10 properties (4 featured), 8 leads (→ Priya), 5 tickets, 2 site visits + favorites (→ Rohan)** *(06-10)*.  
+**DB:** ✅ LIVE — **production DB = teammate's VPS PostgreSQL** at `187.77.185.220:5433/nxtsft` *(team decision 06-13; moved off Neon)*. Accessed via **Prisma** (the ORM — unchanged; we did NOT switch to "Prisma Postgres"). Schema pushed (18 tables), seeded with 7 users, 11 plans, **53 properties + varied galleries**, 8 leads (→ Priya), 5 tickets, 2 site visits + favorites (→ Rohan), 3 subscriptions. `DATABASE_URL` set in Vercel (Neon integration disconnected). Same box also serves local dev via root `.env`, so local now hits prod data.  
+> ⚠️ VPS-as-prod follow-ups: open port 5433 to Vercel (dynamic IPs → effectively public), add `?sslmode=require` (traffic currently unencrypted), add PgBouncer before real traffic (serverless connection limits). Neon (06-12, now retired) can be deleted once VPS cutover is verified.  
 **Auth:** ✅ Verified end-to-end against the live DB — login/loginStaff (bcrypt), role enforcement, and protected-procedure auth guard all confirmed working.
 
 > ⚠️ DB password contains an `@` — it MUST be percent-encoded as `%40` in the connection string or the URL parser reads the host wrong. The root `.env` already uses the encoded form.
@@ -27,7 +28,7 @@
 - [x] `.env.example` with required keys
 - [x] **Vercel deploy** *(06-11)* — deploys `apps/web` only (it hosts the site **and** the API via `/api/trpc` + `/api/v1/*`; Fastify `apps/api` is not deployed). Set Vercel **Root Directory = `apps/web`** and env var `DATABASE_URL`. Prisma client is generated on Vercel via `packages/db` `postinstall: prisma generate`; `schema.prisma` `binaryTargets` includes `rhel-openssl-3.0.x` for the Vercel runtime. Full guide: `docs/DEPLOYMENT.md`.
   - ⚠️ Serverless connection pooling not yet hardened (`pg.Pool` opens per function instance) — use a pooled `DATABASE_URL` + cap pool `max` before real traffic.
-  - **DB = Vercel-managed Neon Postgres** *(06-12)*; `DATABASE_URL` (pooled) injected by the integration. Schema pushed + seeded against it. Local `.env` still points at the separate dev DB.
+  - **Prod DB = teammate's VPS PostgreSQL** *(06-13)* — moved off Neon (now retired). `DATABASE_URL` set manually in Vercel to `postgresql://appuser:thec%40valli@187.77.185.220:5433/nxtsft` (`@`→`%40`); Neon integration disconnected. Still accessed via Prisma (ORM unchanged). See Overall Status for the VPS-as-prod follow-ups (firewall/SSL/pooling).
 - [x] **Property catalog + browse UX** *(06-12)* — seed expanded to **53 listings** spanning all 12 home cities (3-6 each) and BHK buckets 1→6; each gets a varied 4-5 image gallery. `/properties` shows the true filtered **total** (not just loaded count); listing cards + detail page have image **carousels**. Home "Trending" reveal-animation fixed (async cards now observed); press marquee moved above the KPI band.
 
 ### Database (`packages/db`)
