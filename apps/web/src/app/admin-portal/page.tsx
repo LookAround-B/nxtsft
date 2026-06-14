@@ -424,6 +424,8 @@ type ListingItem = {
   submittedAt?: string;
   purpose?: string;
   area?: string;
+  interested?: number;
+  wishlisted?: number;
 };
 
 function ListingsTab() {
@@ -460,7 +462,7 @@ function ListingsTab() {
     setLocalItems(userSubs);
   }, []);
 
-  type RawProp = { id: string; title: string; images: string[]; owner: { name: string } | null; location: { city: string } | null; price: number; bhk: string | null; status: string; rera: string | null; slug: string };
+  type RawProp = { id: string; title: string; images: string[]; owner: { name: string } | null; location: { city: string } | null; price: number; bhk: string | null; status: string; rera: string | null; slug: string; _count?: { leads: number; favoritedBy: number } };
   const dbItems: ListingItem[] = ((dbListingsQ.data?.items ?? []) as RawProp[]).map((p) => ({
     id: p.id,
     title: p.title,
@@ -476,6 +478,8 @@ function ListingsTab() {
     status: (p.status === "Active" ? "Approved" : p.status === "Sold" || p.status === "Rented" ? "Approved" : "Pending") as "Pending" | "Approved" | "Rejected",
     isDbProperty: true,
     rera: p.rera,
+    interested: p._count?.leads ?? 0,
+    wishlisted: p._count?.favoritedBy ?? 0,
   }));
 
   const items = [...localItems, ...dbItems];
@@ -588,6 +592,16 @@ function ListingsTab() {
                       <span className="rounded bg-accent/10 px-1.5 py-0.5 font-medium text-accent">
                         For {it.purpose}
                       </span>
+                    )}
+                    {it.isDbProperty && (
+                      <>
+                        <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-700">
+                          {it.interested ?? 0} interested
+                        </span>
+                        <span className="rounded bg-rose-50 px-1.5 py-0.5 font-medium text-rose-600">
+                          {it.wishlisted ?? 0} wishlisted
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>
