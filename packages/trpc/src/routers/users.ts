@@ -91,19 +91,15 @@ export const usersRouter = router({
     }),
 
   favorites: protectedProcedure.query(async ({ ctx }) => {
-    const user = await prisma.user.findUniqueOrThrow({
-      where: { id: ctx.user.id },
-      include: {
-        favorites: {
-          where: { deletedAt: null },
-          include: { location: true },
-        },
-      },
+    const favorites = await prisma.favorite.findMany({
+      where: { userId: ctx.user.id, property: { deletedAt: null } },
+      orderBy: { createdAt: "desc" },
+      include: { property: { include: { location: true } } },
     });
 
-    return user.favorites.map((p) => ({
-      ...p,
-      price: Number(p.price),
+    return favorites.map((f) => ({
+      ...f.property,
+      price: Number(f.property.price),
     }));
   }),
 
@@ -113,9 +109,10 @@ export const usersRouter = router({
       const property = await prisma.property.findFirst({ where: { id: input.propertyId, deletedAt: null } });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
 
-      await prisma.user.update({
-        where: { id: ctx.user.id },
-        data: { favorites: { connect: { id: input.propertyId } } },
+      await prisma.favorite.upsert({
+        where: { userId_propertyId: { userId: ctx.user.id, propertyId: input.propertyId } },
+        create: { userId: ctx.user.id, propertyId: input.propertyId },
+        update: {},
       });
       return { ok: true };
     }),
@@ -123,9 +120,8 @@ export const usersRouter = router({
   removeFavorite: protectedProcedure
     .input(z.object({ propertyId: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      await prisma.user.update({
-        where: { id: ctx.user.id },
-        data: { favorites: { disconnect: { id: input.propertyId } } },
+      await prisma.favorite.deleteMany({
+        where: { userId: ctx.user.id, propertyId: input.propertyId },
       });
       return { ok: true };
     }),

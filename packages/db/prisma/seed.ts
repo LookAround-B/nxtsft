@@ -759,14 +759,44 @@ async function main() {
     };
     await prisma.siteVisit.upsert({ where: { id: v.id }, update: data, create: { id: v.id, ...data } });
   }
-  await prisma.user.update({
-    where: { id: rohan },
-    data: { favorites: { connect: [
-      { id: propIdBySlug["green-acres-villa-whitefield-bengaluru"] },
-      { id: propIdBySlug["palm-grove-3bhk-gachibowli-hyderabad"] },
-    ] } },
-  });
-  console.log(`✓ Seeded ${visitSeed.length} site visits + favorites for demo buyer`);
+  console.log(`✓ Seeded ${visitSeed.length} site visits for demo buyer`);
+
+  // ── Engagement: wishlists ("liked") + contact requests (for the activity feeds) ──
+  const favoriteSeed: Array<[string, string]> = [
+    [rohan, "green-acres-villa-whitefield-bengaluru"],
+    [rohan, "palm-grove-3bhk-gachibowli-hyderabad"],
+    [rohan, "skyline-3bhk-bandra-west-mumbai"],
+    [rohan, "worli-penthouse-mumbai"],
+    [ananya, "skyline-3bhk-bandra-west-mumbai"],
+    [ananya, "worli-penthouse-mumbai"],
+    [ananya, "orchid-3bhk-indiranagar-bengaluru"],
+  ];
+  for (const [favUserId, slug] of favoriteSeed) {
+    const pid = propIdBySlug[slug];
+    if (!pid) continue;
+    await prisma.favorite.upsert({
+      where: { userId_propertyId: { userId: favUserId, propertyId: pid } },
+      create: { userId: favUserId, propertyId: pid },
+      update: {},
+    });
+  }
+
+  const unlockSeed = [
+    { id: "seed-unlock-01", userId: rohan, slug: "skyline-3bhk-bandra-west-mumbai" },
+    { id: "seed-unlock-02", userId: ananya, slug: "green-acres-villa-whitefield-bengaluru" },
+    { id: "seed-unlock-03", userId: rohan, slug: "worli-penthouse-mumbai" },
+    { id: "seed-unlock-04", userId: ananya, slug: "orchid-3bhk-indiranagar-bengaluru" },
+  ];
+  for (const u of unlockSeed) {
+    const pid = propIdBySlug[u.slug];
+    if (!pid) continue;
+    await prisma.creditTransaction.upsert({
+      where: { id: u.id },
+      create: { id: u.id, userId: u.userId, type: "debit", amount: 1, reason: "contact_unlock", propertyId: pid },
+      update: { propertyId: pid },
+    });
+  }
+  console.log(`✓ Seeded ${favoriteSeed.length} wishlists + ${unlockSeed.length} contact requests`);
 
   // ── Audit log (idempotent: explicit ids) ────────────────────────────────────
   const auditSeed = [

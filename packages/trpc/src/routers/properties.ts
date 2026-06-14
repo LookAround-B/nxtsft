@@ -99,6 +99,65 @@ export const propertiesRouter = router({
       return serializeProperty({ items: page, nextCursor: page.at(-1)?.id ?? null, hasMore, total });
     }),
 
+  // Per-property engagement: interest (leads), wishlists, contact requests.
+  // Names are anonymized ("Rohan M.") — safe for public social proof.
+  engagement: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input }) => {
+      const propertyId = input.id;
+      const since7d = new Date(Date.now() - 7 * 86_400_000);
+      const unlockWhere = { propertyId, reason: "contact_unlock" } as const;
+
+      const [leads, favorites, unlocks, interested, wishlisted, contactRequested, l7, f7, u7] =
+        await Promise.all([
+          prisma.lead.findMany({
+            where: { propertyId }, orderBy: { createdAt: "desc" }, take: 8,
+            select: { name: true, createdAt: true, user: { select: { name: true } } },
+          }),
+          prisma.favorite.findMany({
+            where: { propertyId }, orderBy: { createdAt: "desc" }, take: 8,
+            select: { createdAt: true, user: { select: { name: true } } },
+          }),
+          prisma.creditTransaction.findMany({
+            where: unlockWhere, orderBy: { createdAt: "desc" }, take: 8,
+            select: { userId: true, createdAt: true },
+          }),
+          prisma.lead.count({ where: { propertyId } }),
+          prisma.favorite.count({ where: { propertyId } }),
+          prisma.creditTransaction.count({ where: unlockWhere }),
+          prisma.lead.count({ where: { propertyId, createdAt: { gte: since7d } } }),
+          prisma.favorite.count({ where: { propertyId, createdAt: { gte: since7d } } }),
+          prisma.creditTransaction.count({ where: { ...unlockWhere, createdAt: { gte: since7d } } }),
+        ]);
+
+      // CreditTransaction has no user relation — batch-resolve names.
+      const unlockUserIds = [...new Set(unlocks.map((u) => u.userId))];
+      const unlockUsers = unlockUserIds.length
+        ? await prisma.user.findMany({ where: { id: { in: unlockUserIds } }, select: { id: true, name: true } })
+        : [];
+      const nameById = new Map(unlockUsers.map((u) => [u.id, u.name]));
+
+      const anon = (full?: string | null) => {
+        const parts = (full ?? "Someone").trim().split(/\s+/);
+        return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1]![0]!.toUpperCase()}.` : parts[0]!;
+      };
+
+      const recent = [
+        ...leads.map((l) => ({ name: anon(l.name ?? l.user?.name), action: "interested" as const, at: l.createdAt })),
+        ...favorites.map((f) => ({ name: anon(f.user?.name), action: "wishlisted" as const, at: f.createdAt })),
+        ...unlocks.map((u) => ({ name: anon(nameById.get(u.userId)), action: "contact" as const, at: u.createdAt })),
+      ]
+        .sort((a, b) => b.at.getTime() - a.at.getTime())
+        .slice(0, 8)
+        .map((e) => ({ name: e.name, action: e.action, at: e.at.toISOString() }));
+
+      return {
+        counts: { interested, wishlisted, contactRequested, total: interested + wishlisted + contactRequested },
+        recent,
+        trending: l7 + f7 + u7 >= 4,
+      };
+    }),
+
   // Single property by id or slug
   get: publicProcedure
     .input(z.object({ id: z.string() }))

@@ -39,7 +39,7 @@ model User {
   listings     Listing[]
   leads        Lead[]
   messages     Message[]
-  favorites    Property[] @relation("UserFavorites")
+  favorites    Favorite[]
   reviews      Review[]
   subscriptions Subscription[] @relation("UserSubscriptions")
   payments     Payment[] @relation("UserPayments")
@@ -111,7 +111,7 @@ model Property {
 
   listings    Listing[]
   leads       Lead[]
-  favorites   User[]   @relation("UserFavorites")
+  favoritedBy Favorite[]
   reviews     Review[]
   propertyViews PropertyView[]
 
@@ -229,6 +229,20 @@ model Lead {
   @@index([userId])
   @@index([assignedToId])
   @@index([status])
+}
+
+// Wishlist / "liked" — explicit join with a timestamp so engagement is time-ordered.
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+  @@index([propertyId])
+  @@index([userId])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
+import { PropertyEngagement } from "@/components/PropertyEngagement";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -441,6 +442,9 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                 </div>
               )}
             </div>
+
+            {/* Buyer activity / engagement */}
+            <PropertyEngagement propertyId={property.id} />
 
             {/* Specs */}
             <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
