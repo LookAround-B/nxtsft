@@ -3,13 +3,16 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import { GoogleLogin } from "@react-oauth/google";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { ROLE_META, useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
+const GOOGLE_ENABLED = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
 export default function LoginPage() {
-  const { session, signIn, signOut } = useAuth();
+  const { session, signIn, signInWithGoogle, signOut } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -32,6 +35,24 @@ export default function LoginPage() {
       router.push(ROLE_META[s.role].portal);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogle = async (credential?: string) => {
+    if (!credential) {
+      setError("Google sign-in failed. Please try again.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    try {
+      const s = await signInWithGoogle(credential);
+      toast.success(`Welcome, ${s.name.split(" ")[0]}!`);
+      router.push(ROLE_META[s.role].portal);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed.");
     } finally {
       setLoading(false);
     }
@@ -169,6 +190,25 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          {GOOGLE_ENABLED && (
+            <>
+              <div className="my-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs font-medium text-muted-foreground">or</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={(cred) => handleGoogle(cred.credential)}
+                  onError={() => setError("Google sign-in failed. Please try again.")}
+                  text="continue_with"
+                  shape="rectangular"
+                  width="360"
+                />
+              </div>
+            </>
+          )}
 
           <p className="mt-5 text-center text-xs text-muted-foreground">
             New here?{" "}

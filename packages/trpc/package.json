@@ -10,12 +10,13 @@
     "./nextjs": "./src/nextjs.ts"
   },
   "dependencies": {
-    "@trpc/server": "^11.0.0-rc.445",
-    "@trpc/client": "^11.0.0-rc.445",
     "@nxtsft/db": "workspace:*",
     "@nxtsft/shared": "workspace:*",
-    "zod": "^3.22.4",
-    "bcryptjs": "^2.4.3"
+    "@trpc/client": "^11.0.0-rc.445",
+    "@trpc/server": "^11.0.0-rc.445",
+    "bcryptjs": "^2.4.3",
+    "google-auth-library": "^10.7.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

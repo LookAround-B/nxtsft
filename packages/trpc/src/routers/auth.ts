@@ -2,11 +2,28 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { OAuth2Client } from "google-auth-library";
 import prisma from "@nxtsft/db";
 import { router, publicProcedure, protectedProcedure } from "../server.js";
 
 const SESSION_TTL_DAYS = 30;
 const CONSUMER_ROLES = ["user", "customer"] as const;
+
+const googleClient = new OAuth2Client();
+
+// Verify a Google ID token (from the client-side Google button) and return its payload.
+async function verifyGoogleCredential(credential: string) {
+  const audience = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID;
+  if (!audience) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Google sign-in is not configured." });
+  }
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience });
+    return ticket.getPayload();
+  } catch {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid Google sign-in. Please try again." });
+  }
+}
 
 function generateToken() {
   return randomBytes(32).toString("hex");
@@ -22,7 +39,7 @@ function sessionExpiry() {
 function safeUser(user: {
   id: string;
   email: string;
-  phone: string;
+  phone: string | null;
   name: string;
   avatar: string | null;
   role: string;
@@ -146,6 +163,47 @@ export const authRouter = router({
       });
 
       return { token, user: safeUser(user) };
+    }),
+
+  // Sign in / sign up with a Google ID token (consumer role: user)
+  googleSignIn: publicProcedure
+    .input(z.object({ credential: z.string().min(10) }))
+    .mutation(async ({ input }) => {
+      const payload = await verifyGoogleCredential(input.credential);
+      const email = payload?.email;
+      if (!email) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Google did not return an email." });
+      }
+
+      let user = await prisma.user.findUnique({ where: { email } });
+      const isNewUser = !user;
+
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            email,
+            name: payload?.name ?? email.split("@")[0]!,
+            avatar: payload?.picture ?? null,
+            role: "user",
+            verified: payload?.email_verified ?? false,
+            city: "India",
+          },
+        });
+      }
+
+      if (isNewUser) {
+        await grantCredits(user.id, 1, "welcome");
+      } else if (CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) && user.credits === 0) {
+        await grantCredits(user.id, 3, "demo");
+      }
+
+      const token = generateToken();
+      await prisma.session.create({
+        data: { userId: user.id, token, expiresAt: sessionExpiry() },
+      });
+
+      const freshUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      return { token, user: safeUser(freshUser) };
     }),
 
   logout: protectedProcedure.mutation(async ({ ctx }) => {

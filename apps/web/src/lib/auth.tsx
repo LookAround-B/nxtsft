@@ -103,6 +103,7 @@ interface Ctx {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<Session>;
   signInStaff: (email: string, password: string) => Promise<Session>;
+  signInWithGoogle: (credential: string) => Promise<Session>;
   signOut: () => Promise<void>;
   register: (name: string, email: string, phone: string, password: string, city?: string) => Promise<Session>;
   updateProfile: (name: string, phone: string) => Promise<void>;
@@ -138,7 +139,7 @@ type SafeUser = {
   role: string;
   name: string;
   email: string;
-  phone: string;
+  phone: string | null;
   city: string;
   credits: number;
   joined: Date | string;
@@ -152,7 +153,7 @@ function toSession(user: SafeUser): Session {
     email: user.email,
     initials: toInitials(user.name),
     city: user.city || "India",
-    phone: user.phone.startsWith("+") ? user.phone : `+91 ${user.phone}`,
+    phone: user.phone ? (user.phone.startsWith("+") ? user.phone : `+91 ${user.phone}`) : "",
     joined: formatJoined(user.joined),
   };
 }
@@ -214,6 +215,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signInStaff(email: string, password: string): Promise<Session> {
     const { token: t, user } = await makeTRPC().auth.loginStaff.mutate({ email, password });
+    const s = toSession(user);
+    persist(s, t, user.credits);
+    return s;
+  }
+
+  async function signInWithGoogle(credential: string): Promise<Session> {
+    const { token: t, user } = await makeTRPC().auth.googleSignIn.mutate({ credential });
     const s = toSession(user);
     persist(s, t, user.credits);
     return s;
@@ -294,6 +302,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signIn,
         signInStaff,
+        signInWithGoogle,
         signOut,
         register,
         updateProfile,
