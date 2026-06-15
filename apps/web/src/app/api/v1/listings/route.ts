@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@nxtsft/db";
-import { z } from "zod";
+import { createListingSchema } from "@/lib/validation";
 import { getAuthUser, serializeBigInt } from "../helper";
 
 export async function GET(req: NextRequest) {
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(serializeBigInt(listings));
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -39,17 +39,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const bodySchema = z.object({
-      propertyId: z.string(),
-      description: z.string().optional(),
-      highlights: z.array(z.string()).default([]),
-      active: z.boolean().default(true),
-      promoted: z.boolean().default(false),
-    });
-
-    const result = bodySchema.safeParse(body);
+    const result = createListingSchema.safeParse(body);
     if (!result.success) {
-      return NextResponse.json({ error: result.error.errors }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid listing data", details: result.error.flatten() },
+        { status: 400 }
+      );
     }
 
     const property = await prisma.property.findUnique({
@@ -75,6 +70,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(serializeBigInt(listing), { status: 201 });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

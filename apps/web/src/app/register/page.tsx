@@ -38,6 +38,9 @@ export default function RegisterPage() {
       errs.phone = "Enter a valid 10-digit Indian mobile number (starts with 6-9)";
     if (!form.city) errs.city = "Select your city";
     if (form.password.length < 8) errs.password = "Password must be at least 8 characters";
+    if (!/[A-Z]/.test(form.password)) errs.password = "Password must contain an uppercase letter";
+    if (!/[a-z]/.test(form.password)) errs.password = "Password must contain a lowercase letter";
+    if (!/\d/.test(form.password)) errs.password = "Password must contain a number";
     if (form.password !== form.confirm) errs.confirm = "Passwords do not match";
     if (!agreed) errs.agreed = "You must accept the terms to continue";
     return errs;

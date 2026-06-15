@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@nxtsft/db";
-import { z } from "zod";
+import { createLeadSchema } from "@/lib/validation";
 import { getAuthUser } from "../helper";
 
 export async function GET(req: NextRequest) {
@@ -32,21 +32,17 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const schema = z.object({
-      propertyId: z.string(),
-      name: z.string().min(2),
-      phone: z.string().regex(/^[6-9]\d{9}$/),
-      email: z.string().email().optional(),
-      city: z.string().optional(),
-      interest: z.string().optional(),
-      notes: z.string().optional(),
-      source: z.enum(["Portal", "WhatsApp", "Referral", "Direct"]).default("Portal"),
+    const result = createLeadSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json(
+        { error: "Invalid lead data", details: result.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const property = await prisma.property.findFirst({
+      where: { id: result.data.propertyId, deletedAt: null },
     });
-
-    const result = schema.safeParse(body);
-    if (!result.success) return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
-
-    const property = await prisma.property.findFirst({ where: { id: result.data.propertyId, deletedAt: null } });
     if (!property) return NextResponse.json({ error: "Property not found" }, { status: 404 });
 
     const lead = await prisma.lead.create({

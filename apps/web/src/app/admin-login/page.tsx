@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Shield,
@@ -131,7 +132,7 @@ export default function AdminLoginPage() {
           href="/"
           className="flex items-center gap-2.5 text-navy hover:opacity-80 transition-opacity"
         >
-          <img src="/logo.png" alt="NxtSft.com" className="h-16 w-auto object-contain" />
+          <Image src="/logo.png" alt="NxtSft.com" width={160} height={64} className="h-16 w-auto object-contain" />
         </Link>
         <Link
           href="/login"

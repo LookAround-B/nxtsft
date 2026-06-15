@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@nxtsft/db";
-import { z } from "zod";
+import { queryParamsSchema, createPropertySchema } from "@/lib/validation";
 import { getAuthUser, serializeBigInt } from "../helper";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const city = searchParams.get("city");
-    const type = searchParams.get("type");
-    const purpose = searchParams.get("purpose");
-    const bedrooms = searchParams.get("bedrooms");
-    const minPrice = searchParams.get("minPrice");
-    const maxPrice = searchParams.get("maxPrice");
-    const search = searchParams.get("search");
 
+    // Validate query parameters
+    const queryParams = queryParamsSchema.safeParse({
+      city: searchParams.get("city"),
+      type: searchParams.get("type"),
+      purpose: searchParams.get("purpose"),
+      bedrooms: searchParams.get("bedrooms") ? Number(searchParams.get("bedrooms")) : undefined,
+      minPrice: searchParams.get("minPrice") ? Number(searchParams.get("minPrice")) : undefined,
+      maxPrice: searchParams.get("maxPrice") ? Number(searchParams.get("maxPrice")) : undefined,
+      search: searchParams.get("search"),
+    });
+
+    if (!queryParams.success) {
+      return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 });
+    }
+
+    const { city, type, purpose, bedrooms, minPrice, maxPrice, search } = queryParams.data;
     const whereClause: any = { deletedAt: null };
 
     if (city) {
@@ -27,15 +36,15 @@ export async function GET(req: NextRequest) {
     if (purpose) {
       whereClause.purpose = purpose;
     }
-    if (bedrooms) {
-      whereClause.bedrooms = parseInt(bedrooms);
+    if (bedrooms !== undefined) {
+      whereClause.bedrooms = bedrooms;
     }
-    if (minPrice || maxPrice) {
+    if (minPrice !== undefined || maxPrice !== undefined) {
       whereClause.price = {};
-      if (minPrice) {
+      if (minPrice !== undefined) {
         whereClause.price.gte = BigInt(minPrice);
       }
-      if (maxPrice) {
+      if (maxPrice !== undefined) {
         whereClause.price.lte = BigInt(maxPrice);
       }
     }
@@ -67,7 +76,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(serializeBigInt(properties));
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -79,31 +88,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const bodySchema = z.object({
-      title: z.string(),
-      description: z.string().optional(),
-      type: z.string(),
-      purpose: z.string(),
-      price: z.number(),
-      area: z.number(),
-      bedrooms: z.number().default(0),
-      bathrooms: z.number().default(0),
-      balconies: z.number().default(0),
-      parking: z.number().default(0),
-      city: z.string(),
-      state: z.string(),
-      locality: z.string(),
-      address: z.string().optional(),
-      zipCode: z.string().optional(),
-      latitude: z.number().default(0),
-      longitude: z.number().default(0),
-      amenities: z.array(z.string()).default([]),
-      images: z.array(z.string()).default([]),
-    });
-
-    const result = bodySchema.safeParse(body);
+    const result = createPropertySchema.safeParse(body);
     if (!result.success) {
-      return NextResponse.json({ error: result.error.errors }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid property data", details: result.error.flatten() },
+        { status: 400 }
+      );
     }
 
     const { city, state, locality, address, zipCode, latitude, longitude, price, area, ...rest } = result.data;
@@ -142,6 +132,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(serializeBigInt(property), { status: 201 });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
