@@ -228,184 +228,208 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[oklch(0.97_0.01_260)] pb-24 md:pb-0">
 
-      {/* Cover */}
-      <div className="relative h-40 overflow-hidden bg-gradient-to-r from-navy via-navy-deep to-accent sm:h-56">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 15% 50%, oklch(1 0 0 / 0.08) 0, transparent 50%), radial-gradient(circle at 85% 30%, oklch(0.85 0.13 220 / 0.15) 0, transparent 50%)",
-          }}
-        />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-white/10" />
-      </div>
+      {/* Hero panel */}
+      <div className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6 sm:pt-10">
+        <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-navy via-navy-deep to-navy p-6 shadow-xl sm:p-9">
+          {/* dot-grid texture */}
+          <div
+            className="absolute inset-0 opacity-[0.15]"
+            style={{
+              backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.45) 1px, transparent 1px)",
+              backgroundSize: "22px 22px",
+            }}
+          />
+          {/* glow orbs + sheen */}
+          <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-accent/25 blur-3xl" />
+          <div className="pointer-events-none absolute -left-10 bottom-0 h-48 w-48 rounded-full bg-cyan-400/15 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 bg-linear-to-tr from-transparent via-white/[0.05] to-transparent" />
 
-      <div className="mx-auto -mt-16 w-full max-w-5xl px-4 sm:-mt-20 sm:px-6">
-        {/* Identity card */}
-        <div className="rounded-2xl border border-border bg-white p-5 shadow-xl sm:p-7">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
-            {/* Avatar */}
-            <div className="relative -mt-14 sm:-mt-16">
-              <div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-accent to-navy font-display text-2xl font-black text-white shadow-xl ring-4 ring-white sm:h-24 sm:w-24 sm:text-3xl">
-                {session.initials}
-              </div>
-              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white">
-                <CheckCircle2 size={11} className="text-white" strokeWidth={3} />
-              </span>
-            </div>
-
-            {/* Name + badges */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap gap-2">
-                <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
-                  {meta.label}
-                </span>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                  Active
-                </span>
-                <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  {meta.portalName}
+          <div className="relative z-10">
+            {/* Identity row */}
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+              <div className="relative shrink-0">
+                <div className="grid h-24 w-24 place-items-center rounded-2xl bg-linear-to-br from-accent to-cyan-500 font-display text-3xl font-black text-white shadow-2xl ring-4 ring-white/15">
+                  {session.initials}
+                </div>
+                <span className="absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 ring-4 ring-navy">
+                  <CheckCircle2 size={12} className="text-white" strokeWidth={3} />
                 </span>
               </div>
-              <h1 className="mt-1.5 font-display text-2xl font-black text-navy sm:text-3xl">
-                {session.name}
-              </h1>
-              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-                <MapPin size={12} />
-                {session.city} · Member since {session.joined}
-              </p>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent ring-1 ring-accent/30">
+                    {meta.label}
+                  </span>
+                  <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 ring-1 ring-emerald-400/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Active
+                  </span>
+                  <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/70">
+                    {meta.portalName}
+                  </span>
+                </div>
+                <h1 className="mt-2 font-display text-3xl font-black text-white sm:text-4xl">
+                  {session.name}
+                </h1>
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-white/60">
+                  <MapPin size={13} />
+                  {session.city} · Member since {session.joined}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 sm:flex-col sm:items-stretch">
+                <Link
+                  href={meta.portal}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-accent/25 transition hover:-translate-y-0.5 hover:opacity-95"
+                >
+                  Open Portal <ChevronRight size={14} />
+                </Link>
+                <button
+                  onClick={() => {
+                    signOut();
+                    router.push("/");
+                    toast.success("Signed out");
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
+                >
+                  <LogOut size={14} /> Sign out
+                </button>
+              </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2 sm:flex-nowrap">
-              <Link
-                href={meta.portal}
-                className="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 hover:shadow-md"
-              >
-                Open Portal <ChevronRight size={14} />
-              </Link>
-              <button
-                onClick={() => {
-                  signOut();
-                  router.push("/");
-                  toast.success("Signed out");
-                }}
-                className="flex items-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-semibold text-foreground/70 transition hover:bg-secondary hover:text-red-500"
-              >
-                <LogOut size={14} /> Sign out
-              </button>
+            {/* Stats as glass tiles */}
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+              {stats.map(({ label, value, sub }) => (
+                <div
+                  key={label}
+                  className="rounded-2xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-md transition hover:border-white/25 hover:bg-white/12"
+                >
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/50">
+                    {label}
+                  </div>
+                  <div className="mt-1.5 font-display text-2xl font-black text-white sm:text-3xl">
+                    {value}
+                  </div>
+                  {sub && <div className="mt-1 text-[11px] text-white/45">{sub}</div>}
+                </div>
+              ))}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {stats.map(({ label, value, sub }) => (
-            <div
-              key={label}
-              className="stat-card-hover rounded-xl border border-border bg-white p-4 shadow-sm"
-            >
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                {label}
-              </div>
-              <div className="mt-1.5 font-display text-2xl font-black text-navy">{value}</div>
-              {sub && <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>}
-            </div>
-          ))}
-        </div>
-
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
         {/* Body */}
-        <div className="mt-5 grid gap-5 lg:grid-cols-3 lg:items-start">
+        <div className="mt-10 grid gap-8 lg:grid-cols-3 lg:items-start">
           {/* Left column */}
           <div className="space-y-5 lg:col-span-2">
             {/* Account details */}
-            <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-base font-bold text-navy">Account Details</h2>
+            <div className="rounded-2xl border border-border bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-border px-6 py-5">
+                <h2 className="font-display text-lg font-bold text-navy">Account Details</h2>
                 <button
                   onClick={() => (editing ? saveProfile() : setEditing(true))}
-                  className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white"
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent/5"
                 >
-                  <Edit2 size={12} />
-                  {editing ? "Save changes" : "Edit"}
+                  <Edit2 size={13} />
+                  {editing ? "Save" : "Edit"}
                 </button>
               </div>
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                {/* Editable name */}
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Full Name
-                  </label>
-                  {editing ? (
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="mt-1.5 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                    />
-                  ) : (
-                    <div className="mt-1 font-medium text-navy">{session.name}</div>
-                  )}
-                </div>
-
-                {/* Email (read-only) */}
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Email
-                  </label>
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <span className="font-medium text-navy">{session.email}</span>
-                    <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
-                      Verified
-                    </span>
+              <div className="px-6 py-6">
+                {/* Contact section */}
+                <div className="mb-6">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Contact</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        Full Name
+                      </label>
+                      {editing ? (
+                        <input
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm font-medium text-navy focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                        />
+                      ) : (
+                        <div className="text-sm font-medium text-navy">{session.name}</div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        Email
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-navy">{session.email}</span>
+                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[8px] font-bold text-emerald-700">
+                          Verified
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        Phone
+                      </label>
+                      {editing ? (
+                        <input
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm font-medium text-navy focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                        />
+                      ) : (
+                        <div className="text-sm font-medium text-navy">{session.phone}</div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Editable phone */}
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Phone
-                  </label>
-                  {editing ? (
-                    <input
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="mt-1.5 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                    />
-                  ) : (
-                    <div className="mt-1 font-medium text-navy">{session.phone}</div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    City
-                  </label>
-                  <div className="mt-1 font-medium text-navy">{session.city}</div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Role
-                  </label>
-                  <div className="mt-1 font-medium text-navy">{meta.label}</div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Workspace
-                  </label>
-                  <div className="mt-1 font-medium text-navy">{meta.portalName}</div>
+                {/* Organization section */}
+                <div className="border-t border-border pt-6">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Organization</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        Role
+                      </label>
+                      <div className="text-sm font-medium text-navy">{meta.label}</div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        Workspace
+                      </label>
+                      <div className="text-sm font-medium text-navy">{meta.portalName}</div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        City
+                      </label>
+                      <div className="text-sm font-medium text-navy">{session.city}</div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        Member Since
+                      </label>
+                      <div className="text-sm font-medium text-navy">{session.joined}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {editing && (
-                <button
-                  onClick={() => setEditing(false)}
-                  className="mt-4 text-xs font-semibold text-muted-foreground hover:text-red-500 transition-colors"
-                >
-                  Cancel
-                </button>
+                <div className="border-t border-border px-6 py-4 flex gap-2">
+                  <button
+                    onClick={saveProfile}
+                    className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary"
+                  >
+                    Cancel
+                  </button>
+                </div>
               )}
             </div>
 
@@ -413,21 +437,19 @@ export default function ProfilePage() {
             <SecurityPanel />
 
             {/* Activity */}
-            <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="font-display text-base font-bold text-navy">Recent Activity</h2>
-              <ul className="mt-4 space-y-0">
+            <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-border px-6 py-5">
+                <h2 className="font-display text-sm font-bold text-navy uppercase tracking-wide">Recent Activity</h2>
+              </div>
+              <ul className="divide-y divide-border">
                 {activity.map(({ time, text, dot }, i) => (
-                  <li key={i} className="relative flex items-start gap-4 pb-5 last:pb-0">
-                    {/* timeline line */}
-                    {i < activity.length - 1 && (
-                      <span className="absolute left-[7px] top-5 h-full w-px bg-border" />
-                    )}
+                  <li key={i} className="relative flex items-start gap-4 px-6 py-4 first:pt-0 last:pb-0">
                     <span
-                      className={`relative mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full ring-2 ring-white ${dot}`}
+                      className={`relative mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white ${dot}`}
                     />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-navy">{text}</div>
-                      <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                      <div className="mt-1 font-mono text-xs text-muted-foreground">
                         {time}
                       </div>
                     </div>
@@ -438,36 +460,35 @@ export default function ProfilePage() {
           </div>
 
           {/* Right column */}
-          <aside className="space-y-5">
+          <aside className="space-y-6">
             {/* Quick actions */}
-            <div className="rounded-2xl bg-gradient-to-br from-navy to-navy-deep p-5 text-white shadow-sm">
-              <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-white/50">
-                Quick Actions
-              </div>
-              <div className="mt-3 space-y-1.5">
-                {actions.map(({ label, to, Icon }) => (
-                  <Link
-                    key={label}
-                    href={to}
-                    className="flex items-center justify-between rounded-xl bg-white/6 px-4 py-2.5 text-sm font-medium transition hover:bg-white/12"
-                  >
-                    <span className="flex items-center gap-3">
-                      <Icon size={14} strokeWidth={1.75} className="text-white/70" />
-                      {label}
-                    </span>
-                    <ChevronRight size={13} className="text-white/40" />
-                  </Link>
-                ))}
+            <div className="rounded-2xl bg-gradient-to-br from-navy via-navy-deep to-navy-deep p-6 text-white shadow-sm overflow-hidden relative">
+              <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-white/5 blur-2xl" />
+              <div className="relative z-10">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-white/60 mb-4">Quick Access</h3>
+                <div className="grid gap-2">
+                  {actions.map(({ label, to, Icon }) => (
+                    <Link
+                      key={label}
+                      href={to}
+                      className="group flex items-center gap-3 rounded-lg bg-white/8 px-4 py-3 text-sm font-medium transition hover:bg-white/12"
+                    >
+                      <Icon size={16} strokeWidth={1.5} className="text-white/70 group-hover:text-accent transition" />
+                      <span className="flex-1">{label}</span>
+                      <ChevronRight size={14} className="text-white/40 group-hover:text-white/60 transition" />
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Notifications */}
-            <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2">
-                <Bell size={14} className="text-accent" />
-                <h3 className="font-display text-sm font-bold text-navy">Notifications</h3>
+            <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-border px-6 py-4 flex items-center gap-2">
+                <Bell size={16} className="text-accent" />
+                <h3 className="font-display text-sm font-bold text-navy">Notification Preferences</h3>
               </div>
-              <div className="mt-4 space-y-3">
+              <div className="px-6 py-5 space-y-4">
                 {(
                   [
                     ["Email alerts", "email", Mail],
@@ -477,8 +498,8 @@ export default function ProfilePage() {
                   ] as [string, keyof typeof prefs, LucideIcon][]
                 ).map(([label, key, Icon]) => (
                   <div key={key} className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2 text-sm text-navy">
-                      <Icon size={13} className="text-muted-foreground" />
+                    <span className="flex items-center gap-2.5 text-sm text-navy">
+                      <Icon size={14} className="text-slate-400" />
                       {label}
                     </span>
                     <Toggle on={prefs[key]} onToggle={() => togglePref(key)} />
@@ -487,19 +508,17 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Sign in as different role */}
-            <div className="rounded-2xl border border-border bg-white p-5 text-center shadow-sm">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Switch Portal
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Demo any other role in one click.
+            {/* Switch role */}
+            <div className="rounded-2xl border border-border bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm text-center">
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Switch Role</div>
+              <p className="text-xs text-muted-foreground mb-4">
+                Try another role and workspace.
               </p>
               <Link
                 href="/admin-login"
-                className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-accent px-4 py-2 text-xs font-bold text-accent transition hover:bg-accent hover:text-white"
+                className="inline-flex items-center gap-2 rounded-lg border border-accent bg-white px-4 py-2 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white"
               >
-                Change role <ChevronRight size={12} />
+                Change role <ChevronRight size={13} />
               </Link>
             </div>
           </aside>

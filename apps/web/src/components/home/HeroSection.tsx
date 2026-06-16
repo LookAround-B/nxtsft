@@ -70,8 +70,8 @@ export function HeroSection() {
             <SafeImage src={src} alt="" fill className="object-cover" aria-hidden />
           </div>
         ))}
-        <div className="absolute inset-0 bg-navy/65" />
-        <div className="absolute inset-0 bg-gradient-to-b from-navy/30 via-transparent to-navy/50" />
+        <div className="absolute inset-0 bg-navy/30" />
+        <div className="absolute inset-0 bg-gradient-to-b from-navy/15 via-transparent to-navy/25" />
       </div>
 
       <HeroBlobs />

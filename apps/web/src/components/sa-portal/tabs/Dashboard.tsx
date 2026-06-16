@@ -94,10 +94,12 @@ export function Dashboard() {
               onClick={() =>
                 downloadCSV(
                   "property-views.csv",
-                  ["ID", "User", "Email", "Property", "City", "Duration", "Unlocked"],
+                  ["ID", "User", "Mobile", "Role", "Email", "Property", "City", "Duration", "Unlocked"],
                   propertyViews.map((v) => [
                     v.id,
                     v.userName,
+                    v.userPhone,
+                    v.userRole,
                     v.userEmail,
                     v.propertyTitle,
                     v.city,
@@ -118,6 +120,8 @@ export function Dashboard() {
             <thead>
               <tr>
                 <th>User</th>
+                <th>Mobile</th>
+                <th>Role</th>
                 <th>Property</th>
                 <th>City</th>
                 <th>Viewed At</th>
@@ -132,6 +136,8 @@ export function Dashboard() {
                 .map((v) => (
                   <tr key={v.id}>
                     <td className="font-semibold text-navy">{v.userName}</td>
+                    <td className="font-mono text-xs text-muted-foreground">{v.userPhone}</td>
+                    <td className="text-xs capitalize text-muted-foreground">{v.userRole}</td>
                     <td className="max-w-[180px] truncate text-sm text-navy">
                       {v.propertyTitle.split("—")[0].trim()}
                     </td>

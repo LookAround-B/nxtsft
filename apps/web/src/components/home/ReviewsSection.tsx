@@ -1,15 +1,31 @@
 "use client";
 
-import { useRef } from "react";
-import { ChevronRight } from "lucide-react";
 import { REVIEWS } from "@/components/home/homeData";
 import { Eyebrow } from "@/components/home/Eyebrow";
+
+// Marquee glides one full set-width left, then loops. The track holds two copies
+// of REVIEWS, so -50% lands exactly on the start of the second copy — seamless.
+const marqueeStyle = `
+  @keyframes review-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .review-marquee {
+    animation: review-marquee 90s linear infinite;
+  }
+  .review-marquee:hover {
+    animation-play-state: paused;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .review-marquee { animation: none; }
+  }
+`;
 
 function Stars({ n }: { n: number }) {
   return (
     <span className="flex gap-0.5">
       {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} className={`text-sm ${i < n ? "text-amber-400" : "text-border"}`}>
+        <span key={i} className={`text-sm ${i < n ? "text-amber-400" : "text-white/20"}`}>
           ★
         </span>
       ))}
@@ -17,72 +33,69 @@ function Stars({ n }: { n: number }) {
   );
 }
 
-export function ReviewsSection() {
-  const reviewRef = useRef<HTMLDivElement>(null);
+type Review = (typeof REVIEWS)[number];
 
+function ReviewCard({ r }: { r: Review }) {
   return (
-    <section className="px-4 py-5 sm:px-6">
+    <figure className="w-[320px] shrink-0 rounded-2xl border border-white/10 bg-white/[0.07] p-5 backdrop-blur-md transition hover:-translate-y-1 hover:border-white/25 hover:bg-white/12">
+      <div className="mb-3 flex items-center gap-3">
+        <div
+          className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-sm font-bold text-white shadow-lg"
+          style={{ background: r.bg }}
+        >
+          {r.initial}
+        </div>
+        <figcaption className="min-w-0">
+          <p className="truncate text-sm font-semibold text-white">{r.name}</p>
+          <p className="text-[11px] text-white/55">
+            {r.location} · {r.age}
+          </p>
+        </figcaption>
+      </div>
+      <Stars n={r.rating} />
+      <blockquote className="mt-3 line-clamp-4 text-[13px] leading-relaxed text-white/75">
+        “{r.text}”
+      </blockquote>
+    </figure>
+  );
+}
+
+export function ReviewsSection() {
+  return (
+    <section className="px-4 py-12 sm:px-6">
+      <style>{marqueeStyle}</style>
       <div className="mx-auto max-w-7xl">
-        <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-7">
-          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div data-reveal>
-              <Eyebrow>Customer Stories</Eyebrow>
-              <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">
-                What People Say About Us
-              </h2>
-              <div className="mt-2 flex items-center gap-2">
-                <span className="font-display text-3xl font-black text-navy">4.8</span>
-                <div>
-                  <Stars n={5} />
-                  <span className="text-xs text-muted-foreground">Based on 10,000+ reviews</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex shrink-0 gap-2">
-              <button
-                onClick={() => reviewRef.current?.scrollBy({ left: -300, behavior: "smooth" })}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition hover:border-transparent hover:bg-navy hover:text-white"
-              >
-                <ChevronRight className="h-4 w-4 rotate-180" />
-              </button>
-              <button
-                onClick={() => reviewRef.current?.scrollBy({ left: 300, behavior: "smooth" })}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-navy text-white transition hover:bg-navy/90"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+        {/* Header */}
+        <div data-reveal className="mb-8 max-w-2xl">
+          <Eyebrow>Customer Stories</Eyebrow>
+          <h2 className="mt-2 font-display text-3xl font-black text-navy sm:text-4xl">
+            What People Say About Us
+          </h2>
+          <div className="mt-4 flex items-center gap-3">
+            <span className="font-display text-4xl font-black text-navy">4.8</span>
+            <div>
+              <Stars n={5} />
+              <span className="text-sm text-muted-foreground font-medium">Based on 10,000+ reviews</span>
             </div>
           </div>
+        </div>
 
-          <div ref={reviewRef} className="no-scrollbar flex gap-4 overflow-x-auto pb-1">
-            {REVIEWS.map((r, i) => (
-              <div
-                key={r.name}
-                data-reveal="scale"
-                className="w-[285px] shrink-0 rounded-xl border border-border bg-secondary/30 p-4"
-                style={{ transitionDelay: `${i * 60}ms` }}
-              >
-                <div className="mb-3 flex items-center gap-3">
-                  <div
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
-                    style={{ background: r.bg }}
-                  >
-                    {r.initial}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-navy">{r.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {r.location} · {r.age}
-                    </p>
-                  </div>
-                </div>
-                <Stars n={r.rating} />
-                <p className="mt-2.5 line-clamp-4 text-[13px] leading-relaxed text-muted-foreground">
-                  {r.text}
-                </p>
-              </div>
+        {/* Marquee */}
+        <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-navy via-navy-deep to-navy py-8">
+          {/* ambient glow */}
+          <div className="pointer-events-none absolute -right-40 -top-40 h-80 w-80 rounded-full bg-accent/15 blur-3xl" />
+          <div className="pointer-events-none absolute -left-40 -bottom-40 h-80 w-80 rounded-full bg-white/5 blur-3xl" />
+
+          {/* track: two copies of REVIEWS so the -50% loop is seamless */}
+          <div className="review-marquee flex w-max gap-5 px-5">
+            {[...REVIEWS, ...REVIEWS].map((r, i) => (
+              <ReviewCard key={`${r.name}-${i}`} r={r} />
             ))}
           </div>
+
+          {/* edge fades */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-linear-to-r from-navy to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-navy to-transparent" />
         </div>
       </div>
     </section>
