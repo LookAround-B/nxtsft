@@ -2,8 +2,18 @@
 
 import type { HTMLAttributes } from "react";
 import type { SkeletonResult } from "boneyard-js";
-import { Skeleton as BoneyardSkeleton } from "boneyard-js/react";
+import { Skeleton as BoneyardSkeleton, configureBoneyard } from "boneyard-js/react";
 import { cn } from "@/lib/utils";
+
+// boneyard's stock bones are #f0f0f0 with a #f7f7f7 shimmer — both near-white,
+// so they're invisible on our white surfaces. Use a visibly grey palette.
+configureBoneyard({
+  color: "#e2e8f0", // slate-200
+  darkColor: "#2a2f3a",
+  shimmerColor: "#f1f5f9", // slate-100
+  darkShimmerColor: "#3a4150",
+  animate: "shimmer",
+});
 
 const BASE_BLOCK_BONES: SkeletonResult = {
   name: "ui-block",

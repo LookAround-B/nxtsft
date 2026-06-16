@@ -9,7 +9,24 @@ import { NextResponse, type NextRequest } from "next/server";
  * Only the pages in PUBLIC_ROUTES are reachable without a session — everything
  * else requires login. Static assets and /api are excluded via `config.matcher`.
  */
-const PUBLIC_ROUTES = ["/login", "/admin-login", "/register"];
+const PUBLIC_ROUTES = [
+  "/login",
+  "/admin-login",
+  "/register",
+  "/",
+  "/properties",
+  "/agents",
+  "/pricing",
+  "/list",
+  "/profile",
+  "/about",
+  "/contact",
+  "/refer",
+  "/terms",
+  "/privacy",
+  "/cookie-policy",
+  "/fraud-advisory",
+];
 
 /** Staff portals send unauthenticated users to /admin-login instead of /login */
 const STAFF_PREFIXES = [

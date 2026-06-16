@@ -164,15 +164,39 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    if (!session) {
-      router.push("/login");
-      return;
+    if (session) {
+      setName(session.name);
+      setPhone(session.phone);
     }
-    setName(session.name);
-    setPhone(session.phone);
-  }, [session, router]);
+  }, [session]);
 
-  if (!session) return null;
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-[oklch(0.97_0.01_260)] flex items-center justify-center px-4 pb-24 md:pb-0">
+        <div className="max-w-md text-center">
+          <h1 className="font-display text-3xl font-black text-navy mb-3">Sign in to view profile</h1>
+          <p className="text-muted-foreground mb-6">Access your account details, security settings, and more.</p>
+          <div className="flex gap-3 flex-col">
+            <Link
+              href="/login"
+              className="flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white shadow-sm shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95"
+            >
+              Sign in as Buyer
+            </Link>
+            <Link
+              href="/admin-login"
+              className="flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-6 py-3 text-sm font-bold text-foreground transition hover:bg-secondary"
+            >
+              Sign in as Staff
+            </Link>
+          </div>
+          <Link href="/" className="block mt-4 text-sm text-accent hover:underline">
+            Back to home
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const meta = ROLE_META[session.role];
   const stats = roleStats[session.role];
