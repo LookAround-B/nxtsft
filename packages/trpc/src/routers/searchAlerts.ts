@@ -2,6 +2,12 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, protectedProcedure } from "../server.js";
+import {
+  safeString,
+  cuidSchema,
+  searchAlertFiltersSchema,
+  alertFrequencySchema,
+} from "../sanitize.js";
 
 export const searchAlertsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -14,9 +20,9 @@ export const searchAlertsRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        name: z.string().min(1).max(100),
-        filters: z.record(z.any()),
-        frequency: z.enum(["daily", "weekly", "instant"]).default("daily"),
+        name: safeString(100, 1),
+        filters: searchAlertFiltersSchema,
+        frequency: alertFrequencySchema.default("daily"),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -33,10 +39,10 @@ export const searchAlertsRouter = router({
   update: protectedProcedure
     .input(
       z.object({
-        id: z.string(),
-        name: z.string().min(1).max(100).optional(),
-        filters: z.record(z.any()).optional(),
-        frequency: z.enum(["daily", "weekly", "instant"]).optional(),
+        id: cuidSchema,
+        name: safeString(100, 1).optional(),
+        filters: searchAlertFiltersSchema.optional(),
+        frequency: alertFrequencySchema.optional(),
         active: z.boolean().optional(),
       }),
     )
@@ -53,7 +59,7 @@ export const searchAlertsRouter = router({
     }),
 
   delete: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
       const alert = await prisma.searchAlert.findUnique({ where: { id: input.id } });
       if (!alert) throw new TRPCError({ code: "NOT_FOUND", message: "Search alert not found." });
@@ -64,7 +70,7 @@ export const searchAlertsRouter = router({
     }),
 
   toggle: protectedProcedure
-    .input(z.object({ id: z.string(), active: z.boolean() }))
+    .input(z.object({ id: cuidSchema, active: z.boolean() }))
     .mutation(async ({ input, ctx }) => {
       const alert = await prisma.searchAlert.findUnique({ where: { id: input.id } });
       if (!alert) throw new TRPCError({ code: "NOT_FOUND", message: "Search alert not found." });

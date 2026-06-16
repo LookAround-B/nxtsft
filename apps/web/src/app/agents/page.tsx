@@ -17,8 +17,6 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ownerSlug } from "@/data/static";
 import { AGENTS, type Agent } from "@/data/agents";
@@ -244,7 +242,6 @@ export default function AgentsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       {/* ── Hero ──────────────────────────────────────────────────── */}
       <section
@@ -703,7 +700,6 @@ export default function AgentsPage() {
         </div>
       </section>
 
-      <SiteFooter />
     </div>
   );
 }

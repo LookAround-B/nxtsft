@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Terms of Use — NxtSft.com",
@@ -170,7 +168,6 @@ const SECTIONS = [
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       {/* Hero */}
       <section className="border-b border-border bg-white">
@@ -275,7 +272,6 @@ export default function TermsPage() {
         </div>
       </div>
 
-      <SiteFooter />
     </div>
   );
 }

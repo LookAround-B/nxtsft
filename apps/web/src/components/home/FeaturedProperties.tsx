@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+import { SafeImage } from "@/components/ui/SafeImage";
 import Link from "next/link";
 import { Star as StarIcon, ChevronRight, ArrowRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -94,7 +94,7 @@ export function FeaturedProperties() {
                       style={{ transitionDelay: `${i * 60}ms` }}
                     >
                       <div className="relative aspect-[4/3] overflow-hidden">
-                        <Image
+                        <SafeImage
                           src={
                             p.images[0] ??
                             "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80"

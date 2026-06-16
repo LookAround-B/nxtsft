@@ -16,8 +16,6 @@ export async function GET(
           select: {
             id: true,
             name: true,
-            email: true,
-            phone: true,
             avatar: true,
           },
         },
@@ -29,7 +27,7 @@ export async function GET(
     }
 
     return NextResponse.json(serializeBigInt(property));
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

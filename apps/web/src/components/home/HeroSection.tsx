@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { HERO_IMAGES, ROTATING_STATS } from "@/components/home/homeData";
@@ -67,7 +67,7 @@ export function HeroSection() {
             className="absolute inset-0 transition-opacity duration-[1400ms]"
             style={{ opacity: i === heroSlide ? 1 : 0 }}
           >
-            <Image src={src} alt="" fill className="object-cover" aria-hidden />
+            <SafeImage src={src} alt="" fill className="object-cover" aria-hidden />
           </div>
         ))}
         <div className="absolute inset-0 bg-navy/65" />

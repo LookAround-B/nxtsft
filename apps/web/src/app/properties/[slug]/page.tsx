@@ -1,7 +1,7 @@
 "use client";
 import { use, useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
@@ -22,8 +22,6 @@ import {
   Star,
   Share2,
 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { PropertyEngagement } from "@/components/PropertyEngagement";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";
@@ -266,7 +264,6 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <SiteHeader />
         <div className="mx-auto max-w-7xl px-5 py-12 sm:px-6">
           <div className="animate-pulse space-y-4">
             <div className="h-80 rounded-2xl bg-secondary" />
@@ -281,7 +278,6 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
   if (isError || !property) {
     return (
       <div className="min-h-screen bg-background">
-        <SiteHeader />
         <div className="mx-auto max-w-7xl px-5 py-20 text-center sm:px-6">
           <h1 className="font-display text-2xl font-black text-navy">Property not found</h1>
           <p className="mt-2 text-muted-foreground">This listing may have been removed or is no longer available.</p>
@@ -303,7 +299,6 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
 
   return (
     <div className="min-h-screen bg-[oklch(0.97_0.01_260)]">
-      <SiteHeader />
 
       {/* Breadcrumb */}
       <div className="border-b border-border bg-white/80 backdrop-blur-sm">
@@ -325,7 +320,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
             {/* Gallery */}
             <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
               <div className="relative h-72 sm:h-96">
-                <Image
+                <SafeImage
                   src={images[activeImage] ?? images[0] ?? ""}
                   alt={property.title}
                   fill
@@ -403,7 +398,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                       onClick={() => setActiveImage(i)}
                       className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 transition ${activeImage === i ? "border-accent" : "border-transparent"}`}
                     >
-                      <Image src={img} alt="" fill className="object-cover" sizes="96px" />
+                      <SafeImage src={img} alt="" fill className="object-cover" sizes="96px" />
                     </button>
                   ))}
                 </div>
@@ -561,7 +556,6 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
         </div>
       </div>
 
-      <SiteFooter />
     </div>
   );
 }

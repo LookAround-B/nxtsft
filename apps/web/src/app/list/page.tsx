@@ -14,8 +14,6 @@ import {
   ClipboardList,
   User,
 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { useAuth } from "@/lib/auth";
 import { submitListing, type ListerType, type PendingListing } from "@/lib/listings";
 import { trpc } from "@/lib/trpc";
@@ -242,7 +240,6 @@ export default function ListPropertyPage() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-background">
-        <SiteHeader />
         <div className="mx-auto max-w-xl px-4 py-20 text-center">
           <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-full bg-emerald-50">
             <CheckCircle2 size={40} className="text-emerald-500" strokeWidth={1.5} />
@@ -305,7 +302,6 @@ export default function ListPropertyPage() {
             </button>
           </div>
         </div>
-        <SiteFooter />
       </div>
     );
   }
@@ -313,7 +309,6 @@ export default function ListPropertyPage() {
   // ── Wizard ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       {/* Step progress bar */}
       <div className="border-b border-border bg-white">
@@ -755,7 +750,6 @@ export default function ListPropertyPage() {
         </div>
       </div>
 
-      <SiteFooter />
     </div>
   );
 }

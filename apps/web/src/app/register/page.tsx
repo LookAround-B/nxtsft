@@ -3,8 +3,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, CheckCircle2 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { useAuth, ROLE_META } from "@/lib/auth";
 import { toast } from "sonner";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -74,7 +72,6 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 sm:py-16 lg:grid-cols-2">
         {/* Left decorative panel */}
@@ -306,7 +303,6 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <SiteFooter />
     </div>
   );
 }

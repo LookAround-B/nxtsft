@@ -16,8 +16,6 @@ import {
   Building2,
   CheckCircle2,
 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { properties, ownerSlug } from "@/data/static";
 import { AGENTS } from "@/data/agents";
 import { useAuth } from "@/lib/auth";
@@ -78,7 +76,6 @@ export default function AgentProfilePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       {/* ── Header ───────────────────────────────────────── */}
       <section className="border-b border-border bg-white">
@@ -378,7 +375,6 @@ export default function AgentProfilePage() {
         </div>
       </div>
 
-      <SiteFooter />
     </div>
   );
 }

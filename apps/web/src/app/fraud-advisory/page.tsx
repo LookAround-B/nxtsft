@@ -15,8 +15,6 @@ import {
   MessageSquare,
   Lock,
 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Fraud Advisory — NxtSft.com",
@@ -158,7 +156,6 @@ const PROTECTIONS = [
 export default function FraudAdvisoryPage() {
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       {/* Hero */}
       <section className="border-b border-border bg-white">
@@ -421,7 +418,6 @@ export default function FraudAdvisoryPage() {
         </section>
       </div>
 
-      <SiteFooter />
     </div>
   );
 }

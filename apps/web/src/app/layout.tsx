@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth";
 import { BottomNav } from "@/components/site/BottomNav";
 import { Toaster } from "@/components/ui/sonner";
 import { Preloader } from "@/components/site/Preloader";
+import { SiteChrome } from "@/components/site/SiteChrome";
 import { ListPropertyPopup } from "@/components/site/ListPropertyPopup";
 import { CookieBanner } from "@/components/site/CookieBanner";
 
@@ -31,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Preloader />
         <Providers>
           <AuthProvider>
-            {children}
+            <SiteChrome>{children}</SiteChrome>
             <BottomNav />
             <ListPropertyPopup />
             <CookieBanner />

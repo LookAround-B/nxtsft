@@ -2,19 +2,25 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, protectedProcedure, staffProcedure } from "../server.js";
-
-const TicketCategory = z.enum(["payment", "property", "agent", "technical", "other"]);
-const TicketPriority = z.enum(["low", "medium", "high", "urgent"]);
-const TicketStatus = z.enum(["open", "in_progress", "resolved", "closed"]);
+import {
+  safeString,
+  cuidSchema,
+  cursorSchema,
+  limitSchema,
+  noteSchema,
+  ticketCategorySchema,
+  ticketPrioritySchema,
+  ticketStatusSchema,
+} from "../sanitize.js";
 
 export const ticketsRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        subject: z.string().min(5).max(200),
-        description: z.string().min(10),
-        category: TicketCategory,
-        priority: TicketPriority.default("medium"),
+        subject: safeString(200, 5),
+        description: safeString(5000, 10),
+        category: ticketCategorySchema,
+        priority: ticketPrioritySchema.default("medium"),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -33,9 +39,9 @@ export const ticketsRouter = router({
   list: protectedProcedure
     .input(
       z.object({
-        status: TicketStatus.optional(),
-        cursor: z.string().optional(),
-        limit: z.number().int().min(1).max(100).default(20),
+        status: ticketStatusSchema.optional(),
+        cursor: cursorSchema,
+        limit: limitSchema,
       }),
     )
     .query(async ({ input, ctx }) => {
@@ -63,7 +69,7 @@ export const ticketsRouter = router({
     }),
 
   get: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .query(async ({ input, ctx }) => {
       const ticket = await prisma.ticket.findUnique({
         where: { id: input.id },
@@ -84,11 +90,11 @@ export const ticketsRouter = router({
   update: staffProcedure
     .input(
       z.object({
-        id: z.string(),
-        status: TicketStatus.optional(),
-        priority: TicketPriority.optional(),
-        assignedTo: z.string().optional(),
-        note: z.string().optional(),
+        id: cuidSchema,
+        status: ticketStatusSchema.optional(),
+        priority: ticketPrioritySchema.optional(),
+        assignedTo: cuidSchema.optional(),
+        note: noteSchema.optional(),
       }),
     )
     .mutation(async ({ input }) => {

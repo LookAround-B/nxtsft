@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { ROLE_META, useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -60,7 +58,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 sm:py-16 lg:grid-cols-2">
         {/* Left decorative panel */}
         <div className="hidden animate-fade-up flex-col justify-between rounded-3xl bg-gradient-to-br from-navy via-navy-deep to-accent p-10 text-white lg:flex">
@@ -226,7 +223,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-      <SiteFooter />
     </div>
   );
 }

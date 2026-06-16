@@ -1,13 +1,14 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, protectedProcedure } from "../server.js";
+import { cuidSchema, cursorSchema } from "../sanitize.js";
 
 export const notificationsRouter = router({
   list: protectedProcedure
     .input(
       z.object({
         unreadOnly: z.boolean().default(false),
-        cursor: z.string().optional(),
+        cursor: cursorSchema,
         limit: z.number().int().min(1).max(50).default(20),
       }),
     )
@@ -39,7 +40,7 @@ export const notificationsRouter = router({
   }),
 
   markRead: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
       await prisma.notification.updateMany({
         where: { id: input.id, userId: ctx.user.id },

@@ -1,20 +1,22 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 export function Preloader() {
+  const pathname = usePathname();
   const [visible, setVisible] = useState(true);
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setFading(true), 2000);
-    const t2 = setTimeout(() => setVisible(false), 2560);
+    const t1 = setTimeout(() => setFading(true), 250);
+    const t2 = setTimeout(() => setVisible(false), 500);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
     };
   }, []);
 
-  if (!visible) return null;
+  if (pathname === "/boneyard" || !visible) return null;
 
   return (
     <div

@@ -2,8 +2,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Mail, Phone, MapPin, Clock, Send, CheckCircle2 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 
 const CONTACTS = [
   {
@@ -68,7 +66,6 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-[oklch(0.97_0.01_260)]">
-      <SiteHeader />
 
       <section className="mx-auto max-w-6xl px-5 py-16 sm:px-6 sm:py-24">
         <div className="text-xs font-semibold uppercase tracking-widest text-accent">
@@ -208,7 +205,6 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <SiteFooter />
     </div>
   );
 }

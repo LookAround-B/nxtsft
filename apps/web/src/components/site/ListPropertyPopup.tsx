@@ -1,12 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { X, Building2 } from "lucide-react";
 
 const STORAGE_KEY = "nxtsft_list_popup_dismissed";
 const DISMISS_MS = 24 * 60 * 60 * 1000;
 
 export function ListPropertyPopup() {
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -20,7 +22,7 @@ export function ListPropertyPopup() {
     return () => clearTimeout(t);
   }, []);
 
-  if (!show) return null;
+  if (pathname === "/boneyard" || !show) return null;
 
   const dismiss = () => {
     setShow(false);
@@ -32,7 +34,7 @@ export function ListPropertyPopup() {
   };
 
   return (
-    <div className="animate-fade-up fixed bottom-24 right-4 z-[60] w-[calc(100vw-2rem)] max-w-[300px] sm:bottom-8 sm:right-6">
+    <div className="animate-fade-up fixed bottom-24 right-4 z-[60] max-w-[300px] sm:bottom-8 sm:right-6">
       <div
         className="relative overflow-hidden rounded-[24px] shadow-2xl"
         style={{ background: "linear-gradient(145deg, #0f172a 0%, #1e3a8a 60%, #2563EB 100%)" }}

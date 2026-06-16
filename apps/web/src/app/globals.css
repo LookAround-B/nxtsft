@@ -251,6 +251,8 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+    overflow-x: hidden;
   }
   * {
     border-color: var(--color-border);
@@ -258,6 +260,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    overflow-x: hidden;
   }
   a,
   button {

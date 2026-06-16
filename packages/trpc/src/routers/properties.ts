@@ -1,7 +1,29 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import {
+  cuidSchema,
+  safeString,
+  geoTextSchema,
+  purposeSchema,
+  priceSchema,
+  roomCountSchema,
+  searchSchema,
+  cursorSchema,
+  limitSchema,
+  descriptionSchema,
+  propertyTypeSchema,
+  areaSchema,
+  furnishingSchema,
+  reraSchema,
+  latitudeSchema,
+  longitudeSchema,
+  amenitiesSchema,
+  safeUrlArraySchema,
+  nearbyPlacesSchema,
+  propertyStatusSchema,
+} from "../sanitize.js";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server.js";
+import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server.js";
 
 // Serialize BigInt price fields to number for JSON transport
 function serializeProperty<T extends object>(obj: T): T {
@@ -39,16 +61,16 @@ export const propertiesRouter = router({
   list: publicProcedure
     .input(
       z.object({
-        city: z.string().optional(),
-        type: z.string().optional(),
-        purpose: z.enum(["Sale", "Rent"]).optional(),
-        minPrice: z.number().optional(),
-        maxPrice: z.number().optional(),
-        bedrooms: z.number().int().optional(),
-        search: z.string().optional(),
+        city: geoTextSchema.optional(),
+        type: safeString(50).optional(),
+        purpose: purposeSchema.optional(),
+        minPrice: priceSchema.optional(),
+        maxPrice: priceSchema.optional(),
+        bedrooms: roomCountSchema.optional(),
+        search: searchSchema.optional(),
         featured: z.boolean().optional(),
-        cursor: z.string().optional(), // id of the last item
-        limit: z.number().int().min(1).max(100).default(20),
+        cursor: cursorSchema, // id of the last item
+        limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
@@ -102,7 +124,7 @@ export const propertiesRouter = router({
   // Per-property engagement: interest (leads), wishlists, contact requests.
   // Names are anonymized ("Rohan M.") — safe for public social proof.
   engagement: publicProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .query(async ({ input }) => {
       const propertyId = input.id;
       const since7d = new Date(Date.now() - 7 * 86_400_000);
@@ -160,7 +182,7 @@ export const propertiesRouter = router({
 
   // Single property by id or slug
   get: publicProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: safeString(100, 1) }))
     .query(async ({ input }) => {
       const property = await prisma.property.findFirst({
         where: {
@@ -182,34 +204,34 @@ export const propertiesRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        title: z.string().min(10).max(200),
-        description: z.string().optional(),
-        type: z.enum(["Apartment", "Villa", "Studio", "Office", "Bungalow", "Plot", "PG"]),
-        purpose: z.enum(["Sale", "Rent"]),
-        price: z.number().int().positive(),
-        area: z.number().int().positive(),
-        bhk: z.string().optional(),
-        bedrooms: z.number().int().min(0).default(0),
-        bathrooms: z.number().int().min(0).default(0),
-        balconies: z.number().int().min(0).default(0),
-        parking: z.number().int().min(0).default(0),
-        floors: z.string().optional(),
-        age: z.string().optional(),
-        furnishing: z.enum(["Furnished", "Semi-Furnished", "Unfurnished"]).optional(),
-        facing: z.string().optional(),
-        possession: z.string().optional(),
-        builder: z.string().optional(),
-        rera: z.string().min(1, "RERA registration number is required").regex(/^[a-zA-Z0-9\/\-]+$/, "Invalid RERA registration number format"),
-        city: z.string().min(2),
-        state: z.string().min(2),
-        locality: z.string().min(2),
-        address: z.string().optional(),
-        zipCode: z.string().optional(),
-        latitude: z.number().default(0),
-        longitude: z.number().default(0),
-        amenities: z.array(z.string()).default([]),
-        images: z.array(z.string()).default([]),
-        nearbyPlaces: z.array(z.string()).default([]),
+        title: safeString(200, 10),
+        description: descriptionSchema.optional(),
+        type: propertyTypeSchema,
+        purpose: purposeSchema,
+        price: priceSchema,
+        area: areaSchema,
+        bhk: safeString(20).optional(),
+        bedrooms: roomCountSchema,
+        bathrooms: roomCountSchema,
+        balconies: roomCountSchema,
+        parking: roomCountSchema,
+        floors: safeString(20).optional(),
+        age: safeString(20).optional(),
+        furnishing: furnishingSchema.optional(),
+        facing: safeString(30).optional(),
+        possession: safeString(30).optional(),
+        builder: safeString(100).optional(),
+        rera: reraSchema,
+        city: geoTextSchema,
+        state: geoTextSchema,
+        locality: geoTextSchema,
+        address: safeString(500).optional(),
+        zipCode: safeString(6).optional(),
+        latitude: latitudeSchema,
+        longitude: longitudeSchema,
+        amenities: amenitiesSchema,
+        images: safeUrlArraySchema,
+        nearbyPlaces: nearbyPlacesSchema,
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -240,23 +262,23 @@ export const propertiesRouter = router({
   update: protectedProcedure
     .input(
       z.object({
-        id: z.string(),
-        title: z.string().min(10).max(200).optional(),
-        description: z.string().optional(),
-        price: z.number().int().positive().optional(),
-        area: z.number().int().positive().optional(),
-        bhk: z.string().optional(),
-        bedrooms: z.number().int().min(0).optional(),
-        bathrooms: z.number().int().min(0).optional(),
-        balconies: z.number().int().min(0).optional(),
-        parking: z.number().int().min(0).optional(),
-        furnishing: z.enum(["Furnished", "Semi-Furnished", "Unfurnished"]).optional(),
-        facing: z.string().optional(),
-        possession: z.string().optional(),
-        rera: z.string().regex(/^[a-zA-Z0-9\/\-]+$/, "Invalid RERA registration number format").optional(),
-        status: z.enum(["Active", "Sold", "Rented", "Inactive"]).optional(),
-        amenities: z.array(z.string()).optional(),
-        images: z.array(z.string()).optional(),
+        id: cuidSchema,
+        title: safeString(200, 10).optional(),
+        description: descriptionSchema.optional(),
+        price: priceSchema.optional(),
+        area: areaSchema.optional(),
+        bhk: safeString(20).optional(),
+        bedrooms: roomCountSchema.optional(),
+        bathrooms: roomCountSchema.optional(),
+        balconies: roomCountSchema.optional(),
+        parking: roomCountSchema.optional(),
+        furnishing: furnishingSchema.optional(),
+        facing: safeString(30).optional(),
+        possession: safeString(30).optional(),
+        rera: reraSchema.optional(),
+        status: propertyStatusSchema.optional(),
+        amenities: amenitiesSchema.optional(),
+        images: safeUrlArraySchema.optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -283,7 +305,7 @@ export const propertiesRouter = router({
 
   // Soft-delete (owner or admin)
   delete: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
       const property = await prisma.property.findFirst({ where: { id: input.id, deletedAt: null } });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
@@ -298,7 +320,7 @@ export const propertiesRouter = router({
 
   // Toggle featured (admin only)
   toggleFeatured: adminProcedure
-    .input(z.object({ id: z.string(), featured: z.boolean() }))
+    .input(z.object({ id: cuidSchema, featured: z.boolean() }))
     .mutation(async ({ input }) => {
       const updated = await prisma.property.update({
         where: { id: input.id },
@@ -309,7 +331,8 @@ export const propertiesRouter = router({
 
   // Unlock owner contact — costs 1 credit (credit gate)
   unlockContact: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .use(contactRateLimit)
+    .input(z.object({ id: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
       if (ctx.user.credits < 1) {
         throw new TRPCError({

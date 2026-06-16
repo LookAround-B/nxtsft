@@ -16,8 +16,6 @@ import {
   ArrowRight,
   Smartphone,
 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { useAuth } from "@/lib/auth";
 
 /* ─── Earn paths ─────────────────────────────────────────────────── */
@@ -266,7 +264,6 @@ export default function ReferPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       {/* ── Hero ──────────────────────────────────────────────────── */}
       <section
@@ -687,7 +684,6 @@ export default function ReferPage() {
         </section>
       )}
 
-      <SiteFooter />
     </div>
   );
 }

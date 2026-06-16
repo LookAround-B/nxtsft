@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Cookie } from "lucide-react";
 
 const CONSENT_KEY = "nxtsft_cookie_consent";
 
 export function CookieBanner() {
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
   const [visible, setVisible] = useState(false);
 
@@ -29,7 +31,7 @@ export function CookieBanner() {
     }, 460);
   };
 
-  if (!show) return null;
+  if (pathname === "/boneyard" || !show) return null;
 
   return (
     <div

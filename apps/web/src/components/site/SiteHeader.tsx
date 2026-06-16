@@ -22,9 +22,9 @@ const PROPERTY_TYPES = [
   { label: "Apartments", Icon: Building2, type: "Apartment" },
   { label: "Villas", Icon: Home, type: "Villa" },
   { label: "Plots & Land", Icon: MapPin, type: "Plot" },
-  { label: "Commercial", Icon: Briefcase, type: "Commercial" },
+  { label: "Commercial", Icon: Briefcase, type: "Office" },
   { label: "PG / Co-living", Icon: Users, type: "PG" },
-  { label: "New Projects", Icon: TrendingUp, type: "New" },
+  { label: "Studios", Icon: TrendingUp, type: "Studio" },
 ];
 
 const PROPERTY_CITIES = [
@@ -57,18 +57,18 @@ export function SiteHeader() {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:h-20 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
           {/* Logo */}
           <Link href="/" className="group flex shrink-0 items-center">
             <img
               src="/logo.png"
               alt="NxtSft.com"
-              className="h-16 w-auto object-contain transition group-hover:opacity-90 sm:h-20"
+              className="h-9 w-auto object-contain transition group-hover:opacity-90 sm:h-10"
             />
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden items-center gap-0.5 md:flex">
+          <nav className="mx-auto hidden items-center gap-0.5 md:flex">
             {NAV_ITEMS.map((l) => {
               const active = l.to === "/" ? pathname === "/" : pathname.startsWith(l.to);
 
@@ -76,7 +76,7 @@ export function SiteHeader() {
                 return (
                   <div key={l.to} className="group relative">
                     <button
-                      className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition hover:bg-secondary hover:text-foreground
+                      className={`flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition hover:bg-secondary hover:text-foreground
                         ${active ? "bg-accent/8 font-semibold text-accent" : "text-foreground/70"}`}
                     >
                       {l.label}
@@ -146,7 +146,7 @@ export function SiteHeader() {
                 <Link
                   key={l.to}
                   href={l.to}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition hover:bg-secondary hover:text-foreground
+                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition hover:bg-secondary hover:text-foreground
                     ${active ? "bg-accent/8 font-semibold text-accent" : "text-foreground/70"}`}
                 >
                   {l.label}
@@ -179,7 +179,7 @@ export function SiteHeader() {
 
             <Link
               href="/list"
-              className="hidden rounded-lg border border-navy/20 bg-navy/5 px-3 py-2 text-sm font-semibold text-navy transition hover:bg-navy/10 md:inline-block sm:px-4"
+              className="hidden whitespace-nowrap rounded-lg border border-navy/20 bg-navy/5 px-3 py-2 text-sm font-semibold text-navy transition hover:bg-navy/10 lg:inline-block sm:px-4"
             >
               List Property
             </Link>

@@ -2,16 +2,22 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, protectedProcedure, staffProcedure } from "../server.js";
-
-const SiteVisitStatus = z.enum(["Scheduled", "Completed", "Cancelled", "Rescheduled"]);
+import {
+  cuidSchema,
+  cursorSchema,
+  limitSchema,
+  datetimeSchema,
+  noteSchema,
+  siteVisitStatusSchema,
+} from "../sanitize.js";
 
 export const siteVisitsRouter = router({
   list: protectedProcedure
     .input(
       z.object({
-        status: SiteVisitStatus.optional(),
-        cursor: z.string().optional(),
-        limit: z.number().int().min(1).max(100).default(20),
+        status: siteVisitStatusSchema.optional(),
+        cursor: cursorSchema,
+        limit: limitSchema,
       }),
     )
     .query(async ({ input, ctx }) => {
@@ -46,9 +52,9 @@ export const siteVisitsRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        propertyId: z.string(),
-        scheduledAt: z.string().datetime(),
-        notes: z.string().optional(),
+        propertyId: cuidSchema,
+        scheduledAt: datetimeSchema,
+        notes: noteSchema.optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -72,9 +78,9 @@ export const siteVisitsRouter = router({
   reschedule: protectedProcedure
     .input(
       z.object({
-        id: z.string(),
-        scheduledAt: z.string().datetime(),
-        notes: z.string().optional(),
+        id: cuidSchema,
+        scheduledAt: datetimeSchema,
+        notes: noteSchema.optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -102,8 +108,8 @@ export const siteVisitsRouter = router({
   cancel: protectedProcedure
     .input(
       z.object({
-        id: z.string(),
-        notes: z.string().optional(),
+        id: cuidSchema,
+        notes: noteSchema.optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -130,9 +136,9 @@ export const siteVisitsRouter = router({
   complete: staffProcedure
     .input(
       z.object({
-        id: z.string(),
-        feedback: z.string().optional(),
-        notes: z.string().optional(),
+        id: cuidSchema,
+        feedback: noteSchema.optional(),
+        notes: noteSchema.optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {

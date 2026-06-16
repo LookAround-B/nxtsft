@@ -1,5 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import compress from "@fastify/compress";
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from "@trpc/server/adapters/fastify";
 import { appRouter, type AppRouter } from "@nxtsft/trpc";
@@ -27,6 +29,21 @@ export async function buildApp() {
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
+  await app.register(helmet, {
+    global: true,
+    contentSecurityPolicy: false, // CSP handled by Next.js for web; API returns JSON only
+  });
+
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: "1 minute",
+    errorResponseBuilder: (_req: any, context: any) => ({
+      statusCode: 429,
+      error: "Too Many Requests",
+      message: `Rate limit exceeded. Retry in ${Math.ceil(context.ttl / 1000)} seconds.`,
+    }),
+  });
+
   await app.register(compress, { global: true });
 
   await app.register(fastifyTRPCPlugin, {
@@ -41,6 +58,20 @@ export async function buildApp() {
         }
       },
     } satisfies FastifyTRPCPluginOptions<AppRouter>["trpcOptions"],
+  });
+
+  // Request audit logging
+  app.addHook("onResponse", (request, reply, done) => {
+    if (request.url !== "/health") {
+      app.log.info({
+        method: request.method,
+        url: request.url,
+        statusCode: reply.statusCode,
+        ip: request.headers["x-forwarded-for"] || request.ip,
+        responseTimeMs: Math.round(reply.elapsedTime),
+      }, "request completed");
+    }
+    done();
   });
 
   // Health check

@@ -8,7 +8,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const isStaff = ["super-admin", "admin", "supervisor", "sales", "support-admin"].includes(user.role);
+    if (!isStaff) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { id } = await params;
+    if (!/^c[a-z0-9]{8,28}$/.test(id)) {
+      return NextResponse.json({ error: "Invalid lead ID" }, { status: 400 });
+    }
     const body = await req.json();
     const schema = z.object({
       status: z.enum(["Hot", "Warm", "Cold", "New", "Converted", "Lost"]),

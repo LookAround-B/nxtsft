@@ -2,6 +2,15 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server.js";
+import {
+  cuidSchema,
+  safeString,
+  priceSchema,
+  highlightsSchema,
+  planTypeSchema,
+  cursorSchema,
+  limitSchema,
+} from "../sanitize.js";
 
 // Seeker plans seeded in DB via migrations/seed. These are the canonical values.
 const SEEKER_PLANS = [
@@ -13,7 +22,7 @@ const SEEKER_PLANS = [
 export const subscriptionsRouter = router({
   // List available plans
   plans: publicProcedure
-    .input(z.object({ type: z.enum(["seeker", "owner-rent", "owner-sell"]).optional() }))
+    .input(z.object({ type: planTypeSchema.optional() }))
     .query(async ({ input }) => {
       const where = input.type ? { type: input.type, active: true } : { active: true };
       const dbPlans = await prisma.plan.findMany({ where, orderBy: { price: "asc" } });
@@ -27,7 +36,7 @@ export const subscriptionsRouter = router({
 
   // Get single plan
   plan: publicProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .query(async ({ input }) => {
       const plan = await prisma.plan.findUnique({ where: { id: input.id } });
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
@@ -36,7 +45,7 @@ export const subscriptionsRouter = router({
 
   // Admin: list ALL plans incl. inactive (for the Plans Manager)
   plansAdmin: adminProcedure
-    .input(z.object({ type: z.enum(["seeker", "owner-rent", "owner-sell"]).optional() }))
+    .input(z.object({ type: planTypeSchema.optional() }))
     .query(async ({ input }) => {
       return prisma.plan.findMany({
         where: input.type ? { type: input.type } : {},
@@ -46,7 +55,7 @@ export const subscriptionsRouter = router({
 
   // Create a Razorpay order (stub — wire up Razorpay SDK in production)
   createOrder: protectedProcedure
-    .input(z.object({ planId: z.string() }))
+    .input(z.object({ planId: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
       const dbPlan = await prisma.plan.findUnique({ where: { id: input.planId } });
 
@@ -76,10 +85,10 @@ export const subscriptionsRouter = router({
   verifyPayment: protectedProcedure
     .input(
       z.object({
-        razorpayOrderId: z.string(),
-        razorpayPaymentId: z.string(),
-        razorpaySignature: z.string(),
-        planId: z.string(),
+        razorpayOrderId: safeString(200, 1),
+        razorpayPaymentId: safeString(200, 1),
+        razorpaySignature: safeString(200, 1),
+        planId: cuidSchema,
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -134,7 +143,7 @@ export const subscriptionsRouter = router({
   }),
 
   cancel: protectedProcedure
-    .input(z.object({ subscriptionId: z.string() }))
+    .input(z.object({ subscriptionId: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
       const sub = await prisma.subscription.findUnique({
         where: { id: input.subscriptionId },
@@ -156,15 +165,15 @@ export const subscriptionsRouter = router({
   createPlan: adminProcedure
     .input(
       z.object({
-        name: z.string(),
-        price: z.number().int().positive(),
-        priceLabel: z.string(),
+        name: safeString(100, 1),
+        price: priceSchema,
+        priceLabel: safeString(20, 1),
         credits: z.number().int().nonnegative(),
         validity: z.number().int().positive(),
-        tagline: z.string(),
-        features: z.array(z.string()).default([]),
+        tagline: safeString(200),
+        features: highlightsSchema,
         popular: z.boolean().default(false),
-        type: z.enum(["seeker", "owner-rent", "owner-sell"]),
+        type: planTypeSchema,
       }),
     )
     .mutation(async ({ input }) => {
@@ -174,14 +183,14 @@ export const subscriptionsRouter = router({
   updatePlan: adminProcedure
     .input(
       z.object({
-        id: z.string(),
-        name: z.string().optional(),
-        price: z.number().int().positive().optional(),
-        priceLabel: z.string().optional(),
+        id: cuidSchema,
+        name: safeString(100, 1).optional(),
+        price: priceSchema.optional(),
+        priceLabel: safeString(20, 1).optional(),
         credits: z.number().int().nonnegative().optional(),
         validity: z.number().int().positive().optional(),
-        tagline: z.string().optional(),
-        features: z.array(z.string()).optional(),
+        tagline: safeString(200).optional(),
+        features: highlightsSchema.optional(),
         popular: z.boolean().optional(),
         active: z.boolean().optional(),
       }),
@@ -192,7 +201,7 @@ export const subscriptionsRouter = router({
     }),
 
   deletePlan: adminProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .mutation(async ({ input }) => {
       return prisma.plan.update({ where: { id: input.id }, data: { active: false } });
     }),
@@ -200,9 +209,9 @@ export const subscriptionsRouter = router({
   adminList: adminProcedure
     .input(
       z.object({
-        status: z.string().optional(),
-        cursor: z.string().optional(),
-        limit: z.number().int().min(1).max(100).default(20),
+        status: safeString(50).optional(),
+        cursor: cursorSchema,
+        limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {

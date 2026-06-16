@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — NxtSft.com",
@@ -197,7 +195,6 @@ const SECTIONS = [
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       {/* Hero */}
       <section className="border-b border-border bg-white">
@@ -320,7 +317,6 @@ export default function PrivacyPage() {
         </div>
       </div>
 
-      <SiteFooter />
     </div>
   );
 }

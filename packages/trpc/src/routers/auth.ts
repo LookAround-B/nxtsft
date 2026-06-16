@@ -1,10 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { nameSchema, emailSchema, phoneSchema, passwordSchema, geoTextSchema, safeString } from "../sanitize.js";
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure } from "../server.js";
+import { router, publicProcedure, protectedProcedure, authRateLimit, registerRateLimit } from "../server.js";
 
 const SESSION_TTL_DAYS = 30;
 const CONSUMER_ROLES = ["user", "customer"] as const;
@@ -72,13 +73,14 @@ async function grantCredits(userId: string, amount: number, reason: string) {
 export const authRouter = router({
   // Public registration for home buyers (role: user)
   register: publicProcedure
+    .use(registerRateLimit)
     .input(
       z.object({
-        name: z.string().min(2).max(100),
-        email: z.string().email(),
-        phone: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"),
-        password: z.string().min(8, "Password must be at least 8 characters"),
-        city: z.string().min(2),
+        name: nameSchema,
+        email: emailSchema,
+        phone: phoneSchema,
+        password: passwordSchema,
+        city: geoTextSchema,
       }),
     )
     .mutation(async ({ input }) => {
@@ -116,7 +118,8 @@ export const authRouter = router({
 
   // Login for consumers (/login page)
   login: publicProcedure
-    .input(z.object({ email: z.string().email(), password: z.string() }))
+    .use(authRateLimit)
+    .input(z.object({ email: emailSchema, password: passwordSchema }))
     .mutation(async ({ input }) => {
       const user = await prisma.user.findUnique({ where: { email: input.email } });
       if (!user || !user.passwordHash) {
@@ -142,7 +145,8 @@ export const authRouter = router({
 
   // Login for staff roles (/admin-login page)
   loginStaff: publicProcedure
-    .input(z.object({ email: z.string().email(), password: z.string() }))
+    .use(authRateLimit)
+    .input(z.object({ email: emailSchema, password: passwordSchema }))
     .mutation(async ({ input }) => {
       const user = await prisma.user.findUnique({ where: { email: input.email } });
       if (!user || !user.passwordHash) {
@@ -167,7 +171,8 @@ export const authRouter = router({
 
   // Sign in / sign up with a Google ID token (consumer role: user)
   googleSignIn: publicProcedure
-    .input(z.object({ credential: z.string().min(10) }))
+    .use(authRateLimit)
+    .input(z.object({ credential: safeString(8192, 10) }))
     .mutation(async ({ input }) => {
       const payload = await verifyGoogleCredential(input.credential);
       const email = payload?.email;

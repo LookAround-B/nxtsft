@@ -96,6 +96,16 @@ const SESSION_KEY = "nxtsft.session";
 const CREDITS_KEY = "nxtsft.credits";
 const TOKEN_KEY = "nxtsft.token";
 
+/* ---- Cookie helpers (mirror for Edge Middleware) ---- */
+
+function setSessionCookie(token: string, role: string): void {
+  document.cookie = `nxtsft_session=${token}|${role}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Strict${window.location.protocol === 'https:' ? '; Secure' : ''}`;
+}
+
+function clearSessionCookie(): void {
+  document.cookie = 'nxtsft_session=; path=/; max-age=0';
+}
+
 interface Ctx {
   session: Session | null;
   credits: number;
@@ -190,7 +200,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const c = Math.max(0, parseInt(readLS(CREDITS_KEY, "0"), 10) || 0);
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") setSession(parsed as Session);
+      if (parsed && typeof parsed === "object") {
+        setSession(parsed as Session);
+        if (t && parsed) {
+          setSessionCookie(t, (parsed as Session).role);
+        }
+      }
     } catch {}
     if (t) setToken(t);
     setCredits(c);
@@ -210,6 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { token: t, user } = await makeTRPC().auth.login.mutate({ email, password });
     const s = toSession(user);
     persist(s, t, user.credits);
+    setSessionCookie(t, user.role);
     return s;
   }
 
@@ -217,6 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { token: t, user } = await makeTRPC().auth.loginStaff.mutate({ email, password });
     const s = toSession(user);
     persist(s, t, user.credits);
+    setSessionCookie(t, user.role);
     return s;
   }
 
@@ -224,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { token: t, user } = await makeTRPC().auth.googleSignIn.mutate({ credential });
     const s = toSession(user);
     persist(s, t, user.credits);
+    setSessionCookie(t, user.role);
     return s;
   }
 
@@ -233,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await makeTRPC(token).auth.logout.mutate();
       } catch {}
     }
+    clearSessionCookie();
     removeLS(SESSION_KEY);
     removeLS(TOKEN_KEY);
     setSession(null);
@@ -257,6 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const s = toSession(user);
     persist(s, t, user.credits);
+    setSessionCookie(t, user.role);
     return s;
   }
 

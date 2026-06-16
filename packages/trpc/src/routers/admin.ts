@@ -3,8 +3,21 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
 import { router, adminProcedure, superAdminProcedure } from "../server.js";
-
-const Role = z.enum(["super-admin", "admin", "supervisor", "sales", "support-admin", "user", "customer"]);
+import {
+  cuidSchema,
+  nameSchema,
+  emailSchema,
+  phoneSchema,
+  passwordSchema,
+  safeString,
+  geoTextSchema,
+  searchSchema,
+  roleSchema,
+  staffRoleSchema,
+  propertyStatusSchema,
+  cursorSchema,
+  limitSchema,
+} from "../sanitize.js";
 
 const safeUserSelect = {
   id: true,
@@ -54,11 +67,11 @@ export const adminRouter = router({
     list: adminProcedure
       .input(
         z.object({
-          role: Role.optional(),
-          search: z.string().optional(),
-          city: z.string().optional(),
-          cursor: z.string().optional(),
-          limit: z.number().int().min(1).max(100).default(20),
+          role: roleSchema.optional(),
+          search: searchSchema.optional(),
+          city: geoTextSchema.optional(),
+          cursor: cursorSchema,
+          limit: limitSchema,
         }),
       )
       .query(async ({ input }) => {
@@ -89,7 +102,7 @@ export const adminRouter = router({
       }),
 
     get: adminProcedure
-      .input(z.object({ id: z.string() }))
+      .input(z.object({ id: cuidSchema }))
       .query(async ({ input }) => {
         const user = await prisma.user.findUnique({ where: { id: input.id }, select: safeUserSelect });
         if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
@@ -98,7 +111,7 @@ export const adminRouter = router({
 
     // Super-admin only: change a user's role
     updateRole: superAdminProcedure
-      .input(z.object({ userId: z.string(), role: Role }))
+      .input(z.object({ userId: cuidSchema, role: roleSchema }))
       .mutation(async ({ input }) => {
         const user = await prisma.user.findUnique({ where: { id: input.userId } });
         if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
@@ -111,7 +124,7 @@ export const adminRouter = router({
       }),
 
     verify: adminProcedure
-      .input(z.object({ userId: z.string() }))
+      .input(z.object({ userId: cuidSchema }))
       .mutation(async ({ input }) => {
         return prisma.user.update({
           where: { id: input.userId },
@@ -126,11 +139,11 @@ export const adminRouter = router({
     list: adminProcedure
       .input(
         z.object({
-          status: z.enum(["Active", "Sold", "Rented", "Inactive"]).optional(),
-          city: z.string().optional(),
-          type: z.string().optional(),
-          cursor: z.string().optional(),
-          limit: z.number().int().min(1).max(100).default(20),
+          status: propertyStatusSchema.optional(),
+          city: geoTextSchema.optional(),
+          type: safeString(50).optional(),
+          cursor: cursorSchema,
+          limit: limitSchema,
         }),
       )
       .query(async ({ input }) => {
@@ -163,7 +176,7 @@ export const adminRouter = router({
       }),
 
     approve: adminProcedure
-      .input(z.object({ id: z.string() }))
+      .input(z.object({ id: cuidSchema }))
       .mutation(async ({ input }) => {
         const property = await prisma.property.findFirst({ where: { id: input.id, deletedAt: null } });
         if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
@@ -179,10 +192,10 @@ export const adminRouter = router({
     list: adminProcedure
       .input(
         z.object({
-          status: z.string().optional(),
-          assignedToId: z.string().optional(),
-          cursor: z.string().optional(),
-          limit: z.number().int().min(1).max(100).default(20),
+          status: safeString(50).optional(),
+          assignedToId: cuidSchema.optional(),
+          cursor: cursorSchema,
+          limit: limitSchema,
         }),
       )
       .query(async ({ input }) => {
@@ -213,9 +226,9 @@ export const adminRouter = router({
   auditLog: adminProcedure
     .input(
       z.object({
-        entity: z.string().optional(),
-        cursor: z.string().optional(),
-        limit: z.number().int().min(1).max(100).default(50,),
+        entity: safeString(100).optional(),
+        cursor: cursorSchema,
+        limit: limitSchema.default(50),
       }),
     )
     .query(async ({ input }) => {
@@ -238,8 +251,8 @@ export const adminRouter = router({
   teamMembers: adminProcedure
     .input(
       z.object({
-        role: Role.optional(),
-        search: z.string().optional(),
+        role: roleSchema.optional(),
+        search: searchSchema.optional(),
       }),
     )
     .query(async ({ input }) => {
@@ -269,12 +282,12 @@ export const adminRouter = router({
   createTeamMember: adminProcedure
     .input(
       z.object({
-        name: z.string().min(2),
-        email: z.string().email(),
-        phone: z.string().regex(/^[6-9]\d{9}$/),
-        password: z.string().min(8),
-        role: z.enum(["admin", "supervisor", "sales", "support-admin"]),
-        city: z.string(),
+        name: nameSchema,
+        email: emailSchema,
+        phone: phoneSchema,
+        password: passwordSchema,
+        role: staffRoleSchema,
+        city: geoTextSchema,
       }),
     )
     .mutation(async ({ input }) => {

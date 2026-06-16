@@ -92,12 +92,7 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
             const handleClick = (e: React.MouseEvent) => {
               e.preventDefault();
               setSidebarOpen(false);
-              if (navHash) {
-                window.location.hash = navHash;
-              } else {
-                history.pushState(null, "", navPath + window.location.search);
-                window.dispatchEvent(new Event("hashchange"));
-              }
+              window.location.hash = navHash || "";
             };
 
             return (

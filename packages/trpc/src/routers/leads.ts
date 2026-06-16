@@ -1,24 +1,36 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure, staffProcedure, adminProcedure } from "../server.js";
-
-const LeadStatus = z.enum(["Hot", "Warm", "Cold", "New", "Converted", "Lost"]);
-const LeadSource = z.enum(["Portal", "WhatsApp", "Referral", "Direct"]);
+import { router, protectedProcedure, staffProcedure, adminProcedure, generalRateLimit } from "../server.js";
+import {
+  cuidSchema,
+  nameSchema,
+  phoneSchema,
+  emailSchema,
+  geoTextSchema,
+  safeString,
+  noteSchema,
+  leadStatusSchema,
+  leadSourceSchema,
+  cursorSchema,
+  limitSchema,
+  datetimeSchema,
+} from "../sanitize.js";
 
 export const leadsRouter = router({
   // Buyer submits an inquiry from a property detail page
   create: protectedProcedure
+    .use(generalRateLimit)
     .input(
       z.object({
-        propertyId: z.string(),
-        name: z.string().min(2),
-        phone: z.string().regex(/^[6-9]\d{9}$/),
-        email: z.string().email().optional(),
-        city: z.string().optional(),
-        interest: z.string().optional(),
-        notes: z.string().optional(),
-        source: LeadSource.default("Portal"),
+        propertyId: cuidSchema,
+        name: nameSchema,
+        phone: phoneSchema,
+        email: emailSchema.optional(),
+        city: geoTextSchema.optional(),
+        interest: safeString(500).optional(),
+        notes: noteSchema.optional(),
+        source: leadSourceSchema.default("Portal"),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -50,11 +62,11 @@ export const leadsRouter = router({
   list: staffProcedure
     .input(
       z.object({
-        status: LeadStatus.optional(),
-        source: LeadSource.optional(),
-        propertyId: z.string().optional(),
-        cursor: z.string().optional(),
-        limit: z.number().int().min(1).max(100).default(20),
+        status: leadStatusSchema.optional(),
+        source: leadSourceSchema.optional(),
+        propertyId: cuidSchema.optional(),
+        cursor: cursorSchema,
+        limit: limitSchema,
       }),
     )
     .query(async ({ input, ctx }) => {
@@ -84,7 +96,7 @@ export const leadsRouter = router({
     }),
 
   get: staffProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .query(async ({ input, ctx }) => {
       const lead = await prisma.lead.findUnique({
         where: { id: input.id },
@@ -105,7 +117,7 @@ export const leadsRouter = router({
     }),
 
   updateStatus: staffProcedure
-    .input(z.object({ id: z.string(), status: LeadStatus }))
+    .input(z.object({ id: cuidSchema, status: leadStatusSchema }))
     .mutation(async ({ input, ctx }) => {
       const lead = await prisma.lead.findUnique({ where: { id: input.id } });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
@@ -121,7 +133,7 @@ export const leadsRouter = router({
     }),
 
   addNote: staffProcedure
-    .input(z.object({ id: z.string(), note: z.string().min(1) }))
+    .input(z.object({ id: cuidSchema, note: safeString(2000, 1) }))
     .mutation(async ({ input, ctx }) => {
       const lead = await prisma.lead.findUnique({ where: { id: input.id } });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
@@ -140,7 +152,7 @@ export const leadsRouter = router({
 
   // Assign a lead to a sales rep (admin only)
   assign: adminProcedure
-    .input(z.object({ id: z.string(), assignedToId: z.string() }))
+    .input(z.object({ id: cuidSchema, assignedToId: cuidSchema }))
     .mutation(async ({ input }) => {
       const lead = await prisma.lead.findUnique({ where: { id: input.id } });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
@@ -161,9 +173,9 @@ export const leadsRouter = router({
   scheduleVisit: staffProcedure
     .input(
       z.object({
-        leadId: z.string(),
-        scheduledAt: z.string().datetime(),
-        notes: z.string().optional(),
+        leadId: cuidSchema,
+        scheduledAt: datetimeSchema,
+        notes: noteSchema.optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -193,7 +205,7 @@ export const leadsRouter = router({
     }),
 
   bulkAssign: staffProcedure
-    .input(z.object({ leadIds: z.array(z.string()), assignedToId: z.string() }))
+    .input(z.object({ leadIds: z.array(cuidSchema).min(1).max(500), assignedToId: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
       const allowedRoles = ["supervisor", "admin", "super-admin"];
       if (!allowedRoles.includes(ctx.user.role)) {

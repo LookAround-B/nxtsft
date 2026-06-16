@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { nameSchema, phoneSchema, geoTextSchema, noteSchema, safeUrlSchema, cuidSchema, safeString, passwordSchema } from "../sanitize.js";
 import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
 import { router, protectedProcedure, adminProcedure } from "../server.js";
@@ -32,12 +33,12 @@ export const usersRouter = router({
   updateProfile: protectedProcedure
     .input(
       z.object({
-        name: z.string().min(2).max(100).optional(),
-        phone: z.string().regex(/^[6-9]\d{9}$/).optional(),
-        city: z.string().min(2).optional(),
-        state: z.string().optional(),
-        bio: z.string().max(500).optional(),
-        avatar: z.string().url().optional(),
+        name: nameSchema.optional(),
+        phone: phoneSchema.optional(),
+        city: geoTextSchema.optional(),
+        state: geoTextSchema.optional(),
+        bio: noteSchema.optional(),
+        avatar: safeUrlSchema.optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -71,7 +72,7 @@ export const usersRouter = router({
   // After Razorpay payment success — credits are granted by subscriptions router
   // This endpoint is for admin top-ups only
   addCredits: adminProcedure
-    .input(z.object({ userId: z.string(), amount: z.number().int().positive(), reason: z.string() }))
+    .input(z.object({ userId: cuidSchema, amount: z.number().int().positive(), reason: safeString(200, 1) }))
     .mutation(async ({ input }) => {
       const user = await prisma.user.findUnique({ where: { id: input.userId } });
       if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
@@ -104,7 +105,7 @@ export const usersRouter = router({
   }),
 
   addFavorite: protectedProcedure
-    .input(z.object({ propertyId: z.string() }))
+    .input(z.object({ propertyId: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
       const property = await prisma.property.findFirst({ where: { id: input.propertyId, deletedAt: null } });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
@@ -118,7 +119,7 @@ export const usersRouter = router({
     }),
 
   removeFavorite: protectedProcedure
-    .input(z.object({ propertyId: z.string() }))
+    .input(z.object({ propertyId: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
       await prisma.favorite.deleteMany({
         where: { userId: ctx.user.id, propertyId: input.propertyId },
@@ -152,8 +153,8 @@ export const usersRouter = router({
   changePassword: protectedProcedure
     .input(
       z.object({
-        currentPassword: z.string(),
-        newPassword: z.string().min(8, "Password must be at least 8 characters"),
+        currentPassword: passwordSchema,
+        newPassword: passwordSchema,
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -211,7 +212,7 @@ export const usersRouter = router({
   }),
 
   terminateSession: protectedProcedure
-    .input(z.object({ sessionId: z.string() }))
+    .input(z.object({ sessionId: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
       const session = await prisma.session.findUnique({
         where: { id: input.sessionId },

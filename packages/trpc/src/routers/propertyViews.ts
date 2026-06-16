@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, publicProcedure, protectedProcedure, staffProcedure } from "../server.js";
+import { cuidSchema } from "../sanitize.js";
 
 const viewWithProperty = {
   property: {
@@ -22,7 +23,7 @@ export const propertyViewsRouter = router({
   record: publicProcedure
     .input(
       z.object({
-        propertyId: z.string(),
+        propertyId: cuidSchema,
         durationSec: z.number().int().min(0).max(86_400).optional(),
         contactUnlocked: z.boolean().optional(),
       }),

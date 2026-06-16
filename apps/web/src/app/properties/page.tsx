@@ -2,7 +2,7 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/ui/SafeImage";
 import {
   Search,
   SlidersHorizontal,
@@ -15,8 +15,6 @@ import {
   ChevronRight,
   BadgeCheck,
 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { trpc } from "@/lib/trpc";
 import { CardGridSkeleton } from "@/components/ui/skeleton";
 import { LoadMore } from "@/components/ui/load-more";
@@ -70,7 +68,7 @@ function PropertyCard({ p }: { p: PropertyItem }) {
       className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
     >
       <div className="relative h-48 overflow-hidden bg-secondary">
-        <Image
+        <SafeImage
           src={images[active] ?? images[0]!}
           alt={p.title}
           fill
@@ -219,7 +217,6 @@ function PropertiesInner() {
 
   return (
     <div className="min-h-screen bg-[oklch(0.97_0.01_260)]">
-      <SiteHeader />
 
       {/* Sticky filter bar */}
       <div className="sticky top-0 z-30 border-b border-border bg-white/95 shadow-sm backdrop-blur-sm">
@@ -386,7 +383,6 @@ function PropertiesInner() {
         )}
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

@@ -2,8 +2,6 @@
 import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
 import { Star, Phone, MessageCircle, Lock } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { properties, ownerSlug } from "@/data/static";
 import { useAuth } from "@/lib/auth";
 
@@ -38,7 +36,6 @@ export default function OwnerPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       <section className="border-b border-border bg-white">
         <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 sm:py-14">
@@ -158,7 +155,6 @@ export default function OwnerPage() {
         </div>
       </div>
 
-      <SiteFooter />
     </div>
   );
 }

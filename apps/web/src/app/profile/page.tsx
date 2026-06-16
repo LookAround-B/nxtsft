@@ -33,8 +33,6 @@ import {
   Satellite,
   type LucideIcon,
 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { ROLE_META, useAuth, type Role } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 
@@ -205,7 +203,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[oklch(0.97_0.01_260)] pb-24 md:pb-0">
-      <SiteHeader />
 
       {/* Cover */}
       <div className="relative h-40 overflow-hidden bg-gradient-to-r from-navy via-navy-deep to-accent sm:h-56">
@@ -486,7 +483,6 @@ export default function ProfilePage() {
       </div>
 
       <div className="mt-16" />
-      <SiteFooter />
     </div>
   );
 }

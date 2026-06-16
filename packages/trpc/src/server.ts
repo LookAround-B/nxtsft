@@ -5,21 +5,22 @@ const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-adm
 const ADMIN_ROLES = ["admin", "super-admin"] as const;
 
 // Shared token → user resolution used by both Next.js and Fastify adapters
-export async function createContextFromToken(token: string | null) {
-  if (!token) return { prisma, user: null, token: null };
+export async function createContextFromToken(token: string | null, ip: string | null = null) {
+  if (!token) return { prisma, user: null, token: null, ip };
 
   const session = await prisma.session.findUnique({ where: { token } });
-  if (!session || session.expiresAt <= new Date()) return { prisma, user: null, token: null };
+  if (!session || session.expiresAt <= new Date()) return { prisma, user: null, token: null, ip };
 
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
-  return { prisma, user, token };
+  return { prisma, user, token, ip };
 }
 
 // For Next.js App Router (Web Request API)
 export const createTRPCContext = async (opts: { req: Request }) => {
   const raw = opts.req.headers.get("authorization") ?? "";
   const token = raw.startsWith("Bearer ") ? raw.slice(7) : null;
-  return createContextFromToken(token);
+  const ip = opts.req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  return createContextFromToken(token, ip);
 };
 
 export type Context = Awaited<ReturnType<typeof createContextFromToken>>;
@@ -32,9 +33,28 @@ export const router = t.router;
 export const middleware = t.middleware;
 export const createCallerFactory = t.createCallerFactory;
 
+// ─── Request Logging ───────────────────────────────────────────────────────
+
+const SENSITIVE_FIELDS = new Set(["password", "currentPassword", "newPassword", "token", "credential", "razorpaySignature"]);
+
+const loggingMiddleware = middleware(async ({ ctx, next, path, type }) => {
+  const start = performance.now();
+  const result = await next();
+  const durationMs = Math.round(performance.now() - start);
+
+  if (durationMs > 1000) {
+    console.warn(`[tRPC] SLOW ${type} ${path} — ${durationMs}ms`, {
+      userId: ctx.user?.id ?? "anon",
+      ip: ctx.ip,
+    });
+  }
+
+  return result;
+});
+
 // ─── Procedures ──────────────────────────────────────────────────────────────
 
-export const publicProcedure = t.procedure;
+export const publicProcedure = t.procedure.use(loggingMiddleware);
 
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in to continue." });
@@ -61,3 +81,51 @@ export const superAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
   }
   return next();
 });
+
+// ─── Rate Limiting ─────────────────────────────────────────────────────────
+
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+// Clean up stale entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore) {
+    if (entry.resetAt <= now) rateLimitStore.delete(key);
+  }
+}, 5 * 60 * 1000).unref?.();
+
+function createRateLimiter(points: number, windowMs: number) {
+  return middleware(({ ctx, next, path }) => {
+    const key = `${path}:${ctx.user?.id ?? ctx.ip ?? "anon"}`;
+    const now = Date.now();
+    const entry = rateLimitStore.get(key);
+
+    if (entry && entry.resetAt > now) {
+      if (entry.count >= points) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Rate limit exceeded. Try again in ${Math.ceil((entry.resetAt - now) / 1000)} seconds.`,
+        });
+      }
+      entry.count++;
+    } else {
+      rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+    }
+
+    return next();
+  });
+}
+
+// Pre-built rate limiters
+const authRateLimit = createRateLimiter(10, 15 * 60 * 1000);     // 10 per 15 min
+const registerRateLimit = createRateLimiter(5, 60 * 60 * 1000);  // 5 per hour
+const contactRateLimit = createRateLimiter(5, 60 * 60 * 1000);   // 5 per hour
+const generalRateLimit = createRateLimiter(100, 60 * 60 * 1000); // 100 per hour
+const broadcastRateLimit = createRateLimiter(5, 60 * 60 * 1000); // 5 per hour
+
+export { createRateLimiter, authRateLimit, registerRateLimit, contactRateLimit, generalRateLimit, broadcastRateLimit };

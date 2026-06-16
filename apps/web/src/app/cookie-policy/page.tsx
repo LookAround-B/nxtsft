@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Cookie Policy — NxtSft.com",
@@ -263,7 +261,6 @@ const TONE_CLASSES: Record<string, { badge: string; border: string; bg: string }
 export default function CookiePolicyPage() {
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       {/* Hero */}
       <section className="border-b border-border bg-white">
@@ -482,7 +479,6 @@ export default function CookiePolicyPage() {
         </div>
       </div>
 
-      <SiteFooter />
     </div>
   );
 }

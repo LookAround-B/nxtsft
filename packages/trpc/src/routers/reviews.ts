@@ -2,14 +2,21 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, publicProcedure, protectedProcedure } from "../server.js";
+import {
+  safeString,
+  cuidSchema,
+  cursorSchema,
+  limitSchema,
+  ratingSchema,
+} from "../sanitize.js";
 
 export const reviewsRouter = router({
   list: publicProcedure
     .input(
       z.object({
-        propertyId: z.string(),
-        cursor: z.string().optional(),
-        limit: z.number().int().min(1).max(100).default(20),
+        propertyId: cuidSchema,
+        cursor: cursorSchema,
+        limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
@@ -34,10 +41,10 @@ export const reviewsRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        propertyId: z.string(),
-        rating: z.number().int().min(1).max(5),
-        title: z.string().min(3).max(100),
-        content: z.string().max(1000).optional(),
+        propertyId: cuidSchema,
+        rating: ratingSchema,
+        title: safeString(100, 3),
+        content: safeString(1000).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -66,7 +73,7 @@ export const reviewsRouter = router({
     }),
 
   markHelpful: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .mutation(async ({ input }) => {
       const review = await prisma.review.findUnique({ where: { id: input.id } });
       if (!review) throw new TRPCError({ code: "NOT_FOUND", message: "Review not found." });

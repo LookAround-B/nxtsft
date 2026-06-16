@@ -37,11 +37,12 @@ export function SecurityTab() {
     }
   }, [ipQ.data]);
 
+  type Role = "super-admin" | "admin" | "supervisor" | "sales" | "support-admin" | "user" | "customer";
   const [policy, setPolicy] = useState({
     passwordMinLength: 8,
     passwordComplexity: "medium" as "low" | "medium" | "high",
     passwordExpiryDays: 90,
-    enforce2faRoles: [] as string[],
+    enforce2faRoles: [] as Role[],
   });
   useEffect(() => {
     if (policyQ.data) setPolicy(policyQ.data as typeof policy);
@@ -57,8 +58,8 @@ export function SecurityTab() {
   const removeIp = (list: "w" | "b", ip: string) =>
     list === "w" ? setWhitelist((p) => p.filter((x) => x !== ip)) : setBlacklist((p) => p.filter((x) => x !== ip));
 
-  const ROLES_FOR_2FA = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
-  const toggle2faRole = (role: string) =>
+  const ROLES_FOR_2FA: Role[] = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+  const toggle2faRole = (role: Role) =>
     setPolicy((p) => ({
       ...p,
       enforce2faRoles: p.enforce2faRoles.includes(role)
@@ -216,7 +217,7 @@ export function SecurityTab() {
           <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Enforce 2FA for roles</div>
           <div className="flex flex-wrap gap-2">
             {ROLES_FOR_2FA.map((role) => {
-              const on = policy.enforce2faRoles.includes(role);
+              const on = policy.enforce2faRoles.includes(role as Role);
               return (
                 <button
                   key={role}

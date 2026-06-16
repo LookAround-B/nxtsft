@@ -10,13 +10,15 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@fastify/compress": "^8.0.0",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/helmet": "^13.0.2",
+    "@fastify/rate-limit": "^11.0.0",
     "@nxtsft/db": "workspace:*",
     "@nxtsft/shared": "workspace:*",
     "@nxtsft/trpc": "workspace:*",
     "@trpc/server": "^11.0.0-rc.445",
-    "fastify": "^5.0.0",
-    "@fastify/cors": "^10.0.0",
-    "@fastify/compress": "^8.0.0"
+    "fastify": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.16.5",

@@ -1,27 +1,34 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, adminProcedure } from "../server.js";
+import {
+  safeString,
+  searchSchema,
+  geoTextSchema,
+  cursorSchema,
+  limitSchema,
+} from "../sanitize.js";
 
 // One row of the bulk-upload sheet. Only the company name is required.
 const builderRow = z.object({
-  companyName: z.string().trim().min(1).max(200),
-  ownerName: z.string().trim().max(200).optional().default(""),
-  mobile: z.string().trim().max(40).optional().default(""),
-  projectType: z.string().trim().max(120).optional().default(""),
-  state: z.string().trim().max(120).optional().default(""),
-  district: z.string().trim().max(120).optional().default(""),
-  city: z.string().trim().max(120).optional().default(""),
+  companyName: safeString(200, 1),
+  ownerName: safeString(200).optional().default(""),
+  mobile: safeString(40).optional().default(""),
+  projectType: safeString(120).optional().default(""),
+  state: safeString(120).optional().default(""),
+  district: safeString(120).optional().default(""),
+  city: safeString(120).optional().default(""),
 });
 
 export const buildersRouter = router({
   list: adminProcedure
     .input(
       z.object({
-        search: z.string().optional(),
-        state: z.string().optional(),
-        projectType: z.string().optional(),
-        cursor: z.string().optional(),
-        limit: z.number().int().min(1).max(100).default(20),
+        search: searchSchema.optional(),
+        state: geoTextSchema.optional(),
+        projectType: safeString(120).optional(),
+        cursor: cursorSchema,
+        limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {

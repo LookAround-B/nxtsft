@@ -1,7 +1,17 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, superAdminProcedure } from "../server.js";
+import { router, superAdminProcedure, broadcastRateLimit } from "../server.js";
+import {
+  safeString,
+  cuidSchema,
+  cursorSchema,
+  limitSchema,
+  emailSchema,
+  ipSchema,
+  roleSchema,
+  passwordComplexitySchema,
+} from "../sanitize.js";
 
 export const superAdminRouter = router({
   stats: superAdminProcedure.query(async () => {
@@ -54,8 +64,8 @@ export const superAdminRouter = router({
   securityLog: superAdminProcedure
     .input(
       z.object({
-        cursor: z.string().optional(),
-        limit: z.number().int().min(1).max(100).default(50),
+        cursor: cursorSchema,
+        limit: limitSchema.default(50),
       }),
     )
     .query(async ({ input }) => {
@@ -76,7 +86,7 @@ export const superAdminRouter = router({
   failedLogins: superAdminProcedure
     .input(
       z.object({
-        limit: z.number().int().min(1).max(100).default(20),
+        limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
@@ -92,9 +102,9 @@ export const superAdminRouter = router({
   logFailedLogin: superAdminProcedure
     .input(
       z.object({
-        email: z.string(),
-        ipAddress: z.string().optional(),
-        userAgent: z.string().optional(),
+        email: emailSchema,
+        ipAddress: ipSchema.optional(),
+        userAgent: safeString(500).optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -111,7 +121,7 @@ export const superAdminRouter = router({
     }),
 
   sessionTerminateGlobal: superAdminProcedure
-    .input(z.object({ userId: z.string() }))
+    .input(z.object({ userId: cuidSchema }))
     .mutation(async ({ input }) => {
       const deleted = await prisma.session.deleteMany({
         where: { userId: input.userId },
@@ -146,8 +156,8 @@ export const superAdminRouter = router({
   updateIpRules: superAdminProcedure
     .input(
       z.object({
-        whitelistedIps: z.array(z.string().ip()),
-        blacklistedIps: z.array(z.string().ip()),
+        whitelistedIps: z.array(ipSchema),
+        blacklistedIps: z.array(ipSchema),
       }),
     )
     .mutation(async ({ input }) => {
@@ -189,9 +199,9 @@ export const superAdminRouter = router({
     .input(
       z.object({
         passwordMinLength: z.number().int().min(6).max(32),
-        passwordComplexity: z.enum(["low", "medium", "high"]),
-        passwordExpiryDays: z.number().int().min(0),
-        enforce2faRoles: z.array(z.string()),
+        passwordComplexity: passwordComplexitySchema,
+        passwordExpiryDays: z.number().int().min(0).max(3650),
+        enforce2faRoles: z.array(roleSchema),
       }),
     )
     .mutation(async ({ input }) => {
@@ -206,11 +216,12 @@ export const superAdminRouter = router({
     }),
 
   broadcastNotification: superAdminProcedure
+    .use(broadcastRateLimit)
     .input(
       z.object({
-        title: z.string().min(5),
-        content: z.string().min(10),
-        targetRole: z.string().optional(), // optional filtering
+        title: safeString(200, 5),
+        content: safeString(2000, 10),
+        targetRole: roleSchema.optional(), // optional filtering
       }),
     )
     .mutation(async ({ input, ctx }) => {

@@ -16,6 +16,8 @@ export function BottomNav() {
   const { session } = useAuth();
   const accountHref = session ? "/profile" : "/login";
 
+  if (pathname === "/boneyard") return null;
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 md:hidden">
       {/* Safe-area spacer */}

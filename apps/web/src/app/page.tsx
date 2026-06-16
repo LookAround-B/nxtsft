@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { HeroSection } from "@/components/home/HeroSection";
 import { PressBand } from "@/components/home/PressBand";
 import { StatsBand } from "@/components/home/StatsBand";
@@ -38,7 +36,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen" style={{ background: "#F4F5F7" }}>
-      <SiteHeader />
       <HeroSection />
       <PressBand />
       <StatsBand />
@@ -51,7 +48,6 @@ export default function HomePage() {
       <WhySection />
       <PortalsSection />
       <CTASection />
-      <SiteFooter />
     </div>
   );
 }

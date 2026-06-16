@@ -33,7 +33,7 @@ export function NotifyTab() {
     broadcast.mutate({
       title: form.title.trim(),
       content: form.content.trim(),
-      targetRole: form.targetRole || undefined,
+      targetRole: (form.targetRole || undefined) as "super-admin" | "admin" | "supervisor" | "sales" | "support-admin" | "user" | "customer" | undefined,
     });
   };
 

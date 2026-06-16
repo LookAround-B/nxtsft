@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { Building2, Users, Key, Shield } from "lucide-react";
 import { toast } from "sonner";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { ownerRentalPlans, ownerSellPlans } from "@/data/static";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
@@ -111,7 +109,6 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       {/* Hero */}
       <section className="bg-linear-to-br from-navy-deep via-navy to-mid-blue py-20 text-white">
@@ -277,7 +274,6 @@ export default function PricingPage() {
         </>
       )}
 
-      <SiteFooter />
     </div>
   );
 }

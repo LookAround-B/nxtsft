@@ -11,6 +11,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const { id } = await params;
+    if (!/^c[a-z0-9]{8,28}$/.test(id)) {
+      return NextResponse.json({ error: "Invalid lead ID" }, { status: 400 });
+    }
     const body = await req.json();
     const schema = z.object({ assignedToId: z.string() });
     const result = schema.safeParse(body);
