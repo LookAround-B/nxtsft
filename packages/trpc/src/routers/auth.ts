@@ -1,11 +1,24 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { nameSchema, emailSchema, phoneSchema, passwordSchema, geoTextSchema, safeString } from "../sanitize.js";
+import {
+  nameSchema,
+  emailSchema,
+  phoneSchema,
+  passwordSchema,
+  geoTextSchema,
+  safeString,
+} from "../sanitize.js";
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure, authRateLimit, registerRateLimit } from "../server.js";
+import {
+  router,
+  publicProcedure,
+  protectedProcedure,
+  authRateLimit,
+  registerRateLimit,
+} from "../server.js";
 
 const SESSION_TTL_DAYS = 30;
 const CONSUMER_ROLES = ["user", "customer"] as const;
@@ -16,18 +29,35 @@ const googleClient = new OAuth2Client();
 async function verifyGoogleCredential(credential: string) {
   const audience = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID;
   if (!audience) {
-    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Google sign-in is not configured." });
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Google sign-in is not configured.",
+    });
   }
   try {
     const ticket = await googleClient.verifyIdToken({ idToken: credential, audience });
     return ticket.getPayload();
   } catch {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid Google sign-in. Please try again." });
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Invalid Google sign-in. Please try again.",
+    });
   }
 }
 
 function generateToken() {
   return randomBytes(32).toString("hex");
+}
+
+// Best-effort sign-in trail for the user's "Recent Activity" feed.
+async function logSignIn(userId: string) {
+  try {
+    await prisma.auditLog.create({
+      data: { userId, action: "auth.login", entity: "User", entityId: userId },
+    });
+  } catch {
+    // audit is best-effort; never block login
+  }
 }
 
 function sessionExpiry() {
@@ -89,8 +119,10 @@ export const authRouter = router({
         prisma.user.findUnique({ where: { phone: input.phone } }),
       ]);
 
-      if (existingEmail) throw new TRPCError({ code: "CONFLICT", message: "Email already registered." });
-      if (existingPhone) throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
+      if (existingEmail)
+        throw new TRPCError({ code: "CONFLICT", message: "Email already registered." });
+      if (existingPhone)
+        throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
 
       const passwordHash = await bcrypt.hash(input.password, 12);
       const user = await prisma.user.create({
@@ -127,10 +159,14 @@ export const authRouter = router({
       }
 
       const valid = await bcrypt.compare(input.password, user.passwordHash);
-      if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
+      if (!valid)
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
 
       // Grant 3 demo credits on first login if balance is zero (consumer roles only)
-      if (CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) && user.credits === 0) {
+      if (
+        CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) &&
+        user.credits === 0
+      ) {
         await grantCredits(user.id, 3, "demo");
       }
 
@@ -139,6 +175,7 @@ export const authRouter = router({
         data: { userId: user.id, token, expiresAt: sessionExpiry() },
       });
 
+      await logSignIn(user.id);
       const freshUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
       return { token, user: safeUser(freshUser) };
     }),
@@ -159,13 +196,15 @@ export const authRouter = router({
       }
 
       const valid = await bcrypt.compare(input.password, user.passwordHash);
-      if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
+      if (!valid)
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
 
       const token = generateToken();
       await prisma.session.create({
         data: { userId: user.id, token, expiresAt: sessionExpiry() },
       });
 
+      await logSignIn(user.id);
       return { token, user: safeUser(user) };
     }),
 
@@ -198,7 +237,10 @@ export const authRouter = router({
 
       if (isNewUser) {
         await grantCredits(user.id, 1, "welcome");
-      } else if (CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) && user.credits === 0) {
+      } else if (
+        CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) &&
+        user.credits === 0
+      ) {
         await grantCredits(user.id, 3, "demo");
       }
 
@@ -207,6 +249,7 @@ export const authRouter = router({
         data: { userId: user.id, token, expiresAt: sessionExpiry() },
       });
 
+      await logSignIn(user.id);
       const freshUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
       return { token, user: safeUser(freshUser) };
     }),

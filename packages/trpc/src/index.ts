@@ -13,6 +13,8 @@ import { reviewsRouter } from "./routers/reviews.js";
 import { superAdminRouter } from "./routers/superAdmin.js";
 import { propertyViewsRouter } from "./routers/propertyViews.js";
 import { buildersRouter } from "./routers/builders.js";
+import { listingsRouter } from "./routers/listings.js";
+import { mediaRouter } from "./routers/media.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -29,6 +31,8 @@ export const appRouter = router({
   reviews: reviewsRouter,
   superAdmin: superAdminRouter,
   propertyViews: propertyViewsRouter,
+  listings: listingsRouter,
+  media: mediaRouter,
 });
 
 export type AppRouter = typeof appRouter;

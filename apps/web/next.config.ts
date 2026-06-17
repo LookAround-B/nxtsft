@@ -1,11 +1,30 @@
 import type { NextConfig } from "next";
 
+// Hostname of the configured R2 public bucket (e.g. media.nxtsft.com or a
+// pub-*.r2.dev domain), so next/image and the CSP allow listing photos.
+const r2Host = (() => {
+  try {
+    return process.env.CLOUDFLARE_R2_PUBLIC_URL
+      ? new URL(process.env.CLOUDFLARE_R2_PUBLIC_URL).hostname
+      : null;
+  } catch {
+    return null;
+  }
+})();
+const r2ImgSrc = r2Host ? ` https://${r2Host}` : "";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ["@nxtsft/trpc", "@nxtsft/db", "@nxtsft/shared"],
   // Keep these out of the webpack bundle (native/server-only deps).
-  serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg", "google-auth-library", "bcryptjs"],
+  serverExternalPackages: [
+    "@prisma/client",
+    "@prisma/adapter-pg",
+    "pg",
+    "google-auth-library",
+    "bcryptjs",
+  ],
   // @prisma/client ships engines for every DB + the Prisma CLI engines (~135MB),
   // blowing past Vercel's 250MB function limit. We only use Postgres on Node, so
   // drop the CLI engines and the non-Postgres WASM engines from the API functions.
@@ -25,6 +44,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "*.r2.cloudflarecontent.com" },
+      { protocol: "https", hostname: "*.r2.dev" },
+      ...(r2Host ? [{ protocol: "https" as const, hostname: r2Host }] : []),
     ],
   },
   env: {
@@ -61,7 +82,8 @@ const nextConfig: NextConfig = {
               "child-src 'self' blob:",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https://images.unsplash.com https://*.r2.cloudflarecontent.com https://api.mapbox.com",
+              "img-src 'self' data: blob: https://images.unsplash.com https://*.r2.cloudflarecontent.com https://*.r2.dev https://api.mapbox.com" +
+                r2ImgSrc,
               "connect-src 'self' https://accounts.google.com https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com",
               "frame-src https://accounts.google.com",
               "frame-ancestors 'none'",

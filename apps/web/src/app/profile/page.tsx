@@ -124,13 +124,38 @@ const roleStats: Record<Role, Array<{ label: string; value: string; sub?: string
 };
 
 /* ── activity feed ──────────────────────────────────────────────── */
-const activity = [
-  { time: "Today, 10:42", text: "Signed in from Mumbai", dot: "bg-accent" },
-  { time: "Today, 09:18", text: "Updated notification preferences", dot: "bg-accent" },
-  { time: "Yesterday", text: "Completed KYC verification", dot: "bg-emerald-500" },
-  { time: "2 days ago", text: "Updated phone number", dot: "bg-muted-foreground" },
-  { time: "5 days ago", text: "Saved 3 new properties in Mumbai", dot: "bg-accent" },
-];
+const ACTIVITY_LABELS: Record<string, string> = {
+  "auth.login": "Signed in",
+  "profile.updated": "Updated profile details",
+  "notifications.updated": "Updated notification preferences",
+  "property.favorited": "Saved a property",
+};
+
+function activityText(action: string) {
+  return ACTIVITY_LABELS[action] ?? action.replace(/[._]/g, " ");
+}
+
+function activityDot(action: string) {
+  if (action === "property.favorited") return "bg-accent";
+  if (action.startsWith("auth")) return "bg-emerald-500";
+  return "bg-muted-foreground";
+}
+
+function relativeTime(iso: string) {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  return new Date(iso).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 /* ── preference toggle ──────────────────────────────────────────── */
 function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
@@ -152,6 +177,11 @@ export default function ProfilePage() {
   const router = useRouter();
 
   const updateProfileMutation = trpc.users.updateProfile.useMutation();
+  const activityQ = trpc.users.recentActivity.useQuery(undefined, { enabled: !!session });
+  const prefsQ = trpc.users.notificationPrefs.useQuery(undefined, { enabled: !!session });
+  const updatePrefs = trpc.users.updateNotificationPrefs.useMutation({
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -170,12 +200,20 @@ export default function ProfilePage() {
     }
   }, [session]);
 
+  useEffect(() => {
+    if (prefsQ.data) setPrefs(prefsQ.data);
+  }, [prefsQ.data]);
+
   if (!session) {
     return (
       <div className="min-h-screen bg-[oklch(0.97_0.01_260)] flex items-center justify-center px-4 pb-24 md:pb-0">
         <div className="max-w-md text-center">
-          <h1 className="font-display text-3xl font-black text-navy mb-3">Sign in to view profile</h1>
-          <p className="text-muted-foreground mb-6">Access your account details, security settings, and more.</p>
+          <h1 className="font-display text-3xl font-black text-navy mb-3">
+            Sign in to view profile
+          </h1>
+          <p className="text-muted-foreground mb-6">
+            Access your account details, security settings, and more.
+          </p>
           <div className="flex gap-3 flex-col">
             <Link
               href="/login"
@@ -216,18 +254,19 @@ export default function ProfilePage() {
   };
 
   const togglePref = (key: keyof typeof prefs) => {
-    setPrefs((p) => {
-      const next = { ...p, [key]: !p[key] };
-      toast.success(
-        `${key.charAt(0).toUpperCase() + key.slice(1)} notifications ${next[key] ? "enabled" : "disabled"}`,
-      );
-      return next;
+    const next = { ...prefs, [key]: !prefs[key] };
+    setPrefs(next); // optimistic
+    updatePrefs.mutate(next, {
+      onSuccess: () =>
+        toast.success(
+          `${key.charAt(0).toUpperCase() + key.slice(1)} notifications ${next[key] ? "enabled" : "disabled"}`,
+        ),
+      onError: () => setPrefs(prefs), // revert on failure
     });
   };
 
   return (
     <div className="min-h-screen bg-[oklch(0.97_0.01_260)] pb-24 md:pb-0">
-
       {/* Hero panel */}
       <div className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6 sm:pt-10">
         <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-navy via-navy-deep to-navy p-6 shadow-xl sm:p-9">
@@ -235,7 +274,8 @@ export default function ProfilePage() {
           <div
             className="absolute inset-0 opacity-[0.15]"
             style={{
-              backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.45) 1px, transparent 1px)",
+              backgroundImage:
+                "radial-gradient(circle, rgba(255,255,255,0.45) 1px, transparent 1px)",
               backgroundSize: "22px 22px",
             }}
           />
@@ -339,7 +379,9 @@ export default function ProfilePage() {
               <div className="px-6 py-6">
                 {/* Contact section */}
                 <div className="mb-6">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Contact</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">
+                    Contact
+                  </h3>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
@@ -385,7 +427,9 @@ export default function ProfilePage() {
 
                 {/* Organization section */}
                 <div className="border-t border-border pt-6">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Organization</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">
+                    Organization
+                  </h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
@@ -439,23 +483,36 @@ export default function ProfilePage() {
             {/* Activity */}
             <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
               <div className="border-b border-border px-6 py-5">
-                <h2 className="font-display text-sm font-bold text-navy uppercase tracking-wide">Recent Activity</h2>
+                <h2 className="font-display text-sm font-bold text-navy uppercase tracking-wide">
+                  Recent Activity
+                </h2>
               </div>
-              <ul className="divide-y divide-border">
-                {activity.map(({ time, text, dot }, i) => (
-                  <li key={i} className="relative flex items-start gap-4 px-6 py-4 first:pt-0 last:pb-0">
-                    <span
-                      className={`relative mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white ${dot}`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-navy">{text}</div>
-                      <div className="mt-1 font-mono text-xs text-muted-foreground">
-                        {time}
+              {activityQ.isLoading ? (
+                <p className="px-6 py-6 text-sm text-muted-foreground">Loading activity…</p>
+              ) : (activityQ.data?.length ?? 0) === 0 ? (
+                <p className="px-6 py-6 text-sm text-muted-foreground">No recent activity yet.</p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {activityQ.data!.map((a) => (
+                    <li
+                      key={a.id}
+                      className="relative flex items-start gap-4 px-6 py-4 first:pt-0 last:pb-0"
+                    >
+                      <span
+                        className={`relative mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white ${activityDot(a.action)}`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-navy">
+                          {activityText(a.action)}
+                        </div>
+                        <div className="mt-1 font-mono text-xs text-muted-foreground">
+                          {relativeTime(a.createdAt)}
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 
@@ -465,7 +522,9 @@ export default function ProfilePage() {
             <div className="rounded-2xl bg-gradient-to-br from-navy via-navy-deep to-navy-deep p-6 text-white shadow-sm overflow-hidden relative">
               <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-white/5 blur-2xl" />
               <div className="relative z-10">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-white/60 mb-4">Quick Access</h3>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-white/60 mb-4">
+                  Quick Access
+                </h3>
                 <div className="grid gap-2">
                   {actions.map(({ label, to, Icon }) => (
                     <Link
@@ -473,9 +532,16 @@ export default function ProfilePage() {
                       href={to}
                       className="group flex items-center gap-3 rounded-lg bg-white/8 px-4 py-3 text-sm font-medium transition hover:bg-white/12"
                     >
-                      <Icon size={16} strokeWidth={1.5} className="text-white/70 group-hover:text-accent transition" />
+                      <Icon
+                        size={16}
+                        strokeWidth={1.5}
+                        className="text-white/70 group-hover:text-accent transition"
+                      />
                       <span className="flex-1">{label}</span>
-                      <ChevronRight size={14} className="text-white/40 group-hover:text-white/60 transition" />
+                      <ChevronRight
+                        size={14}
+                        className="text-white/40 group-hover:text-white/60 transition"
+                      />
                     </Link>
                   ))}
                 </div>
@@ -486,7 +552,9 @@ export default function ProfilePage() {
             <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
               <div className="border-b border-border px-6 py-4 flex items-center gap-2">
                 <Bell size={16} className="text-accent" />
-                <h3 className="font-display text-sm font-bold text-navy">Notification Preferences</h3>
+                <h3 className="font-display text-sm font-bold text-navy">
+                  Notification Preferences
+                </h3>
               </div>
               <div className="px-6 py-5 space-y-4">
                 {(
@@ -510,10 +578,10 @@ export default function ProfilePage() {
 
             {/* Switch role */}
             <div className="rounded-2xl border border-border bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm text-center">
-              <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Switch Role</div>
-              <p className="text-xs text-muted-foreground mb-4">
-                Try another role and workspace.
-              </p>
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
+                Switch Role
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">Try another role and workspace.</p>
               <Link
                 href="/admin-login"
                 className="inline-flex items-center gap-2 rounded-lg border border-accent bg-white px-4 py-2 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white"
@@ -552,11 +620,16 @@ function SecurityPanel() {
     onError: (e: { message: string }) => toast.error(e.message),
   });
   const terminate = trpc.users.terminateSession.useMutation({
-    onSuccess: () => { sessionsQ.refetch(); toast.success("Session signed out"); },
+    onSuccess: () => {
+      sessionsQ.refetch();
+      toast.success("Session signed out");
+    },
     onError: (e: { message: string }) => toast.error(e.message),
   });
   const toggle2FA = trpc.users.toggleTwoFactor.useMutation({
-    onSuccess: () => { meQ.refetch(); },
+    onSuccess: () => {
+      meQ.refetch();
+    },
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
@@ -574,7 +647,8 @@ function SecurityPanel() {
     changePassword.mutate({ currentPassword: pw.current, newPassword: pw.next });
   };
 
-  const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
   return (
     <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
@@ -588,7 +662,9 @@ function SecurityPanel() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-navy">Password</div>
-              <div className="truncate text-xs text-muted-foreground">Update your account password</div>
+              <div className="truncate text-xs text-muted-foreground">
+                Update your account password
+              </div>
             </div>
             <button
               onClick={() => setShowPw((v) => !v)}
@@ -605,7 +681,13 @@ function SecurityPanel() {
                   type="password"
                   value={pw[k]}
                   onChange={(e) => setPw((p) => ({ ...p, [k]: e.target.value }))}
-                  placeholder={k === "current" ? "Current password" : k === "next" ? "New password" : "Confirm new password"}
+                  placeholder={
+                    k === "current"
+                      ? "Current password"
+                      : k === "next"
+                        ? "New password"
+                        : "Confirm new password"
+                  }
                   className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-accent"
                 />
               ))}
@@ -628,14 +710,18 @@ function SecurityPanel() {
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold text-navy">Two-factor authentication</div>
             <div className="truncate text-xs text-muted-foreground">
-              {twoFA ? "Enabled · OTP required at login" : "Disabled · add an extra layer of security"}
+              {twoFA
+                ? "Enabled · OTP required at login"
+                : "Disabled · add an extra layer of security"}
             </div>
           </div>
           <button
             onClick={() => toggle2FA.mutate({ enabled: !twoFA })}
             disabled={toggle2FA.isPending || meQ.isLoading}
             className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
-              twoFA ? "border-border bg-white text-rose-600 hover:bg-rose-50" : "border-accent bg-accent text-white hover:opacity-90"
+              twoFA
+                ? "border-border bg-white text-rose-600 hover:bg-rose-50"
+                : "border-accent bg-accent text-white hover:opacity-90"
             }`}
           >
             {twoFA ? "Disable" : "Enable"}
@@ -651,7 +737,9 @@ function SecurityPanel() {
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-navy">Active sessions</div>
               <div className="truncate text-xs text-muted-foreground">
-                {sessionsQ.isLoading ? "Loading…" : `${sessions.length} active device${sessions.length !== 1 ? "s" : ""}`}
+                {sessionsQ.isLoading
+                  ? "Loading…"
+                  : `${sessions.length} active device${sessions.length !== 1 ? "s" : ""}`}
               </div>
             </div>
             <button
@@ -664,9 +752,14 @@ function SecurityPanel() {
           {showSessions && sessions.length > 0 && (
             <div className="mt-3 space-y-2">
               {sessions.map((s) => (
-                <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2"
+                >
                   <div className="min-w-0">
-                    <div className="truncate text-xs font-medium text-navy">{s.userAgent ?? "Unknown device"}</div>
+                    <div className="truncate text-xs font-medium text-navy">
+                      {s.userAgent ?? "Unknown device"}
+                    </div>
                     <div className="text-[11px] text-muted-foreground">
                       {s.ipAddress ?? "—"} · since {fmt(s.createdAt)}
                     </div>

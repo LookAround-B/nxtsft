@@ -60,7 +60,7 @@ export function ListingsTab() {
     const userSubs: ListingItem[] = getPendingListings().map((l) => ({
       id: l.id,
       title: l.title || `${l.bhk} ${l.propertyType} in ${l.city}`,
-      image: "",
+      image: l.images?.[0] ?? "",
       builder: l.listerName,
       city: l.city,
       priceLabel: `₹${l.price}`,
@@ -84,13 +84,18 @@ export function ListingsTab() {
     image: p.images?.[0] ?? "",
     builder: p.owner?.name ?? "",
     city: p.location?.city ?? "",
-    priceLabel: p.price >= 1e7
-      ? `₹${(p.price / 1e7).toFixed(2)} Cr`
-      : p.price >= 1e5
-      ? `₹${(p.price / 1e5).toFixed(1)} L`
-      : `₹${p.price.toLocaleString("en-IN")}`,
+    priceLabel:
+      p.price >= 1e7
+        ? `₹${(p.price / 1e7).toFixed(2)} Cr`
+        : p.price >= 1e5
+          ? `₹${(p.price / 1e5).toFixed(1)} L`
+          : `₹${p.price.toLocaleString("en-IN")}`,
     bhk: p.bhk ?? "",
-    status: (p.status === "Active" ? "Approved" : p.status === "Sold" || p.status === "Rented" ? "Approved" : "Pending") as "Pending" | "Approved" | "Rejected",
+    status: (p.status === "Active"
+      ? "Approved"
+      : p.status === "Sold" || p.status === "Rented"
+        ? "Approved"
+        : "Pending") as "Pending" | "Approved" | "Rejected",
     isDbProperty: true,
     rera: p.rera,
     interested: p._count?.leads ?? 0,
@@ -161,12 +166,7 @@ export function ListingsTab() {
               <div className="flex gap-3">
                 {it.image ? (
                   <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-lg">
-                    <Image
-                      src={it.image}
-                      alt=""
-                      fill
-                      className="object-cover"
-                    />
+                    <Image src={it.image} alt="" fill className="object-cover" />
                   </div>
                 ) : (
                   <div className="grid h-20 w-28 shrink-0 place-items-center rounded-lg bg-navy/8 text-xs font-semibold text-navy/40">

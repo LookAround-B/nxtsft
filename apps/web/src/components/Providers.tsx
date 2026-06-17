@@ -1,9 +1,11 @@
 "use client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink } from "@trpc/client";
+import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { AppDataProvider } from "@/lib/dataProvider";
+import type { AppRouter } from "@nxtsft/trpc";
 
 const TOKEN_KEY = "nxtsft.token";
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
@@ -23,14 +25,16 @@ function makeQueryClient() {
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(makeQueryClient);
   const [trpcClient] = useState(() =>
-    trpc.createClient({
+    createTRPCClient<AppRouter>({
       links: [httpBatchLink({ url: "/api/trpc", headers: getAuthHeaders })],
     })
   );
 
   const tree = (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <AppDataProvider>{children}</AppDataProvider>
+      </QueryClientProvider>
     </trpc.Provider>
   );
 

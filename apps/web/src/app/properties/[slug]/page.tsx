@@ -21,9 +21,11 @@ import {
   ShieldCheck,
   Star,
   Share2,
+  Maximize2,
 } from "lucide-react";
 import { PropertyEngagement } from "@/components/PropertyEngagement";
 import { PropertyMap } from "@/components/map/PropertyMap";
+import { GalleryLightbox } from "@/components/ui/GalleryLightbox";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -75,7 +77,9 @@ function SpecItem({ icon, label, value }: { icon: React.ReactNode; label: string
         {icon}
       </div>
       <div>
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </div>
         <div className="font-semibold text-foreground">{value}</div>
       </div>
     </div>
@@ -111,7 +115,10 @@ function ContactCard({
   });
 
   const handleUnlock = () => {
-    if (!session) { router.push("/login"); return; }
+    if (!session) {
+      router.push("/login");
+      return;
+    }
     if (credits <= 0) {
       router.push("/pricing");
       toast.info("You need credits to unlock owner contacts.");
@@ -120,12 +127,13 @@ function ContactCard({
     unlock.mutate({ id: property.id });
   };
 
-  const initials = property.owner?.name
-    .split(" ")
-    .map((s) => s[0] ?? "")
-    .join("")
-    .slice(0, 2)
-    .toUpperCase() ?? "??";
+  const initials =
+    property.owner?.name
+      .split(" ")
+      .map((s) => s[0] ?? "")
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() ?? "??";
 
   return (
     <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
@@ -230,20 +238,31 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
   const { slug } = use(params);
   const { session, credits, refreshCredits } = useAuth();
   const [activeImage, setActiveImage] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const { data: property, isLoading, isError } = trpc.properties.get.useQuery({ id: slug }) as {
+  const {
+    data: property,
+    isLoading,
+    isError,
+  } = trpc.properties.get.useQuery({ id: slug }) as {
     data: FullProperty | undefined;
     isLoading: boolean;
     isError: boolean;
   };
 
   const addFavorite = trpc.users.addFavorite.useMutation({
-    onSuccess: () => { setSaved(true); toast.success("Saved to your favourites!"); },
+    onSuccess: () => {
+      setSaved(true);
+      toast.success("Saved to your favourites!");
+    },
     onError: (e) => toast.error(e.message),
   });
   const removeFavorite = trpc.users.removeFavorite.useMutation({
-    onSuccess: () => { setSaved(false); toast.success("Removed from favourites."); },
+    onSuccess: () => {
+      setSaved(false);
+      toast.success("Removed from favourites.");
+    },
     onError: (e) => toast.error(e.message),
   });
 
@@ -288,7 +307,9 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
       <div className="min-h-screen bg-background">
         <div className="mx-auto max-w-7xl px-5 py-20 text-center sm:px-6">
           <h1 className="font-display text-2xl font-black text-navy">Property not found</h1>
-          <p className="mt-2 text-muted-foreground">This listing may have been removed or is no longer available.</p>
+          <p className="mt-2 text-muted-foreground">
+            This listing may have been removed or is no longer available.
+          </p>
           <Link
             href="/properties"
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white"
@@ -301,22 +322,28 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
     );
   }
 
-  const images = property.images.length > 0 ? property.images : [
-    "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80",
-  ];
+  const images =
+    property.images.length > 0
+      ? property.images
+      : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80"];
 
   return (
     <div className="min-h-screen bg-[oklch(0.97_0.01_260)]">
-
       {/* Breadcrumb */}
       <div className="border-b border-border bg-white/80 backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-5 py-3 sm:px-6">
           <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Link href="/" className="hover:text-accent">Home</Link>
+            <Link href="/" className="hover:text-accent">
+              Home
+            </Link>
             <ChevronRight size={12} />
-            <Link href="/properties" className="hover:text-accent">Properties</Link>
+            <Link href="/properties" className="hover:text-accent">
+              Properties
+            </Link>
             <ChevronRight size={12} />
-            <span className="line-clamp-1 text-foreground font-medium max-w-xs">{property.title}</span>
+            <span className="line-clamp-1 text-foreground font-medium max-w-xs">
+              {property.title}
+            </span>
           </nav>
         </div>
       </div>
@@ -328,14 +355,24 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
             {/* Gallery */}
             <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
               <div className="relative h-72 sm:h-96">
-                <SafeImage
-                  src={images[activeImage] ?? images[0] ?? ""}
-                  alt={property.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 67vw"
-                  priority
-                />
+                <button
+                  type="button"
+                  aria-label="Open full-screen gallery"
+                  onClick={() => setLightboxOpen(true)}
+                  className="group absolute inset-0 cursor-zoom-in"
+                >
+                  <SafeImage
+                    src={images[activeImage] ?? images[0] ?? ""}
+                    alt={property.title}
+                    fill
+                    className="object-cover transition group-hover:brightness-95"
+                    sizes="(max-width: 1024px) 100vw, 67vw"
+                    priority
+                  />
+                  <span className="absolute bottom-3 right-3 hidden items-center gap-1.5 rounded-full bg-navy/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm sm:flex">
+                    <Maximize2 size={13} /> View gallery
+                  </span>
+                </button>
                 {/* Carousel arrows */}
                 {images.length > 1 && (
                   <>
@@ -366,7 +403,9 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
 
                 {/* Purpose badge */}
                 <div className="absolute left-4 top-4">
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold text-white ${property.purpose === "Sale" ? "bg-accent" : "bg-emerald-500"}`}>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold text-white ${property.purpose === "Sale" ? "bg-accent" : "bg-emerald-500"}`}
+                  >
                     For {property.purpose}
                   </span>
                 </div>
@@ -374,7 +413,10 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                 <div className="absolute right-4 top-4 flex gap-2">
                   <button
                     onClick={() => {
-                      if (!session) { toast.info("Sign in to save properties."); return; }
+                      if (!session) {
+                        toast.info("Sign in to save properties.");
+                        return;
+                      }
                       if (saved) {
                         removeFavorite.mutate({ propertyId: property.id });
                       } else {
@@ -413,6 +455,15 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
               )}
             </div>
 
+            <GalleryLightbox
+              images={images}
+              index={activeImage}
+              open={lightboxOpen}
+              title={property.title}
+              onClose={() => setLightboxOpen(false)}
+              onIndexChange={setActiveImage}
+            />
+
             {/* Title + Price */}
             <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -422,7 +473,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                   </h1>
                   <div className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
                     <MapPin size={14} />
-                    {property.location.locality}, {property.location.city}, {property.location.state}
+                    {property.location.locality}, {property.location.city},{" "}
+                    {property.location.state}
                   </div>
                 </div>
                 <div className="text-right">
@@ -461,7 +513,11 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                   />
                 )}
                 {property.bathrooms > 0 && (
-                  <SpecItem icon={<Bath size={18} />} label="Bathrooms" value={`${property.bathrooms}`} />
+                  <SpecItem
+                    icon={<Bath size={18} />}
+                    label="Bathrooms"
+                    value={`${property.bathrooms}`}
+                  />
                 )}
                 <SpecItem
                   icon={<SquareStack size={18} />}
@@ -469,29 +525,39 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                   value={`${property.area.toLocaleString()} sq.ft`}
                 />
                 {property.parking > 0 && (
-                  <SpecItem icon={<Car size={18} />} label="Parking" value={`${property.parking} spot${property.parking > 1 ? "s" : ""}`} />
+                  <SpecItem
+                    icon={<Car size={18} />}
+                    label="Parking"
+                    value={`${property.parking} spot${property.parking > 1 ? "s" : ""}`}
+                  />
                 )}
                 {property.facing && (
                   <SpecItem icon={<Star size={18} />} label="Facing" value={property.facing} />
                 )}
                 {property.possession && (
-                  <SpecItem icon={<Building2 size={18} />} label="Possession" value={property.possession} />
+                  <SpecItem
+                    icon={<Building2 size={18} />}
+                    label="Possession"
+                    value={property.possession}
+                  />
                 )}
                 {property.builder && (
-                  <SpecItem icon={<Building2 size={18} />} label="Builder" value={property.builder} />
+                  <SpecItem
+                    icon={<Building2 size={18} />}
+                    label="Builder"
+                    value={property.builder}
+                  />
                 )}
-                <SpecItem
-                  icon={<Building2 size={18} />}
-                  label="Type"
-                  value={property.type}
-                />
+                <SpecItem icon={<Building2 size={18} />} label="Type" value={property.type} />
               </div>
             </div>
 
             {/* Description */}
             {property.description && (
               <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-                <h2 className="mb-3 font-display text-lg font-bold text-navy">About this property</h2>
+                <h2 className="mb-3 font-display text-lg font-bold text-navy">
+                  About this property
+                </h2>
                 <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/80">
                   {property.description}
                 </p>
@@ -542,7 +608,9 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
               session={session}
               credits={credits}
               refreshCredits={refreshCredits}
-              onUnlock={() => { unlockedRef.current = true; }}
+              onUnlock={() => {
+                unlockedRef.current = true;
+              }}
             />
 
             <InquiryForm property={property} session={session} />
@@ -561,7 +629,9 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                 {property.pricePerSqft > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Per sq.ft</span>
-                    <span className="font-semibold">₹{property.pricePerSqft.toLocaleString("en-IN")}</span>
+                    <span className="font-semibold">
+                      ₹{property.pricePerSqft.toLocaleString("en-IN")}
+                    </span>
                   </div>
                 )}
               </div>
@@ -582,7 +652,6 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
           <PropertyReviews propertyId={property.id} session={session} />
         </div>
       </div>
-
     </div>
   );
 }
@@ -600,7 +669,10 @@ function InquiryForm({
   const [form, setForm] = useState({ name: "", phone: "", notes: "" });
 
   const createLead = trpc.leads.create.useMutation({
-    onSuccess: () => { setSent(true); toast.success("Enquiry sent! An agent will reach out shortly."); },
+    onSuccess: () => {
+      setSent(true);
+      toast.success("Enquiry sent! An agent will reach out shortly.");
+    },
     onError: (e) => toast.error(e.message),
   });
 
@@ -610,9 +682,13 @@ function InquiryForm({
   }, [session]);
 
   const submit = () => {
-    if (!session) { router.push("/login"); return; }
+    if (!session) {
+      router.push("/login");
+      return;
+    }
     if (form.name.trim().length < 2) return toast.error("Please enter your name.");
-    if (!/^[6-9]\d{9}$/.test(form.phone)) return toast.error("Enter a valid 10-digit mobile number.");
+    if (!/^[6-9]\d{9}$/.test(form.phone))
+      return toast.error("Enter a valid 10-digit mobile number.");
     createLead.mutate({
       propertyId: property.id,
       name: form.name.trim(),
@@ -631,11 +707,15 @@ function InquiryForm({
         <div className="mt-4 flex flex-col items-center gap-2 rounded-xl bg-emerald-50 px-4 py-8 text-center">
           <ShieldCheck size={28} className="text-emerald-500" />
           <p className="text-sm font-semibold text-navy">Enquiry sent!</p>
-          <p className="text-xs text-muted-foreground">Our team will contact you about this {property.type.toLowerCase()}.</p>
+          <p className="text-xs text-muted-foreground">
+            Our team will contact you about this {property.type.toLowerCase()}.
+          </p>
         </div>
       ) : (
         <>
-          <p className="mt-1 text-xs text-muted-foreground">Send an enquiry and a relationship manager will get in touch.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Send an enquiry and a relationship manager will get in touch.
+          </p>
           <div className="mt-4 space-y-2.5">
             <input
               value={form.name}
@@ -646,7 +726,9 @@ function InquiryForm({
             <input
               type="tel"
               value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))
+              }
               placeholder="10-digit mobile"
               className="w-full rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
             />
@@ -702,7 +784,12 @@ function StarRow({
           />
         );
         return onSelect ? (
-          <button key={i} type="button" onClick={() => onSelect(i)} className="cursor-pointer transition hover:scale-110">
+          <button
+            key={i}
+            type="button"
+            onClick={() => onSelect(i)}
+            className="cursor-pointer transition hover:scale-110"
+          >
             {star}
           </button>
         ) : (
@@ -791,7 +878,11 @@ function PropertyReviews({
         <div className="mt-4 space-y-3 rounded-xl border border-border bg-secondary/20 p-4">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-navy">Your rating:</span>
-            <StarRow value={form.rating} size={20} onSelect={(n) => setForm((f) => ({ ...f, rating: n }))} />
+            <StarRow
+              value={form.rating}
+              size={20}
+              onSelect={(n) => setForm((f) => ({ ...f, rating: n }))}
+            />
           </div>
           <input
             value={form.title}
@@ -831,7 +922,9 @@ function PropertyReviews({
         ) : items.length === 0 ? (
           <div className="py-8 text-center">
             <Star size={26} className="mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">No reviews yet. Be the first to review this property.</p>
+            <p className="text-sm text-muted-foreground">
+              No reviews yet. Be the first to review this property.
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -850,11 +943,15 @@ function PropertyReviews({
                         {initials}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-navy">{r.author?.name ?? "User"}</div>
+                        <div className="text-sm font-semibold text-navy">
+                          {r.author?.name ?? "User"}
+                        </div>
                         <StarRow value={r.rating} size={12} />
                       </div>
                     </div>
-                    <span className="font-mono text-[11px] text-muted-foreground">{fmtWhen(r.createdAt)}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {fmtWhen(r.createdAt)}
+                    </span>
                   </div>
                   <div className="mt-2 text-sm font-semibold text-foreground">{r.title}</div>
                   {r.content && <p className="mt-1 text-sm text-muted-foreground">{r.content}</p>}

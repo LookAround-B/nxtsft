@@ -14,10 +14,19 @@ import {
   ClipboardList,
   User,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { submitListing, type ListerType, type PendingListing } from "@/lib/listings";
 import { trpc } from "@/lib/trpc";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { ImageUploader, type UploadImage } from "@/components/ui/ImageUploader";
+import { compressImage } from "@/lib/image";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Plot", "Commercial", "PG / Co-living", "Studio"];
 const CITIES = [
@@ -100,7 +109,10 @@ const EMPTY: FormData = {
   listerPhone: "",
 };
 
-const DB_TYPE_MAP: Record<string, "Apartment" | "Villa" | "Studio" | "Office" | "Bungalow" | "Plot" | "PG"> = {
+const DB_TYPE_MAP: Record<
+  string,
+  "Apartment" | "Villa" | "Studio" | "Office" | "Bungalow" | "Plot" | "PG"
+> = {
   Apartment: "Apartment",
   Villa: "Villa",
   Studio: "Studio",
@@ -118,9 +130,12 @@ function parseBedrooms(bhk: string): number {
 export default function ListPropertyPage() {
   const { session } = useAuth();
   const createProperty = trpc.properties.create.useMutation();
+  const uploadImage = trpc.media.uploadImage.useMutation();
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState<PendingListing | null>(null);
+  const [images, setImages] = useState<UploadImage[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [data, setData] = useState<FormData>(EMPTY);
 
   useEffect(() => {
@@ -192,6 +207,36 @@ export default function ListPropertyPage() {
       return;
     }
     const title = data.title || `${data.bhk} ${data.propertyType} in ${data.city}`;
+
+    // Compress each photo (in submitted order — first is the cover) and upload it
+    // to Cloudflare R2, keeping the returned public URL for the DB. If storage is
+    // unavailable we fall back to the compressed data URL so the local listing
+    // preview still works.
+    setUploading(true);
+    const hostedImages: string[] = [];
+    const previewImages: string[] = [];
+    for (const img of images) {
+      const dataUrl = await compressImage(img.file);
+      previewImages.push(dataUrl);
+      try {
+        const { url } = await uploadImage.mutateAsync({
+          contentType: "image/jpeg",
+          data: dataUrl.split(",")[1] ?? "",
+          folder: "properties",
+        });
+        hostedImages.push(url);
+      } catch {
+        // storage not configured / upload failed — skip from the hosted set
+      }
+    }
+    setUploading(false);
+    if (images.length > 0 && hostedImages.length === 0) {
+      toast.warning("Photos couldn't be uploaded to storage — saved to this listing only.");
+    }
+
+    // Prefer real R2 URLs; fall back to data URLs for the local demo record.
+    const listingImages = hostedImages.length ? hostedImages : previewImages;
+
     const result = submitListing({
       listerType: data.listerType as ListerType,
       propertyType: data.propertyType,
@@ -204,6 +249,7 @@ export default function ListPropertyPage() {
       title,
       description: data.description,
       amenities: data.amenities,
+      images: listingImages,
       rera: data.rera,
       possession: data.possession,
       listerName: data.listerName,
@@ -226,6 +272,7 @@ export default function ListPropertyPage() {
           locality: data.locality || data.city,
           description: data.description || undefined,
           amenities: data.amenities,
+          images: hostedImages,
           rera: data.rera,
           possession: data.possession || undefined,
         });
@@ -260,6 +307,19 @@ export default function ListPropertyPage() {
           </div>
 
           <div className="mt-6 rounded-2xl border border-border bg-white p-6 text-left shadow-sm">
+            {submitted.images.length > 0 && (
+              <div className="mb-4 flex gap-2 overflow-x-auto">
+                {submitted.images.slice(0, 5).map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={src}
+                    alt={`Photo ${i + 1}`}
+                    className="h-20 w-28 shrink-0 rounded-lg border border-border object-cover"
+                  />
+                ))}
+              </div>
+            )}
             <div className="text-sm font-semibold text-navy">{submitted.title}</div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs">
               <span className="rounded bg-secondary px-2 py-0.5 font-medium">{submitted.city}</span>
@@ -288,6 +348,8 @@ export default function ListPropertyPage() {
             </Link>
             <button
               onClick={() => {
+                images.forEach((img) => URL.revokeObjectURL(img.url));
+                setImages([]);
                 setSubmitted(null);
                 setStep(1);
                 setData({
@@ -309,7 +371,6 @@ export default function ListPropertyPage() {
   // ── Wizard ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
-
       {/* Step progress bar */}
       <div className="border-b border-border bg-white">
         <div className="mx-auto max-w-2xl px-4 py-5 sm:px-6">
@@ -464,7 +525,9 @@ export default function ListPropertyPage() {
                 <div>
                   <label className="block text-sm font-semibold text-foreground">City</label>
                   <Select value={data.city || undefined} onValueChange={(v) => set("city", v)}>
-                    <SelectTrigger className={`mt-1.5 rounded-xl px-3.5 py-3 ${errors.city ? "border-rose-400" : ""}`}>
+                    <SelectTrigger
+                      className={`mt-1.5 rounded-xl px-3.5 py-3 ${errors.city ? "border-rose-400" : ""}`}
+                    >
                       <SelectValue placeholder="Select city…" />
                     </SelectTrigger>
                     <SelectContent>
@@ -606,9 +669,7 @@ export default function ListPropertyPage() {
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-foreground">
-                    RERA Number
-                  </label>
+                  <label className="block text-sm font-semibold text-foreground">RERA Number</label>
                   <input
                     type="text"
                     value={data.rera}
@@ -630,6 +691,17 @@ export default function ListPropertyPage() {
                     className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
                   />
                 </div>
+              </div>
+
+              <div className="mt-5">
+                <label className="block text-sm font-semibold text-foreground">
+                  Property Photos{" "}
+                  <span className="font-normal text-muted-foreground">({images.length} added)</span>
+                </label>
+                <p className="mt-1 mb-2 text-xs text-muted-foreground">
+                  Listings with photos get up to 5× more inquiries. Add a few clear shots.
+                </p>
+                <ImageUploader images={images} onChange={setImages} max={10} />
               </div>
             </>
           )}
@@ -731,9 +803,10 @@ export default function ListPropertyPage() {
             </button>
             <button
               onClick={next}
-              className="flex items-center gap-2 rounded-xl bg-accent px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95"
+              disabled={uploading || createProperty.isPending}
+              className="flex items-center gap-2 rounded-xl bg-accent px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:pointer-events-none disabled:opacity-60"
             >
-              {step < 4 ? "Next" : "Submit Property"}
+              {step < 4 ? "Next" : uploading ? "Uploading photos…" : "Submit Property"}
               {step < 4 ? <ChevronRight size={16} /> : <ArrowRight size={16} />}
             </button>
           </div>
@@ -749,7 +822,6 @@ export default function ListPropertyPage() {
           ))}
         </div>
       </div>
-
     </div>
   );
 }

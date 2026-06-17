@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -17,11 +17,41 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { ownerSlug } from "@/data/static";
-import { AGENTS, type Agent } from "@/data/agents";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { trpcClient } from "@/lib/trpcClient";
+
+type Agent = {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string | null;
+  city: string;
+  verified: boolean;
+  metadata?: Record<string, any> | null;
+  initials?: string;
+  rating?: number;
+  reviews?: number;
+  deals?: number;
+  listings?: number;
+  since?: number;
+  featured?: boolean;
+  role?: string;
+  color?: string;
+  specialties?: string[];
+  cities?: string[];
+  languages?: string[];
+  responseTime?: string;
+  portfolioValue?: string;
+};
 
 /* ─── Filter constants ────────────────────────────────────────────── */
 const CITIES = [
@@ -49,7 +79,11 @@ const SORTS = [
 
 /* ─── Agent card ──────────────────────────────────────────────────── */
 function AgentCard({ agent, onContact }: { agent: Agent; onContact: (a: Agent) => void }) {
-  const yrs = new Date().getFullYear() - agent.since;
+  const cities = agent.cities ?? [];
+  const specialties = agent.specialties ?? [];
+  const languages = agent.languages ?? [];
+  const rating = agent.rating ?? 0;
+  const yrs = new Date().getFullYear() - (agent.since ?? new Date().getFullYear());
   return (
     <div className="group relative flex flex-col rounded-2xl border border-border bg-white p-6 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-navy/8">
       {agent.featured && (
@@ -84,14 +118,14 @@ function AgentCard({ agent, onContact }: { agent: Agent; onContact: (a: Agent) =
                   key={s}
                   size={10}
                   className={
-                    s <= Math.round(agent.rating)
+                    s <= Math.round(rating)
                       ? "fill-amber-400 text-amber-400"
                       : "fill-border text-border"
                   }
                 />
               ))}
             </span>
-            <span className="text-xs font-bold text-navy">{agent.rating}</span>
+            <span className="text-xs font-bold text-navy">{rating}</span>
             <span className="text-[11px] text-muted-foreground">({agent.reviews})</span>
           </div>
         </div>
@@ -118,12 +152,12 @@ function AgentCard({ agent, onContact }: { agent: Agent; onContact: (a: Agent) =
         <div className="flex items-start gap-1.5">
           <MapPin size={12} className="mt-0.5 shrink-0 text-muted-foreground" />
           <span className="text-xs text-foreground/70">
-            {agent.cities.slice(0, 3).join(" · ")}
-            {agent.cities.length > 3 ? ` +${agent.cities.length - 3}` : ""}
+            {cities.slice(0, 3).join(" · ")}
+            {cities.length > 3 ? ` +${cities.length - 3}` : ""}
           </span>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {agent.specialties.slice(0, 2).map((s) => (
+          {specialties.slice(0, 2).map((s) => (
             <span
               key={s}
               className="rounded-full border border-accent/20 bg-accent/6 px-2.5 py-0.5 text-[10px] font-semibold text-accent"
@@ -135,8 +169,8 @@ function AgentCard({ agent, onContact }: { agent: Agent; onContact: (a: Agent) =
         <div className="flex items-center gap-1.5">
           <Globe size={11} className="shrink-0 text-muted-foreground" />
           <span className="text-[11px] text-muted-foreground">
-            {agent.languages.slice(0, 3).join(" · ")}
-            {agent.languages.length > 3 ? ` +${agent.languages.length - 3}` : ""}
+            {languages.slice(0, 3).join(" · ")}
+            {languages.length > 3 ? ` +${languages.length - 3}` : ""}
           </span>
         </div>
       </div>
@@ -179,6 +213,46 @@ export default function AgentsPage() {
   const [minRating, setMinRating] = useState(0);
   const [sort, setSort] = useState("featured");
   const [showFilters, setShowFilters] = useState(false);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch agents from DB via tRPC
+  useEffect(() => {
+    const loadAgents = async () => {
+      try {
+        const result = await trpcClient.users.getAgents.query();
+        const enriched = result.map((a) => ({
+          ...a,
+          initials:
+            a.metadata?.initials ||
+            a.name
+              .split(" ")
+              .map((n: string) => n[0])
+              .join(""),
+          rating: a.metadata?.rating || 4.5,
+          reviews: a.metadata?.reviews || 0,
+          deals: a.metadata?.deals || 0,
+          listings: a.metadata?.listings || 0,
+          since: a.metadata?.since || 2020,
+          featured: Math.random() > 0.5,
+          role: "RERA Agent",
+          color: "bg-blue-600",
+          specialties: ["Residential", "Commercial"],
+          cities: [a.city],
+          languages: ["English", "Hindi"],
+          responseTime: "< 1 hr",
+          portfolioValue: "₹25 Cr+",
+        }));
+        setAgents(enriched);
+      } catch (err) {
+        console.error("Failed to fetch agents:", err);
+        toast.error("Failed to load agents");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadAgents();
+  }, []);
 
   const handleContact = (agent: Agent) => {
     if (!session) {
@@ -189,42 +263,47 @@ export default function AgentsPage() {
   };
 
   const filtered = useMemo(() => {
-    let r = AGENTS.filter((a) => {
+    let r = agents.filter((a) => {
       const haystack =
-        `${a.name} ${a.role} ${a.cities.join(" ")} ${a.specialties.join(" ")}`.toLowerCase();
+        `${a.name} ${a.role} ${(a.cities || []).join(" ")} ${(a.specialties || []).join(" ")}`.toLowerCase();
       if (q && !haystack.includes(q.toLowerCase())) return false;
-      if (city !== "All" && !a.cities.some((c) => c.toLowerCase().includes(city.toLowerCase())))
+      if (
+        city !== "All" &&
+        !(a.cities || []).some((c) => c.toLowerCase().includes(city.toLowerCase()))
+      )
         return false;
-      if (type === "RERA Agent" && !a.role.includes("RERA")) return false;
-      if (type === "Commercial" && !a.role.includes("Commercial")) return false;
-      if (type === "Builder" && !a.role.includes("Builder")) return false;
-      if (a.rating < minRating) return false;
+      if (type === "RERA Agent" && !(a.role || "").includes("RERA")) return false;
+      if (type === "Commercial" && !(a.role || "").includes("Commercial")) return false;
+      if (type === "Builder" && !(a.role || "").includes("Builder")) return false;
+      if ((a.rating || 0) < minRating) return false;
       return true;
     });
-    if (sort === "rating") r = [...r].sort((a, b) => b.rating - a.rating);
-    if (sort === "deals") r = [...r].sort((a, b) => b.deals - a.deals);
-    if (sort === "listings") r = [...r].sort((a, b) => b.listings - a.listings);
-    if (sort === "exp") r = [...r].sort((a, b) => a.since - b.since);
+    if (sort === "rating") r = [...r].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    if (sort === "deals") r = [...r].sort((a, b) => (b.deals || 0) - (a.deals || 0));
+    if (sort === "listings") r = [...r].sort((a, b) => (b.listings || 0) - (a.listings || 0));
+    if (sort === "exp") r = [...r].sort((a, b) => (a.since || 0) - (b.since || 0));
     if (sort === "featured") r = [...r].sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
     return r;
-  }, [q, city, type, minRating, sort]);
+  }, [agents, q, city, type, minRating, sort]);
 
-  const featured = useMemo(() => AGENTS.filter((a) => a.featured), []);
+  const featured = useMemo(() => agents.filter((a) => a.featured), [agents]);
 
   // Instant typeahead matches (query only) shown right under the search box.
   const qMatches = useMemo(() => {
     const term = q.trim().toLowerCase();
     if (!term) return [];
-    return AGENTS.filter((a) =>
-      `${a.name} ${a.role} ${a.cities.join(" ")} ${a.specialties.join(" ")}`
+    return agents.filter((a) =>
+      `${a.name} ${a.role} ${(a.cities || []).join(" ")} ${(a.specialties || []).join(" ")}`
         .toLowerCase()
         .includes(term),
     );
-  }, [q]);
+  }, [agents, q]);
   const quickResults = qMatches.slice(0, 5);
 
   const scrollToResults = () =>
-    document.getElementById("agent-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document
+      .getElementById("agent-results")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const activeFilters = [
     city !== "All" && city,
@@ -242,7 +321,6 @@ export default function AgentsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-
       {/* ── Hero ──────────────────────────────────────────────────── */}
       <section
         className="relative overflow-hidden border-b border-border"
@@ -320,11 +398,12 @@ export default function AgentsPage() {
                                 )}
                               </div>
                               <div className="truncate text-xs text-muted-foreground">
-                                {a.role} · {a.cities.slice(0, 2).join(", ")}
+                                {a.role} · {(a.cities ?? []).slice(0, 2).join(", ")}
                               </div>
                             </div>
                             <span className="flex shrink-0 items-center gap-0.5 text-xs font-bold text-navy">
-                              <Star size={11} className="fill-amber-400 text-amber-400" /> {a.rating}
+                              <Star size={11} className="fill-amber-400 text-amber-400" />{" "}
+                              {a.rating}
                             </span>
                           </Link>
                         </li>
@@ -440,7 +519,10 @@ export default function AgentsPage() {
             {/* Sort (always visible) */}
             <div className="ml-auto shrink-0">
               <Select value={sort} onValueChange={setSort}>
-                <SelectTrigger size="sm" className="min-w-[9rem] rounded-xl font-semibold text-navy">
+                <SelectTrigger
+                  size="sm"
+                  className="min-w-[9rem] rounded-xl font-semibold text-navy"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -604,7 +686,10 @@ export default function AgentsPage() {
         )}
 
         {/* ── Agent grid ──────────────────────────────────────────── */}
-        <div id="agent-results" className="mb-2 scroll-mt-32 text-xs font-bold uppercase tracking-widest text-accent">
+        <div
+          id="agent-results"
+          className="mb-2 scroll-mt-32 text-xs font-bold uppercase tracking-widest text-accent"
+        >
           {!q && city === "All" ? "All agents" : "Results"}
         </div>
         <h2 className="mb-6 font-display text-2xl font-black text-navy">
@@ -613,7 +698,12 @@ export default function AgentsPage() {
             : `${filtered.length} agent${filtered.length !== 1 ? "s" : ""} found`}
         </h2>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-white px-8 py-20 text-center">
+            <div className="mb-4 h-14 w-14 animate-pulse rounded-full bg-secondary" />
+            <div className="font-display text-lg font-bold text-navy">Loading agents...</div>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-white px-8 py-20 text-center">
             <div className="mb-4 grid h-14 w-14 place-items-center rounded-full bg-secondary text-muted-foreground">
               <Users size={24} strokeWidth={1.5} />
@@ -699,7 +789,6 @@ export default function AgentsPage() {
           </div>
         </div>
       </section>
-
     </div>
   );
 }

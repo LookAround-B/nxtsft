@@ -2,7 +2,7 @@
   "name": "nxtsft-monorepo",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@11.7.0",
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -17,11 +17,11 @@
   },
   "devDependencies": {
     "@turbo/gen": "^2.0.0",
-    "turbo": "^2.0.0",
-    "typescript": "^5.8.3",
-    "prettier": "^3.4.0",
-    "eslint": "^9.32.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0"
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^9.32.0",
+    "prettier": "^3.4.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.8.3"
   }
 }
