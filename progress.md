@@ -59,7 +59,7 @@
 - [x] `siteVisits` — `list`, `create`, `reschedule`, `cancel`, `complete` *(added 06-10)*, `mapData` (staff-only, batch-joins property coords + rep) *(added 06-17)*
 - [x] `searchAlerts` — `list`, `create`, `update`, `delete`, `toggle` *(added 06-10)*
 - [x] `reviews` — `list`, `create`, `markHelpful` *(added 06-10)*
-- [x] `superAdmin` — `stats`, `systemHealth`, `securityLog`, `failedLogins`, `logFailedLogin`, `sessionTerminateGlobal`, `getIpRules`, `updateIpRules`, `getPolicyConfig`, `updatePolicyConfig`, `broadcastNotification` *(added 06-10)*
+- [x] `superAdmin` — `stats`, `systemHealth`, `securityLog`, `failedLogins`, `logFailedLogin`, `sessionTerminateGlobal`, `getIpRules`, `updateIpRules`, `getPolicyConfig`, `updatePolicyConfig`, `broadcastNotification` *(added 06-10)*, `getPermissionMatrix`, `updatePermissionMatrix` *(added 06-17, AuditLog-as-config pattern)*
 - [x] `propertyViews` — `record` (public, anon-friendly), `mine` (user history+stats), `analytics` (staff) *(added 06-10, mine — backed by new `PropertyView` model)*
 
 > ⚠️ **Backend-only:** the 4 new routers (`siteVisits`, `searchAlerts`, `reviews`, `superAdmin`) and the new procedures on `admin`/`users`/`subscriptions`/`leads` are implemented server-side but **not yet consumed by any frontend page**. See "Remaining" for the frontend wiring still owed.
@@ -135,6 +135,12 @@
 - [x] Home page — KPI band count-up (§4.1) ✅ *(06-10)* — `KpiBandStat` animates on scroll (decimal-aware, locale-formatted, gold gradient) for all 6 band stats
 - [x] Subscriptions — "My current plan" UI (§5.4) → `trpc.subscriptions.{myCurrent,cancel}` ✅ *(06-10, verified live)* — user portal Credits tab "Active Plan" section: name/amount/start/expiry/days-left + Renew-Upgrade + Cancel
 - [x] Property detail — Lead inquiry form → `trpc.leads.create` ✅ *(06-10, verified live)* — "Interested in this property?" sidebar form (name/phone/notes), prefills user name + property interest, signed-out → /login, success state; creates New/Portal lead flowing into CRM
+
+### Super Admin — Role & Permission Matrix *(06-17)*
+- [x] `PermissionsTab` rebuilt from boolean toggles → 4-level matrix (none/read/write/admin) over 12 features × 6 roles (super-admin = implicit full). Color-coded cells cycle on click; legend; Save/Reset with dirty tracking + "last saved".
+- [x] **Simulate as role X** — role picker shows effective access (summary count chips + per-feature plain-English capability).
+- [x] Persisted via `superAdmin.getPermissionMatrix`/`updatePermissionMatrix` (AuditLog `entity: "PermissionMatrix"`, no schema change). Loads saved snapshot, merges over per-role defaults.
+- Verified: tRPC type-check ✓, web type-check ✓, build ✓. **Note:** this is the authoring/simulation surface — enforcing levels in each portal's route guards is a separate pass (not yet done).
 
 ### Maps — Mapbox *(06-17)*
 - [x] Property detail (`/properties/[slug]`) — "Location" section with a single pin → `PropertyMap` (Mapbox GL via `react-map-gl`). Reads `location.latitude/longitude` from `properties.get`.

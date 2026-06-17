@@ -13,6 +13,21 @@ import {
   passwordComplexitySchema,
 } from "../sanitize.js";
 
+// Access level for a (role, feature) cell, ascending privilege.
+const accessLevelSchema = z.enum(["none", "read", "write", "admin"]);
+
+// matrix[roleKey][featureKey] = accessLevel. Keys are bounded to keep the
+// persisted JSON small; the frontend defines the canonical lists.
+const permissionMatrixSchema = z
+  .record(z.string().max(40), z.record(z.string().max(60), accessLevelSchema))
+  .refine((m) => Object.keys(m).length <= 20, "Too many roles")
+  .refine(
+    (m) => Object.values(m).every((feats) => Object.keys(feats).length <= 60),
+    "Too many features",
+  );
+
+type PermissionMatrix = z.infer<typeof permissionMatrixSchema>;
+
 export const superAdminRouter = router({
   stats: superAdminProcedure.query(async () => {
     const [
@@ -211,6 +226,36 @@ export const superAdminRouter = router({
           entity: "PolicyConfig",
           entityId: "system",
           changes: input,
+        },
+      });
+    }),
+
+  // Role × feature permission matrix. Stored as a config snapshot in AuditLog
+  // (entity "PermissionMatrix"), same pattern as IP rules / policy config.
+  // The frontend owns the canonical role/feature lists and sensible defaults;
+  // this just persists whatever the super-admin saves.
+  getPermissionMatrix: superAdminProcedure.query(async () => {
+    const logs = await prisma.auditLog.findMany({
+      where: { entity: "PermissionMatrix" },
+      orderBy: { createdAt: "desc" },
+      take: 1,
+    });
+    const log = logs[0];
+    if (!log) return { matrix: null as PermissionMatrix | null, updatedAt: null as string | null };
+    const changes = log.changes as { matrix?: PermissionMatrix } | null;
+    return { matrix: changes?.matrix ?? null, updatedAt: log.createdAt.toISOString() };
+  }),
+
+  updatePermissionMatrix: superAdminProcedure
+    .input(z.object({ matrix: permissionMatrixSchema }))
+    .mutation(async ({ input, ctx }) => {
+      return prisma.auditLog.create({
+        data: {
+          userId: ctx.user.id,
+          action: "update_permission_matrix",
+          entity: "PermissionMatrix",
+          entityId: "system",
+          changes: { matrix: input.matrix },
         },
       });
     }),
