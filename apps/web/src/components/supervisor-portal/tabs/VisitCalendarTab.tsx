@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
-import { VisitsMap, type VisitPoint } from "@/components/map/VisitsMap";
+import { VisitsMapWrapper as VisitsMap, type VisitPoint } from "@/components/map/VisitsMapWrapper";
 import { categoryColor } from "@/lib/map";
 import { trpc } from "@/lib/trpc";
 import { PageHead } from "./shared";

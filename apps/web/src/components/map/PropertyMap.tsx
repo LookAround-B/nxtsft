@@ -1,10 +1,9 @@
 "use client";
-import "mapbox-gl/dist/mapbox-gl.css";
 import Map, { Marker, NavigationControl } from "react-map-gl/mapbox";
 import { MapPin } from "lucide-react";
 import { MAPBOX_TOKEN, MAP_STYLE, hasMapboxToken, resolveCoords } from "@/lib/map";
 
-type PropertyMapProps = {
+export type PropertyMapProps = {
   lat?: number | null;
   lng?: number | null;
   city?: string | null;
@@ -16,6 +15,7 @@ type PropertyMapProps = {
 
 /** Single-pin map for a property detail page. */
 export function PropertyMap({ lat, lng, city, seed, label, className }: PropertyMapProps) {
+
   if (!hasMapboxToken()) return <MapUnavailable city={city} />;
 
   const { coords, approximate } = resolveCoords({ lat, lng, city, seed });

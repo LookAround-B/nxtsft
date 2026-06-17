@@ -854,6 +854,159 @@ async function main() {
   }
   console.log(`✓ Seeded ${builderTotal} builders (of ${buildersData.length} in file)`);
 
+  // ── Team Members (Sales Reps) ────────────────────────────────────────────
+  const teamMembers = [
+    { email: "priya.sharma@nxtsft.com", name: "Priya Sharma", city: "Mumbai" },
+    { email: "karan.joshi@nxtsft.com", name: "Karan Joshi", city: "Bengaluru" },
+    { email: "anita.rao@nxtsft.com", name: "Anita Rao", city: "Hyderabad" },
+    { email: "devansh.patel@nxtsft.com", name: "Devansh Patel", city: "Pune" },
+  ];
+
+  for (const member of teamMembers) {
+    await prisma.user.upsert({
+      where: { email: member.email },
+      update: {},
+      create: {
+        email: member.email,
+        name: member.name,
+        city: member.city,
+        role: "sales",
+        verified: true,
+        passwordHash: hash,
+      },
+    });
+  }
+  console.log(`✓ Seeded ${teamMembers.length} team members (Sales Reps)`);
+
+  // ── Agents ──────────────────────────────────────────────────────────────
+  const agents = [
+    { email: "priya.sharma.agent@nxtsft.com", name: "Priya Sharma", initials: "PS", rating: 4.9, reviews: 87, deals: 142, since: 2018 },
+    { email: "karan.joshi.agent@nxtsft.com", name: "Karan Joshi", initials: "KJ", rating: 4.8, reviews: 63, deals: 98, since: 2019 },
+    { email: "devansh.patel.agent@nxtsft.com", name: "Devansh Patel", initials: "DP", rating: 4.6, reviews: 41, deals: 67, since: 2017 },
+    { email: "meera.krishnan@nxtsft.com", name: "Meera Krishnan", initials: "MK", rating: 4.9, reviews: 96, deals: 161, since: 2015 },
+    { email: "anita.rao.agent@nxtsft.com", name: "Anita Rao", initials: "AR", rating: 4.7, reviews: 34, deals: 54, since: 2020 },
+    { email: "rohit.mehra@nxtsft.com", name: "Rohit Mehra", initials: "RM", rating: 4.8, reviews: 72, deals: 119, since: 2016 },
+    { email: "lakshmi.nair@nxtsft.com", name: "Lakshmi Nair", initials: "LN", rating: 4.7, reviews: 58, deals: 83, since: 2019 },
+    { email: "arjun.kapoor@nxtsft.com", name: "Arjun Kapoor", initials: "AK", rating: 4.5, reviews: 45, deals: 76, since: 2018 },
+    { email: "vijay.deshmukh@nxtsft.com", name: "Vijay Deshmukh", initials: "VD", rating: 4.6, reviews: 52, deals: 94, since: 2017 },
+    { email: "fatima.sheikh@nxtsft.com", name: "Fatima Sheikh", initials: "FS", rating: 4.8, reviews: 67, deals: 108, since: 2018 },
+    { email: "gaurav.singh@nxtsft.com", name: "Gaurav Singh", initials: "GS", rating: 4.5, reviews: 38, deals: 52, since: 2020 },
+    { email: "divya.menon@nxtsft.com", name: "Divya Menon", initials: "DM", rating: 4.7, reviews: 43, deals: 71, since: 2019 },
+    { email: "pooja.agarwal@nxtsft.com", name: "Pooja Agarwal", initials: "PA", rating: 4.6, reviews: 55, deals: 88, since: 2018 },
+    { email: "amit.bhatt@nxtsft.com", name: "Amit Bhatt", initials: "AB", rating: 4.4, reviews: 29, deals: 45, since: 2021 },
+    { email: "suresh.iyer@nxtsft.com", name: "Suresh Iyer", initials: "SI", rating: 5.0, reviews: 4, deals: 1, since: 2024 },
+  ];
+
+  for (const agent of agents) {
+    await prisma.user.upsert({
+      where: { email: agent.email },
+      update: {},
+      create: {
+        email: agent.email,
+        name: agent.name,
+        city: "Mumbai",
+        role: "agent",
+        verified: true,
+        passwordHash: hash,
+        metadata: {
+          initials: agent.initials,
+          rating: agent.rating,
+          reviews: agent.reviews,
+          deals: agent.deals,
+          since: agent.since,
+        },
+      },
+    });
+  }
+  console.log(`✓ Seeded ${agents.length} agents`);
+
+  // ── Reviews for Properties ──────────────────────────────────────────────
+  const allProperties = await prisma.property.findMany({ take: 20 });
+  const sampleReviewTitles = [
+    "Excellent property, highly recommended",
+    "Great location and amenities",
+    "Well-maintained and professional",
+    "Amazing experience, will buy again",
+    "Perfect for my family",
+    "Outstanding service from the agent",
+    "Smooth transaction, very happy",
+    "Beautiful property, worth the price",
+    "Professional team, highly satisfied",
+    "Exceeded expectations",
+  ];
+
+  const buyersForReviews = await prisma.user.findMany({ where: { role: "user" }, take: 10 });
+  let reviewCount = 0;
+
+  for (const property of allProperties) {
+    for (let i = 0; i < 3; i++) {
+      const user = buyersForReviews[i % buyersForReviews.length];
+      const title = sampleReviewTitles[i % sampleReviewTitles.length];
+      await prisma.review.upsert({
+        where: { id: `${property.id}-review-${i}` },
+        update: {},
+        create: {
+          id: `${property.id}-review-${i}`,
+          propertyId: property.id,
+          authorId: user.id,
+          rating: Math.floor(Math.random() * 2) + 4, // 4-5 stars
+          title,
+          content: `This property exceeded my expectations. ${title}. Highly recommended!`,
+        },
+      });
+      reviewCount++;
+    }
+  }
+  console.log(`✓ Seeded ${reviewCount} reviews for properties`);
+
+  // ── Property Views ──────────────────────────────────────────────────────
+  const propertiesToView = await prisma.property.findMany({ take: 30 });
+  const usersForViews = await prisma.user.findMany({ where: { role: "user" }, take: 15 });
+  let viewCount = 0;
+
+  for (const property of propertiesToView) {
+    for (let i = 0; i < 3; i++) {
+      const user = usersForViews[i % usersForViews.length];
+      await prisma.propertyView.upsert({
+        where: { id: `${property.id}-view-${i}` },
+        update: {},
+        create: {
+          id: `${property.id}-view-${i}`,
+          propertyId: property.id,
+          userId: user.id,
+          durationSec: Math.floor(Math.random() * 300) + 30,
+          contactUnlocked: Math.random() > 0.6,
+        },
+      });
+      viewCount++;
+    }
+  }
+  console.log(`✓ Seeded ${viewCount} property views`);
+
+  // ── Listings ────────────────────────────────────────────────────────────
+  const propertiesForListings = await prisma.property.findMany({ take: 25 });
+  const salesReps = await prisma.user.findMany({ where: { role: "sales" } });
+  let listingCount = 0;
+
+  for (const property of propertiesForListings) {
+    const rep = salesReps[listingCount % salesReps.length];
+    await prisma.listing.upsert({
+      where: { id: `listing-${property.id}` },
+      update: {},
+      create: {
+        id: `listing-${property.id}`,
+        propertyId: property.id,
+        createdBy: rep.id,
+        description: `${property.bhk} in ${property.title}. ${property.amenities?.slice(0, 3).join(", ")}`,
+        highlights: property.amenities?.slice(0, 5) || [],
+        active: true,
+        promoted: Math.random() > 0.7,
+      },
+    });
+    listingCount++;
+  }
+  console.log(`✓ Seeded ${listingCount} listings`);
+
   console.log(`\nDemo password for all users: ${DEMO_PASSWORD}`);
 }
 

@@ -37,9 +37,7 @@ export async function uploadToR2(
   const endpoint = `https://${accountId}.r2.cloudflarestorage.com/${bucket}/${key}`;
   const res = await getClient().fetch(endpoint, {
     method: "PUT",
-    // Node Buffer/Uint8Array is a valid fetch body at runtime; the DOM lib's
-    // BodyInit type just doesn't model it, so cast.
-    body: body as unknown as BodyInit,
+    body: body as any,
     headers: { "Content-Type": contentType },
   });
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@nxtsft/db";
 import { serializeBigInt } from "../../helper";
+export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,

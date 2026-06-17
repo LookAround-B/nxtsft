@@ -3,6 +3,8 @@ import prisma from "@nxtsft/db";
 import { createLeadSchema } from "@/lib/validation";
 import { getAuthUser } from "../helper";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const user = await getAuthUser(req);

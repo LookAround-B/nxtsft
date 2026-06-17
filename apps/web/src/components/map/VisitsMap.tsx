@@ -1,5 +1,4 @@
 "use client";
-import "mapbox-gl/dist/mapbox-gl.css";
 import { useMemo, useState } from "react";
 import MapGL, { Marker, Popup, NavigationControl } from "react-map-gl/mapbox";
 import { MapPin } from "lucide-react";

@@ -24,7 +24,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { PropertyEngagement } from "@/components/PropertyEngagement";
-import { PropertyMap } from "@/components/map/PropertyMap";
+import { PropertyMapWrapper as PropertyMap } from "@/components/map/PropertyMapWrapper";
 import { GalleryLightbox } from "@/components/ui/GalleryLightbox";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";

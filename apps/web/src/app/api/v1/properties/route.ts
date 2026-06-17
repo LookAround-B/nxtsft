@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@nxtsft/db";
 import { queryParamsSchema, createPropertySchema } from "@/lib/validation";
 import { getAuthUser, serializeBigInt } from "../helper";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {

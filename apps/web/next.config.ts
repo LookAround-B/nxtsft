@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
     "pg",
     "google-auth-library",
     "bcryptjs",
+    // isomorphic-dompurify pulls in jsdom, which reads default-stylesheet.css
+    // via fs at runtime — bundling breaks that relative path.
+    "isomorphic-dompurify",
   ],
   // @prisma/client ships engines for every DB + the Prisma CLI engines (~135MB),
   // blowing past Vercel's 250MB function limit. We only use Postgres on Node, so
