@@ -23,6 +23,7 @@ import {
   Share2,
 } from "lucide-react";
 import { PropertyEngagement } from "@/components/PropertyEngagement";
+import { PropertyMap } from "@/components/map/PropertyMap";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -56,7 +57,14 @@ type FullProperty = {
   possession: string | null;
   builder: string | null;
   featured: boolean;
-  location: { city: string; locality: string; state: string; address: string | null };
+  location: {
+    city: string;
+    locality: string;
+    state: string;
+    address: string | null;
+    latitude: number;
+    longitude: number;
+  };
   owner: { id: string; name: string; email: string; avatar: string | null } | null;
 };
 
@@ -506,6 +514,25 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                 </div>
               </div>
             )}
+
+            {/* Location */}
+            <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+              <h2 className="mb-1 font-display text-lg font-bold text-navy">Location</h2>
+              <p className="mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
+                <MapPin size={14} />
+                {[property.location.locality, property.location.city, property.location.state]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+              <PropertyMap
+                lat={property.location.latitude}
+                lng={property.location.longitude}
+                city={property.location.city}
+                seed={property.id}
+                label={property.title}
+                className="h-80"
+              />
+            </div>
           </div>
 
           {/* Right: Contact sidebar */}

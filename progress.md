@@ -1,6 +1,6 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-06-11
+> Last updated: 2026-06-17
 > Stack: Next.js 15 · tRPC v11 · Prisma 6 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
@@ -56,7 +56,7 @@
 - [x] `admin` — `stats`; `users.{list,get,updateRole,verify}`; `properties.{list,approve}`; `leads.list`; `auditLog`; `teamMembers`; `createTeamMember`
 - [x] `tickets` — `create`, `list`, `update`
 - [x] `notifications` — `list`, `markRead`
-- [x] `siteVisits` — `list`, `create`, `reschedule`, `cancel`, `complete` *(added 06-10)*
+- [x] `siteVisits` — `list`, `create`, `reschedule`, `cancel`, `complete` *(added 06-10)*, `mapData` (staff-only, batch-joins property coords + rep) *(added 06-17)*
 - [x] `searchAlerts` — `list`, `create`, `update`, `delete`, `toggle` *(added 06-10)*
 - [x] `reviews` — `list`, `create`, `markHelpful` *(added 06-10)*
 - [x] `superAdmin` — `stats`, `systemHealth`, `securityLog`, `failedLogins`, `logFailedLogin`, `sessionTerminateGlobal`, `getIpRules`, `updateIpRules`, `getPolicyConfig`, `updatePolicyConfig`, `broadcastNotification` *(added 06-10)*
@@ -101,7 +101,7 @@
 | User | `/user-portal` | ✅ | Overview stats, Saved (favorites), Credits (balance + top-up), Profile (updateProfile), Visits |
 | Admin | `/admin-portal` | ✅ | Stats, Listings (list + approve), Leads, Team |
 | Sales | `/sales-portal` | ✅ | MyLeads (scoped to user), Click-to-Call, Reports name |
-| Supervisor | `/supervisor-portal` | ✅ | TeamLeads (all leads), Reports name |
+| Supervisor | `/supervisor-portal` | ✅ | TeamLeads (all leads), Reports name, Visit Calendar (live `siteVisits.mapData` + Mapbox geographic map) |
 | Support | `/support-portal` | ✅ | Auth guard only — tabs still static |
 | Super Admin | `/sa-portal` | ✅ | Command Dashboard stats |
 
@@ -135,6 +135,13 @@
 - [x] Home page — KPI band count-up (§4.1) ✅ *(06-10)* — `KpiBandStat` animates on scroll (decimal-aware, locale-formatted, gold gradient) for all 6 band stats
 - [x] Subscriptions — "My current plan" UI (§5.4) → `trpc.subscriptions.{myCurrent,cancel}` ✅ *(06-10, verified live)* — user portal Credits tab "Active Plan" section: name/amount/start/expiry/days-left + Renew-Upgrade + Cancel
 - [x] Property detail — Lead inquiry form → `trpc.leads.create` ✅ *(06-10, verified live)* — "Interested in this property?" sidebar form (name/phone/notes), prefills user name + property interest, signed-out → /login, success state; creates New/Portal lead flowing into CRM
+
+### Maps — Mapbox *(06-17)*
+- [x] Property detail (`/properties/[slug]`) — "Location" section with a single pin → `PropertyMap` (Mapbox GL via `react-map-gl`). Reads `location.latitude/longitude` from `properties.get`.
+- [x] Supervisor Visit Calendar — geographic rep view → `VisitsMap` (markers colour-coded per sales rep, click popups, legend), driven by new `siteVisits.mapData`. Tab rebuilt to live data (stat row + map + visit list).
+- [x] `lib/map.ts` — shared token/style/`resolveCoords`/colour palette. **City-centroid fallback** for listings still at `0,0` (pins land in the right city + "Approximate location" badge instead of the Gulf of Guinea).
+- [x] `next.config.ts` CSP extended for Mapbox (blob workers + `api.mapbox.com`/`events.mapbox.com`/`*.tiles.mapbox.com`). Token = `NEXT_PUBLIC_MAPBOX_TOKEN` (in `apps/web/.env.local`; must also be set in Vercel env + redeploy).
+- Verified: tRPC type-check ✓, web type-check ✓, `pnpm --filter @nxtsft/web build` ✓. Browser-level tile render still owed (needs dev-server restart to pick up env + CSP).
 
 ### Design System / Polish *(06-10)*
 - [x] `ui/select.tsx` — branded Radix Select (animated, accent focus, check-marked item, sm/md, mobile/keyboard accessible). Added `@radix-ui/react-select` dep

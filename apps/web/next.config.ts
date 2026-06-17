@@ -55,11 +55,14 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://accounts.google.com",
+              // Mapbox GL renders tiles in a blob web worker.
+              "worker-src 'self' blob:",
+              "child-src 'self' blob:",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https://images.unsplash.com https://*.r2.cloudflarecontent.com",
-              "connect-src 'self' https://accounts.google.com",
+              "img-src 'self' data: blob: https://images.unsplash.com https://*.r2.cloudflarecontent.com https://api.mapbox.com",
+              "connect-src 'self' https://accounts.google.com https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com",
               "frame-src https://accounts.google.com",
               "frame-ancestors 'none'",
             ].join("; "),
