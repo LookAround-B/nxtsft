@@ -17,11 +17,9 @@ const r2ImgSrc = r2Host ? ` https://${r2Host}` : "";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  // Vercel "Root Directory = apps/web" makes Next default the file-tracing root
-  // to apps/web, which drops anything under ../../node_modules (the pnpm store
-  // lives at the monorepo root). Pin the root so the Prisma engine include below
-  // actually resolves on Vercel — without this, login fails with
-  // "Query Engine for runtime rhel-openssl-3.0.x not found".
+  // Pin the file-tracing root to the monorepo root. Vercel "Root Directory =
+  // apps/web" otherwise defaults it to apps/web and drops workspace deps that
+  // live in the root pnpm store.
   outputFileTracingRoot: path.join(__dirname, "../../"),
   transpilePackages: ["@nxtsft/trpc", "@nxtsft/db", "@nxtsft/shared"],
   // Keep these out of the webpack bundle (native/server-only deps).
@@ -35,31 +33,16 @@ const nextConfig: NextConfig = {
     // via fs at runtime — bundling breaks that relative path.
     "isomorphic-dompurify",
   ],
-  // @prisma/client ships engines for every DB + the Prisma CLI engines (~135MB),
-  // blowing past Vercel's 250MB function limit. We only use Postgres on Node, so
-  // drop the CLI engines and the non-Postgres WASM engines from the API functions.
+  // Prisma 7 is engine-free (the query compiler ships as base64-embedded WASM in
+  // a JS module, so it's traced/bundled like any JS — no native engine binary).
+  // Trim the non-Postgres query compilers we never use to keep the function lean.
   outputFileTracingExcludes: {
     "/api/**": [
-      "**/@prisma/engines/**",
-      "**/prisma/build/**",
-      "**/@prisma/client/runtime/query_engine_bg.mysql.*",
-      "**/@prisma/client/runtime/query_engine_bg.cockroachdb.*",
-      "**/@prisma/client/runtime/query_engine_bg.sqlite.*",
-      "**/@prisma/client/runtime/query_engine_bg.sqlserver.*",
-      "**/@prisma/client/runtime/query_engine_bg.react-native.*",
-      "**/query_engine-windows.dll.node",
+      "**/@prisma/client/runtime/query_compiler_bg.mysql.*",
+      "**/@prisma/client/runtime/query_compiler_bg.cockroachdb.*",
+      "**/@prisma/client/runtime/query_compiler_bg.sqlite.*",
+      "**/@prisma/client/runtime/query_compiler_bg.sqlserver.*",
     ],
-  },
-  // Prisma loads the Postgres query engine (.so.node) via a runtime path that
-  // @vercel/nft can't trace statically, so it's never copied into the function
-  // bundle → "Query Engine not found" on Vercel. Force-include it. Globs cover
-  // both the pnpm virtual store and a hoisted .prisma/client layout; non-matching
-  // patterns are harmless.
-  outputFileTracingIncludes: {
-    // "**/" makes these match regardless of whether the tracing root resolves
-    // to apps/web or the monorepo root on Vercel — the brittle "../../" form
-    // silently matched nothing when Root Directory = apps/web.
-    "/api/**": ["**/.prisma/client/*.so.node", "**/@prisma+client*/**/*.so.node"],
   },
   images: {
     remotePatterns: [

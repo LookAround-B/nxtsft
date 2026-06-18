@@ -1,12 +1,13 @@
 generator client {
-  provider      = "prisma-client-js"
-  // "native" for local dev; rhel target is Vercel's Linux runtime.
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  // Prisma 7 — engine-free by default (Rust query engine replaced by a
+  // base64-embedded WASM query compiler that runs through the pg driver
+  // adapter). No libquery_engine .so.node to bundle → no "Query Engine not
+  // found" on Vercel.
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
