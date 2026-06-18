@@ -138,7 +138,8 @@
 
 ### Fix: Vercel "Prisma Query Engine not found" *(06-17)*
 - [x] Production login failed with `Query Engine for runtime "rhel-openssl-3.0.x"` not found. DB was up (verified live); root cause = Next/@vercel/nft not tracing the Prisma `.so.node` (loaded via runtime path) into the `/api/**` function bundle.
-- [x] Fix: `outputFileTracingIncludes["/api/**"]` in `next.config.ts` force-includes `libquery_engine-rhel-openssl-3.0.x.so.node` (globs cover pnpm virtual store + hoisted layouts). Verified in local build: `.next/.../api/trpc/[trpc]/route.js.nft.json` now references the rhel engine (was absent before). Requires Vercel redeploy.
+- [x] Fix (part 1): `outputFileTracingIncludes["/api/**"]` in `next.config.ts` force-includes `libquery_engine-rhel-openssl-3.0.x.so.node`. Worked locally but **not on Vercel**.
+- [x] Fix (part 2, the real one): Vercel **Root Directory = apps/web** made Next default the file-tracing root to `apps/web`, dropping `../../node_modules/**` (pnpm store is at monorepo root). Pinned `outputFileTracingRoot: path.join(__dirname, "../../")` so the include resolves on Vercel. Verified local build: login route `.nft.json` references the rhel engine. Requires Vercel redeploy.
 
 ### Super Admin — Role & Permission Matrix *(06-17)*
 - [x] `PermissionsTab` rebuilt from boolean toggles → 4-level matrix (none/read/write/admin) over 12 features × 6 roles (super-admin = implicit full). Color-coded cells cycle on click; legend; Save/Reset with dirty tracking + "last saved".

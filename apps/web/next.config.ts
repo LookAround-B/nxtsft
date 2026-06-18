@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 // Hostname of the configured R2 public bucket (e.g. media.nxtsft.com or a
 // pub-*.r2.dev domain), so next/image and the CSP allow listing photos.
@@ -16,6 +17,12 @@ const r2ImgSrc = r2Host ? ` https://${r2Host}` : "";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Vercel "Root Directory = apps/web" makes Next default the file-tracing root
+  // to apps/web, which drops anything under ../../node_modules (the pnpm store
+  // lives at the monorepo root). Pin the root so the Prisma engine include below
+  // actually resolves on Vercel — without this, login fails with
+  // "Query Engine for runtime rhel-openssl-3.0.x not found".
+  outputFileTracingRoot: path.join(__dirname, "../../"),
   transpilePackages: ["@nxtsft/trpc", "@nxtsft/db", "@nxtsft/shared"],
   // Keep these out of the webpack bundle (native/server-only deps).
   serverExternalPackages: [
