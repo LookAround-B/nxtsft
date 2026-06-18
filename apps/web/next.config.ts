@@ -43,6 +43,18 @@ const nextConfig: NextConfig = {
       "**/query_engine-windows.dll.node",
     ],
   },
+  // Prisma loads the Postgres query engine (.so.node) via a runtime path that
+  // @vercel/nft can't trace statically, so it's never copied into the function
+  // bundle → "Query Engine not found" on Vercel. Force-include it. Globs cover
+  // both the pnpm virtual store and a hoisted .prisma/client layout; non-matching
+  // patterns are harmless.
+  outputFileTracingIncludes: {
+    "/api/**": [
+      "../../node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/*.so.node",
+      "../../node_modules/.prisma/client/*.so.node",
+      "node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/*.so.node",
+    ],
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },

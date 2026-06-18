@@ -136,6 +136,10 @@
 - [x] Subscriptions — "My current plan" UI (§5.4) → `trpc.subscriptions.{myCurrent,cancel}` ✅ *(06-10, verified live)* — user portal Credits tab "Active Plan" section: name/amount/start/expiry/days-left + Renew-Upgrade + Cancel
 - [x] Property detail — Lead inquiry form → `trpc.leads.create` ✅ *(06-10, verified live)* — "Interested in this property?" sidebar form (name/phone/notes), prefills user name + property interest, signed-out → /login, success state; creates New/Portal lead flowing into CRM
 
+### Fix: Vercel "Prisma Query Engine not found" *(06-17)*
+- [x] Production login failed with `Query Engine for runtime "rhel-openssl-3.0.x"` not found. DB was up (verified live); root cause = Next/@vercel/nft not tracing the Prisma `.so.node` (loaded via runtime path) into the `/api/**` function bundle.
+- [x] Fix: `outputFileTracingIncludes["/api/**"]` in `next.config.ts` force-includes `libquery_engine-rhel-openssl-3.0.x.so.node` (globs cover pnpm virtual store + hoisted layouts). Verified in local build: `.next/.../api/trpc/[trpc]/route.js.nft.json` now references the rhel engine (was absent before). Requires Vercel redeploy.
+
 ### Super Admin — Role & Permission Matrix *(06-17)*
 - [x] `PermissionsTab` rebuilt from boolean toggles → 4-level matrix (none/read/write/admin) over 12 features × 6 roles (super-admin = implicit full). Color-coded cells cycle on click; legend; Save/Reset with dirty tracking + "last saved".
 - [x] **Simulate as role X** — role picker shows effective access (summary count chips + per-feature plain-English capability).
