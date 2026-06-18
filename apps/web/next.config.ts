@@ -56,11 +56,10 @@ const nextConfig: NextConfig = {
   // both the pnpm virtual store and a hoisted .prisma/client layout; non-matching
   // patterns are harmless.
   outputFileTracingIncludes: {
-    "/api/**": [
-      "../../node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/*.so.node",
-      "../../node_modules/.prisma/client/*.so.node",
-      "node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/*.so.node",
-    ],
+    // "**/" makes these match regardless of whether the tracing root resolves
+    // to apps/web or the monorepo root on Vercel — the brittle "../../" form
+    // silently matched nothing when Root Directory = apps/web.
+    "/api/**": ["**/.prisma/client/*.so.node", "**/@prisma+client*/**/*.so.node"],
   },
   images: {
     remotePatterns: [
