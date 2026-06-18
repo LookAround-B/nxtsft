@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
@@ -92,11 +93,35 @@ export const subscriptionsRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      // TODO: Verify HMAC signature with Razorpay secret
-      // const expectedSignature = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET)
-      //   .update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`)
-      //   .digest('hex');
-      // if (expectedSignature !== input.razorpaySignature) throw new TRPCError({ code: 'BAD_REQUEST', ... });
+      // Payment integrity gate. When a Razorpay secret is configured we MUST
+      // verify the HMAC signature — otherwise a client could replay arbitrary
+      // order/payment IDs and mint free credits. We fail closed in production:
+      // no secret configured → reject. Only a non-production demo build (no
+      // secret) is allowed to skip verification.
+      const secret = process.env.RAZORPAY_KEY_SECRET;
+      if (secret) {
+        const expected = createHmac("sha256", secret)
+          .update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`)
+          .digest("hex");
+        const a = Buffer.from(expected);
+        const b = Buffer.from(input.razorpaySignature);
+        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Payment verification failed." });
+        }
+      } else if (process.env.NODE_ENV === "production") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Payment gateway not configured.",
+        });
+      }
+
+      // Reject duplicate/replayed payment IDs even if the signature checks out.
+      const existingPayment = await prisma.payment.findFirst({
+        where: { razorpayId: input.razorpayPaymentId },
+      });
+      if (existingPayment) {
+        throw new TRPCError({ code: "CONFLICT", message: "Payment already processed." });
+      }
 
       const dbPlan = await prisma.plan.findUnique({ where: { id: input.planId } });
       const staticPlan = SEEKER_PLANS.find((p) => p.id === input.planId);

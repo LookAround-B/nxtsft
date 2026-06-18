@@ -10,8 +10,14 @@ export async function GET(req: NextRequest) {
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const isStaff = ["super-admin", "admin", "supervisor", "sales", "support-admin"].includes(user.role);
-    const where = isStaff && user.role === "sales" ? { assignedToId: user.id } : {};
+    // Visibility by role:
+    //  - sales         → only leads assigned to them
+    //  - other staff   → all leads
+    //  - buyer/customer → only leads they created (their own enquiries)
+    const isStaff = ["super-admin", "admin", "supervisor", "support-admin"].includes(user.role);
+    let where: { assignedToId?: string; userId?: string } = {};
+    if (user.role === "sales") where = { assignedToId: user.id };
+    else if (!isStaff) where = { userId: user.id };
 
     const leads = await prisma.lead.findMany({
       where,

@@ -1,68 +1,64 @@
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  HOME_FOR_ROLE,
+  canAccess,
+  isLoginRoute,
+  isPublic,
+  isRole,
+  isStaffRoute,
+} from "@/lib/routes";
 
 /**
- * Auth gate for the whole site.
+ * Site-wide auth + role gate. Access rules live in `src/lib/routes.ts`.
  *
- * Rule: any authenticated user may access any page. An unauthenticated visitor
- * is redirected to /login (staff portals redirect to /admin-login instead).
+ *  - PUBLIC routes        → always allowed.
+ *  - No session           → redirect to the right login (staff → /admin-login).
+ *  - Authenticated, role-gated portal not permitted → redirect to own home.
+ *  - Authenticated user on a login page → redirect to own home.
  *
- * Only the pages in PUBLIC_ROUTES are reachable without a session — everything
- * else requires login. Static assets and /api are excluded via `config.matcher`.
+ * Static assets and /api are excluded via `config.matcher`; API route handlers
+ * enforce their own auth.
  */
-const PUBLIC_ROUTES = [
-  "/login",
-  "/admin-login",
-  "/register",
-  "/",
-  "/properties",
-  "/agents",
-  "/pricing",
-  "/list",
-  "/profile",
-  "/about",
-  "/contact",
-  "/refer",
-  "/terms",
-  "/privacy",
-  "/cookie-policy",
-  "/fraud-advisory",
-];
 
-/** Staff portals send unauthenticated users to /admin-login instead of /login */
-const STAFF_PREFIXES = [
-  "/sa-portal",
-  "/admin-portal",
-  "/supervisor-portal",
-  "/sales-portal",
-  "/support-portal",
-];
-
-function isPublic(pathname: string): boolean {
-  return PUBLIC_ROUTES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-}
-
-function isStaffRoute(pathname: string): boolean {
-  return STAFF_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+/** Cookie format: "token|role". Returns the role segment, validated. */
+function roleFromCookie(value: string | undefined) {
+  if (!value) return null;
+  const sep = value.lastIndexOf("|");
+  if (sep === -1) return null;
+  const role = value.slice(sep + 1);
+  return isRole(role) ? role : null;
 }
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const role = roleFromCookie(request.cookies.get("nxtsft_session")?.value);
 
-  // Auth pages are always reachable (otherwise we'd loop on the redirect).
+  // Already signed in? Keep them out of the login/register pages.
+  if (role && isLoginRoute(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = HOME_FOR_ROLE[role];
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   if (isPublic(pathname)) return NextResponse.next();
 
-  // Cookie format: "token|role"
-  const cookie = request.cookies.get("nxtsft_session")?.value;
-  const hasSession = !!cookie && cookie.lastIndexOf("|") !== -1;
-
-  if (!hasSession) {
+  // Protected route, no valid session → bounce to the appropriate login.
+  if (!role) {
     const url = request.nextUrl.clone();
     url.pathname = isStaffRoute(pathname) ? "/admin-login" : "/login";
     url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 
-  // Authenticated — allow access to every page.
+  // Signed in but role not permitted on this portal → send to own home.
+  if (!canAccess(role, pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = HOME_FOR_ROLE[role];
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   return NextResponse.next();
 }
 

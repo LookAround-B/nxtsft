@@ -1,4 +1,5 @@
 import { initTRPC, TRPCError } from "@trpc/server";
+import { ZodError } from "zod";
 import prisma from "@nxtsft/db";
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"] as const;
@@ -27,7 +28,21 @@ export type Context = Awaited<ReturnType<typeof createContextFromToken>>;
 
 // ─── tRPC init ───────────────────────────────────────────────────────────────
 
-const t = initTRPC.context<Context>().create({ isServer: true, allowOutsideOfServer: true });
+const t = initTRPC.context<Context>().create({
+  isServer: true,
+  allowOutsideOfServer: true,
+  // Expose flattened Zod issues on error.data.zodError so the client can show
+  // field-level validation messages in toasts.
+  errorFormatter({ shape, error }) {
+    return {
+      ...shape,
+      data: {
+        ...shape.data,
+        zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+      },
+    };
+  },
+});
 
 export const router = t.router;
 export const middleware = t.middleware;
