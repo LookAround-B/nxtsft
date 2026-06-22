@@ -402,6 +402,78 @@ export const adminRouter = router({
       return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
     }),
 
+  // Credit usage audit — which buyer used credits to view which property
+  creditUsage: adminProcedure
+    .input(
+      z.object({
+        search: searchSchema.optional(),
+        cursor: cursorSchema,
+        limit: limitSchema,
+      }),
+    )
+    .query(async ({ input }) => {
+      const { cursor, limit, search } = input;
+
+      const where: NonNullable<Parameters<typeof prisma.creditTransaction.findMany>[0]>["where"] = {
+        reason: "contact_unlock",
+        type: "debit",
+      };
+
+      if (search) {
+        const matchingUsers = await prisma.user.findMany({
+          where: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+            ],
+          },
+          select: { id: true },
+          take: 100,
+        });
+        where.userId = { in: matchingUsers.map((u) => u.id) };
+      }
+
+      const txns = await prisma.creditTransaction.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+
+      const hasMore = txns.length > limit;
+      const page = hasMore ? txns.slice(0, limit) : txns;
+
+      const userIds = [...new Set(page.map((t) => t.userId))];
+      const propertyIds = [
+        ...new Set(page.map((t) => t.propertyId).filter((id): id is string => !!id)),
+      ];
+
+      const [users, properties] = await Promise.all([
+        prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, email: true, credits: true },
+        }),
+        prisma.property.findMany({
+          where: { id: { in: propertyIds } },
+          select: { id: true, title: true, slug: true },
+        }),
+      ]);
+
+      const userById = new Map(users.map((u) => [u.id, u]));
+      const propertyById = new Map(properties.map((p) => [p.id, p]));
+
+      return {
+        items: page.map((t) => ({
+          id: t.id,
+          createdAt: t.createdAt.toISOString(),
+          buyer: userById.get(t.userId) ?? null,
+          property: t.propertyId ? (propertyById.get(t.propertyId) ?? null) : null,
+        })),
+        nextCursor: page.at(-1)?.id ?? null,
+        hasMore,
+      };
+    }),
+
   teamMembers: adminProcedure
     .input(
       z.object({
