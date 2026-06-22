@@ -402,6 +402,63 @@ export const adminRouter = router({
       return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
     }),
 
+  // Home Buyer property-view activity feed
+  buyerActivity: adminProcedure
+    .input(
+      z.object({
+        search: searchSchema.optional(),
+        cursor: cursorSchema,
+        limit: limitSchema,
+      }),
+    )
+    .query(async ({ input }) => {
+      const { cursor, limit, search } = input;
+
+      const userFilter: NonNullable<Parameters<typeof prisma.user.findMany>[0]>["where"] = {
+        role: "user",
+      };
+      if (search) {
+        userFilter.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const views = await prisma.propertyView.findMany({
+        where: { userId: { not: null }, user: userFilter },
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          property: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              location: { select: { city: true, locality: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+
+      const hasMore = views.length > limit;
+      const page = hasMore ? views.slice(0, limit) : views;
+
+      return {
+        items: page.map((v) => ({
+          id: v.id,
+          createdAt: v.createdAt.toISOString(),
+          durationSec: v.durationSec,
+          contactUnlocked: v.contactUnlocked,
+          buyer: v.user,
+          property: v.property ?? null,
+        })),
+        nextCursor: page.at(-1)?.id ?? null,
+        hasMore,
+      };
+    }),
+
   // Credit usage audit — which buyer used credits to view which property
   creditUsage: adminProcedure
     .input(
