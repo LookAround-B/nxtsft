@@ -1,7 +1,7 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-06-17
-> Stack: Next.js 15 · tRPC v11 · Prisma 6 · PostgreSQL 16 · Tailwind CSS 4
+> Last updated: 2026-06-22
+> Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
 
@@ -131,7 +131,7 @@
 - [x] Admin portal — Subscriptions (§6.6) → `trpc.subscriptions.adminList` + `cancel` ✅ *(06-10, verified live)* — plan-purchases table (user/plan/amount/status), status filter, cancel action; unlock-records/disputes sections left static (no backend). **Fixed BigInt-serialization bug in `subscriptions.cancel`/`myCurrent`** (returned raw Prisma rows → tRPC 500)
 - [x] Admin portal — CRM Pipeline (§6.5) → `trpc.admin.leads.list` + `leads.updateStatus` ✅ *(06-10, verified live)* — live kanban over real `Lead.status` enum (New/Hot/Warm/Cold/Converted/Lost) with per-card stage move; removed dead static `pipeline`/`leadMeta`. (DB has no funnel-stage model, so columns = the status enum that actually persists)
 - [x] Notification Bell → `trpc.notifications.{unreadCount,list,markRead,markAllRead}` ✅ *(06-10, verified live)* — reusable `NotificationBell` in both PortalShell + SiteHeader; unread badge (60s poll), dropdown, mark-read/all-read. Closes the loop on SA broadcast
-- [ ] Agents page — No tRPC router for agents; **decision (06-10): keep static for now**
+- [x] Agents page + agent detail page → live DB *(06-22)* — `getAgents` + `getAgent` tRPC procedures (publicProcedure); slug-based `/agents/[slug]` routes render from DB. Fixed recursive Prisma `Json` type by returning explicit typed objects from router.
 - [x] Home page — KPI band count-up (§4.1) ✅ *(06-10)* — `KpiBandStat` animates on scroll (decimal-aware, locale-formatted, gold gradient) for all 6 band stats
 - [x] Subscriptions — "My current plan" UI (§5.4) → `trpc.subscriptions.{myCurrent,cancel}` ✅ *(06-10, verified live)* — user portal Credits tab "Active Plan" section: name/amount/start/expiry/days-left + Renew-Upgrade + Cancel
 - [x] Property detail — Lead inquiry form → `trpc.leads.create` ✅ *(06-10, verified live)* — "Interested in this property?" sidebar form (name/phone/notes), prefills user name + property interest, signed-out → /login, success state; creates New/Portal lead flowing into CRM
@@ -181,6 +181,13 @@
 - [ ] Notifications bell → `trpc.notifications.list`
 - [ ] Email / SMS OTP verification on register
 - [ ] EMI Calculator tab (user portal) — UI exists but calc is static
+
+### 5-Feature Sprint *(06-22)*
+- [x] **Agent live DB** — `/agents` fetches from DB via `users.getAgents`; `/agents/[slug]` fetches via `users.getAgent`. Seed includes 15 agents with full metadata (slug, rating, deals, specialties, cities, languages). Router returns explicit flat types (no recursive Prisma `Json`) to avoid tRPC type-depth limit.
+- [x] **RERA validation** — `apps/web/src/lib/rera.ts` (city→state map + state-specific regex patterns); wired into `/list` step-3 form and `properties.create` tRPC mutation (server-side guard). New Prisma models: `Campaign`, `ModelVersion`, `CmsPage`; `User.slug` field; schema pushed + seeded.
+- [x] **CRM kanban drag-and-drop** — `CRMTab.tsx` replaced Select dropdown with `@hello-pangea/dnd` (DragDropContext/Droppable/Draggable). Optimistic UI: local `leads` state + revert on error. Fixed `DraggingStyle` type conflict + `useMemo` for `serverLeads`.
+- [x] **Campaign builder** — `campaigns` tRPC router (`list`/`create`/`updateStatus`); `MarketingTab.tsx` shows live StatCards (budget/leads/CPL) + campaign table with pause/resume + create modal.
+- [x] **SA live tabs** — `BillingTab.tsx` (MRR/ARR/outstanding/payments via `superAdmin.billingStats`), `AITab.tsx` (model registry + deploy/rollback via `superAdmin.modelVersions`), `CMSTab.tsx` (pages + publish/create via `superAdmin.cmsPages`).
 
 ### Note on `/list` RERA validation (added 06-10)
 - [x] Step 3 now requires a RERA number and validates its format before submit (CLAUDE.md §12 compliance)
