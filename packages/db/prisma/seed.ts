@@ -880,45 +880,43 @@ async function main() {
 
   // ── Agents ──────────────────────────────────────────────────────────────
   const agents = [
-    { email: "priya.sharma.agent@nxtsft.com", name: "Priya Sharma", initials: "PS", rating: 4.9, reviews: 87, deals: 142, since: 2018 },
-    { email: "karan.joshi.agent@nxtsft.com", name: "Karan Joshi", initials: "KJ", rating: 4.8, reviews: 63, deals: 98, since: 2019 },
-    { email: "devansh.patel.agent@nxtsft.com", name: "Devansh Patel", initials: "DP", rating: 4.6, reviews: 41, deals: 67, since: 2017 },
-    { email: "meera.krishnan@nxtsft.com", name: "Meera Krishnan", initials: "MK", rating: 4.9, reviews: 96, deals: 161, since: 2015 },
-    { email: "anita.rao.agent@nxtsft.com", name: "Anita Rao", initials: "AR", rating: 4.7, reviews: 34, deals: 54, since: 2020 },
-    { email: "rohit.mehra@nxtsft.com", name: "Rohit Mehra", initials: "RM", rating: 4.8, reviews: 72, deals: 119, since: 2016 },
-    { email: "lakshmi.nair@nxtsft.com", name: "Lakshmi Nair", initials: "LN", rating: 4.7, reviews: 58, deals: 83, since: 2019 },
-    { email: "arjun.kapoor@nxtsft.com", name: "Arjun Kapoor", initials: "AK", rating: 4.5, reviews: 45, deals: 76, since: 2018 },
-    { email: "vijay.deshmukh@nxtsft.com", name: "Vijay Deshmukh", initials: "VD", rating: 4.6, reviews: 52, deals: 94, since: 2017 },
-    { email: "fatima.sheikh@nxtsft.com", name: "Fatima Sheikh", initials: "FS", rating: 4.8, reviews: 67, deals: 108, since: 2018 },
-    { email: "gaurav.singh@nxtsft.com", name: "Gaurav Singh", initials: "GS", rating: 4.5, reviews: 38, deals: 52, since: 2020 },
-    { email: "divya.menon@nxtsft.com", name: "Divya Menon", initials: "DM", rating: 4.7, reviews: 43, deals: 71, since: 2019 },
-    { email: "pooja.agarwal@nxtsft.com", name: "Pooja Agarwal", initials: "PA", rating: 4.6, reviews: 55, deals: 88, since: 2018 },
-    { email: "amit.bhatt@nxtsft.com", name: "Amit Bhatt", initials: "AB", rating: 4.4, reviews: 29, deals: 45, since: 2021 },
-    { email: "suresh.iyer@nxtsft.com", name: "Suresh Iyer", initials: "SI", rating: 5.0, reviews: 4, deals: 1, since: 2024 },
+    { email: "priya.sharma.agent@nxtsft.com", name: "Priya Sharma", slug: "priya-sharma", initials: "PS", rating: 4.9, reviews: 87, deals: 142, since: 2018, listings: 8, featured: true, color: "bg-accent", responseTime: "< 30 min", portfolioValue: "₹45 Cr+", specialties: ["Residential", "Luxury Apartments"], languages: ["English", "Hindi", "Marathi"], cities: ["Mumbai", "Pune"] },
+    { email: "karan.joshi.agent@nxtsft.com", name: "Karan Joshi", slug: "karan-joshi", initials: "KJ", rating: 4.8, reviews: 63, deals: 98, since: 2019, listings: 6, featured: false, color: "bg-mid-blue", responseTime: "< 1 hr", portfolioValue: "₹32 Cr+", specialties: ["Tech Parks", "Commercial"], languages: ["English", "Hindi", "Kannada"], cities: ["Bengaluru", "Hyderabad"] },
+    { email: "devansh.patel.agent@nxtsft.com", name: "Devansh Patel", slug: "devansh-patel", initials: "DP", rating: 4.6, reviews: 41, deals: 67, since: 2017, listings: 5, featured: false, color: "bg-navy", responseTime: "< 2 hrs", portfolioValue: "₹28 Cr+", specialties: ["Plots", "Villas"], languages: ["English", "Hindi", "Gujarati"], cities: ["Ahmedabad", "Surat"] },
+    { email: "meera.krishnan@nxtsft.com", name: "Meera Krishnan", slug: "meera-krishnan", initials: "MK", rating: 4.9, reviews: 96, deals: 161, since: 2015, listings: 10, featured: true, color: "bg-emerald-600", responseTime: "< 30 min", portfolioValue: "₹62 Cr+", specialties: ["Luxury Villas", "Waterfront"], languages: ["English", "Malayalam", "Tamil"], cities: ["Kochi", "Chennai"] },
+    { email: "anita.rao.agent@nxtsft.com", name: "Anita Rao", slug: "anita-rao", initials: "AR", rating: 4.7, reviews: 34, deals: 54, since: 2020, listings: 4, featured: false, color: "bg-purple-600", responseTime: "< 1 hr", portfolioValue: "₹18 Cr+", specialties: ["Apartments", "PG/Co-living"], languages: ["English", "Telugu", "Hindi"], cities: ["Hyderabad", "Pune"] },
+    { email: "rohit.mehra@nxtsft.com", name: "Rohit Mehra", slug: "rohit-mehra", initials: "RM", rating: 4.8, reviews: 72, deals: 119, since: 2016, listings: 7, featured: true, color: "bg-amber-600", responseTime: "< 45 min", portfolioValue: "₹51 Cr+", specialties: ["Gated Communities", "Builder Floors"], languages: ["English", "Hindi", "Punjabi"], cities: ["Delhi NCR", "Gurgaon", "Noida"] },
+    { email: "lakshmi.nair@nxtsft.com", name: "Lakshmi Nair", slug: "lakshmi-nair", initials: "LN", rating: 4.7, reviews: 58, deals: 83, since: 2019, listings: 5, featured: false, color: "bg-rose-600", responseTime: "< 1 hr", portfolioValue: "₹29 Cr+", specialties: ["Apartments", "Rentals"], languages: ["English", "Malayalam", "Hindi"], cities: ["Kochi", "Bengaluru"] },
+    { email: "arjun.kapoor@nxtsft.com", name: "Arjun Kapoor", slug: "arjun-kapoor", initials: "AK", rating: 4.5, reviews: 45, deals: 76, since: 2018, listings: 6, featured: false, color: "bg-teal-600", responseTime: "< 2 hrs", portfolioValue: "₹24 Cr+", specialties: ["Studio Apartments", "Co-living"], languages: ["English", "Hindi"], cities: ["Mumbai", "Pune"] },
+    { email: "vijay.deshmukh@nxtsft.com", name: "Vijay Deshmukh", slug: "vijay-deshmukh", initials: "VD", rating: 4.6, reviews: 52, deals: 94, since: 2017, listings: 7, featured: false, color: "bg-indigo-600", responseTime: "< 1 hr", portfolioValue: "₹38 Cr+", specialties: ["Bungalows", "Row Houses"], languages: ["English", "Hindi", "Marathi"], cities: ["Pune", "Mumbai"] },
+    { email: "fatima.sheikh@nxtsft.com", name: "Fatima Sheikh", slug: "fatima-sheikh", initials: "FS", rating: 4.8, reviews: 67, deals: 108, since: 2018, listings: 9, featured: true, color: "bg-fuchsia-600", responseTime: "< 30 min", portfolioValue: "₹44 Cr+", specialties: ["Premium Apartments", "New Launches"], languages: ["English", "Urdu", "Hindi"], cities: ["Mumbai", "Bengaluru"] },
+    { email: "gaurav.singh@nxtsft.com", name: "Gaurav Singh", slug: "gaurav-singh", initials: "GS", rating: 4.5, reviews: 38, deals: 52, since: 2020, listings: 4, featured: false, color: "bg-orange-600", responseTime: "< 2 hrs", portfolioValue: "₹16 Cr+", specialties: ["Affordable Homes", "Plots"], languages: ["English", "Hindi"], cities: ["Jaipur", "Lucknow"] },
+    { email: "divya.menon@nxtsft.com", name: "Divya Menon", slug: "divya-menon", initials: "DM", rating: 4.7, reviews: 43, deals: 71, since: 2019, listings: 5, featured: false, color: "bg-cyan-600", responseTime: "< 1 hr", portfolioValue: "₹22 Cr+", specialties: ["Villas", "Farmhouses"], languages: ["English", "Malayalam", "Tamil"], cities: ["Chennai", "Kochi"] },
+    { email: "pooja.agarwal@nxtsft.com", name: "Pooja Agarwal", slug: "pooja-agarwal", initials: "PA", rating: 4.6, reviews: 55, deals: 88, since: 2018, listings: 6, featured: false, color: "bg-pink-600", responseTime: "< 1 hr", portfolioValue: "₹33 Cr+", specialties: ["Residential", "Luxury"], languages: ["English", "Hindi"], cities: ["Delhi NCR", "Noida"] },
+    { email: "amit.bhatt@nxtsft.com", name: "Amit Bhatt", slug: "amit-bhatt", initials: "AB", rating: 4.4, reviews: 29, deals: 45, since: 2021, listings: 3, featured: false, color: "bg-lime-600", responseTime: "< 3 hrs", portfolioValue: "₹12 Cr+", specialties: ["Apartments", "Investment Properties"], languages: ["English", "Hindi", "Gujarati"], cities: ["Ahmedabad", "Vadodara"] },
+    { email: "suresh.iyer@nxtsft.com", name: "Suresh Iyer", slug: "suresh-iyer", initials: "SI", rating: 5.0, reviews: 4, deals: 1, since: 2024, listings: 1, featured: false, color: "bg-slate-600", responseTime: "< 4 hrs", portfolioValue: "₹2 Cr+", specialties: ["Apartments"], languages: ["English", "Tamil"], cities: ["Chennai"] },
   ];
 
   for (const agent of agents) {
+    const { slug, initials, rating, reviews, deals, since, listings, featured, color, responseTime, portfolioValue, specialties, languages, cities, ...userFields } = agent;
     await prisma.user.upsert({
       where: { email: agent.email },
-      update: {},
+      update: {
+        slug,
+        metadata: { initials, rating, reviews, deals, since, listings, featured, color, responseTime, portfolioValue, specialties, languages, cities },
+      },
       create: {
-        email: agent.email,
-        name: agent.name,
-        city: "Mumbai",
+        ...userFields,
+        slug,
+        city: cities[0] ?? "Mumbai",
         role: "agent",
         verified: true,
         passwordHash: hash,
-        metadata: {
-          initials: agent.initials,
-          rating: agent.rating,
-          reviews: agent.reviews,
-          deals: agent.deals,
-          since: agent.since,
-        },
+        metadata: { initials, rating, reviews, deals, since, listings, featured, color, responseTime, portfolioValue, specialties, languages, cities },
       },
     });
   }
-  console.log(`✓ Seeded ${agents.length} agents`);
+  console.log(`✓ Seeded ${agents.length} agents with slugs`);
 
   // ── Reviews for Properties ──────────────────────────────────────────────
   const allProperties = await prisma.property.findMany({ take: 20 });
@@ -1006,6 +1004,45 @@ async function main() {
     listingCount++;
   }
   console.log(`✓ Seeded ${listingCount} listings`);
+
+  // ── Demo Campaigns ───────────────────────────────────────────────────────
+  const adminUser = await prisma.user.findFirstOrThrow({ where: { email: "admin@nxtsft.com" } });
+  const campaignSeed = [
+    { id: "seed-camp-01", name: "Bandra Premium — Google", type: "email", audience: "user", subject: "Exclusive 3 BHK in Bandra West", body: "Discover sea-facing apartments starting at ₹6.5 Cr.", status: "active", budget: 240000, leads: 64, clicks: 4820, createdById: adminUser.id },
+    { id: "seed-camp-02", name: "Whitefield Villa — Meta", type: "whatsapp", audience: "user", subject: "4 BHK Villas in Whitefield", body: "Ready-to-move villas from ₹4.2 Cr in Bengaluru's IT hub.", status: "active", budget: 180000, leads: 41, clicks: 3210, createdById: adminUser.id },
+    { id: "seed-camp-03", name: "Pune Rentals — SMS Blast", type: "sms", audience: "all", subject: null, body: "2 BHK furnished in Koregaon Park at ₹55K/mo. Call now!", status: "paused", budget: 60000, leads: 28, clicks: 1240, createdById: adminUser.id },
+  ];
+  for (const c of campaignSeed) {
+    await prisma.campaign.upsert({ where: { id: c.id }, update: c, create: { id: c.id, ...c } });
+  }
+  console.log(`✓ Seeded ${campaignSeed.length} campaigns`);
+
+  // ── AI Model Versions ────────────────────────────────────────────────────
+  const modelSeed = [
+    { id: "seed-model-01", name: "nxtsft-match-v3", purpose: "Property Match", drift: 0.4, accuracy: 94.2, status: "live", deployedAt: new Date("2026-05-01") },
+    { id: "seed-model-02", name: "nxtsft-price-v2", purpose: "Price Estimator", drift: 1.1, accuracy: 88.6, status: "live", deployedAt: new Date("2026-04-15") },
+    { id: "seed-model-03", name: "nxtsft-lead-score", purpose: "Lead Scoring", drift: 0.8, accuracy: 91.0, status: "live", deployedAt: new Date("2026-03-20") },
+    { id: "seed-model-04", name: "nxtsft-recommend", purpose: "Recommendations", drift: 2.3, accuracy: 82.4, status: "canary", deployedAt: new Date("2026-06-10") },
+  ];
+  for (const m of modelSeed) {
+    await prisma.modelVersion.upsert({ where: { id: m.id }, update: m, create: { id: m.id, ...m } });
+  }
+  console.log(`✓ Seeded ${modelSeed.length} model versions`);
+
+  // ── CMS Pages ────────────────────────────────────────────────────────────
+  const saUser = await prisma.user.findFirstOrThrow({ where: { email: "sa@nxtsft.com" } });
+  const priyaAgent = await prisma.user.findFirstOrThrow({ where: { email: "priya.sharma.agent@nxtsft.com" } });
+  const cmsSeed = [
+    { id: "seed-cms-01", title: "Home Hero Carousel", path: "/", status: "published", body: "Hero carousel content for the NxtSft home page.", editorId: saUser.id },
+    { id: "seed-cms-02", title: "About — Leadership", path: "/about", status: "published", body: "Leadership team bios and company story.", editorId: adminUser.id },
+    { id: "seed-cms-03", title: "Contact", path: "/contact", status: "published", body: "Contact form and office address.", editorId: adminUser.id },
+    { id: "seed-cms-04", title: "Blog: Mumbai 2026 Outlook", path: "/blog/mumbai-2026", status: "draft", body: "Analysis of Mumbai real estate trends for 2026.", editorId: priyaAgent.id },
+    { id: "seed-cms-05", title: "Builder Co-marketing", path: "/builders", status: "scheduled", body: "Builder partnership landing page.", editorId: priyaAgent.id, scheduledAt: new Date(Date.now() + 2 * 86_400_000) },
+  ];
+  for (const p of cmsSeed) {
+    await prisma.cmsPage.upsert({ where: { id: p.id }, update: p, create: { id: p.id, ...p } });
+  }
+  console.log(`✓ Seeded ${cmsSeed.length} CMS pages`);
 
   console.log(`\nDemo password for all users: ${DEMO_PASSWORD}`);
 }
