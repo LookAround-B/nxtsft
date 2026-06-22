@@ -2,17 +2,13 @@ packages:
   - "apps/*"
   - "packages/*"
 
-
-# pnpm 10+ valid syntax — packages that must never run lifecycle scripts.
-# (All listed packages already use optionalDependencies for platform binaries,
-# so this is a no-op in practice but prevents any accidental script execution.)
-neverBuiltDependencies:
-  - '@prisma/client'
-  - '@prisma/engines'
-  - core-js
-  - esbuild
-  - prisma
-  - sharp
-  - unrs-resolver
+# Pin hono below 4.12.26 — Prisma 7's @prisma/dev (dev-only) pulls the latest
+# hono, which Vercel's supply-chain policy (minimumReleaseAge) rejects as too
+# new and fails install. pnpm 10+ (Vercel) reads overrides from HERE; pnpm 9
+# (local) reads them from package.json#pnpm.overrides. Both must list the same
+# value so the lockfile (written by pnpm 9) matches the effective config that
+# pnpm 10 computes — otherwise frozen install fails with LOCKFILE_CONFIG_MISMATCH.
+overrides:
+  hono: 4.12.25
 
 shared-workspace-lockfile: true
