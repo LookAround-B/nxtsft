@@ -126,11 +126,24 @@ export const adminRouter = router({
     verify: adminProcedure
       .input(z.object({ userId: cuidSchema }))
       .mutation(async ({ input }) => {
-        return prisma.user.update({
+        const user = await prisma.user.update({
           where: { id: input.userId },
           data: { verified: true, verifiedAt: new Date() },
-          select: safeUserSelect,
+          select: { ...safeUserSelect, role: true, name: true },
         });
+
+        if (user.role === "home-seller") {
+          await prisma.notification.create({
+            data: {
+              userId: input.userId,
+              type: "account_approved",
+              title: "Your account has been approved!",
+              content: "You can now log in to NxtSft and list your property.",
+            },
+          });
+        }
+
+        return user;
       }),
   }),
 
