@@ -14,6 +14,8 @@ import {
   ReceiptText,
   Eye,
   PackageOpen,
+  Coins,
+  ShieldCheck,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -32,6 +34,8 @@ import { DevTab } from "@/components/admin-portal/tabs/DevTab";
 import { ReportsTab } from "@/components/admin-portal/tabs/ReportsTab";
 import { AdminPlansTab } from "@/components/admin-portal/tabs/AdminPlansTab";
 import { CommissionsTab } from "@/components/admin-portal/tabs/CommissionsTab";
+import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
+import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
 
 const nav = [
   { label: "Operations", to: "/admin-portal", icon: <LayoutDashboard size={14} /> },
@@ -47,6 +51,8 @@ const nav = [
   { label: "Reports", to: "/admin-portal#reports", icon: <BarChart2 size={14} /> },
   { label: "Plans", to: "/admin-portal#plans", icon: <PackageOpen size={14} /> },
   { label: "Commissions", to: "/admin-portal#commissions", icon: <Wallet size={14} /> },
+  { label: "Buyer Wallets", to: "/admin-portal#credits", icon: <Coins size={14} /> },
+  { label: "KYC Review", to: "/admin-portal#kyc", icon: <ShieldCheck size={14} /> },
 ];
 
 function renderTab(hash: string) {
@@ -63,6 +69,8 @@ function renderTab(hash: string) {
     case "reports":       return <ReportsTab />;
     case "plans":         return <AdminPlansTab />;
     case "commissions":   return <CommissionsTab />;
+    case "credits":       return <CreditsTab />;
+    case "kyc":           return <KYCReviewTab />;
     default:              return <OperationsTab />;
   }
 }

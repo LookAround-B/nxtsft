@@ -428,4 +428,64 @@ export const usersRouter = router({
 
     return teamMembers;
   }),
+
+  kyc: router({
+    myDocuments: protectedProcedure.query(async ({ ctx }) => {
+      const [user, documents] = await Promise.all([
+        prisma.user.findUniqueOrThrow({
+          where: { id: ctx.user.id },
+          select: { kycStatus: true },
+        }),
+        prisma.kycDocument.findMany({
+          where: { userId: ctx.user.id },
+          orderBy: { createdAt: "asc" },
+        }),
+      ]);
+      return { kycStatus: user.kycStatus, documents };
+    }),
+
+    submit: protectedProcedure
+      .input(
+        z.object({
+          type: z.enum(["aadhaar", "pan", "income_proof", "other"]),
+          fileUrl: safeUrlSchema,
+        }),
+      )
+      .mutation(async ({ input, ctx }) => {
+        const existing = await prisma.kycDocument.findFirst({
+          where: { userId: ctx.user.id, type: input.type },
+        });
+
+        if (existing) {
+          await prisma.kycDocument.update({
+            where: { id: existing.id },
+            data: {
+              fileUrl: input.fileUrl,
+              status: "pending",
+              adminNotes: null,
+              reviewedAt: null,
+              reviewedById: null,
+            },
+          });
+        } else {
+          await prisma.kycDocument.create({
+            data: { userId: ctx.user.id, type: input.type, fileUrl: input.fileUrl },
+          });
+        }
+
+        // Escalate user kycStatus to pending when they submit (never downgrade)
+        const user = await prisma.user.findUniqueOrThrow({
+          where: { id: ctx.user.id },
+          select: { kycStatus: true },
+        });
+        if (user.kycStatus === "none") {
+          await prisma.user.update({
+            where: { id: ctx.user.id },
+            data: { kycStatus: "pending" },
+          });
+        }
+
+        return { ok: true };
+      }),
+  }),
 });

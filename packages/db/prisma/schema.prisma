@@ -34,6 +34,7 @@ model User {
   twoFactorEnabled Boolean @default(false)
 
   credits      Int      @default(0)
+  kycStatus    String   @default("none") // none | pending | verified | unverified
   slug         String?  @unique
   metadata     Json?
 
@@ -51,6 +52,7 @@ model User {
   propertyViews PropertyView[] @relation("UserPropertyViews")
   campaigns    Campaign[]
   cmsPages     CmsPage[]
+  kycDocuments KycDocument[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -549,4 +551,25 @@ model AuditLog {
   @@index([userId])
   @@index([entity])
   @@index([createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KYC DOCUMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+model KycDocument {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String    // aadhaar | pan | income_proof | other
+  fileUrl      String
+  status       String    @default("pending") // pending | verified | unverified
+  adminNotes   String?
+  reviewedAt   DateTime?
+  reviewedById String?   // admin userId who reviewed
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
