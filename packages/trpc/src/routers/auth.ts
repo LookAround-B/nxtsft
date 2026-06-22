@@ -21,7 +21,7 @@ import {
 } from "../server.js";
 
 const SESSION_TTL_DAYS = 30;
-const CONSUMER_ROLES = ["user", "customer"] as const;
+const CONSUMER_ROLES = ["user", "home-seller"] as const;
 
 const googleClient = new OAuth2Client();
 

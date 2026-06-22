@@ -20,7 +20,7 @@ model User {
   phone        String?  @unique // optional — OAuth (Google) users have no phone until KYC
   name         String
   avatar       String?
-  role         String   @default("user") // super-admin | admin | supervisor | sales | support-admin | user | customer
+  role         String   @default("user") // super-admin | admin | supervisor | sales | support-admin | user | home-seller
   verified     Boolean  @default(false)
   verifiedAt   DateTime?
 
