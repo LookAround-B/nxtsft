@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, Home, Building2 } from "lucide-react";
 import { useAuth, ROLE_META } from "@/lib/auth";
 import { toast } from "sonner";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -12,16 +12,20 @@ const CITIES = [
   "Ahmedabad", "Kolkata", "Jaipur", "Surat", "Lucknow", "Kanpur",
 ];
 
+type RegistrationType = "buyer" | "seller";
+
 export default function RegisterPage() {
   const router = useRouter();
-  const { session, signOut, register } = useAuth();
+  const { session, signOut, register, registerSeller } = useAuth();
 
+  const [regType, setRegType] = useState<RegistrationType>("buyer");
   const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", password: "", confirm: "" });
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [sellerPending, setSellerPending] = useState(false);
 
   const set =
     (k: keyof typeof form) =>
@@ -51,15 +55,14 @@ export default function RegisterPage() {
     setErrors({});
     setLoading(true);
     try {
-      const s = await register(
-        form.name.trim(),
-        form.email.trim(),
-        form.phone.replace(/\s/g, ""),
-        form.password,
-        form.city
-      );
-      toast.success(`Welcome to NxtSft, ${s.name.split(" ")[0]}! You have 1 free credit.`);
-      router.push(ROLE_META[s.role].portal);
+      if (regType === "buyer") {
+        const s = await register(form.name.trim(), form.email.trim(), form.phone.replace(/\s/g, ""), form.password, form.city);
+        toast.success(`Welcome to NxtSft, ${s.name.split(" ")[0]}! You have 1 free credit.`);
+        router.push(ROLE_META[s.role].portal);
+      } else {
+        await registerSeller(form.name.trim(), form.email.trim(), form.phone.replace(/\s/g, ""), form.password, form.city);
+        setSellerPending(true);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed. Please try again.";
       if (msg.toLowerCase().includes("email")) setErrors({ email: msg });
@@ -70,9 +73,37 @@ export default function RegisterPage() {
     }
   };
 
+  if (sellerPending) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-5">
+        <div className="mx-auto max-w-md rounded-3xl border border-border bg-white p-10 text-center shadow-sm">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+            <CheckCircle2 className="h-8 w-8 text-amber-500" />
+          </div>
+          <h2 className="mt-5 font-display text-2xl font-black text-navy">Application Submitted!</h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Your Home Seller account is under review. Our team will verify your details and notify you
+            once your account is approved. This usually takes 1–2 business days.
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Questions? Contact us at{" "}
+            <a href="mailto:support@nxtsft.com" className="font-semibold text-accent hover:underline">
+              support@nxtsft.com
+            </a>
+          </p>
+          <Link
+            href="/login"
+            className="mt-6 inline-block rounded-xl bg-navy px-6 py-3 text-sm font-bold text-white transition hover:opacity-90"
+          >
+            Back to Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 sm:py-16 lg:grid-cols-2">
         {/* Left decorative panel */}
         <div className="hidden animate-fade-up flex-col justify-between rounded-3xl bg-gradient-to-br from-navy via-navy-deep to-accent p-10 text-white lg:flex">
@@ -81,37 +112,23 @@ export default function RegisterPage() {
               Join NxtSft.com
             </div>
             <h1 className="mt-6 font-display text-4xl font-black leading-tight">
-              Your perfect home
-              <br />
-              is one step away.
-              <br />
-              <span className="text-white/55">Sign up. Explore. Own.</span>
+              {regType === "buyer" ? (
+                <>Your perfect home<br />is one step away.<br /><span className="text-white/55">Sign up. Explore. Own.</span></>
+              ) : (
+                <>List your property.<br />Reach lakh+ buyers.<br /><span className="text-white/55">Zero brokerage. Full control.</span></>
+              )}
             </h1>
-            <p className="mt-6 max-w-md text-sm leading-relaxed text-white/65">
-              Create a free account to save properties, schedule site visits, unlock owner contacts
-              and get AI-matched listings straight to your inbox.
-            </p>
             <ul className="mt-8 space-y-3">
-              {[
-                "Zero brokerage — save lakhs",
-                "RERA-verified listings only",
-                "Dedicated relationship manager",
-                "1 free credit on signup, no card required",
-              ].map((pt) => (
+              {(regType === "buyer"
+                ? ["Zero brokerage — save lakhs", "RERA-verified listings only", "Dedicated relationship manager", "1 free credit on signup, no card required"]
+                : ["Verified buyer audience", "RERA-compliant listings", "Dedicated account manager", "Pay only when you sell"]
+              ).map((pt) => (
                 <li key={pt} className="flex items-center gap-2.5 text-sm text-white/80">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} />
                   {pt}
                 </li>
               ))}
             </ul>
-          </div>
-          <div className="grid grid-cols-3 gap-4 border-t border-white/10 pt-6">
-            {[["10K+", "Properties"], ["50+", "Cities"], ["100K+", "Happy Buyers"]].map(([v, l]) => (
-              <div key={l}>
-                <div className="font-display text-2xl font-black">{v}</div>
-                <div className="text-[10px] uppercase tracking-wider text-white/50">{l}</div>
-              </div>
-            ))}
           </div>
         </div>
 
@@ -133,15 +150,40 @@ export default function RegisterPage() {
 
           <div className="text-xs font-bold uppercase tracking-widest text-accent">Get started free</div>
           <h2 className="mt-2 font-display text-3xl font-black text-navy sm:text-4xl">Create your account</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Join 1 lakh+ buyers on India&apos;s smartest real estate platform.
-          </p>
 
-          <form
-            onSubmit={submit}
-            noValidate
-            className="mt-6 space-y-4 rounded-2xl border border-border bg-white p-6 shadow-sm"
-          >
+          {/* Role toggle */}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {(["buyer", "seller"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => { setRegType(t); setErrors({}); }}
+                className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3.5 text-left transition ${
+                  regType === t
+                    ? "border-accent bg-accent/5"
+                    : "border-border bg-white hover:border-accent/40"
+                }`}
+              >
+                {t === "buyer" ? <Home size={20} className={regType === t ? "text-accent" : "text-muted-foreground"} /> : <Building2 size={20} className={regType === t ? "text-accent" : "text-muted-foreground"} />}
+                <div>
+                  <div className={`text-sm font-bold ${regType === t ? "text-accent" : "text-navy"}`}>
+                    {t === "buyer" ? "Home Buyer" : "Home Seller"}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {t === "buyer" ? "Browse & buy" : "List & sell"}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {regType === "seller" && (
+            <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-700">
+              Home Seller accounts require admin approval before you can log in and list properties.
+            </p>
+          )}
+
+          <form onSubmit={submit} noValidate className="mt-4 space-y-4 rounded-2xl border border-border bg-white p-6 shadow-sm">
             {/* Full Name */}
             <div>
               <label className="block text-sm font-semibold text-foreground">Full Name</label>
@@ -174,9 +216,7 @@ export default function RegisterPage() {
             <div>
               <label className="block text-sm font-semibold text-foreground">Phone Number</label>
               <div className="mt-1.5 flex">
-                <span className="flex items-center rounded-l-xl border border-r-0 border-input bg-secondary px-3.5 text-sm font-medium text-foreground/60">
-                  +91
-                </span>
+                <span className="flex items-center rounded-l-xl border border-r-0 border-input bg-secondary px-3.5 text-sm font-medium text-foreground/60">+91</span>
                 <input
                   type="tel"
                   value={form.phone}
@@ -217,11 +257,7 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   className={`w-full rounded-xl border bg-background px-3.5 py-3 pr-11 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.password ? "border-rose-400" : "border-input"}`}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPass((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
-                >
+                <button type="button" onClick={() => setShowPass((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground">
                   {showPass ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
@@ -240,11 +276,7 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   className={`w-full rounded-xl border bg-background px-3.5 py-3 pr-11 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.confirm ? "border-rose-400" : "border-input"}`}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
-                >
+                <button type="button" onClick={() => setShowConfirm((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground">
                   {showConfirm ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
@@ -255,23 +287,14 @@ export default function RegisterPage() {
             <div>
               <label className="flex cursor-pointer items-start gap-3">
                 <div className="relative mt-0.5 shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={agreed}
-                    onChange={(e) => setAgreed(e.target.checked)}
-                    className="sr-only"
-                  />
-                  <div
-                    className={`flex h-5 w-5 items-center justify-center rounded border-2 transition ${agreed ? "border-accent bg-accent" : "border-border bg-white"}`}
-                  >
+                  <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="sr-only" />
+                  <div className={`flex h-5 w-5 items-center justify-center rounded border-2 transition ${agreed ? "border-accent bg-accent" : "border-border bg-white"}`}>
                     {agreed && <CheckCircle2 size={12} className="text-white" strokeWidth={3} />}
                   </div>
                 </div>
                 <span className="text-sm leading-relaxed text-foreground/80">
                   I accept the{" "}
-                  <Link href="/terms" className="font-semibold text-accent hover:underline">
-                    Terms &amp; Conditions
-                  </Link>{" "}
+                  <Link href="/terms" className="font-semibold text-accent hover:underline">Terms &amp; Conditions</Link>{" "}
                   and agree to receive communication from NxtSft.com.
                 </span>
               </label>
@@ -286,23 +309,20 @@ export default function RegisterPage() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  Creating account…
+                  {regType === "buyer" ? "Creating account…" : "Submitting application…"}
                 </span>
               ) : (
-                "Create Account →"
+                regType === "buyer" ? "Create Account →" : "Submit Application →"
               )}
             </button>
 
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
-              <Link href="/login" className="font-semibold text-accent hover:underline">
-                Sign In
-              </Link>
+              <Link href="/login" className="font-semibold text-accent hover:underline">Sign In</Link>
             </p>
           </form>
         </div>
       </div>
-
     </div>
   );
 }

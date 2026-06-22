@@ -116,6 +116,7 @@ interface Ctx {
   signInWithGoogle: (credential: string) => Promise<Session>;
   signOut: () => Promise<void>;
   register: (name: string, email: string, phone: string, password: string, city?: string) => Promise<Session>;
+  registerSeller: (name: string, email: string, phone: string, password: string, city: string) => Promise<void>;
   updateProfile: (name: string, phone: string) => Promise<void>;
   addCredits: (n: number) => void;
   useCredit: () => boolean;
@@ -280,6 +281,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return s;
   }
 
+  async function registerSeller(
+    name: string,
+    email: string,
+    phone: string,
+    password: string,
+    city: string,
+  ): Promise<void> {
+    await makeTRPC().auth.registerSeller.mutate({ name, email, phone, password, city });
+    // No session — seller must wait for admin approval
+  }
+
   async function updateProfile(name: string, phone: string): Promise<void> {
     if (!session || !token) return;
     await makeTRPC(token).users.updateProfile.mutate({ name, phone });
@@ -325,6 +337,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGoogle,
         signOut,
         register,
+        registerSeller,
         updateProfile,
         addCredits,
         useCredit,
