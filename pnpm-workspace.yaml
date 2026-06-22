@@ -2,12 +2,6 @@ packages:
   - "apps/*"
   - "packages/*"
 
-# Pin hono below 4.12.26 — Prisma 7's @prisma/dev (dev-only) pulls the latest
-# hono, which Vercel's supply-chain policy (minimumReleaseAge) rejects as too
-# new and fails the build at install. pnpm 10+ reads overrides from here, not
-# from package.json.
-overrides:
-  hono: 4.12.25
 
 # pnpm 10+ valid syntax — packages that must never run lifecycle scripts.
 # (All listed packages already use optionalDependencies for platform binaries,
