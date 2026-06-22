@@ -32,7 +32,19 @@ const listingTone: Record<string, "success" | "warm" | "cold" | "new" | "default
 
 export function MyListingsTab() {
   const { session } = useAuth();
-  const listingsQ = trpc.users.myListings.useQuery(undefined, { enabled: !!session });
+  const listingsQ = trpc.users.myListings.useQuery(undefined, { enabled: session?.role === "home-seller" });
+
+  if (session?.role !== "home-seller") {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <Building2 size={40} className="mb-4 text-muted-foreground/30" />
+        <p className="text-sm font-semibold text-navy">This section is for Home Sellers</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Home Buyers cannot list properties. Register as a Home Seller to list your property.
+        </p>
+      </div>
+    );
+  }
   const updateStatus = trpc.properties.update.useMutation({
     onSuccess: () => listingsQ.refetch(),
     onError: (err: { message: string }) => toast.error(err.message),

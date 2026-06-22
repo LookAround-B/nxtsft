@@ -29,9 +29,12 @@ export function NotificationBell() {
   const enabled = !!session;
   const countQ = trpc.notifications.unreadCount.useQuery(undefined, {
     enabled,
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
-  const listQ = trpc.notifications.list.useQuery({ limit: 10 }, { enabled: enabled && open });
+  const listQ = trpc.notifications.list.useQuery(
+    { limit: 10 },
+    { enabled: enabled && open, staleTime: 0 },
+  );
 
   const markRead = trpc.notifications.markRead.useMutation({
     onSuccess: () => { listQ.refetch(); countQ.refetch(); },
@@ -39,6 +42,15 @@ export function NotificationBell() {
   const markAllRead = trpc.notifications.markAllRead.useMutation({
     onSuccess: () => { listQ.refetch(); countQ.refetch(); },
   });
+
+  // Always fetch fresh data when the bell opens
+  useEffect(() => {
+    if (open) {
+      listQ.refetch();
+      countQ.refetch();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;

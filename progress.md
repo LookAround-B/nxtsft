@@ -1,6 +1,6 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-06-22
+> Last updated: 2026-06-22 (session 2)
 > Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
@@ -126,7 +126,7 @@
 - [x] User portal — Recently Viewed (§5.3) → `trpc.propertyViews.mine` ✅ *(06-10, verified live)* — real view history + stats (total/contacts-unlocked/cities/avg-dwell); records on property-detail unmount with real dwell time + final unlock state (anon-friendly)
 - [x] Admin portal — Property Views Analytics (§6.7) → `trpc.propertyViews.analytics` ✅ *(06-10, verified live)* — total/unique/unlock-rate KPIs, views-by-property bars, searchable records + CSV (dropped Lead column — `PropertyView` has no leadId)
 - [x] Profile page — Security panel → `trpc.users.{changePassword,sessions,terminateSession,toggleTwoFactor}` ✅ *(06-10, verified live)* — inline change-password form, live 2FA toggle, active-sessions list with per-session sign-out; added `twoFactorEnabled` to `safeUserSelect` so `users.me` exposes it
-- [ ] User portal — KYC tab (stub, no backend yet)
+- [x] User portal — KYC tab → `trpc.users.kyc.{myDocuments,submit}` ✅ *(06-22)* — upload Aadhaar/PAN/Income Proof (image or PDF ≤5 MB via R2); shows per-doc status badge + admin notes; re-upload resets to pending
 - [x] Property detail — Reviews section → `trpc.reviews.{list,create,markHelpful}` ✅ *(06-10, verified live)* — new full-width section: avg rating + count, interactive star write-form (1 review/user, server CONFLICT-guarded), helpful button, loading/empty states
 - [x] Admin portal — Subscriptions (§6.6) → `trpc.subscriptions.adminList` + `cancel` ✅ *(06-10, verified live)* — plan-purchases table (user/plan/amount/status), status filter, cancel action; unlock-records/disputes sections left static (no backend). **Fixed BigInt-serialization bug in `subscriptions.cancel`/`myCurrent`** (returned raw Prisma rows → tRPC 500)
 - [x] Admin portal — CRM Pipeline (§6.5) → `trpc.admin.leads.list` + `leads.updateStatus` ✅ *(06-10, verified live)* — live kanban over real `Lead.status` enum (New/Hot/Warm/Cold/Converted/Lost) with per-card stage move; removed dead static `pipeline`/`leadMeta`. (DB has no funnel-stage model, so columns = the status enum that actually persists)
@@ -181,6 +181,13 @@
 - [ ] Notifications bell → `trpc.notifications.list`
 - [ ] Email / SMS OTP verification on register
 - [ ] EMI Calculator tab (user portal) — UI exists but calc is static
+
+### KYC, Credit Usage & Activity Tracking *(06-22)*
+- [x] **KYC document upload** — `KycDocument` Prisma model (per-doc status + admin notes); `users.kyc.{myDocuments,submit}` for buyers/sellers; `KYCTab.tsx` rewritten (real upload via `media.uploadImage` → R2); PDF support added to `media.ts`
+- [x] **KYC admin review** — `admin.users.{kycList,updateDocStatus,setUserKycStatus}`; new `KYCReviewTab.tsx` in admin portal (filter by status, expand per-user, mark individual docs, set overall profile KYC status + notify user)
+- [x] **Credit usage tracking** — `admin.creditUsage` reads `CreditTransaction(reason="contact_unlock")`, batch-joins buyer + property; new `UsageSection` in `CreditsTab.tsx` shows who spent which credit on which property
+- [x] **Buyer activity feed** — `admin.buyerActivity` reads `PropertyView` filtered to `role="user"`, paginated with search; `BuyerActivitySection` added to `ViewsTab.tsx` — full chronological feed of every property a buyer viewed, with dwell time and contact-unlock indicator
+- [x] **User portal UX** — "My Listings" nav item hidden from Home Buyers (only shown to `home-seller`); `MyListingsTab` guards against non-seller access; `NotificationBell` refreshes immediately on open + polls at 30 s
 
 ### 5-Feature Sprint *(06-22)*
 - [x] **Agent live DB** — `/agents` fetches from DB via `users.getAgents`; `/agents/[slug]` fetches via `users.getAgent`. Seed includes 15 agents with full metadata (slug, rating, deals, specialties, cities, languages). Router returns explicit flat types (no recursive Prisma `Json`) to avoid tRPC type-depth limit.
