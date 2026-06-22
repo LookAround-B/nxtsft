@@ -148,6 +148,61 @@ export const authRouter = router({
       return { token, user: safeUser(freshUser) };
     }),
 
+  // Public registration for home sellers (role: home-seller) — no session granted
+  registerSeller: publicProcedure
+    .use(registerRateLimit)
+    .input(
+      z.object({
+        name: nameSchema,
+        email: emailSchema,
+        phone: phoneSchema,
+        password: passwordSchema,
+        city: geoTextSchema,
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const [existingEmail, existingPhone] = await Promise.all([
+        prisma.user.findUnique({ where: { email: input.email } }),
+        prisma.user.findUnique({ where: { phone: input.phone } }),
+      ]);
+
+      if (existingEmail)
+        throw new TRPCError({ code: "CONFLICT", message: "Email already registered." });
+      if (existingPhone)
+        throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
+
+      const passwordHash = await bcrypt.hash(input.password, 12);
+      const seller = await prisma.user.create({
+        data: {
+          name: input.name,
+          email: input.email,
+          phone: input.phone,
+          city: input.city,
+          role: "home-seller",
+          passwordHash,
+          verified: false,
+        },
+      });
+
+      // Notify all admins and super-admins
+      const admins = await prisma.user.findMany({
+        where: { role: { in: ["admin", "super-admin"] } },
+        select: { id: true },
+      });
+      if (admins.length > 0) {
+        await prisma.notification.createMany({
+          data: admins.map((a) => ({
+            userId: a.id,
+            type: "seller_approval",
+            title: "New Home Seller pending approval",
+            content: `${seller.name} (${seller.email}) registered and is awaiting account approval.`,
+          })),
+        });
+      }
+
+      return { success: true as const };
+    }),
+
   // Login for consumers (/login page)
   login: publicProcedure
     .use(authRateLimit)
@@ -161,6 +216,13 @@ export const authRouter = router({
       const valid = await bcrypt.compare(input.password, user.passwordHash);
       if (!valid)
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
+
+      if (user.role === "home-seller" && !user.verified) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Your account is pending approval. You'll be notified once an admin approves it.",
+        });
+      }
 
       // Grant 3 demo credits on first login if balance is zero (consumer roles only)
       if (
