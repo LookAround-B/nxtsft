@@ -10,7 +10,7 @@ export type Role =
   | "sales"
   | "support-admin"
   | "user"
-  | "customer";
+  | "home-seller";
 
 export interface Session {
   id: string;
@@ -81,10 +81,10 @@ export const ROLE_META: Record<
     city: "Mumbai",
     phone: "+91 9800011000",
   },
-  customer: {
-    label: "Customer",
+  "home-seller": {
+    label: "Home Seller",
     portal: "/user-portal",
-    portalName: "NxtSft.com Concierge",
+    portalName: "NxtSft.com Seller",
     demoEmail: "ananya@example.com",
     demoName: "Ananya Gupta",
     city: "Delhi",
@@ -116,6 +116,7 @@ interface Ctx {
   signInWithGoogle: (credential: string) => Promise<Session>;
   signOut: () => Promise<void>;
   register: (name: string, email: string, phone: string, password: string, city?: string) => Promise<Session>;
+  registerSeller: (name: string, email: string, phone: string, password: string, city: string) => Promise<void>;
   updateProfile: (name: string, phone: string) => Promise<void>;
   addCredits: (n: number) => void;
   useCredit: () => boolean;
@@ -280,6 +281,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return s;
   }
 
+  async function registerSeller(
+    name: string,
+    email: string,
+    phone: string,
+    password: string,
+    city: string,
+  ): Promise<void> {
+    await makeTRPC().auth.registerSeller.mutate({ name, email, phone, password, city });
+    // No session — seller must wait for admin approval
+  }
+
   async function updateProfile(name: string, phone: string): Promise<void> {
     if (!session || !token) return;
     await makeTRPC(token).users.updateProfile.mutate({ name, phone });
@@ -325,6 +337,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGoogle,
         signOut,
         register,
+        registerSeller,
         updateProfile,
         addCredits,
         useCredit,

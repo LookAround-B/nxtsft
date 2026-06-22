@@ -13,7 +13,7 @@ export type Role =
   | "sales"
   | "support-admin"
   | "user"
-  | "customer";
+  | "home-seller";
 
 export type PropertyType = "Apartment" | "Villa" | "Plot" | "Commercial" | "PG" | "New" | "Studio";
 export type PropertyPurpose = "Sale" | "Rent" | "Buy" | "Lease";

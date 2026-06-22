@@ -123,14 +123,168 @@ export const adminRouter = router({
         });
       }),
 
+    grantCredits: adminProcedure
+      .input(
+        z.object({
+          userId: cuidSchema,
+          amount: z.number().int().min(1).max(1000),
+          reason: safeString(200),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        const user = await prisma.user.findUnique({
+          where: { id: input.userId },
+          select: { id: true, role: true },
+        });
+        if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+        if (!["user", "home-seller"].includes(user.role)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Credits can only be granted to Home Buyers or Home Sellers.",
+          });
+        }
+        await Promise.all([
+          prisma.user.update({
+            where: { id: input.userId },
+            data: { credits: { increment: input.amount } },
+          }),
+          prisma.creditTransaction.create({
+            data: { userId: input.userId, type: "credit", amount: input.amount, reason: input.reason },
+          }),
+        ]);
+        return prisma.user.findUniqueOrThrow({
+          where: { id: input.userId },
+          select: { id: true, name: true, credits: true },
+        });
+      }),
+
+    kycList: adminProcedure
+      .input(
+        z.object({
+          kycStatus: z.enum(["pending", "verified", "unverified"]).optional(),
+          cursor: cursorSchema,
+          limit: limitSchema,
+        }),
+      )
+      .query(async ({ input }) => {
+        const { cursor, limit, kycStatus } = input;
+        const where = kycStatus
+          ? { kycStatus }
+          : { NOT: { kycStatus: "none" } };
+
+        const items = await prisma.user.findMany({
+          where,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            role: true,
+            kycStatus: true,
+            joined: true,
+            kycDocuments: { orderBy: { createdAt: "asc" as const } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit + 1,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        });
+
+        const hasMore = items.length > limit;
+        const page = hasMore ? items.slice(0, limit) : items;
+        return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
+      }),
+
+    updateDocStatus: adminProcedure
+      .input(
+        z.object({
+          docId: cuidSchema,
+          status: z.enum(["pending", "verified", "unverified"]),
+          adminNotes: safeString(500).optional(),
+        }),
+      )
+      .mutation(async ({ input, ctx }) => {
+        const doc = await prisma.kycDocument.findUnique({ where: { id: input.docId } });
+        if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found." });
+
+        return prisma.kycDocument.update({
+          where: { id: input.docId },
+          data: {
+            status: input.status,
+            adminNotes: input.adminNotes ?? null,
+            reviewedAt: new Date(),
+            reviewedById: ctx.user.id,
+          },
+        });
+      }),
+
+    setUserKycStatus: adminProcedure
+      .input(
+        z.object({
+          userId: cuidSchema,
+          kycStatus: z.enum(["none", "pending", "verified", "unverified"]),
+          note: safeString(500).optional(),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        const user = await prisma.user.findUnique({
+          where: { id: input.userId },
+          select: { id: true, role: true },
+        });
+        if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+        if (!["user", "home-seller"].includes(user.role)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "KYC applies only to Home Buyers and Home Sellers.",
+          });
+        }
+
+        await prisma.user.update({
+          where: { id: input.userId },
+          data: { kycStatus: input.kycStatus },
+        });
+
+        const label =
+          input.kycStatus === "verified"
+            ? "Verified ✓"
+            : input.kycStatus === "unverified"
+              ? "Not Verified"
+              : "Pending Review";
+
+        await prisma.notification.create({
+          data: {
+            userId: input.userId,
+            type: "kyc_status",
+            title: `KYC Status: ${label}`,
+            content:
+              input.note ??
+              `Your KYC verification status has been updated to ${label}.`,
+          },
+        });
+
+        return { ok: true };
+      }),
+
     verify: adminProcedure
       .input(z.object({ userId: cuidSchema }))
       .mutation(async ({ input }) => {
-        return prisma.user.update({
+        const user = await prisma.user.update({
           where: { id: input.userId },
           data: { verified: true, verifiedAt: new Date() },
-          select: safeUserSelect,
+          select: { ...safeUserSelect, role: true, name: true },
         });
+
+        if (user.role === "home-seller") {
+          await prisma.notification.create({
+            data: {
+              userId: input.userId,
+              type: "account_approved",
+              title: "Your account has been approved!",
+              content: "You can now log in to NxtSft and list your property.",
+            },
+          });
+        }
+
+        return user;
       }),
   }),
 
@@ -246,6 +400,135 @@ export const adminRouter = router({
       const hasMore = items.length > limit;
       const page = hasMore ? items.slice(0, limit) : items;
       return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
+    }),
+
+  // Home Buyer property-view activity feed
+  buyerActivity: adminProcedure
+    .input(
+      z.object({
+        search: searchSchema.optional(),
+        cursor: cursorSchema,
+        limit: limitSchema,
+      }),
+    )
+    .query(async ({ input }) => {
+      const { cursor, limit, search } = input;
+
+      const userFilter: NonNullable<Parameters<typeof prisma.user.findMany>[0]>["where"] = {
+        role: "user",
+      };
+      if (search) {
+        userFilter.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const views = await prisma.propertyView.findMany({
+        where: { userId: { not: null }, user: userFilter },
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          property: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              location: { select: { city: true, locality: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+
+      const hasMore = views.length > limit;
+      const page = hasMore ? views.slice(0, limit) : views;
+
+      return {
+        items: page.map((v) => ({
+          id: v.id,
+          createdAt: v.createdAt.toISOString(),
+          durationSec: v.durationSec,
+          contactUnlocked: v.contactUnlocked,
+          buyer: v.user,
+          property: v.property ?? null,
+        })),
+        nextCursor: page.at(-1)?.id ?? null,
+        hasMore,
+      };
+    }),
+
+  // Credit usage audit — which buyer used credits to view which property
+  creditUsage: adminProcedure
+    .input(
+      z.object({
+        search: searchSchema.optional(),
+        cursor: cursorSchema,
+        limit: limitSchema,
+      }),
+    )
+    .query(async ({ input }) => {
+      const { cursor, limit, search } = input;
+
+      const where: NonNullable<Parameters<typeof prisma.creditTransaction.findMany>[0]>["where"] = {
+        reason: "contact_unlock",
+        type: "debit",
+      };
+
+      if (search) {
+        const matchingUsers = await prisma.user.findMany({
+          where: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+            ],
+          },
+          select: { id: true },
+          take: 100,
+        });
+        where.userId = { in: matchingUsers.map((u) => u.id) };
+      }
+
+      const txns = await prisma.creditTransaction.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+
+      const hasMore = txns.length > limit;
+      const page = hasMore ? txns.slice(0, limit) : txns;
+
+      const userIds = [...new Set(page.map((t) => t.userId))];
+      const propertyIds = [
+        ...new Set(page.map((t) => t.propertyId).filter((id): id is string => !!id)),
+      ];
+
+      const [users, properties] = await Promise.all([
+        prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, email: true, credits: true },
+        }),
+        prisma.property.findMany({
+          where: { id: { in: propertyIds } },
+          select: { id: true, title: true, slug: true },
+        }),
+      ]);
+
+      const userById = new Map(users.map((u) => [u.id, u]));
+      const propertyById = new Map(properties.map((p) => [p.id, p]));
+
+      return {
+        items: page.map((t) => ({
+          id: t.id,
+          createdAt: t.createdAt.toISOString(),
+          buyer: userById.get(t.userId) ?? null,
+          property: t.propertyId ? (propertyById.get(t.propertyId) ?? null) : null,
+        })),
+        nextCursor: page.at(-1)?.id ?? null,
+        hasMore,
+      };
     }),
 
   teamMembers: adminProcedure

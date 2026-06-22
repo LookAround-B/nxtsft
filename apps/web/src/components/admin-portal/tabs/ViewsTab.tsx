@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { Eye, Search, Clock, Unlock } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
@@ -17,6 +18,125 @@ type ViewRecord = {
     images: string[]; location: { city: string; locality: string } | null;
   } | null;
 };
+
+function timeAgo(iso: string): string {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function BuyerActivitySection() {
+  const [search, setSearch] = useState("");
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+
+  const activityQ = trpc.admin.buyerActivity.useQuery({
+    search: search.trim() || undefined,
+    cursor,
+    limit: 25,
+  });
+
+  const items = activityQ.data?.items ?? [];
+
+  const fmtDur = (s: number) => {
+    if (s === 0) return null;
+    return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+  };
+
+  return (
+    <Section title="Home Buyer Activity Feed">
+      <p className="mb-3 text-xs text-muted-foreground">
+        Every property page viewed by a registered Home Buyer — newest first.
+      </p>
+
+      <div className="relative mb-4 max-w-md">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCursor(undefined); }}
+          placeholder="Filter by buyer name or email…"
+          className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-4 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+        />
+      </div>
+
+      {activityQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+
+      {!activityQ.isLoading && items.length === 0 && (
+        <div className="rounded-xl border border-dashed border-border py-10 text-center">
+          <Eye size={24} className="mx-auto mb-2 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">No buyer activity yet.</p>
+        </div>
+      )}
+
+      {items.length > 0 && (
+        <div className="divide-y divide-border rounded-xl border border-border">
+          {items.map((item) => (
+            <div key={item.id} className="flex items-start gap-3 px-4 py-3">
+              <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent/10 text-xs font-bold text-accent">
+                {item.buyer?.name?.[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="text-sm font-semibold text-navy">
+                    {item.buyer?.name ?? "Unknown"}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{item.buyer?.email}</span>
+                </div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+                  <Eye size={11} />
+                  <span>viewed</span>
+                  {item.property ? (
+                    <Link
+                      href={`/properties/${item.property.slug}`}
+                      target="_blank"
+                      className="font-semibold text-accent hover:underline"
+                    >
+                      {item.property.title}
+                    </Link>
+                  ) : (
+                    <span className="italic">deleted property</span>
+                  )}
+                  {item.property?.location && (
+                    <span className="text-muted-foreground/70">
+                      · {item.property.location.locality}, {item.property.location.city}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground/70">
+                  <span>{timeAgo(item.createdAt)}</span>
+                  {fmtDur(item.durationSec) && (
+                    <span className="flex items-center gap-1">
+                      <Clock size={10} />
+                      {fmtDur(item.durationSec)}
+                    </span>
+                  )}
+                  {item.contactUnlocked && (
+                    <span className="flex items-center gap-1 font-semibold text-emerald-600">
+                      <Unlock size={10} />
+                      Contact unlocked
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activityQ.data?.hasMore && (
+        <button
+          onClick={() => setCursor(activityQ.data.nextCursor ?? undefined)}
+          disabled={activityQ.isLoading}
+          className="mt-3 w-full rounded-xl border border-border py-2.5 text-sm font-semibold text-muted-foreground transition hover:border-accent hover:text-accent disabled:opacity-50"
+        >
+          Load more
+        </button>
+      )}
+    </Section>
+  );
+}
 
 export function ViewsTab() {
   const [filter, setFilter] = useState("");
@@ -153,6 +273,8 @@ export function ViewsTab() {
           </Section>
         </>
       )}
+
+      <BuyerActivitySection />
     </>
   );
 }

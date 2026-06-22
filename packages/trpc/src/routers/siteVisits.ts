@@ -28,7 +28,7 @@ export const siteVisitsRouter = router({
       // Role-based visibility
       if (ctx.user.role === "sales") {
         where.salesRepId = ctx.user.id;
-      } else if (["user", "customer"].includes(ctx.user.role)) {
+      } else if (["user", "home-seller"].includes(ctx.user.role)) {
         where.userId = ctx.user.id;
       } // supervisors, admins, super-admins see all
 

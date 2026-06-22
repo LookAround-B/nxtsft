@@ -66,8 +66,8 @@ const roleActions: Record<Role, Array<{ label: string; to: string; Icon: LucideI
     { label: "EMI Calculator", to: "/user-portal#emi", Icon: Calculator },
     { label: "Talk to us", to: "/contact", Icon: MessageCircle },
   ],
-  customer: [
-    { label: "My Concierge", to: "/user-portal", Icon: Sparkles },
+  "home-seller": [
+    { label: "My Listings", to: "/user-portal", Icon: Sparkles },
     { label: "My Visits", to: "/user-portal#visits", Icon: Calendar },
     { label: "Talk to advisor", to: "/contact", Icon: MessageCircle },
   ],
@@ -110,10 +110,10 @@ const roleStats: Record<Role, Array<{ label: string; value: string; sub?: string
     { label: "Pre-approved EMI", value: "₹1.8 Cr", sub: "Valid 90 days" },
     { label: "KYC", value: "Verified", sub: "All docs OK" },
   ],
-  customer: [
-    { label: "Saved Homes", value: "9", sub: "4 new this week" },
+  "home-seller": [
+    { label: "Active Listings", value: "2", sub: "1 pending review" },
     { label: "Visits Booked", value: "2", sub: "1 upcoming" },
-    { label: "Concierge Tier", value: "Gold", sub: "Renews in 22 d" },
+    { label: "Leads Received", value: "9", sub: "4 new this week" },
     { label: "KYC", value: "Verified", sub: "All docs OK" },
   ],
   "support-admin": [
