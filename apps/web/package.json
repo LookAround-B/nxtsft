@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
     "@nxtsft/db": "workspace:*",
     "@nxtsft/shared": "workspace:*",
     "@nxtsft/trpc": "workspace:*",

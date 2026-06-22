@@ -366,9 +366,12 @@ export const usersRouter = router({
       orderBy: { name: "asc" },
     });
 
-    return agents.map((a) => ({
-      ...a,
-      ...((a.metadata as Record<string, unknown>) ?? {}),
+    return agents.map((a): {
+      id: string; name: string; slug: string | null; email: string;
+      avatar: string | null; city: string; verified: boolean; metadata: unknown;
+    } => ({
+      id: a.id, name: a.name, slug: a.slug, email: a.email,
+      avatar: a.avatar, city: a.city, verified: a.verified, metadata: a.metadata,
     }));
   }),
 
@@ -389,7 +392,24 @@ export const usersRouter = router({
         },
       });
       if (!agent) return null;
-      return { ...agent, ...((agent.metadata as Record<string, unknown>) ?? {}) };
+      const meta = (agent.metadata ?? {}) as Record<string, unknown>;
+      return {
+        id: agent.id, name: agent.name, slug: agent.slug, email: agent.email,
+        avatar: agent.avatar, city: agent.city, verified: agent.verified,
+        initials: meta.initials as string | undefined,
+        rating: meta.rating as number | undefined,
+        reviews: meta.reviews as number | undefined,
+        deals: meta.deals as number | undefined,
+        since: meta.since as number | undefined,
+        listings: meta.listings as number | undefined,
+        featured: meta.featured as boolean | undefined,
+        color: meta.color as string | undefined,
+        responseTime: meta.responseTime as string | undefined,
+        portfolioValue: meta.portfolioValue as string | undefined,
+        specialties: meta.specialties as string[] | undefined,
+        languages: meta.languages as string[] | undefined,
+        cities: meta.cities as string[] | undefined,
+      };
     }),
 
   getTeamMembers: adminProcedure.query(async () => {

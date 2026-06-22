@@ -32,11 +32,12 @@ import { trpcClient } from "@/lib/trpcClient";
 type Agent = {
   id: string;
   name: string;
+  slug?: string | null;
   email: string;
   avatar?: string | null;
   city: string;
   verified: boolean;
-  metadata?: Record<string, any> | null;
+  metadata?: Record<string, unknown> | null;
   initials?: string;
   rating?: number;
   reviews?: number;
@@ -188,7 +189,7 @@ function AgentCard({ agent, onContact }: { agent: Agent; onContact: (a: Agent) =
       {/* CTAs */}
       <div className="mt-4 flex gap-2">
         <Link
-          href={`/agents/${ownerSlug(agent.name)}`}
+          href={`/agents/${agent.slug ?? ownerSlug(agent.name)}`}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
         >
           View Profile <ArrowRight size={11} />
@@ -221,28 +222,27 @@ export default function AgentsPage() {
     const loadAgents = async () => {
       try {
         const result = await trpcClient.users.getAgents.query();
-        const enriched = result.map((a) => ({
-          ...a,
-          initials:
-            a.metadata?.initials ||
-            a.name
-              .split(" ")
-              .map((n: string) => n[0])
-              .join(""),
-          rating: a.metadata?.rating || 4.5,
-          reviews: a.metadata?.reviews || 0,
-          deals: a.metadata?.deals || 0,
-          listings: a.metadata?.listings || 0,
-          since: a.metadata?.since || 2020,
-          featured: Math.random() > 0.5,
-          role: "RERA Agent",
-          color: "bg-blue-600",
-          specialties: ["Residential", "Commercial"],
-          cities: [a.city],
-          languages: ["English", "Hindi"],
-          responseTime: "< 1 hr",
-          portfolioValue: "₹25 Cr+",
-        }));
+        const enriched = result.map((a) => {
+          const meta = (a.metadata as Record<string, unknown> | null) ?? {};
+          return {
+            ...a,
+            metadata: meta,
+            initials: (meta.initials as string | undefined) || a.name.split(" ").map((n: string) => n[0]).join(""),
+            rating: (meta.rating as number | undefined) ?? 4.5,
+            reviews: (meta.reviews as number | undefined) ?? 0,
+            deals: (meta.deals as number | undefined) ?? 0,
+            listings: (meta.listings as number | undefined) ?? 0,
+            since: (meta.since as number | undefined) ?? 2020,
+            featured: (meta.featured as boolean | undefined) ?? false,
+            role: "RERA Agent",
+            color: (meta.color as string | undefined) ?? "bg-accent",
+            specialties: (meta.specialties as string[] | undefined) ?? ["Residential"],
+            cities: (meta.cities as string[] | undefined) ?? [a.city],
+            languages: (meta.languages as string[] | undefined) ?? ["English"],
+            responseTime: (meta.responseTime as string | undefined) ?? "< 2 hrs",
+            portfolioValue: (meta.portfolioValue as string | undefined) ?? "—",
+          };
+        });
         setAgents(enriched);
       } catch (err) {
         console.error("Failed to fetch agents:", err);

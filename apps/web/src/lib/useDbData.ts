@@ -12,29 +12,27 @@ export const useAgents = () => {
       try {
         const data = await trpcClient.users.getAgents.query();
         setAgents(
-          data.map((a) => ({
-            name: a.name,
-            initials:
-              a.metadata?.initials ||
-              a.name
-                .split(" ")
-                .map((n: string) => n[0])
-                .join(""),
-            role: "RERA Agent",
-            rating: a.metadata?.rating || 4.5,
-            reviews: a.metadata?.reviews || 0,
-            deals: a.metadata?.deals || 0,
-            listings: a.metadata?.listings || 0,
-            since: a.metadata?.since || 2020,
-            cities: [a.city],
-            specialties: ["Residential"],
-            languages: ["English", "Hindi"],
-            verified: a.verified,
-            featured: false,
-            color: "bg-blue-600",
-            responseTime: "< 1 hr",
-            portfolioValue: "₹25 Cr+",
-          })),
+          data.map((a) => {
+            const meta = (a.metadata as Record<string, unknown> | null) ?? {};
+            return {
+              name: a.name,
+              initials: (meta.initials as string | undefined) || a.name.split(" ").map((n: string) => n[0]).join(""),
+              role: "RERA Agent",
+              rating: (meta.rating as number | undefined) ?? 4.5,
+              reviews: (meta.reviews as number | undefined) ?? 0,
+              deals: (meta.deals as number | undefined) ?? 0,
+              listings: (meta.listings as number | undefined) ?? 0,
+              since: (meta.since as number | undefined) ?? 2020,
+              cities: [a.city],
+              specialties: ["Residential"],
+              languages: ["English", "Hindi"],
+              verified: a.verified,
+              featured: false,
+              color: "bg-blue-600",
+              responseTime: "< 1 hr",
+              portfolioValue: "₹25 Cr+",
+            };
+          }),
         );
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch agents");
