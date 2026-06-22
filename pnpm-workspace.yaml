@@ -9,13 +9,16 @@ packages:
 overrides:
   hono: 4.12.25
 
-allowBuilds:
-  '@prisma/client': false
-  '@prisma/engines': false
-  core-js: false
-  esbuild: false
-  prisma: false
-  sharp: false
-  unrs-resolver: false
+# pnpm 10+ valid syntax — packages that must never run lifecycle scripts.
+# (All listed packages already use optionalDependencies for platform binaries,
+# so this is a no-op in practice but prevents any accidental script execution.)
+neverBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
+  - core-js
+  - esbuild
+  - prisma
+  - sharp
+  - unrs-resolver
 
 shared-workspace-lockfile: true
