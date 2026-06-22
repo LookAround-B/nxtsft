@@ -50,9 +50,14 @@ export function UsersTab() {
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
+  const [pendingOnly, setPendingOnly] = useState(false);
+
   const adminCount = users.filter((u) => u.role === "admin" || u.role === "super-admin").length;
   const salesCount = users.filter((u) => u.role === "sales").length;
   const consumerCount = users.filter((u) => u.role === "user" || u.role === "home-seller").length;
+  const pendingCount = users.filter((u) => u.role === "home-seller" && !u.verified).length;
+
+  const displayed = pendingOnly ? users.filter((u) => u.role === "home-seller" && !u.verified) : users;
 
   const fmtJoined = (iso: string) =>
     new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -77,11 +82,17 @@ export function UsersTab() {
           </button>
         }
       />
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
         <StatCard label="Total Users" value={String(users.length)} sub="in directory" />
         <StatCard label="Admins" value={String(adminCount)} />
         <StatCard label="Sales Reps" value={String(salesCount)} />
         <StatCard label="Consumers" value={String(consumerCount)} />
+        <StatCard
+          label="Pending Approval"
+          value={String(pendingCount)}
+          sub="Home Sellers awaiting review"
+          accent={pendingCount > 0 ? "text-amber-600" : undefined}
+        />
       </div>
 
       <Section
@@ -103,12 +114,22 @@ export function UsersTab() {
                 {SA_ROLES.map((r) => <SelectItem key={r} value={r}>{SA_ROLE_LABEL[r]}</SelectItem>)}
               </SelectContent>
             </Select>
+            <button
+              onClick={() => setPendingOnly((v) => !v)}
+              className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
+                pendingOnly
+                  ? "border-amber-400 bg-amber-50 text-amber-700"
+                  : "border-border bg-white text-navy hover:bg-secondary"
+              }`}
+            >
+              {pendingOnly ? "Show all" : `Pending (${pendingCount})`}
+            </button>
           </div>
         }
       >
         {usersQ.isLoading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Loading users…</p>
-        ) : users.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">No users match this filter.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -125,7 +146,7 @@ export function UsersTab() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {displayed.map((u) => (
                   <tr key={u.id}>
                     <td className="font-semibold text-navy">{u.name}</td>
                     <td className="text-xs text-muted-foreground">{u.email}</td>
