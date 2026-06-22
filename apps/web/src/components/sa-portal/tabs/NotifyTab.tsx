@@ -9,7 +9,7 @@ import { TabHeader } from "./shared";
 const BROADCAST_ROLES = [
   { label: "All users", value: "" },
   { label: "Home Buyers", value: "user" },
-  { label: "Customers", value: "customer" },
+  { label: "Home Sellers", value: "home-seller" },
   { label: "Admins", value: "admin" },
   { label: "Supervisors", value: "supervisor" },
   { label: "Sales Reps", value: "sales" },
@@ -33,7 +33,7 @@ export function NotifyTab() {
     broadcast.mutate({
       title: form.title.trim(),
       content: form.content.trim(),
-      targetRole: (form.targetRole || undefined) as "super-admin" | "admin" | "supervisor" | "sales" | "support-admin" | "user" | "customer" | undefined,
+      targetRole: (form.targetRole || undefined) as "super-admin" | "admin" | "supervisor" | "sales" | "support-admin" | "user" | "home-seller" | undefined,
     });
   };
 

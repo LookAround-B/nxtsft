@@ -10,7 +10,7 @@ export type Role =
   | "sales"
   | "support-admin"
   | "user"
-  | "customer";
+  | "home-seller";
 
 export interface Session {
   id: string;
@@ -81,10 +81,10 @@ export const ROLE_META: Record<
     city: "Mumbai",
     phone: "+91 9800011000",
   },
-  customer: {
-    label: "Customer",
+  "home-seller": {
+    label: "Home Seller",
     portal: "/user-portal",
-    portalName: "NxtSft.com Concierge",
+    portalName: "NxtSft.com Seller",
     demoEmail: "ananya@example.com",
     demoName: "Ananya Gupta",
     city: "Delhi",

@@ -37,7 +37,7 @@ export function SecurityTab() {
     }
   }, [ipQ.data]);
 
-  type Role = "super-admin" | "admin" | "supervisor" | "sales" | "support-admin" | "user" | "customer";
+  type Role = "super-admin" | "admin" | "supervisor" | "sales" | "support-admin" | "user" | "home-seller";
   const [policy, setPolicy] = useState({
     passwordMinLength: 8,
     passwordComplexity: "medium" as "low" | "medium" | "high",

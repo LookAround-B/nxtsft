@@ -25,7 +25,7 @@ const ROLES: { key: string; label: string }[] = [
   { key: "sales", label: "Sales Rep" },
   { key: "support-admin", label: "Support" },
   { key: "user", label: "Home Buyer" },
-  { key: "customer", label: "Customer" },
+  { key: "home-seller", label: "Home Seller" },
 ];
 
 /* ── Canonical features (rows), grouped ───────────────────────────────────── */
@@ -56,7 +56,7 @@ function defaultMatrix(): Matrix {
     sales: { listings: "read", leads: "write", crm: "read", siteVisits: "write", subscriptions: "none", marketing: "none", reports: "read", teams: "none", users: "none", support: "none", config: "none", security: "none" },
     "support-admin": { listings: "read", leads: "read", crm: "none", siteVisits: "none", subscriptions: "read", marketing: "none", reports: "read", teams: "none", users: "read", support: "admin", config: "none", security: "none" },
     user: { listings: "read", leads: "none", crm: "none", siteVisits: "write", subscriptions: "read", marketing: "none", reports: "none", teams: "none", users: "none", support: "read", config: "none", security: "none" },
-    customer: { listings: "read", leads: "none", crm: "none", siteVisits: "write", subscriptions: "read", marketing: "none", reports: "none", teams: "none", users: "none", support: "read", config: "none", security: "none" },
+    "home-seller": { listings: "read", leads: "none", crm: "none", siteVisits: "write", subscriptions: "read", marketing: "none", reports: "none", teams: "none", users: "none", support: "read", config: "none", security: "none" },
   };
   return D;
 }

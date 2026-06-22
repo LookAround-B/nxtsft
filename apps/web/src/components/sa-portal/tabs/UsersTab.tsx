@@ -20,7 +20,7 @@ type AdminUser = {
   lastActive: string;
 };
 
-const SA_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin", "user", "customer"] as const;
+const SA_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin", "user", "home-seller"] as const;
 const SA_ROLE_LABEL: Record<string, string> = {
   "super-admin": "Super Admin",
   admin: "Admin",
@@ -28,7 +28,7 @@ const SA_ROLE_LABEL: Record<string, string> = {
   sales: "Sales Rep",
   "support-admin": "Support Admin",
   user: "Home Buyer",
-  customer: "Customer",
+  "home-seller": "Home Seller",
 };
 
 export function UsersTab() {
@@ -52,7 +52,7 @@ export function UsersTab() {
 
   const adminCount = users.filter((u) => u.role === "admin" || u.role === "super-admin").length;
   const salesCount = users.filter((u) => u.role === "sales").length;
-  const consumerCount = users.filter((u) => u.role === "user" || u.role === "customer").length;
+  const consumerCount = users.filter((u) => u.role === "user" || u.role === "home-seller").length;
 
   const fmtJoined = (iso: string) =>
     new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
