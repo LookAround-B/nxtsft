@@ -298,4 +298,99 @@ export const superAdminRouter = router({
 
       return { count: users.length };
     }),
+
+  // ── Billing & Revenue ─────────────────────────────────────────────────────
+
+  billingStats: superAdminProcedure.query(async () => {
+    const [activeSubs, failedSubs, recentPayments] = await Promise.all([
+      prisma.subscription.findMany({ where: { status: "Active" } }),
+      prisma.subscription.findMany({ where: { status: { in: ["Failed", "Expired"] } } }),
+      prisma.payment.findMany({
+        take: 20,
+        orderBy: { createdAt: "desc" },
+        include: { user: { select: { name: true } } },
+      }),
+    ]);
+
+    const mrr = activeSubs.reduce((s, sub) => s + Number(sub.amount), 0) / 100;
+
+    return {
+      mrr,
+      arr: mrr * 12,
+      outstanding: failedSubs.reduce((s, sub) => s + Number(sub.amount), 0) / 100,
+      outstandingCount: failedSubs.length,
+      recentPayments: recentPayments.map((p) => ({
+        id: p.id,
+        userName: p.user.name,
+        amount: Number(p.amount) / 100,
+        status: p.status,
+        method: p.method,
+        createdAt: p.createdAt,
+      })),
+    };
+  }),
+
+  // ── AI Model Versions ─────────────────────────────────────────────────────
+
+  modelVersions: superAdminProcedure.query(async () => {
+    return prisma.modelVersion.findMany({ orderBy: { createdAt: "desc" } });
+  }),
+
+  deployModel: superAdminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      return prisma.modelVersion.update({
+        where: { id: input.id },
+        data: { status: "live", deployedAt: new Date() },
+      });
+    }),
+
+  rollbackModel: superAdminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      return prisma.modelVersion.update({
+        where: { id: input.id },
+        data: { status: "inactive" },
+      });
+    }),
+
+  // ── Content CMS ───────────────────────────────────────────────────────────
+
+  cmsPages: superAdminProcedure.query(async () => {
+    return prisma.cmsPage.findMany({
+      include: { editor: { select: { name: true } } },
+      orderBy: { updatedAt: "desc" },
+    });
+  }),
+
+  createCmsPage: superAdminProcedure
+    .input(
+      z.object({
+        title: safeString(200, 3),
+        path: z.string().startsWith("/").max(200),
+        body: z.string().max(50000).optional(),
+        scheduledAt: z.string().datetime().optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      return prisma.cmsPage.create({
+        data: {
+          title: input.title,
+          path: input.path,
+          body: input.body ?? null,
+          scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
+          status: input.scheduledAt ? "scheduled" : "draft",
+          editorId: ctx.user.id,
+        },
+      });
+    }),
+
+  publishCmsPage: superAdminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      return prisma.cmsPage.update({
+        where: { id: input.id },
+        data: { status: "published", scheduledAt: null },
+      });
+    }),
 });

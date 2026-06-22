@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { submitListing, type ListerType, type PendingListing } from "@/lib/listings";
 import { trpc } from "@/lib/trpc";
+import { validateRera } from "@/lib/rera";
 import {
   Select,
   SelectTrigger,
@@ -179,11 +180,8 @@ export default function ListPropertyPage() {
     }
     if (s === 3) {
       if (!data.description.trim()) e.description = "Add a brief description";
-      if (!data.rera.trim()) {
-        e.rera = "RERA registration number is required";
-      } else if (!/^[a-zA-Z0-9\/\-]+$/.test(data.rera)) {
-        e.rera = "Invalid RERA registration number format";
-      }
+      const reraError = validateRera(data.rera, data.city);
+      if (reraError) e.rera = reraError;
     }
     if (s === 4) {
       if (!data.listerName.trim()) e.listerName = "Enter your full name";

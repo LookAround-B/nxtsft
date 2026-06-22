@@ -12,7 +12,7 @@ import {
 } from "../sanitize.js";
 import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure, adminProcedure } from "../server.js";
+import { router, protectedProcedure, adminProcedure, publicProcedure } from "../server.js";
 
 const NOTIFICATION_PREF_KEYS = ["email", "whatsapp", "sms", "marketing"] as const;
 type NotificationPrefs = Record<(typeof NOTIFICATION_PREF_KEYS)[number], boolean>;
@@ -350,12 +350,13 @@ export const usersRouter = router({
       });
     }),
 
-  getAgents: adminProcedure.query(async () => {
+  getAgents: publicProcedure.query(async () => {
     const agents = await prisma.user.findMany({
       where: { role: "agent" },
       select: {
         id: true,
         name: true,
+        slug: true,
         email: true,
         avatar: true,
         city: true,
@@ -367,9 +368,29 @@ export const usersRouter = router({
 
     return agents.map((a) => ({
       ...a,
-      ...((a.metadata as any) || {}),
+      ...((a.metadata as Record<string, unknown>) ?? {}),
     }));
   }),
+
+  getAgent: publicProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const agent = await prisma.user.findFirst({
+        where: { slug: input.slug, role: "agent" },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          email: true,
+          avatar: true,
+          city: true,
+          verified: true,
+          metadata: true,
+        },
+      });
+      if (!agent) return null;
+      return { ...agent, ...((agent.metadata as Record<string, unknown>) ?? {}) };
+    }),
 
   getTeamMembers: adminProcedure.query(async () => {
     const teamMembers = await prisma.user.findMany({

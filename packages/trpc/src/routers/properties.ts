@@ -238,6 +238,35 @@ export const propertiesRouter = router({
       const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, ...rest } =
         input;
 
+      // Server-side state-specific RERA validation (mirrors apps/web/src/lib/rera.ts)
+      if (input.rera) {
+        const CITY_STATE: Record<string, string> = {
+          Mumbai: "Maharashtra", Pune: "Maharashtra", Bengaluru: "Karnataka",
+          Hyderabad: "Telangana", Chennai: "Tamil Nadu", "Delhi NCR": "Delhi",
+          Noida: "Uttar Pradesh", Gurgaon: "Haryana", Ahmedabad: "Gujarat",
+          Surat: "Gujarat", Kolkata: "West Bengal", Kochi: "Kerala",
+          Jaipur: "Rajasthan", Lucknow: "Uttar Pradesh",
+        };
+        const STATE_PATTERNS: Record<string, RegExp> = {
+          Maharashtra: /^P\d{11}$/, Karnataka: /^PRM\/KA\/RERA\//i,
+          Telangana: /^P024\d{8}$/, Delhi: /^DLRERA\d{4}[A-Z]\d{4}$/,
+          "Uttar Pradesh": /^UPRERAPRJ\d{7}$/, Haryana: /^GGM\//i,
+          "Tamil Nadu": /^TN\/29\//i, "West Bengal": /^WBRERA\//i,
+          Rajasthan: /^RAJ\//i, Kerala: /^K-RERA\//i, Gujarat: /^PR\/GJ\//i,
+          "Andhra Pradesh": /^AP\//i,
+        };
+        const stateName = CITY_STATE[city] ?? "";
+        const pattern = STATE_PATTERNS[stateName] ?? /^[A-Za-z0-9\/\-]+$/;
+        if (!pattern.test(input.rera.trim())) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: stateName && STATE_PATTERNS[stateName]
+              ? `Invalid RERA format for ${stateName}. Check your state RERA portal.`
+              : "Invalid RERA registration number format",
+          });
+        }
+      }
+
       const slug = generateSlug(input.title, city);
 
       const property = await prisma.property.create({

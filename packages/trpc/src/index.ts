@@ -15,6 +15,7 @@ import { propertyViewsRouter } from "./routers/propertyViews.js";
 import { buildersRouter } from "./routers/builders.js";
 import { listingsRouter } from "./routers/listings.js";
 import { mediaRouter } from "./routers/media.js";
+import { campaignsRouter } from "./routers/campaigns.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -33,6 +34,7 @@ export const appRouter = router({
   propertyViews: propertyViewsRouter,
   listings: listingsRouter,
   media: mediaRouter,
+  campaigns: campaignsRouter,
 });
 
 export type AppRouter = typeof appRouter;
