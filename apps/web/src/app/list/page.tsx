@@ -369,6 +369,44 @@ export default function ListPropertyPage() {
     );
   }
 
+  if (!session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-5">
+        <div className="mx-auto max-w-md rounded-3xl border border-border bg-white p-10 text-center shadow-sm">
+          <Building2 className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
+          <h2 className="font-display text-xl font-black text-navy">Sign in to list your property</h2>
+          <p className="mt-2 text-sm text-muted-foreground">You need a Home Seller account to list a property on NxtSft.</p>
+          <div className="mt-6 flex flex-col gap-3">
+            <Link href="/login" className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white transition hover:opacity-90">
+              Sign In
+            </Link>
+            <Link href="/register" className="rounded-xl border border-border px-6 py-3 text-sm font-semibold text-navy transition hover:bg-secondary">
+              Register as Home Seller
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (session.role !== "home-seller") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-5">
+        <div className="mx-auto max-w-md rounded-3xl border border-border bg-white p-10 text-center shadow-sm">
+          <Building2 className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
+          <h2 className="font-display text-xl font-black text-navy">Home Sellers only</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Property listings are for Home Seller accounts. If you want to list your property,
+            register as a Home Seller.
+          </p>
+          <Link href="/register" className="mt-6 inline-block rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white transition hover:opacity-90">
+            Register as Home Seller
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // ── Wizard ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
