@@ -5,7 +5,7 @@ export const ROLES = {
   SALES: "sales",
   SUPPORT_ADMIN: "support-admin",
   USER: "user",
-  CUSTOMER: "customer",
+  HOME_SELLER: "home-seller",
 } as const;
 
 export const PROPERTY_TYPES = [

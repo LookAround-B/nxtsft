@@ -180,7 +180,7 @@ async function main() {
       email: "ananya@example.com",
       phone: "9100000002",
       name: "Ananya Gupta",
-      role: "customer",
+      role: "home-seller",
       city: "Delhi",
       verified: true,
       credits: 3,
