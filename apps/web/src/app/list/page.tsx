@@ -13,6 +13,7 @@ import {
   ArrowRight,
   ClipboardList,
   User,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -413,6 +414,14 @@ export default function ListPropertyPage() {
       {/* Step progress bar */}
       <div className="border-b border-border bg-white">
         <div className="mx-auto max-w-2xl px-4 py-5 sm:px-6">
+          <div className="mb-4 flex justify-end">
+            <Link
+              href="/list/bulk"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
+            >
+              <Upload size={13} /> Bulk upload multiple
+            </Link>
+          </div>
           <div className="flex items-center">
             {STEPS.map((s, i) => (
               <div key={s.num} className="flex flex-1 items-center">

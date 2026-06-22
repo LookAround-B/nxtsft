@@ -56,6 +56,37 @@ function generateSlug(title: string, city: string) {
   return `${base}-${Date.now()}`;
 }
 
+// Server-side state-specific RERA validation (mirrors apps/web/src/lib/rera.ts).
+// Shared by single create and bulk create. Throws BAD_REQUEST on mismatch.
+function assertReraValid(city: string, rera: string | undefined) {
+  if (!rera) return;
+  const CITY_STATE: Record<string, string> = {
+    Mumbai: "Maharashtra", Pune: "Maharashtra", Bengaluru: "Karnataka",
+    Hyderabad: "Telangana", Chennai: "Tamil Nadu", "Delhi NCR": "Delhi",
+    Noida: "Uttar Pradesh", Gurgaon: "Haryana", Ahmedabad: "Gujarat",
+    Surat: "Gujarat", Kolkata: "West Bengal", Kochi: "Kerala",
+    Jaipur: "Rajasthan", Lucknow: "Uttar Pradesh",
+  };
+  const STATE_PATTERNS: Record<string, RegExp> = {
+    Maharashtra: /^P\d{11}$/, Karnataka: /^PRM\/KA\/RERA\//i,
+    Telangana: /^P024\d{8}$/, Delhi: /^DLRERA\d{4}[A-Z]\d{4}$/,
+    "Uttar Pradesh": /^UPRERAPRJ\d{7}$/, Haryana: /^GGM\//i,
+    "Tamil Nadu": /^TN\/29\//i, "West Bengal": /^WBRERA\//i,
+    Rajasthan: /^RAJ\//i, Kerala: /^K-RERA\//i, Gujarat: /^PR\/GJ\//i,
+    "Andhra Pradesh": /^AP\//i,
+  };
+  const stateName = CITY_STATE[city] ?? "";
+  const pattern = STATE_PATTERNS[stateName] ?? /^[A-Za-z0-9\/\-]+$/;
+  if (!pattern.test(rera.trim())) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: stateName && STATE_PATTERNS[stateName]
+        ? `Invalid RERA format for ${stateName}. Check your state RERA portal.`
+        : "Invalid RERA registration number format",
+    });
+  }
+}
+
 export const propertiesRouter = router({
   // Browse properties — public, cursor-paginated
   list: publicProcedure
@@ -239,34 +270,7 @@ export const propertiesRouter = router({
       const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, ...rest } =
         input;
 
-      // Server-side state-specific RERA validation (mirrors apps/web/src/lib/rera.ts)
-      if (input.rera) {
-        const CITY_STATE: Record<string, string> = {
-          Mumbai: "Maharashtra", Pune: "Maharashtra", Bengaluru: "Karnataka",
-          Hyderabad: "Telangana", Chennai: "Tamil Nadu", "Delhi NCR": "Delhi",
-          Noida: "Uttar Pradesh", Gurgaon: "Haryana", Ahmedabad: "Gujarat",
-          Surat: "Gujarat", Kolkata: "West Bengal", Kochi: "Kerala",
-          Jaipur: "Rajasthan", Lucknow: "Uttar Pradesh",
-        };
-        const STATE_PATTERNS: Record<string, RegExp> = {
-          Maharashtra: /^P\d{11}$/, Karnataka: /^PRM\/KA\/RERA\//i,
-          Telangana: /^P024\d{8}$/, Delhi: /^DLRERA\d{4}[A-Z]\d{4}$/,
-          "Uttar Pradesh": /^UPRERAPRJ\d{7}$/, Haryana: /^GGM\//i,
-          "Tamil Nadu": /^TN\/29\//i, "West Bengal": /^WBRERA\//i,
-          Rajasthan: /^RAJ\//i, Kerala: /^K-RERA\//i, Gujarat: /^PR\/GJ\//i,
-          "Andhra Pradesh": /^AP\//i,
-        };
-        const stateName = CITY_STATE[city] ?? "";
-        const pattern = STATE_PATTERNS[stateName] ?? /^[A-Za-z0-9\/\-]+$/;
-        if (!pattern.test(input.rera.trim())) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: stateName && STATE_PATTERNS[stateName]
-              ? `Invalid RERA format for ${stateName}. Check your state RERA portal.`
-              : "Invalid RERA registration number format",
-          });
-        }
-      }
+      assertReraValid(city, input.rera);
 
       const slug = generateSlug(input.title, city);
 
@@ -286,6 +290,86 @@ export const propertiesRouter = router({
       });
 
       return serializeProperty(property);
+    }),
+
+  // Bulk-create listings from a parsed spreadsheet (home sellers). Each listing
+  // is created with status "Pending" and stays hidden from buyers until an admin
+  // approves it. Rows are validated individually so one bad row doesn't sink the
+  // batch — the result reports per-row errors (row numbers are 1-based incl. the
+  // header, matching the uploaded sheet). Photos are added later per listing.
+  bulkCreate: protectedProcedure
+    .input(z.object({ rows: z.array(z.unknown()).min(1).max(500) }))
+    .mutation(async ({ input, ctx }) => {
+      // Numbers may arrive as strings from CSV cells — coerce them.
+      const rowSchema = z.object({
+        title: safeString(200, 10),
+        description: descriptionSchema.optional(),
+        type: propertyTypeSchema,
+        purpose: purposeSchema,
+        price: z.coerce.number().int().positive().max(999_999_999_999),
+        area: z.coerce.number().int().positive().max(9_999_999),
+        bhk: safeString(20).optional(),
+        bedrooms: z.coerce.number().int().min(0).max(50).default(0),
+        bathrooms: z.coerce.number().int().min(0).max(50).default(0),
+        furnishing: furnishingSchema.optional(),
+        rera: reraSchema,
+        city: geoTextSchema,
+        state: geoTextSchema,
+        locality: geoTextSchema,
+        address: safeString(500).optional(),
+        zipCode: safeString(6).optional(),
+      });
+
+      const errors: { row: number; message: string }[] = [];
+      let created = 0;
+
+      for (let i = 0; i < input.rows.length; i++) {
+        const sheetRow = i + 2; // +1 for 0-index, +1 for the header row
+        const parsed = rowSchema.safeParse(input.rows[i]);
+        if (!parsed.success) {
+          errors.push({ row: sheetRow, message: parsed.error.issues[0]?.message ?? "Invalid row" });
+          continue;
+        }
+        const d = parsed.data;
+        try {
+          assertReraValid(d.city, d.rera);
+          await prisma.property.create({
+            data: {
+              title: d.title,
+              description: d.description,
+              type: d.type,
+              purpose: d.purpose,
+              bhk: d.bhk,
+              bedrooms: d.bedrooms,
+              bathrooms: d.bathrooms,
+              furnishing: d.furnishing,
+              rera: d.rera,
+              slug: generateSlug(d.title, d.city),
+              price: BigInt(d.price),
+              pricePerSqft: Math.round(d.price / d.area),
+              area: d.area,
+              status: "Pending",
+              ownerId: ctx.user.id,
+              location: {
+                create: {
+                  city: d.city,
+                  state: d.state,
+                  locality: d.locality,
+                  address: d.address,
+                  zipCode: d.zipCode,
+                  latitude: 0,
+                  longitude: 0,
+                },
+              },
+            },
+          });
+          created++;
+        } catch (e) {
+          errors.push({ row: sheetRow, message: e instanceof TRPCError ? e.message : "Failed to create listing" });
+        }
+      }
+
+      return { received: input.rows.length, created, failed: errors.length, errors: errors.slice(0, 100) };
     }),
 
   // Update own property (or admin overriding)
@@ -321,6 +405,15 @@ export const propertiesRouter = router({
       const isOwner = property.ownerId === ctx.user.id;
       const isAdmin = ["admin", "super-admin"].includes(ctx.user.role);
       if (!isOwner && !isAdmin) throw new TRPCError({ code: "FORBIDDEN" });
+
+      // A pending listing can only change status via admin approval — owners
+      // must not self-approve their way out of review.
+      if (input.status && property.status === "Pending" && !isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Pending listings require admin approval before going live.",
+        });
+      }
 
       const priceUpdate = price !== undefined ? { price: BigInt(price) } : {};
       const sqftUpdate = price !== undefined && area !== undefined ? { pricePerSqft: Math.round(price / area) } : {};

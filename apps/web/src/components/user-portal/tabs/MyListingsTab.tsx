@@ -60,12 +60,20 @@ export function MyListingsTab() {
       <Section
         title={items.length ? `${items.length} listing${items.length > 1 ? "s" : ""}` : "Listings"}
         action={
-          <Link
-            href="/list"
-            className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
-          >
-            + Post Another
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/list/bulk"
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
+            >
+              Bulk upload
+            </Link>
+            <Link
+              href="/list"
+              className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
+            >
+              + Post Another
+            </Link>
+          </div>
         }
       >
         {listingsQ.isLoading ? (

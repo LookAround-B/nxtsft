@@ -193,8 +193,8 @@ export const propertyTypeSchema = z.enum([
 /** Purpose enum */
 export const purposeSchema = z.enum(["Sale", "Rent"]);
 
-/** Property status enum */
-export const propertyStatusSchema = z.enum(["Active", "Sold", "Rented", "Inactive"]);
+/** Property status enum. "Pending" = awaiting admin review (e.g. bulk-uploaded). */
+export const propertyStatusSchema = z.enum(["Active", "Pending", "Sold", "Rented", "Inactive"]);
 
 /** Furnishing enum */
 export const furnishingSchema = z.enum(["Furnished", "Semi-Furnished", "Unfurnished"]);
