@@ -196,7 +196,7 @@ function CopyLinkBox({ referralCode }: { referralCode: string }) {
         Your referral link
       </div>
       <div className="flex gap-2">
-        <div className="flex-1 truncate rounded-xl border border-border bg-secondary/40 px-4 py-2.5 font-mono text-sm text-foreground/70">
+        <div className="min-w-0 flex-1 truncate rounded-xl border border-border bg-secondary/40 px-4 py-2.5 font-mono text-sm text-foreground/70">
           {link}
         </div>
         <button
@@ -263,7 +263,7 @@ export default function ReferPage() {
   const ActiveEarnIcon = EARN_PATHS[activeEarn].icon;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen overflow-x-hidden bg-background">
 
       {/* ── Hero ──────────────────────────────────────────────────── */}
       <section
@@ -279,10 +279,10 @@ export default function ReferPage() {
           }}
         />
 
-        <div className="relative z-10 mx-auto max-w-6xl px-6 py-20 sm:py-24">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-24">
           <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
             {/* Left */}
-            <div>
+            <div className="min-w-0">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-white/80 backdrop-blur-sm">
                 <Gift size={12} />
                 Refer &amp; Earn — NxtSft.com
@@ -334,8 +334,8 @@ export default function ReferPage() {
             </div>
 
             {/* Right — social proof card */}
-            <div>
-              <div className="rounded-3xl border border-white/15 bg-white/10 p-8 backdrop-blur-md">
+            <div className="min-w-0">
+              <div className="rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-md sm:p-8">
                 <div className="mb-6 text-[11px] font-bold uppercase tracking-widest text-white/50">
                   Top referrers this month
                 </div>
@@ -379,7 +379,7 @@ export default function ReferPage() {
       </section>
 
       {/* ── Ways to earn ──────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="mb-2 text-xs font-bold uppercase tracking-widest text-accent">
           Earn in 3 ways
         </div>
@@ -412,7 +412,7 @@ export default function ReferPage() {
 
         {/* Active earn path detail */}
         <div
-          className={`mt-6 rounded-3xl border-2 p-8 transition-all ${EARN_PATHS[activeEarn].bgLight}`}
+          className={`mt-6 rounded-3xl border-2 p-5 transition-all sm:p-8 ${EARN_PATHS[activeEarn].bgLight}`}
         >
           <div className="grid gap-8 md:grid-cols-2">
             <div>
@@ -470,22 +470,22 @@ export default function ReferPage() {
 
       {/* ── Reward table ──────────────────────────────────────────── */}
       <section className="border-y border-border bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-16">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
           <div className="mb-2 text-xs font-bold uppercase tracking-widest text-accent">
             Payout schedule
           </div>
           <h2 className="font-display text-3xl font-black text-navy sm:text-4xl">What you earn</h2>
-          <div className="mt-8 overflow-hidden rounded-2xl border border-border">
-            <table className="w-full text-sm">
+          <div className="mt-8 overflow-x-auto rounded-2xl border border-border">
+            <table className="w-full min-w-[480px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/40">
-                  <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                  <th className="px-4 py-3.5 sm:px-6 sm:py-4 text-left text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                     Referral type
                   </th>
-                  <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                  <th className="px-4 py-3.5 sm:px-6 sm:py-4 text-left text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                     Reward
                   </th>
-                  <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                  <th className="px-4 py-3.5 sm:px-6 sm:py-4 text-left text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                     Condition
                   </th>
                 </tr>
@@ -496,15 +496,15 @@ export default function ReferPage() {
                     key={r.label}
                     className={`border-b border-border last:border-0 transition hover:bg-secondary/30 ${r.highlight ? "bg-accent/4" : ""}`}
                   >
-                    <td className="px-6 py-4 font-medium text-navy">{r.label}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3.5 sm:px-6 sm:py-4 font-medium text-navy">{r.label}</td>
+                    <td className="px-4 py-3.5 sm:px-6 sm:py-4">
                       <span
                         className={`font-display text-xl font-black ${r.highlight ? "text-accent" : "text-navy"}`}
                       >
                         {r.amount}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-muted-foreground">{r.condition}</td>
+                    <td className="px-4 py-3.5 sm:px-6 sm:py-4 text-muted-foreground">{r.condition}</td>
                   </tr>
                 ))}
               </tbody>
@@ -518,7 +518,7 @@ export default function ReferPage() {
       </section>
 
       {/* ── How to redeem ─────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="mb-2 text-xs font-bold uppercase tracking-widest text-accent">
           Redemption
         </div>
@@ -575,7 +575,7 @@ export default function ReferPage() {
 
       {/* ── Supported cities ──────────────────────────────────────── */}
       <section className="border-y border-border bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-14">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
           <div className="mb-2 text-xs font-bold uppercase tracking-widest text-accent">
             Available in
           </div>
@@ -603,7 +603,7 @@ export default function ReferPage() {
       </section>
 
       {/* ── FAQ ───────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-3xl px-6 py-16">
+      <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="mb-2 text-xs font-bold uppercase tracking-widest text-accent">
           Common questions
         </div>
@@ -619,7 +619,7 @@ export default function ReferPage() {
 
       {/* ── T&C summary ───────────────────────────────────────────── */}
       <section className="border-t border-border bg-secondary/30">
-        <div className="mx-auto max-w-4xl px-6 py-10">
+        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
           <div className="mb-3 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
             Programme Terms &amp; Conditions
           </div>
@@ -657,7 +657,7 @@ export default function ReferPage() {
               backgroundSize: "20px 20px",
             }}
           />
-          <div className="relative z-10 mx-auto max-w-3xl px-6 py-20 text-center">
+          <div className="relative z-10 mx-auto max-w-3xl px-4 py-14 text-center sm:px-6 sm:py-20">
             <div className="font-display text-3xl font-black text-white sm:text-4xl">
               Start earning today.
               <br />

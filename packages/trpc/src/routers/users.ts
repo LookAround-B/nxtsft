@@ -376,7 +376,7 @@ export const usersRouter = router({
   }),
 
   getAgent: publicProcedure
-    .input(z.object({ slug: z.string() }))
+    .input(z.object({ slug: z.string().min(1).max(120).regex(/^[a-z0-9-]+$/, "Invalid slug") }))
     .query(async ({ input }) => {
       const agent = await prisma.user.findFirst({
         where: { slug: input.slug, role: "agent" },

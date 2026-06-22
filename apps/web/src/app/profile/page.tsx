@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { ROLE_META, useAuth, type Role } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 /* ── per-role quick actions ─────────────────────────────────────── */
 const roleActions: Record<Role, Array<{ label: string; to: string; Icon: LucideIcon }>> = {
@@ -488,7 +489,9 @@ export default function ProfilePage() {
                 </h2>
               </div>
               {activityQ.isLoading ? (
-                <p className="px-6 py-6 text-sm text-muted-foreground">Loading activity…</p>
+                <div className="px-6 py-5">
+                  <ListSkeleton rows={4} />
+                </div>
               ) : (activityQ.data?.length ?? 0) === 0 ? (
                 <p className="px-6 py-6 text-sm text-muted-foreground">No recent activity yet.</p>
               ) : (

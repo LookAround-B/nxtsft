@@ -1,5 +1,5 @@
 "use client";
-import { useState, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { SafeImage } from "@/components/ui/SafeImage";
@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   BadgeCheck,
+  Check,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { CardGridSkeleton } from "@/components/ui/skeleton";
@@ -174,6 +175,102 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   );
 }
 
+function FilterSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: readonly string[];
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const select = (v: string) => {
+    onChange(v);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+          value
+            ? "border-accent bg-accent text-white"
+            : "border-border bg-white text-foreground/70 hover:border-accent/40"
+        }`}
+      >
+        {value || placeholder}
+        <ChevronDown
+          size={12}
+          className={`transition-transform ${open ? "rotate-180" : ""} ${value ? "text-white" : "text-muted-foreground"}`}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 top-full z-40 mt-2 max-h-64 w-44 overflow-y-auto rounded-2xl border border-border bg-white p-1.5 shadow-xl shadow-black/5"
+        >
+          <button
+            type="button"
+            role="option"
+            aria-selected={!value}
+            onClick={() => select("")}
+            className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${
+              !value ? "bg-accent/10 text-accent" : "text-foreground/70 hover:bg-secondary"
+            }`}
+          >
+            {placeholder}
+            {!value && <Check size={13} className="text-accent" />}
+          </button>
+          {options.map((opt) => {
+            const active = value === opt;
+            return (
+              <button
+                key={opt}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => select(opt)}
+                className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${
+                  active ? "bg-accent/10 text-accent" : "text-foreground/70 hover:bg-secondary"
+                }`}
+              >
+                {opt}
+                {active && <Check size={13} className="text-accent" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PropertiesInner() {
   const searchParams = useSearchParams();
 
@@ -266,29 +363,19 @@ function PropertiesInner() {
                 />
               ))}
 
-              <div className="relative">
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className={`appearance-none cursor-pointer rounded-full border px-3.5 py-1.5 pr-7 text-xs font-semibold transition ${type ? "border-accent bg-accent text-white" : "border-border bg-white text-foreground/70"}`}
-                >
-                  <option value="">Property Type</option>
-                  {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <ChevronDown size={12} className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 ${type ? "text-white" : "text-muted-foreground"}`} />
-              </div>
+              <FilterSelect
+                value={type}
+                onChange={setType}
+                options={PROPERTY_TYPES}
+                placeholder="Property Type"
+              />
 
-              <div className="relative">
-                <select
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className={`appearance-none cursor-pointer rounded-full border px-3.5 py-1.5 pr-7 text-xs font-semibold transition ${city ? "border-accent bg-accent text-white" : "border-border bg-white text-foreground/70"}`}
-                >
-                  <option value="">All Cities</option>
-                  {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <ChevronDown size={12} className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 ${city ? "text-white" : "text-muted-foreground"}`} />
-              </div>
+              <FilterSelect
+                value={city}
+                onChange={setCity}
+                options={CITIES}
+                placeholder="All Cities"
+              />
 
               {BHKS.map((b) => (
                 <FilterChip

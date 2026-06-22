@@ -80,6 +80,7 @@ type FormData = {
   locality: string;
   price: string;
   area: string;
+  builtUpArea: string;
   bhk: string;
   title: string;
   description: string;
@@ -99,6 +100,7 @@ const EMPTY: FormData = {
   locality: "",
   price: "",
   area: "",
+  builtUpArea: "",
   bhk: "",
   title: "",
   description: "",
@@ -263,6 +265,7 @@ export default function ListPropertyPage() {
           purpose: data.purpose,
           price: parseInt(data.price) || 0,
           area: parseInt(data.area) || 0,
+          builtUpArea: data.builtUpArea ? parseInt(data.builtUpArea) || undefined : undefined,
           bhk: data.bhk || undefined,
           bedrooms: parseBedrooms(data.bhk),
           city: data.city,
@@ -565,7 +568,9 @@ export default function ListPropertyPage() {
                   {errors.price && <p className="mt-1 text-xs text-rose-500">{errors.price}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-foreground">Area (sqft)</label>
+                  <label className="block text-sm font-semibold text-foreground">
+                    Super Built-up Area (sqft)
+                  </label>
                   <input
                     type="number"
                     value={data.area}
@@ -574,6 +579,18 @@ export default function ListPropertyPage() {
                     className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.area ? "border-rose-400" : "border-input"}`}
                   />
                   {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground">
+                    Built-up Area (sqft)
+                  </label>
+                  <input
+                    type="number"
+                    value={data.builtUpArea}
+                    onChange={(e) => set("builtUpArea", e.target.value)}
+                    placeholder="e.g. 1080"
+                    className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                  />
                 </div>
               </div>
 

@@ -337,7 +337,7 @@ export const superAdminRouter = router({
   }),
 
   deployModel: superAdminProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .mutation(async ({ input }) => {
       return prisma.modelVersion.update({
         where: { id: input.id },
@@ -346,7 +346,7 @@ export const superAdminRouter = router({
     }),
 
   rollbackModel: superAdminProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .mutation(async ({ input }) => {
       return prisma.modelVersion.update({
         where: { id: input.id },
@@ -386,7 +386,7 @@ export const superAdminRouter = router({
     }),
 
   publishCmsPage: superAdminProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: cuidSchema }))
     .mutation(async ({ input }) => {
       return prisma.cmsPage.update({
         where: { id: input.id },

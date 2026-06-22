@@ -261,7 +261,7 @@ export const authRouter = router({
     return { ok: true };
   }),
 
-  me: protectedProcedure.query(async ({ ctx }) => {
-    return safeUser(ctx.user);
+  me: publicProcedure.query(async ({ ctx }) => {
+    return ctx.user ? safeUser(ctx.user) : null;
   }),
 });

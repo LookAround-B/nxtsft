@@ -1,7 +1,7 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, adminProcedure } from "../server.js";
-import { safeString } from "../sanitize.js";
+import { safeString, cuidSchema } from "../sanitize.js";
 
 export const campaignsRouter = router({
   list: adminProcedure.query(async () => {
@@ -42,7 +42,7 @@ export const campaignsRouter = router({
   updateStatus: adminProcedure
     .input(
       z.object({
-        id: z.string(),
+        id: cuidSchema,
         status: z.enum(["draft", "scheduled", "active", "paused", "completed"]),
       }),
     )

@@ -28,6 +28,7 @@ import { PropertyMapWrapper as PropertyMap } from "@/components/map/PropertyMapW
 import { GalleryLightbox } from "@/components/ui/GalleryLightbox";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 function formatPrice(price: number): string {
@@ -47,6 +48,7 @@ type FullProperty = {
   price: number;
   pricePerSqft: number;
   area: number;
+  builtUpArea: number | null;
   bedrooms: number;
   bathrooms: number;
   balconies: number;
@@ -290,12 +292,52 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-7xl px-5 py-12 sm:px-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-80 rounded-2xl bg-secondary" />
-            <div className="h-8 w-64 rounded bg-secondary" />
-            <div className="h-4 w-48 rounded bg-secondary" />
+      <div className="min-h-screen bg-[oklch(0.97_0.01_260)]">
+        <div className="border-b border-border bg-white/80 backdrop-blur-sm">
+          <div className="mx-auto max-w-7xl px-5 py-3 sm:px-6">
+            <Skeleton className="h-3 w-56 rounded" />
+          </div>
+        </div>
+        <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6">
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Left: gallery + detail cards */}
+            <div className="space-y-6 lg:col-span-2">
+              <Skeleton className="h-72 w-full rounded-2xl sm:h-96" />
+              <div className="rounded-2xl border border-border bg-white p-6">
+                <Skeleton className="mb-4 h-6 w-40 rounded" />
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border bg-white p-6">
+                <Skeleton className="mb-3 h-6 w-48 rounded" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full rounded" />
+                  <Skeleton className="h-4 w-11/12 rounded" />
+                  <Skeleton className="h-4 w-3/4 rounded" />
+                </div>
+              </div>
+            </div>
+            {/* Right: owner/action card */}
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-border bg-white p-6">
+                <Skeleton className="h-8 w-36 rounded" />
+                <Skeleton className="mt-3 h-4 w-28 rounded" />
+                <Skeleton className="mt-6 h-11 w-full rounded-xl" />
+                <Skeleton className="mt-3 h-11 w-full rounded-xl" />
+              </div>
+              <div className="rounded-2xl border border-border bg-white p-6">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-2/3 rounded" />
+                    <Skeleton className="h-3 w-1/2 rounded" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -521,9 +563,16 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                 )}
                 <SpecItem
                   icon={<SquareStack size={18} />}
-                  label="Area"
+                  label="Super Built-up Area"
                   value={`${property.area.toLocaleString()} sq.ft`}
                 />
+                {property.builtUpArea != null && property.builtUpArea > 0 && (
+                  <SpecItem
+                    icon={<SquareStack size={18} />}
+                    label="Built-up Area"
+                    value={`${property.builtUpArea.toLocaleString()} sq.ft`}
+                  />
+                )}
                 {property.parking > 0 && (
                   <SpecItem
                     icon={<Car size={18} />}

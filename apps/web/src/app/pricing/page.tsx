@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ownerRentalPlans, ownerSellPlans } from "@/data/static";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
+import { Skeleton } from "@/components/ui/skeleton";
 import { OwnerPlanCard } from "@/components/pricing/OwnerPlanCard";
 import { SeekerPlanCard, type SeekerPlan } from "@/components/pricing/SeekerPlanCard";
 import { ResellerPlanCard } from "@/components/pricing/ResellerPlanCard";
@@ -205,8 +206,18 @@ export default function PricingPage() {
                 ? Array.from({ length: 3 }).map((_, i) => (
                     <div
                       key={i}
-                      className="h-72 animate-pulse rounded-2xl border border-border bg-white"
-                    />
+                      className="space-y-4 rounded-2xl border border-border bg-white p-6"
+                    >
+                      <Skeleton className="h-5 w-24 rounded" />
+                      <Skeleton className="h-9 w-32 rounded" />
+                      <Skeleton className="h-3 w-40 rounded" />
+                      <div className="space-y-2 pt-2">
+                        <Skeleton className="h-3 w-full rounded" />
+                        <Skeleton className="h-3 w-5/6 rounded" />
+                        <Skeleton className="h-3 w-4/6 rounded" />
+                      </div>
+                      <Skeleton className="h-11 w-full rounded-xl" />
+                    </div>
                   ))
                 : dbSeekerPlans.map((plan) => (
                     <div

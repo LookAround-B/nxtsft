@@ -406,7 +406,7 @@ export function ReportsDashboard({
             No records match the selected filters.
           </p>
         ) : (
-          <table className="portal-table">
+          <div className="overflow-x-auto"><table className="portal-table">
             <thead>
               <tr>
                 <th className="py-2">ID</th>
@@ -442,7 +442,7 @@ export function ReportsDashboard({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </RptSection>
 
@@ -493,7 +493,7 @@ export function ReportsDashboard({
             No records match the selected filters.
           </p>
         ) : (
-          <table className="portal-table">
+          <div className="overflow-x-auto"><table className="portal-table">
             <thead>
               <tr>
                 <th className="py-2">ID</th>
@@ -542,7 +542,7 @@ export function ReportsDashboard({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </RptSection>
 
@@ -587,7 +587,7 @@ export function ReportsDashboard({
             No records match the selected filters.
           </p>
         ) : (
-          <table className="portal-table">
+          <div className="overflow-x-auto"><table className="portal-table">
             <thead>
               <tr>
                 <th className="py-2">ID</th>
@@ -632,7 +632,7 @@ export function ReportsDashboard({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </RptSection>
 
@@ -653,7 +653,7 @@ export function ReportsDashboard({
             No records match the selected filters.
           </p>
         ) : (
-          <table className="portal-table">
+          <div className="overflow-x-auto"><table className="portal-table">
             <thead>
               <tr>
                 <th className="py-2">ID</th>
@@ -686,7 +686,7 @@ export function ReportsDashboard({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </RptSection>
 
@@ -737,7 +737,7 @@ export function ReportsDashboard({
             No records match the selected filters.
           </p>
         ) : (
-          <table className="portal-table">
+          <div className="overflow-x-auto"><table className="portal-table">
             <thead>
               <tr>
                 <th className="py-2">ID</th>
@@ -794,7 +794,7 @@ export function ReportsDashboard({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </RptSection>
     </div>
