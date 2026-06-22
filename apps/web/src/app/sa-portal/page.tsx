@@ -14,6 +14,17 @@ import {
   CreditCard,
   Users2,
   PackageOpen,
+  Inbox,
+  LayoutGrid,
+  Target,
+  Kanban,
+  Building2,
+  ReceiptText,
+  Eye,
+  BellRing,
+  Megaphone,
+  Building,
+  Wallet,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -33,6 +44,18 @@ import { PermissionsTab } from "@/components/sa-portal/tabs/PermissionsTab";
 import { PlansManagerTab } from "@/components/sa-portal/tabs/PlansManagerTab";
 import { SupportTicketsTab } from "@/components/sa-portal/tabs/SupportTicketsTab";
 import { ReportsTab } from "@/components/sa-portal/tabs/ReportsTab";
+// Operational tabs surfaced from the admin portal so super-admin gets the full superset.
+import { OperationsTab } from "@/components/admin-portal/tabs/OperationsTab";
+import { EnquiriesTab } from "@/components/admin-portal/tabs/EnquiriesTab";
+import { LeadsTab } from "@/components/admin-portal/tabs/LeadsTab";
+import { CRMTab } from "@/components/admin-portal/tabs/CRMTab";
+import { ListingsTab } from "@/components/admin-portal/tabs/ListingsTab";
+import { SubscriptionsTab } from "@/components/admin-portal/tabs/SubscriptionsTab";
+import { ViewsTab } from "@/components/admin-portal/tabs/ViewsTab";
+import { AlertsTab } from "@/components/admin-portal/tabs/AlertsTab";
+import { MarketingTab } from "@/components/admin-portal/tabs/MarketingTab";
+import { DevTab } from "@/components/admin-portal/tabs/DevTab";
+import { CommissionsTab } from "@/components/admin-portal/tabs/CommissionsTab";
 
 const nav = [
   { label: "Command Dashboard", to: "/sa-portal", icon: <LayoutDashboard size={14} /> },
@@ -50,6 +73,18 @@ const nav = [
   { label: "Plans Manager", to: "/sa-portal#plans", icon: <PackageOpen size={14} /> },
   { label: "Support Tickets", to: "/sa-portal#tickets", icon: <FileText size={14} /> },
   { label: "Reports", to: "/sa-portal#reports", icon: <FileText size={14} /> },
+  // ── Operations (superset of the admin portal) ──
+  { label: "Operations", to: "/sa-portal#operations", icon: <LayoutGrid size={14} /> },
+  { label: "Contact Enquiries", to: "/sa-portal#enquiries", icon: <Inbox size={14} /> },
+  { label: "Lead Management", to: "/sa-portal#leads", icon: <Target size={14} /> },
+  { label: "CRM Pipeline", to: "/sa-portal#crm", icon: <Kanban size={14} /> },
+  { label: "Listings", to: "/sa-portal#listings", icon: <Building2 size={14} /> },
+  { label: "Subscriptions", to: "/sa-portal#subscriptions", icon: <ReceiptText size={14} /> },
+  { label: "Property Views", to: "/sa-portal#views", icon: <Eye size={14} /> },
+  { label: "Click Alerts", to: "/sa-portal#alerts", icon: <BellRing size={14} /> },
+  { label: "Marketing", to: "/sa-portal#marketing", icon: <Megaphone size={14} /> },
+  { label: "Developers", to: "/sa-portal#developers", icon: <Building size={14} /> },
+  { label: "Commissions", to: "/sa-portal#commissions", icon: <Wallet size={14} /> },
 ];
 
 function renderTab(hash: string) {
@@ -82,6 +117,29 @@ function renderTab(hash: string) {
       return <SupportTicketsTab />;
     case "reports":
       return <ReportsTab />;
+    // Operations superset (shared with the admin portal)
+    case "operations":
+      return <OperationsTab />;
+    case "enquiries":
+      return <EnquiriesTab />;
+    case "leads":
+      return <LeadsTab />;
+    case "crm":
+      return <CRMTab />;
+    case "listings":
+      return <ListingsTab />;
+    case "subscriptions":
+      return <SubscriptionsTab />;
+    case "views":
+      return <ViewsTab />;
+    case "alerts":
+      return <AlertsTab />;
+    case "marketing":
+      return <MarketingTab />;
+    case "developers":
+      return <DevTab />;
+    case "commissions":
+      return <CommissionsTab />;
     default:
       return <Dashboard />;
   }

@@ -348,7 +348,7 @@ export default function ProfilePage() {
                   <div className="text-[10px] font-bold uppercase tracking-widest text-white/50">
                     {label}
                   </div>
-                  <div className="mt-1.5 font-display text-2xl font-black text-white sm:text-3xl">
+                  <div className="mt-1.5 font-display text-xl font-black text-white sm:text-2xl md:text-3xl">
                     {value}
                   </div>
                   {sub && <div className="mt-1 text-[11px] text-white/45">{sub}</div>}
@@ -366,7 +366,7 @@ export default function ProfilePage() {
           <div className="space-y-5 lg:col-span-2">
             {/* Account details */}
             <div className="rounded-2xl border border-border bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-border px-6 py-5">
+              <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-5">
                 <h2 className="font-display text-lg font-bold text-navy">Account Details</h2>
                 <button
                   onClick={() => (editing ? saveProfile() : setEditing(true))}
@@ -377,7 +377,7 @@ export default function ProfilePage() {
                 </button>
               </div>
 
-              <div className="px-6 py-6">
+              <div className="px-4 sm:px-6 py-6">
                 {/* Contact section */}
                 <div className="mb-6">
                   <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">
@@ -402,9 +402,9 @@ export default function ProfilePage() {
                       <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
                         Email
                       </label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-navy">{session.email}</span>
-                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[8px] font-bold text-emerald-700">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium text-navy truncate">{session.email}</span>
+                        <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[8px] font-bold text-emerald-700">
                           Verified
                         </span>
                       </div>
@@ -461,7 +461,7 @@ export default function ProfilePage() {
               </div>
 
               {editing && (
-                <div className="border-t border-border px-6 py-4 flex gap-2">
+                <div className="border-t border-border px-4 sm:px-6 py-4 flex gap-2">
                   <button
                     onClick={saveProfile}
                     className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90"
@@ -483,23 +483,23 @@ export default function ProfilePage() {
 
             {/* Activity */}
             <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-              <div className="border-b border-border px-6 py-5">
+              <div className="border-b border-border px-4 sm:px-6 py-5">
                 <h2 className="font-display text-sm font-bold text-navy uppercase tracking-wide">
                   Recent Activity
                 </h2>
               </div>
               {activityQ.isLoading ? (
-                <div className="px-6 py-5">
+                <div className="px-4 sm:px-6 py-5">
                   <ListSkeleton rows={4} />
                 </div>
               ) : (activityQ.data?.length ?? 0) === 0 ? (
-                <p className="px-6 py-6 text-sm text-muted-foreground">No recent activity yet.</p>
+                <p className="px-4 sm:px-6 py-6 text-sm text-muted-foreground">No recent activity yet.</p>
               ) : (
                 <ul className="divide-y divide-border">
                   {activityQ.data!.map((a) => (
                     <li
                       key={a.id}
-                      className="relative flex items-start gap-4 px-6 py-4 first:pt-0 last:pb-0"
+                      className="relative flex items-start gap-4 px-4 sm:px-6 py-4 first:pt-0 last:pb-0"
                     >
                       <span
                         className={`relative mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white ${activityDot(a.action)}`}
@@ -578,20 +578,6 @@ export default function ProfilePage() {
                 ))}
               </div>
             </div>
-
-            {/* Switch role */}
-            <div className="rounded-2xl border border-border bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm text-center">
-              <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
-                Switch Role
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">Try another role and workspace.</p>
-              <Link
-                href="/admin-login"
-                className="inline-flex items-center gap-2 rounded-lg border border-accent bg-white px-4 py-2 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white"
-              >
-                Change role <ChevronRight size={13} />
-              </Link>
-            </div>
           </aside>
         </div>
       </div>
@@ -654,12 +640,12 @@ function SecurityPanel() {
     new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
   return (
-    <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
+    <div className="rounded-2xl border border-border bg-white p-4 shadow-sm sm:p-6">
       <h2 className="font-display text-base font-bold text-navy">Security</h2>
       <div className="mt-4 space-y-2">
         {/* Password */}
-        <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3">
-          <div className="flex items-center gap-3">
+        <div className="rounded-xl border border-border bg-secondary/30 px-3 py-3 sm:px-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white shadow-sm">
               <Shield size={14} className="text-accent" />
             </div>
@@ -671,7 +657,7 @@ function SecurityPanel() {
             </div>
             <button
               onClick={() => setShowPw((v) => !v)}
-              className="shrink-0 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white"
+              className="shrink-0 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white sm:px-3"
             >
               {showPw ? "Close" : "Change"}
             </button>
@@ -706,7 +692,7 @@ function SecurityPanel() {
         </div>
 
         {/* Two-factor */}
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-4 py-3">
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/30 px-3 py-3 sm:gap-3 sm:px-4">
           <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white shadow-sm">
             <Smartphone size={14} className="text-accent" />
           </div>
@@ -721,19 +707,18 @@ function SecurityPanel() {
           <button
             onClick={() => toggle2FA.mutate({ enabled: !twoFA })}
             disabled={toggle2FA.isPending || meQ.isLoading}
-            className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
-              twoFA
-                ? "border-border bg-white text-rose-600 hover:bg-rose-50"
-                : "border-accent bg-accent text-white hover:opacity-90"
-            }`}
+            className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition disabled:opacity-50 sm:px-3 ${twoFA
+              ? "border-border bg-white text-rose-600 hover:bg-rose-50"
+              : "border-accent bg-accent text-white hover:opacity-90"
+              }`}
           >
             {twoFA ? "Disable" : "Enable"}
           </button>
         </div>
 
         {/* Active sessions */}
-        <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3">
-          <div className="flex items-center gap-3">
+        <div className="rounded-xl border border-border bg-secondary/30 px-3 py-3 sm:px-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white shadow-sm">
               <Clock size={14} className="text-accent" />
             </div>
@@ -747,7 +732,7 @@ function SecurityPanel() {
             </div>
             <button
               onClick={() => setShowSessions((v) => !v)}
-              className="shrink-0 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white"
+              className="shrink-0 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent hover:text-white sm:px-3"
             >
               {showSessions ? "Hide" : "Review"}
             </button>

@@ -205,6 +205,9 @@ export const leadStatusSchema = z.enum(["Hot", "Warm", "Cold", "New", "Converted
 /** Lead source enum */
 export const leadSourceSchema = z.enum(["Portal", "WhatsApp", "Referral", "Direct"]);
 
+/** Enquiry (contact-form) status enum */
+export const enquiryStatusSchema = z.enum(["New", "In Progress", "Resolved", "Closed"]);
+
 /** Ticket category enum */
 export const ticketCategorySchema = z.enum(["payment", "property", "agent", "technical", "other"]);
 

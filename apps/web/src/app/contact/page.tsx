@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Mail, Phone, MapPin, Clock, Send, CheckCircle2 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 const CONTACTS = [
   {
@@ -40,7 +41,17 @@ export default function ContactPage() {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Partial<FormState>>({});
   const [sent, setSent] = useState(false);
-  const [sending, setSending] = useState(false);
+
+  const submitMutation = trpc.contact.submit.useMutation({
+    onSuccess: () => {
+      setSent(true);
+      toast.success("Enquiry sent! We'll reach out within 24 hours.");
+    },
+    onError: (err) => {
+      toast.error(err.message || "Couldn't send your enquiry. Please try again.");
+    },
+  });
+  const sending = submitMutation.isPending;
 
   const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -55,13 +66,15 @@ export default function ContactPage() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSend = async () => {
+  const handleSend = () => {
     if (!validate()) return;
-    setSending(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setSending(false);
-    setSent(true);
-    toast.success("Enquiry sent! We'll reach out within 24 hours.");
+    submitMutation.mutate({
+      name: form.name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim() || undefined,
+      city: form.city.trim() || undefined,
+      message: form.message.trim(),
+    });
   };
 
   return (

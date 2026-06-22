@@ -23,6 +23,7 @@ model User {
   role         String   @default("user") // super-admin | admin | supervisor | sales | support-admin | user | customer
   verified     Boolean  @default(false)
   verifiedAt   DateTime?
+  kycStatus    String   @default("none") // none | pending | verified | rejected
 
   city         String
   state        String?
@@ -51,6 +52,8 @@ model User {
   propertyViews PropertyView[] @relation("UserPropertyViews")
   campaigns    Campaign[]
   cmsPages     CmsPage[]
+  kycDocuments KycDocument[] @relation("UserKycDocuments")
+  enquiriesHandled Enquiry[] @relation("EnquiryHandler")
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -234,6 +237,53 @@ model Lead {
   @@index([userId])
   @@index([assignedToId])
   @@index([status])
+}
+
+// KYC document uploads awaiting staff review. Mirrors the live DB table that
+// predates this schema file (added directly to the database).
+model KycDocument {
+  id           String   @id @default(cuid())
+
+  userId       String
+  user         User     @relation("UserKycDocuments", fields: [userId], references: [id], onDelete: Cascade)
+
+  type         String   // aadhaar | pan | passport | ...
+  fileUrl      String
+  status       String   @default("pending") // pending | verified | rejected
+  adminNotes   String?
+  reviewedAt   DateTime?
+  reviewedById String?  // staff userId (no FK in DB)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// General contact-form enquiries from the public site. Unlike Lead, these are
+// not tied to a property or an authenticated user — anyone can submit one.
+model Enquiry {
+  id          String   @id @default(cuid())
+
+  name        String
+  email       String
+  phone       String?
+  city        String?
+  message     String
+
+  source      String   @default("Website") // Website | Phone | Email
+  status      String   @default("New")      // New | In Progress | Resolved | Closed
+
+  // Staff member who picked it up (optional until someone responds).
+  handledById String?
+  handledBy   User?    @relation("EnquiryHandler", fields: [handledById], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 // Wishlist / "liked" — explicit join with a timestamp so engagement is time-ordered.

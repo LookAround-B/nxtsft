@@ -92,7 +92,7 @@ export function ProfileTab() {
 
       {/* Basic Info */}
       <Section title="Personal Information">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">
               Full Name
@@ -146,7 +146,7 @@ export function ProfileTab() {
             }
           }}
           disabled={updateProfileMutation.isPending}
-          className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+          className="mt-4 w-full sm:w-auto rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
         >
           {updateProfileMutation.isPending ? "Saving…" : "Save Changes"}
         </button>
@@ -154,7 +154,7 @@ export function ProfileTab() {
 
       {/* Property Preferences */}
       <Section title="Property Preferences">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">
               Budget Range
@@ -203,7 +203,7 @@ export function ProfileTab() {
         </div>
         <button
           onClick={() => toast.success("Preferences saved")}
-          className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
+          className="mt-4 w-full sm:w-auto rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
         >
           Save Preferences
         </button>
@@ -225,7 +225,7 @@ export function ProfileTab() {
 
       {/* Change Password */}
       <Section title="Change Password">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground">
               Current Password
@@ -278,7 +278,7 @@ export function ProfileTab() {
             setNewPwd("");
             setConfPwd("");
           }}
-          className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
+          className="mt-4 w-full sm:w-auto rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
         >
           Update Password
         </button>
@@ -291,7 +291,7 @@ export function ProfileTab() {
         </p>
         <button
           onClick={handleDownloadCSV}
-          className="flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-semibold hover:border-accent hover:text-accent transition-colors"
+          className="flex w-full sm:w-auto items-center justify-center sm:justify-start gap-2 rounded-md border border-border px-4 py-2 text-sm font-semibold hover:border-accent hover:text-accent transition-colors"
         >
           <Download size={14} /> Download my data
         </button>

@@ -242,8 +242,8 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="gradient-border mt-6 rounded-2xl bg-white p-6 shadow-sm border-l-2 border-l-accent/0 hover:border-l-accent/40 transition-all duration-200">
-      <div className="mb-5 flex items-center justify-between">
+    <section className="gradient-border mt-6 rounded-2xl bg-white p-4 sm:p-6 shadow-sm border-l-2 border-l-accent/0 hover:border-l-accent/40 transition-all duration-200">
+      <div className="mb-4 sm:mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
         <h3 className="font-display text-base font-bold text-navy">{title}</h3>
         {action}
       </div>

@@ -14,6 +14,7 @@ import {
   ReceiptText,
   Eye,
   PackageOpen,
+  Inbox,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -32,9 +33,11 @@ import { DevTab } from "@/components/admin-portal/tabs/DevTab";
 import { ReportsTab } from "@/components/admin-portal/tabs/ReportsTab";
 import { AdminPlansTab } from "@/components/admin-portal/tabs/AdminPlansTab";
 import { CommissionsTab } from "@/components/admin-portal/tabs/CommissionsTab";
+import { EnquiriesTab } from "@/components/admin-portal/tabs/EnquiriesTab";
 
 const nav = [
   { label: "Operations", to: "/admin-portal", icon: <LayoutDashboard size={14} /> },
+  { label: "Contact Enquiries", to: "/admin-portal#enquiries", icon: <Inbox size={14} /> },
   { label: "Team Management", to: "/admin-portal#team", icon: <Users size={14} /> },
   { label: "Listings", to: "/admin-portal#listings", icon: <Building2 size={14} /> },
   { label: "Lead Management", to: "/admin-portal#leads", icon: <Target size={14} /> },
@@ -51,6 +54,7 @@ const nav = [
 
 function renderTab(hash: string) {
   switch (hash) {
+    case "enquiries":     return <EnquiriesTab />;
     case "team":          return <TeamTab />;
     case "listings":      return <ListingsTab />;
     case "leads":         return <LeadsTab />;
