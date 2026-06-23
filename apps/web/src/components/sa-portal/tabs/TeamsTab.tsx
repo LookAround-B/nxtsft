@@ -2,156 +2,68 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
-import { teamMembers } from "@/data/static";
+import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { TabHeader } from "./shared";
 
-const allUsers: Array<{
+type TeamMember = {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   role: string;
-  portal: string;
   city: string;
-  status: "Active" | "Invited" | "Suspended";
-  last: string;
-}> = [
-  ...teamMembers.map((m) => ({
-    id: m.id,
-    name: m.name,
-    email: `${m.name.toLowerCase().replace(/\s+/, ".")}@nxtsft.com`,
-    role: m.role,
-    portal: "Sales Portal",
-    city: m.city,
-    status: "Active" as const,
-    last: "2h ago",
-  })),
-  {
-    id: "U-25",
-    name: "Aarav Khanna",
-    email: "aarav.khanna@nxtsft.com",
-    role: "Super Admin",
-    portal: "Command",
-    city: "Mumbai",
-    status: "Active",
-    last: "now",
-  },
-  {
-    id: "U-26",
-    name: "Meera Iyer",
-    email: "meera.iyer@nxtsft.com",
-    role: "Admin",
-    portal: "Admin Portal",
-    city: "Bengaluru",
-    status: "Active",
-    last: "12m ago",
-  },
-  {
-    id: "U-27",
-    name: "Rohit Nair",
-    email: "rohit.nair@nxtsft.com",
-    role: "Supervisor",
-    portal: "Supervisor",
-    city: "Hyderabad",
-    status: "Suspended",
-    last: "4d ago",
-  },
-  {
-    id: "U-28",
-    name: "Sneha Pillai",
-    email: "sneha.pillai@nxtsft.com",
-    role: "Sales Rep",
-    portal: "Sales Portal",
-    city: "Chennai",
-    status: "Invited",
-    last: "—",
-  },
-  {
-    id: "U-29",
-    name: "Rahul Verma",
-    email: "rahul.verma@nxtsft.com",
-    role: "Admin",
-    portal: "Admin Portal",
-    city: "Delhi",
-    status: "Active",
-    last: "1h ago",
-  },
-  {
-    id: "U-30",
-    name: "Pooja Desai",
-    email: "pooja.desai@nxtsft.com",
-    role: "Sales Rep",
-    portal: "Sales Portal",
-    city: "Pune",
-    status: "Active",
-    last: "3h ago",
-  },
-  {
-    id: "U-31",
-    name: "Arjun Shah",
-    email: "arjun.shah@nxtsft.com",
-    role: "Supervisor",
-    portal: "Supervisor",
-    city: "Mumbai",
-    status: "Active",
-    last: "45m ago",
-  },
-  {
-    id: "U-32",
-    name: "Nisha Kapoor",
-    email: "nisha.kapoor@nxtsft.com",
-    role: "Sales Rep",
-    portal: "Sales Portal",
-    city: "Bengaluru",
-    status: "Active",
-    last: "6h ago",
-  },
-  {
-    id: "U-33",
-    name: "Vivek Malhotra",
-    email: "vivek.malhotra@nxtsft.com",
-    role: "Sales Rep",
-    portal: "Sales Portal",
-    city: "Hyderabad",
-    status: "Invited",
-    last: "—",
-  },
-  {
-    id: "U-34",
-    name: "Preeti Singh",
-    email: "preeti.singh@nxtsft.com",
-    role: "Admin",
-    portal: "Admin Portal",
-    city: "Chennai",
-    status: "Active",
-    last: "2d ago",
-  },
-  {
-    id: "U-35",
-    name: "Manish Tiwari",
-    email: "manish.tiwari@nxtsft.com",
-    role: "Supervisor",
-    portal: "Supervisor",
-    city: "Pune",
-    status: "Suspended",
-    last: "1w ago",
-  },
-];
+  verified: boolean;
+  joined: string;
+};
+
+const STAFF_ROLES = ["admin", "supervisor", "sales", "support-admin"] as const;
+type StaffRole = (typeof STAFF_ROLES)[number];
+
+const ROLE_LABEL: Record<string, string> = {
+  "super-admin": "Super Admin",
+  admin: "Admin",
+  supervisor: "Supervisor",
+  sales: "Sales Rep",
+  "support-admin": "Support Admin",
+};
+
+const ROLE_PORTAL: Record<string, string> = {
+  "super-admin": "Command",
+  admin: "Admin Portal",
+  supervisor: "Supervisor",
+  sales: "Sales Portal",
+  "support-admin": "Support",
+};
+
+const fmtJoined = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+const emptyForm = { name: "", email: "", phone: "", password: "", role: "sales" as StaffRole, city: "" };
 
 export function TeamsTab() {
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState(emptyForm);
 
-  const filtered = allUsers.filter(
-    (u) =>
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.role.toLowerCase().includes(search.toLowerCase()),
-  );
+  const membersQ = trpc.admin.teamMembers.useQuery({ search: search || undefined });
+  const members = (membersQ.data ?? []) as unknown as TeamMember[];
 
-  const total = allUsers.length;
-  const active = allUsers.filter((u) => u.status === "Active").length;
-  const invited = allUsers.filter((u) => u.status === "Invited").length;
-  const suspended = allUsers.filter((u) => u.status === "Suspended").length;
+  const createMember = trpc.admin.createTeamMember.useMutation({
+    onSuccess: () => {
+      membersQ.refetch();
+      setShowAdd(false);
+      setForm(emptyForm);
+      toast.success("Member added and account created!");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const total = members.length;
+  const active = members.filter((m) => m.verified).length;
+  const pending = members.filter((m) => !m.verified).length;
+  const admins = members.filter((m) => m.role === "admin" || m.role === "super-admin").length;
 
   return (
     <>
@@ -170,9 +82,9 @@ export function TeamsTab() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Total Staff" value={String(total)} sub="across all portals" />
-        <StatCard label="Active" value={String(active)} sub="↑ currently online" />
-        <StatCard label="Invited" value={String(invited)} sub="pending acceptance" />
-        <StatCard label="Suspended" value={String(suspended)} accent="text-amber-600" />
+        <StatCard label="Active" value={String(active)} sub="verified accounts" />
+        <StatCard label="Pending" value={String(pending)} sub="awaiting verification" accent={pending > 0 ? "text-amber-600" : undefined} />
+        <StatCard label="Admins" value={String(admins)} />
       </div>
 
       <Section
@@ -180,7 +92,7 @@ export function TeamsTab() {
         action={
           <div className="flex items-center gap-3">
             <input
-              placeholder="Search name or role…"
+              placeholder="Search name, email or phone…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
@@ -189,16 +101,17 @@ export function TeamsTab() {
               onClick={() =>
                 downloadCSV(
                   "team-directory.csv",
-                  ["ID", "Name", "Email", "Role", "Portal", "City", "Last Active", "Status"],
-                  allUsers.map((u) => [
-                    u.id,
-                    u.name,
-                    u.email,
-                    u.role,
-                    u.portal,
-                    u.city,
-                    u.last,
-                    u.status,
+                  ["ID", "Name", "Email", "Phone", "Role", "Portal", "City", "Joined", "Status"],
+                  members.map((m) => [
+                    m.id,
+                    m.name,
+                    m.email,
+                    m.phone ?? "",
+                    ROLE_LABEL[m.role] ?? m.role,
+                    ROLE_PORTAL[m.role] ?? "—",
+                    m.city,
+                    fmtJoined(m.joined),
+                    m.verified ? "Active" : "Pending",
                   ]),
                 )
               }
@@ -209,65 +122,44 @@ export function TeamsTab() {
           </div>
         }
       >
-        <div className="overflow-x-auto">
-          <table className="portal-table">
-            <thead>
-              <tr>
-                <th className="py-2">ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Portal</th>
-                <th>City</th>
-                <th>Last Active</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((u) => (
-                <tr key={u.id}>
-                  <td className="font-mono text-xs">{u.id}</td>
-                  <td className="font-semibold text-navy">{u.name}</td>
-                  <td className="text-xs text-muted-foreground">{u.email}</td>
-                  <td className="text-xs">{u.role}</td>
-                  <td className="text-xs text-muted-foreground">{u.portal}</td>
-                  <td className="text-xs">{u.city}</td>
-                  <td className="text-xs text-muted-foreground">{u.last}</td>
-                  <td>
-                    <Badge
-                      tone={
-                        u.status === "Active"
-                          ? "success"
-                          : u.status === "Suspended"
-                            ? "warm"
-                            : "new"
-                      }
-                    >
-                      {u.status}
-                    </Badge>
-                  </td>
-                  <td className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => toast(`Editing ${u.name}…`)}
-                        className="text-xs font-semibold text-accent hover:underline"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => toast.success(`${u.name} suspended`)}
-                        className="text-xs font-semibold text-amber-600 hover:underline"
-                      >
-                        Suspend
-                      </button>
-                    </div>
-                  </td>
+        {membersQ.isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading staff…</p>
+        ) : members.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No staff match this search.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="portal-table">
+              <thead>
+                <tr>
+                  <th className="py-2">Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Portal</th>
+                  <th>City</th>
+                  <th>Joined</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {members.map((m) => (
+                  <tr key={m.id}>
+                    <td className="font-semibold text-navy">{m.name}</td>
+                    <td className="text-xs text-muted-foreground">{m.email}</td>
+                    <td className="text-xs">{ROLE_LABEL[m.role] ?? m.role}</td>
+                    <td className="text-xs text-muted-foreground">{ROLE_PORTAL[m.role] ?? "—"}</td>
+                    <td className="text-xs">{m.city}</td>
+                    <td className="text-xs text-muted-foreground">{fmtJoined(m.joined)}</td>
+                    <td>
+                      <Badge tone={m.verified ? "success" : "warm"}>
+                        {m.verified ? "Active" : "Pending"}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Section>
 
       {showAdd && (
@@ -284,30 +176,49 @@ export function TeamsTab() {
             </div>
             <h3 className="font-display text-xl font-bold text-navy">Add Team Member</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Assign portal access and role for the new member.
+              Creates a verified staff account with portal access for the chosen role.
             </p>
             <div className="mt-5 space-y-3">
               <input
                 placeholder="Full name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
               />
               <input
                 type="email"
                 placeholder="Work email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
               />
-              <select className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm">
-                <option>Sales Rep</option>
-                <option>Supervisor</option>
-                <option>Admin</option>
-              </select>
-              <select className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm">
-                <option>Sales Portal</option>
-                <option>Supervisor Portal</option>
-                <option>Admin Portal</option>
-              </select>
+              <input
+                placeholder="Phone (10-digit mobile)"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+              />
+              <input
+                type="password"
+                placeholder="Temporary password (min 8 chars)"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+              />
+              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as StaffRole })}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAFF_ROLES.map((r) => (
+                    <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <input
                 placeholder="City"
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
               />
             </div>
@@ -319,13 +230,11 @@ export function TeamsTab() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setShowAdd(false);
-                  toast.success("Member added and invite sent!");
-                }}
-                className="rounded-xl bg-gold px-4 py-2 text-sm font-bold text-navy-deep hover:opacity-90"
+                onClick={() => createMember.mutate(form)}
+                disabled={createMember.isPending}
+                className="rounded-xl bg-gold px-4 py-2 text-sm font-bold text-navy-deep hover:opacity-90 disabled:opacity-50"
               >
-                Add Member →
+                {createMember.isPending ? "Adding…" : "Add Member →"}
               </button>
             </div>
           </div>

@@ -1,6 +1,4 @@
 "use client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Target,
@@ -13,6 +11,7 @@ import { Activity as ActivityIcon, Calendar as CalendarIcon } from "lucide-react
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
+import { usePortalGuard } from "@/lib/use-portal-guard";
 import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
 import { DashboardTab } from "@/components/supervisor-portal/tabs/DashboardTab";
 import { TeamLeadsTab } from "@/components/supervisor-portal/tabs/TeamLeadsTab";
@@ -35,14 +34,10 @@ const nav = [
 
 export default function SupervisorPortal() {
   const { session } = useAuth();
-  const router = useRouter();
   const hash = useActiveHash();
+  const ready = usePortalGuard();
 
-  useEffect(() => {
-    if (session !== undefined && !session) router.push("/admin-login");
-  }, [session, router]);
-
-  if (!session) return null;
+  if (!ready || !session) return null;
   const user = { name: session.name, initials: session.initials };
 
   return (

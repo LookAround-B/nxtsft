@@ -1,6 +1,4 @@
 "use client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   Heart,
   Building2,
@@ -16,6 +14,7 @@ import { Home as HomeIcon } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
+import { usePortalGuard } from "@/lib/use-portal-guard";
 import { OverviewDashboard } from "@/components/user-portal/tabs/OverviewDashboard";
 import { SavedTab } from "@/components/user-portal/tabs/SavedTab";
 import { MyListingsTab } from "@/components/user-portal/tabs/MyListingsTab";
@@ -29,14 +28,10 @@ import { KYCTab } from "@/components/user-portal/tabs/KYCTab";
 
 export default function UserPortal() {
   const { session } = useAuth();
-  const router = useRouter();
   const h = useActiveHash();
+  const ready = usePortalGuard();
 
-  useEffect(() => {
-    if (!session) router.push("/login");
-  }, [session, router]);
-
-  if (!session) return null;
+  if (!ready || !session) return null;
 
   const isSeller = session.role === "home-seller";
   const nav = [

@@ -97,6 +97,15 @@ export const superAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
   return next();
 });
 
+const SUPERVISOR_ROLES = ["supervisor", "super-admin"] as const;
+
+export const supervisorProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!SUPERVISOR_ROLES.includes(ctx.user.role as (typeof SUPERVISOR_ROLES)[number])) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Supervisor access only." });
+  }
+  return next();
+});
+
 // ─── Rate Limiting ─────────────────────────────────────────────────────────
 
 interface RateLimitEntry {

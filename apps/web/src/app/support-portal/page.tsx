@@ -1,6 +1,4 @@
 "use client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Ticket,
@@ -12,6 +10,7 @@ import {
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
+import { usePortalGuard } from "@/lib/use-portal-guard";
 import { DashboardTab } from "@/components/support-portal/tabs/DashboardTab";
 import { QueueTab } from "@/components/support-portal/tabs/QueueTab";
 import { EscalationsTab } from "@/components/support-portal/tabs/EscalationsTab";
@@ -30,14 +29,10 @@ const nav = [
 
 export default function SupportPortal() {
   const { session } = useAuth();
-  const router = useRouter();
   const hash = useActiveHash();
+  const ready = usePortalGuard();
 
-  useEffect(() => {
-    if (session !== undefined && !session) router.push("/admin-login");
-  }, [session, router]);
-
-  if (!session) return null;
+  if (!ready || !session) return null;
   const user = { name: session.name, initials: session.initials };
 
   return (

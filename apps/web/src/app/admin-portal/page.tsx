@@ -1,5 +1,4 @@
 "use client";
-import { useEffect } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -21,7 +20,7 @@ import {
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
-import { useRouter } from "next/navigation";
+import { usePortalGuard } from "@/lib/use-portal-guard";
 import { OperationsTab } from "@/components/admin-portal/tabs/OperationsTab";
 import { TeamTab } from "@/components/admin-portal/tabs/TeamTab";
 import { ListingsTab } from "@/components/admin-portal/tabs/ListingsTab";
@@ -81,14 +80,10 @@ function renderTab(hash: string) {
 
 export default function AdminPortal() {
   const { session } = useAuth();
-  const router = useRouter();
   const hash = useActiveHash();
+  const ready = usePortalGuard();
 
-  useEffect(() => {
-    if (session !== undefined && !session) router.push("/admin-login");
-  }, [session, router]);
-
-  if (!session) return null;
+  if (!ready || !session) return null;
 
   const user = { name: session.name, initials: session.initials };
 

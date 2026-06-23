@@ -1,6 +1,4 @@
 "use client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   Target,
   FileText,
@@ -14,6 +12,7 @@ import {
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
+import { usePortalGuard } from "@/lib/use-portal-guard";
 import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
 import { MyLeadsTab } from "@/components/sales-portal/tabs/MyLeadsTab";
 import { DetailTab } from "@/components/sales-portal/tabs/DetailTab";
@@ -36,14 +35,10 @@ const nav = [
 
 export default function SalesPortal() {
   const { session } = useAuth();
-  const router = useRouter();
   const h = useActiveHash();
+  const ready = usePortalGuard();
 
-  useEffect(() => {
-    if (session !== undefined && !session) router.push("/admin-login");
-  }, [session, router]);
-
-  if (!session) return null;
+  if (!ready || !session) return null;
   const user = { name: session.name, initials: session.initials };
 
   return (

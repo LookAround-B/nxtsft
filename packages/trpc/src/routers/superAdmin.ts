@@ -28,6 +28,21 @@ const permissionMatrixSchema = z
 
 type PermissionMatrix = z.infer<typeof permissionMatrixSchema>;
 
+// Platform config: on/off state for feature flags and integrations, keyed by
+// the canonical keys the frontend owns. Bounded to keep the persisted JSON small.
+const platformConfigSchema = z.object({
+  flags: z.record(z.string().max(60), z.boolean()).refine(
+    (m) => Object.keys(m).length <= 100,
+    "Too many flags",
+  ),
+  integrations: z.record(z.string().max(60), z.boolean()).refine(
+    (m) => Object.keys(m).length <= 100,
+    "Too many integrations",
+  ),
+});
+
+type PlatformConfig = z.infer<typeof platformConfigSchema>;
+
 export const superAdminRouter = router({
   stats: superAdminProcedure.query(async () => {
     const [
@@ -256,6 +271,37 @@ export const superAdminRouter = router({
           entity: "PermissionMatrix",
           entityId: "system",
           changes: { matrix: input.matrix },
+        },
+      });
+    }),
+
+  // Platform configuration (feature flags + integration toggles). Stored as a
+  // config snapshot in AuditLog (entity "PlatformConfig"), same pattern as IP
+  // rules / policy config / permission matrix. The frontend owns the canonical
+  // flag/integration definitions (keys, labels, env tags); this just persists
+  // the on/off state keyed by those keys.
+  getPlatformConfig: superAdminProcedure.query(async () => {
+    const logs = await prisma.auditLog.findMany({
+      where: { entity: "PlatformConfig" },
+      orderBy: { createdAt: "desc" },
+      take: 1,
+    });
+    const log = logs[0];
+    if (!log) return { config: null as PlatformConfig | null, updatedAt: null as string | null };
+    const changes = log.changes as { config?: PlatformConfig } | null;
+    return { config: changes?.config ?? null, updatedAt: log.createdAt.toISOString() };
+  }),
+
+  updatePlatformConfig: superAdminProcedure
+    .input(z.object({ config: platformConfigSchema }))
+    .mutation(async ({ input, ctx }) => {
+      return prisma.auditLog.create({
+        data: {
+          userId: ctx.user.id,
+          action: "update_platform_config",
+          entity: "PlatformConfig",
+          entityId: "system",
+          changes: { config: input.config },
         },
       });
     }),

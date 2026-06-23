@@ -11,6 +11,7 @@ import { siteVisitsRouter } from "./routers/siteVisits.js";
 import { searchAlertsRouter } from "./routers/searchAlerts.js";
 import { reviewsRouter } from "./routers/reviews.js";
 import { superAdminRouter } from "./routers/superAdmin.js";
+import { supervisorRouter } from "./routers/supervisor.js";
 import { propertyViewsRouter } from "./routers/propertyViews.js";
 import { buildersRouter } from "./routers/builders.js";
 import { listingsRouter } from "./routers/listings.js";
@@ -32,6 +33,7 @@ export const appRouter = router({
   searchAlerts: searchAlertsRouter,
   reviews: reviewsRouter,
   superAdmin: superAdminRouter,
+  supervisor: supervisorRouter,
   propertyViews: propertyViewsRouter,
   listings: listingsRouter,
   media: mediaRouter,
