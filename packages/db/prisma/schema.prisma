@@ -54,6 +54,8 @@ model User {
   cmsPages     CmsPage[]
   kycDocuments KycDocument[] @relation("UserKycDocuments")
   enquiriesHandled Enquiry[] @relation("EnquiryHandler")
+  commissions  Commission[]  @relation("SalesRepCommissions")
+  salesActivities SalesActivity[] @relation("SalesRepActivities")
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -237,6 +239,41 @@ model Lead {
   @@index([userId])
   @@index([assignedToId])
   @@index([status])
+}
+
+// Commission entries auto-created when a lead is marked Converted.
+model Commission {
+  id          String   @id @default(cuid())
+  salesRepId  String
+  salesRep    User     @relation("SalesRepCommissions", fields: [salesRepId], references: [id])
+  leadId      String?
+  dealValue   BigInt   // in rupees
+  rate        Float    @default(0.02)
+  amount      BigInt   // in rupees = dealValue * rate
+  status      String   @default("pending") // pending | cleared
+  periodMonth String?  // "2026-06" for grouping by month
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([salesRepId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Sales rep activity log: calls, visits, notes on leads.
+model SalesActivity {
+  id         String   @id @default(cuid())
+  salesRepId String
+  salesRep   User     @relation("SalesRepActivities", fields: [salesRepId], references: [id])
+  type       String   // call | visit | note
+  leadId     String?
+  action     String
+  outcome    String
+  createdAt  DateTime @default(now())
+
+  @@index([salesRepId])
+  @@index([createdAt])
 }
 
 // KYC document uploads awaiting staff review. Mirrors the live DB table that

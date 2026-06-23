@@ -126,10 +126,35 @@ export const leadsRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       }
 
-      return prisma.lead.update({
+      const updated = await prisma.lead.update({
         where: { id: input.id },
         data: { status: input.status },
       });
+
+      // Auto-create commission when a lead is closed as Converted
+      if (input.status === "Converted" && lead.assignedToId && lead.value) {
+        const alreadyExists = await prisma.commission.findFirst({ where: { leadId: lead.id } });
+        if (!alreadyExists) {
+          const dealValue = BigInt(lead.value);
+          const rate = 0.02;
+          const amount = BigInt(Math.round(Number(dealValue) * rate));
+          const now = new Date();
+          const periodMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+          await prisma.commission.create({
+            data: {
+              salesRepId: lead.assignedToId,
+              leadId: lead.id,
+              dealValue,
+              rate,
+              amount,
+              status: "pending",
+              periodMonth,
+            },
+          });
+        }
+      }
+
+      return updated;
     }),
 
   addNote: staffProcedure
@@ -202,6 +227,88 @@ export const leadsRouter = router({
       });
 
       return visit;
+    }),
+
+  myCommissions: staffProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+    const commissions = await prisma.commission.findMany({
+      where: { salesRepId: ctx.user.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+
+    const pending = commissions.filter((c) => c.status === "pending").reduce((s, c) => s + Number(c.amount), 0);
+    const mtd = commissions.filter((c) => c.createdAt >= startOfMonth).reduce((s, c) => s + Number(c.amount), 0);
+    const ytd = commissions.filter((c) => c.createdAt >= startOfYear).reduce((s, c) => s + Number(c.amount), 0);
+
+    const user = await prisma.user.findUnique({ where: { id: ctx.user.id }, select: { kycStatus: true } });
+
+    return {
+      pending,
+      mtd,
+      ytd,
+      kycPending: user?.kycStatus !== "verified",
+      items: commissions.map((c) => ({
+        id: c.id,
+        leadId: c.leadId,
+        dealValue: Number(c.dealValue),
+        amount: Number(c.amount),
+        status: c.status,
+        periodMonth: c.periodMonth,
+        note: c.note,
+        createdAt: c.createdAt.toISOString(),
+      })),
+    };
+  }),
+
+  logActivity: staffProcedure
+    .input(
+      z.object({
+        type: z.enum(["call", "visit", "note"]),
+        leadId: cuidSchema.optional(),
+        action: safeString(500, 1),
+        outcome: safeString(500, 1),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      return prisma.salesActivity.create({
+        data: {
+          salesRepId: ctx.user.id,
+          type: input.type,
+          leadId: input.leadId,
+          action: input.action,
+          outcome: input.outcome,
+        },
+      });
+    }),
+
+  myActivities: staffProcedure
+    .input(z.object({ cursor: cursorSchema, limit: limitSchema }))
+    .query(async ({ input, ctx }) => {
+      const { cursor, limit } = input;
+      const items = await prisma.salesActivity.findMany({
+        where: { salesRepId: ctx.user.id },
+        orderBy: { createdAt: "desc" },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      const hasMore = items.length > limit;
+      const page = hasMore ? items.slice(0, limit) : items;
+      return {
+        items: page.map((a) => ({
+          id: a.id,
+          type: a.type,
+          leadId: a.leadId,
+          action: a.action,
+          outcome: a.outcome,
+          ts: a.createdAt.toISOString(),
+        })),
+        nextCursor: page.at(-1)?.id ?? null,
+        hasMore,
+      };
     }),
 
   bulkAssign: staffProcedure

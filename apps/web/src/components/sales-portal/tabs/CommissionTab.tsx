@@ -1,24 +1,26 @@
 "use client";
 import { StatCard, Section } from "@/components/portal/PortalShell";
 import { Head, Field } from "./shared";
+import { trpc } from "@/lib/trpc";
+
+function fmt(rupees: number): string {
+  if (rupees >= 10_00_000) return `₹${(rupees / 10_00_000).toFixed(2)} L`;
+  if (rupees >= 1_000) return `₹${(rupees / 1_000).toFixed(0)}K`;
+  return `₹${rupees.toLocaleString("en-IN")}`;
+}
 
 export function CommissionTab() {
-  const rows: [string, string, string][] = [
-    ["L-1019 Closed", "₹62L deal", "₹1.24L"],
-    ["L-1011 Closed", "₹38L deal", "₹76K"],
-    ["L-1007 Closed", "₹45L deal", "₹90K"],
-  ];
+  const { data, isLoading } = trpc.leads.myCommissions.useQuery();
 
-  const ytdEarned = 14.4;
-  const ytdTarget = 20;
+  const ytdTarget = 20_00_000; // ₹20L target
+  const ytdEarned = data?.ytd ?? 0;
   const progressPct = Math.min(100, Math.round((ytdEarned / ytdTarget) * 100));
-  const pendingKYC = true;
 
   return (
     <>
       <Head t="My Commission" s="Payouts & history." />
 
-      {pendingKYC && (
+      {data?.kycPending && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
           <span>⚠️</span>
           <span>Pending KYC — complete your KYC to receive payouts without delay.</span>
@@ -26,19 +28,29 @@ export function CommissionTab() {
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Pending Payout" value="₹1.24 L" sub="Clears 5th" accent="text-accent" />
-        <StatCard label="Earned MTD" value="₹2.18 L" sub="+₹48K wk" />
-        <StatCard label="YTD" value="₹14.4 L" sub="+₹3.1L vs LY" />
+        <StatCard
+          label="Pending Payout"
+          value={isLoading ? "…" : fmt(data?.pending ?? 0)}
+          sub="awaiting clearance"
+          accent="text-accent"
+        />
+        <StatCard
+          label="Earned MTD"
+          value={isLoading ? "…" : fmt(data?.mtd ?? 0)}
+          sub="this month"
+        />
+        <StatCard
+          label="YTD"
+          value={isLoading ? "…" : fmt(data?.ytd ?? 0)}
+          sub="year to date"
+        />
       </div>
 
-      {/* YTD progress bar */}
       <Section title="YTD Target Achievement">
         <div className="space-y-2">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>₹{ytdEarned}L earned</span>
-            <span>
-              {progressPct}% of ₹{ytdTarget}L target
-            </span>
+            <span>{fmt(ytdEarned)} earned</span>
+            <span>{progressPct}% of {fmt(ytdTarget)} target</span>
           </div>
           <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
             <div
@@ -47,30 +59,43 @@ export function CommissionTab() {
             />
           </div>
           <div className="text-xs text-muted-foreground">
-            ₹{(ytdTarget - ytdEarned).toFixed(1)}L remaining to hit annual target
+            {fmt(ytdTarget - ytdEarned)} remaining to hit annual target
           </div>
         </div>
       </Section>
 
       <Section title="Recent payouts">
-        {rows.map(([t, d, c]) => (
-          <div
-            key={t}
-            className="flex items-center justify-between border-b border-border py-3 last:border-0"
-          >
-            <div>
-              <div className="font-semibold text-navy">{t}</div>
-              <div className="text-xs text-muted-foreground">{d}</div>
+        {isLoading ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>
+        ) : !data?.items.length ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            No commissions yet. Close a lead as Converted to earn commission.
+          </p>
+        ) : (
+          data.items.map((c) => (
+            <div
+              key={c.id}
+              className="flex items-center justify-between border-b border-border py-3 last:border-0"
+            >
+              <div>
+                <div className="font-semibold text-navy">
+                  {c.leadId ? `Lead …${c.leadId.slice(-6).toUpperCase()} Closed` : "Manual Entry"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {fmt(c.dealValue)} deal · {c.periodMonth ?? "—"} · {c.status}
+                </div>
+              </div>
+              <span className="font-mono text-sm font-bold text-accent">{fmt(c.amount)}</span>
             </div>
-            <span className="font-mono text-sm font-bold text-accent">{c}</span>
-          </div>
-        ))}
+          ))
+        )}
       </Section>
 
       <Section title="Payment Details">
         <div className="grid gap-4 md:grid-cols-2">
-          <Field k="Payment Method" v="NEFT to HDFC ****4521" />
-          <Field k="Expected Payout Date" v="5th July 2026" />
+          <Field k="Commission Rate" v="2% of closed deal value" />
+          <Field k="Payout Schedule" v="5th of following month" />
+          <Field k="KYC Status" v={data?.kycPending ? "Pending — complete to receive payouts" : "Verified"} />
         </div>
       </Section>
     </>
