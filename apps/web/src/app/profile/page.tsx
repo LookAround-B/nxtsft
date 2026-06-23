@@ -318,7 +318,7 @@ export default function ProfilePage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-stretch">
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-col sm:items-stretch">
                 <Link
                   href={meta.portal}
                   className="flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-accent/25 transition hover:-translate-y-0.5 hover:opacity-95"
@@ -363,7 +363,7 @@ export default function ProfilePage() {
         {/* Body */}
         <div className="mt-6 sm:mt-10 grid gap-6 lg:gap-8 lg:grid-cols-3 lg:items-start">
           {/* Left column */}
-          <div className="space-y-5 lg:col-span-2">
+          <div className="min-w-0 space-y-5 lg:col-span-2">
             {/* Account details */}
             <div className="rounded-2xl border border-border bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-5">
@@ -520,7 +520,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Right column */}
-          <aside className="space-y-6">
+          <aside className="min-w-0 space-y-6">
             {/* Quick actions */}
             <div className="rounded-2xl bg-gradient-to-br from-navy via-navy-deep to-navy-deep p-5 sm:p-6 text-white shadow-sm overflow-hidden relative">
               <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-white/5 blur-2xl" />

@@ -393,7 +393,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6">
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Left: Gallery + Details */}
-          <div className="space-y-6 lg:col-span-2">
+          <div className="min-w-0 space-y-6 lg:col-span-2">
             {/* Gallery */}
             <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
               <div className="relative h-72 sm:h-96">
@@ -509,8 +509,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
             {/* Title + Price */}
             <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h1 className="font-display text-2xl font-black text-navy sm:text-3xl">
+                <div className="min-w-0">
+                  <h1 className="font-display text-2xl font-black text-navy break-words sm:text-3xl">
                     {property.title}
                   </h1>
                   <div className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -651,7 +651,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
           </div>
 
           {/* Right: Contact sidebar */}
-          <div className="space-y-5">
+          <div className="min-w-0 space-y-5">
             <ContactCard
               property={property}
               session={session}
