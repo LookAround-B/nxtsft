@@ -1,5 +1,4 @@
 import { z } from "zod";
-import DOMPurify from "isomorphic-dompurify";
 
 // Strict input length limits
 const LIMITS = {
@@ -19,9 +18,9 @@ const LIMITS = {
   search: { max: 200 },
 };
 
-// Sanitize HTML to prevent XSS
+// Strip all HTML tags (no tags allowed — equivalent to DOMPurify with ALLOWED_TAGS:[])
 function sanitizeHtml(input: string): string {
-  return DOMPurify.sanitize(input, { ALLOWED_TAGS: [] }).trim();
+  return input.replace(/<[^>]*>/g, "").trim();
 }
 
 // Sanitize for database text fields

@@ -29,19 +29,21 @@ const nextConfig: NextConfig = {
     "pg",
     "google-auth-library",
     "bcryptjs",
-    // isomorphic-dompurify pulls in jsdom, which reads default-stylesheet.css
-    // via fs at runtime — bundling breaks that relative path.
-    "isomorphic-dompurify",
+    "aws4fetch",
   ],
-  // Prisma 7 is engine-free (the query compiler ships as base64-embedded WASM in
-  // a JS module, so it's traced/bundled like any JS — no native engine binary).
-  // Trim the non-Postgres query compilers we never use to keep the function lean.
+  // Trim files that must not land in serverless function bundles:
+  // - Non-Postgres Prisma WASM compilers (we only use Postgres)
+  // - Webpack build cache and client-side static chunks (not needed at runtime)
   outputFileTracingExcludes: {
     "/api/**": [
       "**/@prisma/client/runtime/query_compiler_bg.mysql.*",
       "**/@prisma/client/runtime/query_compiler_bg.cockroachdb.*",
       "**/@prisma/client/runtime/query_compiler_bg.sqlite.*",
       "**/@prisma/client/runtime/query_compiler_bg.sqlserver.*",
+      // Webpack build cache — can be 100s of MB, never needed at runtime
+      "**/.next/cache/**",
+      // Client-side JS/CSS chunks — only the browser needs these
+      "**/.next/static/**",
     ],
   },
   images: {
