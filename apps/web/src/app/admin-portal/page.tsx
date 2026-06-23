@@ -16,6 +16,7 @@ import {
   Inbox,
   Coins,
   ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -37,6 +38,7 @@ import { CommissionsTab } from "@/components/admin-portal/tabs/CommissionsTab";
 import { EnquiriesTab } from "@/components/admin-portal/tabs/EnquiriesTab";
 import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
 import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
+import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprovalsTab";
 
 const nav = [
   { label: "Operations", to: "/admin-portal", icon: <LayoutDashboard size={14} /> },
@@ -54,6 +56,7 @@ const nav = [
   { label: "Plans", to: "/admin-portal#plans", icon: <PackageOpen size={14} /> },
   { label: "Commissions", to: "/admin-portal#commissions", icon: <Wallet size={14} /> },
   { label: "Buyer Wallets", to: "/admin-portal#credits", icon: <Coins size={14} /> },
+  { label: "Seller Approvals", to: "/admin-portal#seller-approvals", icon: <UserCheck size={14} /> },
   { label: "KYC Review", to: "/admin-portal#kyc", icon: <ShieldCheck size={14} /> },
 ];
 
@@ -73,6 +76,7 @@ function renderTab(hash: string) {
     case "plans":         return <AdminPlansTab />;
     case "commissions":   return <CommissionsTab />;
     case "credits":       return <CreditsTab />;
+    case "seller-approvals": return <SellerApprovalsTab />;
     case "kyc":           return <KYCReviewTab />;
     default:              return <OperationsTab />;
   }
