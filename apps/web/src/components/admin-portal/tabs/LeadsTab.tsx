@@ -24,6 +24,16 @@ export function LeadsTab() {
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
+  const unassign = trpc.leads.unassign.useMutation({
+    onSuccess: () => {
+      utils.admin.leads.list.invalidate();
+      toast.success("Lead unassigned");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const busy = assign.isPending || unassign.isPending;
+
   return (
     <>
       <PageHead title="Lead Management" subtitle="All leads across cities and reps." />
@@ -80,13 +90,21 @@ export function LeadsTab() {
                   <td>
                     <select
                       value={l.assignedToId ?? ""}
-                      disabled={assign.isPending || repsQ.isLoading || reps.length === 0}
-                      onChange={(ev) => assign.mutate({ id: l.id, assignedToId: ev.target.value })}
+                      disabled={busy || repsQ.isLoading || reps.length === 0}
+                      onChange={(ev) => {
+                        const v = ev.target.value;
+                        if (v === "") unassign.mutate({ id: l.id });
+                        else assign.mutate({ id: l.id, assignedToId: v });
+                      }}
                       className="rounded-lg border border-border bg-white px-2 py-1 text-xs font-medium outline-none focus:border-accent disabled:opacity-60"
                     >
-                      <option value="" disabled>
-                        {reps.length === 0 ? "No sales reps" : "Unassigned — pick rep"}
-                      </option>
+                      {l.assignedToId ? (
+                        <option value="">— Unassign —</option>
+                      ) : (
+                        <option value="" disabled>
+                          {reps.length === 0 ? "No sales reps" : "Unassigned — pick rep"}
+                        </option>
+                      )}
                       {reps.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.name}
