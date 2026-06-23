@@ -177,12 +177,14 @@ export function SiteHeader() {
               </Link>
             )}
 
-            <Link
-              href="/list"
-              className="hidden whitespace-nowrap rounded-lg border border-navy/20 bg-navy/5 px-3 py-2 text-sm font-semibold text-navy transition hover:bg-navy/10 lg:inline-block sm:px-4"
-            >
-              List Property
-            </Link>
+            {(!session || session.role === "home-seller") && (
+              <Link
+                href="/list"
+                className="hidden whitespace-nowrap rounded-lg border border-navy/20 bg-navy/5 px-3 py-2 text-sm font-semibold text-navy transition hover:bg-navy/10 lg:inline-block sm:px-4"
+              >
+                List Property
+              </Link>
+            )}
 
             <Link
               href="/properties"
@@ -297,13 +299,15 @@ export function SiteHeader() {
             </nav>
 
             <div className="mt-3 border-t border-border pt-3">
-              <Link
-                href="/list"
-                onClick={() => setMobileOpen(false)}
-                className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-navy/20 bg-navy/5 px-4 py-3 text-sm font-semibold text-navy transition hover:bg-navy/10"
-              >
-                List Your Property
-              </Link>
+              {(!session || session.role === "home-seller") && (
+                <Link
+                  href="/list"
+                  onClick={() => setMobileOpen(false)}
+                  className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-navy/20 bg-navy/5 px-4 py-3 text-sm font-semibold text-navy transition hover:bg-navy/10"
+                >
+                  List Your Property
+                </Link>
+              )}
               {session ? (
                 <Link
                   href="/profile"

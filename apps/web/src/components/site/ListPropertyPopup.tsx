@@ -3,12 +3,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X, Building2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
 const STORAGE_KEY = "nxtsft_list_popup_dismissed";
 const DISMISS_MS = 24 * 60 * 60 * 1000;
 
 export function ListPropertyPopup() {
   const pathname = usePathname();
+  const { session } = useAuth();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -22,6 +24,8 @@ export function ListPropertyPopup() {
     return () => clearTimeout(t);
   }, []);
 
+  // Only show to unauthenticated visitors or home-sellers
+  if (session && session.role !== "home-seller") return null;
   if (pathname === "/boneyard" || !show) return null;
 
   const dismiss = () => {
