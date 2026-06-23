@@ -77,7 +77,7 @@ function LeadPanel({
       {/* Slide-over panel */}
       <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div className="flex items-center justify-between border-b border-border px-4 py-4">
           <div>
             <h2 className="text-base font-bold text-navy">{lead.name}</h2>
             <p className="text-xs text-muted-foreground">Lead enquiry</p>
@@ -90,9 +90,9 @@ function LeadPanel({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {/* Contact details */}
-          <div className="rounded-xl border border-border bg-secondary/30 p-4 space-y-3">
+          <div className="rounded-xl border border-border bg-secondary/30 p-3 space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Contact Details</h3>
 
             <a
