@@ -23,6 +23,9 @@ import {
   Megaphone,
   Building,
   Wallet,
+  Coins,
+  UserCheck,
+  ShieldCheck,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -55,6 +58,9 @@ import { AlertsTab } from "@/components/admin-portal/tabs/AlertsTab";
 import { MarketingTab } from "@/components/admin-portal/tabs/MarketingTab";
 import { DevTab } from "@/components/admin-portal/tabs/DevTab";
 import { CommissionsTab } from "@/components/admin-portal/tabs/CommissionsTab";
+import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
+import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprovalsTab";
+import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
 
 const nav = [
   { label: "Command Dashboard", to: "/sa-portal", icon: <LayoutDashboard size={14} /> },
@@ -84,6 +90,9 @@ const nav = [
   { label: "Marketing", to: "/sa-portal#marketing", icon: <Megaphone size={14} /> },
   { label: "Developers", to: "/sa-portal#developers", icon: <Building size={14} /> },
   { label: "Commissions", to: "/sa-portal#commissions", icon: <Wallet size={14} /> },
+  { label: "Buyer Wallets", to: "/sa-portal#credits", icon: <Coins size={14} /> },
+  { label: "Seller Approvals", to: "/sa-portal#seller-approvals", icon: <UserCheck size={14} /> },
+  { label: "KYC Review", to: "/sa-portal#kyc", icon: <ShieldCheck size={14} /> },
 ];
 
 function renderTab(hash: string) {
@@ -139,6 +148,12 @@ function renderTab(hash: string) {
       return <DevTab />;
     case "commissions":
       return <CommissionsTab />;
+    case "credits":
+      return <CreditsTab />;
+    case "seller-approvals":
+      return <SellerApprovalsTab />;
+    case "kyc":
+      return <KYCReviewTab />;
     default:
       return <Dashboard />;
   }
