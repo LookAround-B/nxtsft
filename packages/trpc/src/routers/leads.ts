@@ -151,6 +151,18 @@ export const leadsRouter = router({
               periodMonth,
             },
           });
+
+          const fmtAmount = amount >= 100000n
+            ? `₹${(Number(amount) / 100000).toFixed(2)}L`
+            : `₹${Number(amount).toLocaleString("en-IN")}`;
+          await prisma.notification.create({
+            data: {
+              userId: lead.assignedToId,
+              type: "lead_update",
+              title: "Commission earned!",
+              content: `${fmtAmount} commission pending for converting ${lead.name}.`,
+            },
+          });
         }
       }
 
@@ -188,10 +200,21 @@ export const leadsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Assignee must be a sales rep." });
       }
 
-      return prisma.lead.update({
+      const updated = await prisma.lead.update({
         where: { id: input.id },
         data: { assignedToId: input.assignedToId, status: "New" },
       });
+
+      await prisma.notification.create({
+        data: {
+          userId: input.assignedToId,
+          type: "lead_update",
+          title: "New lead assigned to you",
+          content: `${lead.name} (${lead.phone}) has been assigned to you.`,
+        },
+      });
+
+      return updated;
     }),
 
   // Schedule a site visit for a lead
@@ -327,6 +350,15 @@ export const leadsRouter = router({
       await prisma.lead.updateMany({
         where: { id: { in: input.leadIds } },
         data: { assignedToId: input.assignedToId, status: "New" },
+      });
+
+      await prisma.notification.create({
+        data: {
+          userId: input.assignedToId,
+          type: "lead_update",
+          title: `${input.leadIds.length} lead${input.leadIds.length === 1 ? "" : "s"} assigned to you`,
+          content: `You have been assigned ${input.leadIds.length} new lead${input.leadIds.length === 1 ? "" : "s"}.`,
+        },
       });
 
       return { ok: true };
