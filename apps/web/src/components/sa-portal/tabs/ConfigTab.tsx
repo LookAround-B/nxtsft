@@ -21,8 +21,6 @@ const INTEGRATIONS: Array<{ key: string; name: string; default: boolean }> = [
   { key: "sendgrid", name: "SendGrid Email", default: true },
   { key: "razorpay", name: "Razorpay Payments", default: true },
   { key: "google_maps", name: "Google Maps", default: true },
-  { key: "magicbricks", name: "MagicBricks Sync", default: false },
-  { key: "acres99", name: "99acres Sync", default: true },
 ];
 
 export function ConfigTab() {
