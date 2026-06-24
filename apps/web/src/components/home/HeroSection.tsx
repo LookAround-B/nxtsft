@@ -5,6 +5,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { HERO_IMAGES, ROTATING_STATS } from "@/components/home/homeData";
+import { trpc } from "@/lib/trpc";
 
 function HeroBlobs() {
   return (
@@ -36,6 +37,12 @@ export function HeroSection() {
   const [fade, setFade] = useState(true);
   const [heroSlide, setHeroSlide] = useState(0);
 
+  // Admin-managed hero images (R2 URLs) override the static defaults. Falls
+  // back to HERO_IMAGES while loading or when none are configured.
+  const heroConfig = trpc.siteContent.get.useQuery({ key: "home.hero" });
+  const configured = (heroConfig.data as { images?: string[] } | null)?.images;
+  const heroImages = configured && configured.length > 0 ? configured : HERO_IMAGES;
+
   useEffect(() => {
     const id = setInterval(() => {
       setFade(false);
@@ -48,9 +55,10 @@ export function HeroSection() {
   }, []);
 
   useEffect(() => {
-    const id = setInterval(() => setHeroSlide((i) => (i + 1) % HERO_IMAGES.length), 5000);
+    setHeroSlide(0);
+    const id = setInterval(() => setHeroSlide((i) => (i + 1) % heroImages.length), 5000);
     return () => clearInterval(id);
-  }, []);
+  }, [heroImages.length]);
 
   const handleSearch = useCallback(() => {
     const q = query.trim();
@@ -61,7 +69,7 @@ export function HeroSection() {
     <section className="relative overflow-hidden bg-navy">
       {/* carousel images */}
       <div className="absolute inset-0">
-        {HERO_IMAGES.map((src, i) => (
+        {heroImages.map((src, i) => (
           <div
             key={src}
             className="absolute inset-0 transition-opacity duration-[1400ms]"
@@ -138,7 +146,7 @@ export function HeroSection() {
 
         {/* slide dots */}
         <div className="mt-6 flex justify-center gap-1.5">
-          {HERO_IMAGES.map((_, i) => (
+          {heroImages.map((_, i) => (
             <button
               key={i}
               onClick={() => setHeroSlide(i)}

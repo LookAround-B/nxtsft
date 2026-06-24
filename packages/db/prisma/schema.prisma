@@ -622,6 +622,21 @@ model CmsPage {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SITE CONTENT (editable home-page content: hero images, banners, etc.)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Generic key/value store for admin-editable site content. One row per content
+// slot (e.g. "home.hero" -> { images: [...] }). Kept generic so future slots
+// (banners, featured-project pushes) reuse the same table instead of growing
+// the schema per feature.
+model SiteSetting {
+  key       String   @id
+  value     Json
+  editorId  String? // user id of last editor (no FK; attribution only)
+  updatedAt DateTime @updatedAt
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // AUDIT LOG
 // ═══════════════════════════════════════════════════════════════════════════
 
