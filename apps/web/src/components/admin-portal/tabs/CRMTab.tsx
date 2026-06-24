@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { toast } from "sonner";
 import { X, Phone, Mail, MapPin, Building2, Tag, FileText, Calendar, ExternalLink } from "lucide-react";
@@ -295,32 +296,40 @@ export function CRMTab() {
                         >
                           {items.map((l, idx) => (
                             <Draggable key={l.id} draggableId={l.id} index={idx}>
-                              {(drag, dragSnapshot) => (
-                                <div
-                                  ref={drag.innerRef}
-                                  {...drag.draggableProps}
-                                  style={drag.draggableProps.style as React.CSSProperties}
-                                  {...drag.dragHandleProps}
-                                  onClick={() => !dragSnapshot.isDragging && setSelectedLead(l)}
-                                  className={`cursor-pointer select-none rounded-md bg-white p-2.5 text-xs shadow-sm transition-shadow active:cursor-grabbing hover:shadow-md ${dragSnapshot.isDragging ? "rotate-1 opacity-95 shadow-lg" : ""}`}
-                                >
-                                  <div className="font-semibold leading-tight text-navy">{l.name}</div>
-                                  <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 font-semibold">
-                                    <Phone size={9} />
-                                    {l.phone}
+                              {(drag, dragSnapshot) => {
+                                const card = (
+                                  <div
+                                    ref={drag.innerRef}
+                                    {...drag.draggableProps}
+                                    style={drag.draggableProps.style as React.CSSProperties}
+                                    {...drag.dragHandleProps}
+                                    onClick={() => !dragSnapshot.isDragging && setSelectedLead(l)}
+                                    className={`cursor-pointer select-none rounded-md bg-white p-2.5 text-xs shadow-sm transition-shadow active:cursor-grabbing hover:shadow-md ${dragSnapshot.isDragging ? "rotate-1 opacity-95 shadow-lg" : ""}`}
+                                  >
+                                    <div className="font-semibold leading-tight text-navy">{l.name}</div>
+                                    <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 font-semibold">
+                                      <Phone size={9} />
+                                      {l.phone}
+                                    </div>
+                                    <div className="mt-0.5 flex items-center justify-between">
+                                      <span className="text-[10px] text-muted-foreground">{l.city ?? "—"}</span>
+                                      <span className="font-mono text-[10px] font-bold text-accent">{fmtValue(l.value)}</span>
+                                    </div>
+                                    {l.property && (
+                                      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{l.property.title}</div>
+                                    )}
+                                    <div className="mt-1.5">
+                                      <Badge tone={stageBadge[stage]}>{stage}</Badge>
+                                    </div>
                                   </div>
-                                  <div className="mt-0.5 flex items-center justify-between">
-                                    <span className="text-[10px] text-muted-foreground">{l.city ?? "—"}</span>
-                                    <span className="font-mono text-[10px] font-bold text-accent">{fmtValue(l.value)}</span>
-                                  </div>
-                                  {l.property && (
-                                    <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{l.property.title}</div>
-                                  )}
-                                  <div className="mt-1.5">
-                                    <Badge tone={stageBadge[stage]}>{stage}</Badge>
-                                  </div>
-                                </div>
-                              )}
+                                );
+                                // While dragging, portal the card to <body> so its fixed
+                                // positioning is relative to the viewport — not the
+                                // transformed PortalShell ancestor (which makes it jump).
+                                return dragSnapshot.isDragging && typeof document !== "undefined"
+                                  ? createPortal(card, document.body)
+                                  : card;
+                              }}
                             </Draggable>
                           ))}
                           {provided.placeholder}
