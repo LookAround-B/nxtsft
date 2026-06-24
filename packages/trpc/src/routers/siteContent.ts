@@ -21,7 +21,7 @@ export const siteContentRouter = router({
   // doesn't propagate through tRPC's client inference and trip TS2589.
   get: publicProcedure.input(z.object({ key: KEY })).query(async ({ input }): Promise<unknown> => {
     const row = await prisma.siteSetting.findUnique({ where: { key: input.key } });
-    return row?.value ?? null;
+    return (row?.value ?? null) as Record<string, unknown> | null;
   }),
 
   set: adminProcedure

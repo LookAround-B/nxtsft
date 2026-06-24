@@ -41,6 +41,7 @@ const PROPERTY_CITIES = [
 const NAV_ITEMS = [
   { to: "/", label: "Home" },
   { to: "/properties", label: "Properties", hasMega: true },
+  { to: "/builders", label: "Builders" },
   { to: "/agents", label: "Agents" },
   { to: "/pricing", label: "Pricing" },
   { to: "/refer", label: "Refer & Earn" },

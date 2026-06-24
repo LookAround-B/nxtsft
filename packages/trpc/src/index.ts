@@ -20,6 +20,7 @@ import { campaignsRouter } from "./routers/campaigns.js";
 import { contactRouter } from "./routers/contact.js";
 import { siteContentRouter } from "./routers/siteContent.js";
 import { reportsRouter } from "./routers/reports.js";
+import { projectsRouter } from "./routers/projects.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -43,6 +44,7 @@ export const appRouter = router({
   contact: contactRouter,
   siteContent: siteContentRouter,
   reports: reportsRouter,
+  projects: projectsRouter,
 });
 
 export type AppRouter = typeof appRouter;
