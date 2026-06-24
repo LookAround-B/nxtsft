@@ -8,11 +8,18 @@ import { Preloader } from "@/components/site/Preloader";
 import { SiteChrome } from "@/components/site/SiteChrome";
 import { ListPropertyPopup } from "@/components/site/ListPropertyPopup";
 import { CookieBanner } from "@/components/site/CookieBanner";
+import { PWARegister } from "@/components/PWARegister";
 
 export const metadata: Metadata = {
   title: "NxtSft.com — India's Smart Real Estate Platform",
   description:
     "NxtSft.com is India's next-generation real estate ecosystem — verified listings, AI matching, zero commission, integrated CRM and ERP.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "NxtSft",
+    statusBarStyle: "default",
+  },
   openGraph: {
     title: "NxtSft.com — Find. Own. Live Smarter.",
     description:
@@ -23,11 +30,15 @@ export const metadata: Metadata = {
     card: "summary",
     site: "@NxtSftCom",
   },
+  icons: {
+    apple: "/logo.png",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#E3261E",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -42,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ListPropertyPopup />
             <CookieBanner />
             <Toaster richColors position="top-right" />
+            <PWARegister />
           </AuthProvider>
         </Providers>
       </body>

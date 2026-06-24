@@ -1,0 +1,66 @@
+{
+  "name": "NxtSft.com — Smart Real Estate",
+  "short_name": "NxtSft",
+  "description": "India's technology-first real estate platform — verified listings, AI matching, zero commission.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#E3261E",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "categories": ["real estate", "business", "lifestyle"],
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Account",
+      "short_name": "Portal",
+      "url": "/user-portal",
+      "description": "Your NxtSft account, bookmarks and wallet",
+      "icons": [{ "src": "/logo.png", "sizes": "any" }]
+    },
+    {
+      "name": "Search Properties",
+      "short_name": "Search",
+      "url": "/properties",
+      "description": "Browse verified listings",
+      "icons": [{ "src": "/logo.png", "sizes": "any" }]
+    },
+    {
+      "name": "Admin Panel",
+      "short_name": "Admin",
+      "url": "/admin-portal",
+      "description": "NxtSft control panel",
+      "icons": [{ "src": "/logo.png", "sizes": "any" }]
+    },
+    {
+      "name": "Refer & Earn",
+      "short_name": "Refer",
+      "url": "/refer",
+      "description": "Earn rewards by referring",
+      "icons": [{ "src": "/logo.png", "sizes": "any" }]
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
