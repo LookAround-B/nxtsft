@@ -14,6 +14,9 @@ import {
   ClipboardList,
   User,
   Upload,
+  Search,
+  X,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -115,6 +118,20 @@ function parseBedrooms(bhk: string): number {
   return isNaN(n) ? 0 : n;
 }
 
+// Directory Project.type → the form's property-type label.
+const PROJECT_TYPE_TO_FORM: Record<string, string> = {
+  Apartment: "Apartment",
+  HighRise: "Apartment",
+  Villa: "Villa",
+  Commercial: "Commercial",
+  Plot: "Plot",
+  Studio: "Studio",
+  PG: "PG / Co-living",
+  Others: "Apartment",
+};
+
+type PickedProject = { id: string; name: string; builderName: string };
+
 export default function ListPropertyPage() {
   const { session } = useAuth();
   const createProperty = trpc.properties.create.useMutation();
@@ -125,6 +142,48 @@ export default function ListPropertyPage() {
   const [images, setImages] = useState<UploadImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [data, setData] = useState<FormData>(EMPTY);
+
+  // ── Project picker (pre-fills the form from the builders directory) ──
+  const [projectQuery, setProjectQuery] = useState("");
+  const [projectTerm, setProjectTerm] = useState("");
+  const [selectedProject, setSelectedProject] = useState<PickedProject | null>(null);
+  const [showProjectResults, setShowProjectResults] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setProjectTerm(projectQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [projectQuery]);
+
+  const projectsQ = trpc.builders.projectSearch.useQuery(
+    { search: projectTerm || undefined, limit: 8 },
+    { enabled: !selectedProject && projectTerm.length >= 2 },
+  );
+  const projectResults = projectsQ.data ?? [];
+
+  const pickProject = (p: (typeof projectResults)[number]) => {
+    setSelectedProject({ id: p.id, name: p.name, builderName: p.builderName });
+    setProjectQuery(`${p.name} · ${p.builderName}`);
+    setShowProjectResults(false);
+    setData((d) => ({
+      ...d,
+      propertyType: PROJECT_TYPE_TO_FORM[p.type] ?? d.propertyType,
+      city: CITIES.includes(p.city) ? p.city : d.city,
+      locality: p.area || d.locality,
+      price: p.priceMin ? String(p.priceMin) : d.price,
+      area: p.sftMin ? String(p.sftMin) : d.area,
+      description: p.description || d.description,
+      amenities: p.amenities?.length ? [...new Set([...d.amenities, ...p.amenities])] : d.amenities,
+      rera: p.reraNo || d.rera,
+      title: d.title || `${p.name} — ${p.type} for ${d.purpose} in ${p.city}`,
+    }));
+    toast.success(`Pre-filled from ${p.name}. Edit and add your own details.`);
+  };
+
+  const clearProject = () => {
+    setSelectedProject(null);
+    setProjectQuery("");
+    setProjectTerm("");
+  };
 
   useEffect(() => {
     if (session) {
@@ -261,6 +320,7 @@ export default function ListPropertyPage() {
           images: hostedImages,
           rera: data.rera,
           possession: data.possession || undefined,
+          projectId: selectedProject?.id,
         });
       } catch {
         // DB save failed; local listing still saved above
@@ -338,6 +398,7 @@ export default function ListPropertyPage() {
                 setImages([]);
                 setSubmitted(null);
                 setStep(1);
+                clearProject();
                 setData({
                   ...EMPTY,
                   listerName: session?.name ?? "",
@@ -517,6 +578,97 @@ export default function ListPropertyPage() {
               <p className="mt-2 text-sm text-muted-foreground">
                 Basic details help us list your property in the right category.
               </p>
+
+              {/* ── Project picker — pre-fills from our verified builder directory ── */}
+              <div className="mt-6 rounded-2xl border border-accent/25 bg-accent/[0.03] p-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={14} className="text-accent" />
+                  <span className="text-sm font-bold text-navy">
+                    Listing in a known project?
+                  </span>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                    Optional
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Search our verified builder directory — we&apos;ll pre-fill the details and you just
+                  add your own price, area &amp; photos.
+                </p>
+
+                {selectedProject ? (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-sm font-semibold text-navy">
+                        <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />
+                        <span className="truncate">{selectedProject.name}</span>
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        by {selectedProject.builderName}
+                      </div>
+                    </div>
+                    <button
+                      onClick={clearProject}
+                      className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-white px-2.5 py-1 text-xs font-semibold text-muted-foreground transition hover:text-accent"
+                    >
+                      <X size={12} /> Change
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative mt-3">
+                    <Search
+                      size={14}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <input
+                      value={projectQuery}
+                      onChange={(e) => {
+                        setProjectQuery(e.target.value);
+                        setShowProjectResults(true);
+                      }}
+                      onFocus={() => setShowProjectResults(true)}
+                      placeholder="Search project or builder name…"
+                      className="w-full rounded-xl border border-input bg-white py-2.5 pl-9 pr-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    />
+                    {showProjectResults && projectTerm.length >= 2 && (
+                      <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-border bg-white shadow-lg">
+                        {projectsQ.isLoading ? (
+                          <div className="px-4 py-3 text-xs text-muted-foreground">Searching…</div>
+                        ) : projectResults.length === 0 ? (
+                          <div className="px-4 py-3 text-xs text-muted-foreground">
+                            No matching projects. You can fill the details manually below.
+                          </div>
+                        ) : (
+                          <ul className="max-h-64 overflow-y-auto">
+                            {projectResults.map((p) => (
+                              <li key={p.id}>
+                                <button
+                                  onClick={() => pickProject(p)}
+                                  className="flex w-full items-start justify-between gap-3 px-4 py-2.5 text-left transition hover:bg-secondary"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 text-sm font-semibold text-navy">
+                                      <span className="truncate">{p.name}</span>
+                                      {p.verified && (
+                                        <CheckCircle2 size={11} className="shrink-0 text-emerald-600" />
+                                      )}
+                                    </div>
+                                    <div className="truncate text-xs text-muted-foreground">
+                                      {p.builderName} · {[p.area, p.city].filter(Boolean).join(", ")}
+                                    </div>
+                                  </div>
+                                  <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-navy">
+                                    {p.type}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className="mt-6">
                 <label className="block text-sm font-semibold text-foreground">Property Type</label>

@@ -123,9 +123,11 @@ export const buildersRouter = router({
       const where: NonNullable<Parameters<typeof prisma.builder.findMany>[0]>["where"] = {
         slug: { not: null },
       };
-      if (city)  where.city         = { contains: city,  mode: "insensitive" };
-      if (state) where.state        = { contains: state, mode: "insensitive" };
-      if (type)  where.projectType  = { contains: type,  mode: "insensitive" };
+      if (city)  where.city  = { contains: city,  mode: "insensitive" };
+      if (state) where.state = { contains: state, mode: "insensitive" };
+      // Category filter matches builders that have at least one project of that
+      // type (the richer Project.type model, not the legacy builder.projectType).
+      if (type)  where.projects = { some: { type: { equals: type } } };
       if (search) {
         where.OR = [
           { companyName: { contains: search, mode: "insensitive" } },
@@ -160,6 +162,53 @@ export const buildersRouter = router({
           _count: { select: { projects: true } },
         },
       });
+    }),
+
+  // Project search for the listing wizard — owner/builder picks their project and
+  // the form is pre-filled with these defaults (then edited + own details added).
+  projectSearch: publicProcedure
+    .input(
+      z.object({
+        search: searchSchema.optional(),
+        city:   geoTextSchema.optional(),
+        type:   safeString(80).optional(),
+        limit:  z.number().int().min(1).max(20).default(10),
+      }),
+    )
+    .query(async ({ input }) => {
+      const where: NonNullable<Parameters<typeof prisma.project.findMany>[0]>["where"] = {};
+      if (input.city) where.city = { contains: input.city, mode: "insensitive" };
+      if (input.type) where.type = input.type;
+      if (input.search) {
+        where.OR = [
+          { name: { contains: input.search, mode: "insensitive" } },
+          { area: { contains: input.search, mode: "insensitive" } },
+          { builder: { companyName: { contains: input.search, mode: "insensitive" } } },
+        ];
+      }
+      const projects = await prisma.project.findMany({
+        where,
+        include: { builder: { select: { companyName: true, verified: true } } },
+        orderBy: { name: "asc" },
+        take: input.limit,
+      });
+      return projects.map((p) => ({
+        id:          p.id,
+        name:        p.name,
+        builderName: p.builder.companyName,
+        verified:    p.builder.verified,
+        city:        p.city,
+        area:        p.area ?? "",
+        type:        p.type,
+        status:      p.status,
+        priceMin:    p.priceMin != null ? Number(p.priceMin) : null,
+        priceMax:    p.priceMax != null ? Number(p.priceMax) : null,
+        sftMin:      p.sftMin ?? null,
+        sftMax:      p.sftMax ?? null,
+        description: p.description ?? "",
+        amenities:   p.amenities,
+        reraNo:      p.reraNo ?? "",
+      }));
     }),
 
   // ── XML import ─────────────────────────────────────────────────────────────

@@ -115,6 +115,10 @@ model Property {
   possession  String?  // "Ready to Move", "Under Construction", "Dec 2025"
   builder     String?
 
+  // Optional hard link to a directory Project (set when listed against a known project)
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
   rera        String?  // RERA registration number — required for Active listings
 
   location    Location?
@@ -148,6 +152,7 @@ model Property {
   @@index([status])
   @@index([featured])
   @@index([createdAt])
+  @@index([projectId])
 }
 
 model Location {
@@ -404,6 +409,8 @@ model Project {
   totalUnits     Int?
   launchDate     DateTime?
   possessionDate DateTime?
+
+  properties     Property[]
 
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

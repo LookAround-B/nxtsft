@@ -253,6 +253,7 @@ export const propertiesRouter = router({
         facing: safeString(30).optional(),
         possession: safeString(30).optional(),
         builder: safeString(100).optional(),
+        projectId: cuidSchema.optional(),
         rera: reraSchema,
         city: geoTextSchema,
         state: geoTextSchema,
