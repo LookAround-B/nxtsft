@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
-import { Menu, X, ChevronLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Menu, X, ChevronLeft, PanelLeftClose, PanelLeftOpen, LogOut } from "lucide-react";
 import { useActiveHash } from "@/lib/use-active-hash";
+import { useAuth } from "@/lib/auth";
 import { NotificationBell } from "@/components/NotificationBell";
 
 export interface PortalNav {
@@ -43,6 +44,26 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
   const ac = accentMap[accent];
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { signOut } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function handleSignOut() {
+    setMenuOpen(false);
+    await signOut();
+    router.push("/");
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[oklch(0.97_0.01_260)] text-foreground">
@@ -148,7 +169,7 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-white/8 px-2 py-3">
+        <div className="border-t border-white/8 px-2 py-3 space-y-1">
           {!collapsed && (
             <Link
               href="/"
@@ -166,6 +187,24 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
             >
               <ChevronLeft size={14} />
             </Link>
+          )}
+          {!collapsed && (
+            <button
+              onClick={handleSignOut}
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-white/40 transition hover:bg-white/6 hover:text-red-400"
+            >
+              <LogOut size={12} />
+              Sign out
+            </button>
+          )}
+          {collapsed && (
+            <button
+              onClick={handleSignOut}
+              title="Sign out"
+              className="flex w-full justify-center rounded-xl py-2 text-white/40 transition hover:bg-white/6 hover:text-red-400"
+            >
+              <LogOut size={14} />
+            </button>
           )}
         </div>
       </aside>
@@ -204,10 +243,32 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
               <div className="text-sm font-semibold text-foreground">{user.name}</div>
               <div className="text-xs text-muted-foreground">{role}</div>
             </div>
-            <div
-              className={`grid h-10 w-10 place-items-center rounded-full font-display text-sm font-bold ring-2 ${ac.ring} ${ac.bg} ${ac.text}`}
-            >
-              {user.initials}
+            {/* Avatar with sign-out dropdown */}
+            <div ref={menuRef} className="relative">
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className={`grid h-10 w-10 place-items-center rounded-full font-display text-sm font-bold ring-2 transition hover:opacity-85 ${ac.ring} ${ac.bg} ${ac.text}`}
+                aria-label="User menu"
+              >
+                {user.initials}
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-2 w-52 rounded-2xl border border-border bg-white shadow-xl">
+                  <div className="border-b border-border px-4 py-3">
+                    <div className="font-semibold text-navy text-sm truncate">{user.name}</div>
+                    <div className="text-xs text-muted-foreground">{role}</div>
+                  </div>
+                  <div className="p-2">
+                    <button
+                      onClick={handleSignOut}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-accent transition hover:bg-accent/6"
+                    >
+                      <LogOut size={14} />
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
