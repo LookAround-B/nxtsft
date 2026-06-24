@@ -4,32 +4,25 @@ import { trpcClient } from "./trpcClient";
 
 interface AppData {
   agents: any[];
-  teamMembers: any[];
   isLoading: boolean;
 }
 
 const DataContext = createContext<AppData>({
   agents: [],
-  teamMembers: [],
   isLoading: true,
 });
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>({
     agents: [],
-    teamMembers: [],
     isLoading: true,
   });
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [agentsData, membersData] = await Promise.all([
-          trpcClient.users.getAgents.query() as Promise<any[]>,
-          trpcClient.users.getTeamMembers.query() as Promise<any[]>,
-        ]);
+        const agentsData = await (trpcClient.users.getAgents.query() as Promise<any[]>);
 
-        // Transform agents
         const agents = agentsData.map((a) => ({
           name: a.name,
           initials:
@@ -56,24 +49,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           portfolioValue: "₹25 Cr+",
         }));
 
-        // Transform team members
-        const teamMembers = membersData.map((m) => ({
-          id: m.id,
-          name: m.name,
-          role: "Sales Rep",
-          city: m.city,
-          leadsOpen: 14,
-          closedMTD: 4,
-          conversion: 28,
-          target: 100,
-          achieved: 72,
-        }));
-
-        setData({
-          agents,
-          teamMembers,
-          isLoading: false,
-        });
+        setData({ agents, isLoading: false });
       } catch (err) {
         console.error("Failed to load app data:", err);
         setData((p) => ({ ...p, isLoading: false }));
@@ -98,6 +74,6 @@ export const useAgents = () => {
 };
 
 export const useTeamMembers = () => {
-  const { teamMembers, isLoading } = useAppData();
-  return { members: teamMembers, isLoading };
+  const { isLoading } = useAppData();
+  return { members: [] as any[], isLoading };
 };
