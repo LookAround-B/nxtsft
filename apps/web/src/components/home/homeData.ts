@@ -93,6 +93,7 @@ export const CATEGORIES: { label: string; Icon: LucideIcon; type: string; image?
   { label: "Plots",         Icon: MapPin,      type: "Plot",       image: "/categories/plot.jpg" },
   { label: "Commercial",    Icon: Briefcase,   type: "Commercial", image: "/categories/commercial.jpg" },
   { label: "PG / Co-living",Icon: Users,       type: "PG",         image: "/categories/pg.jpg" },
+  { label: "Studios",       Icon: Home,        type: "Studio",     image: "/categories/studio.jpg" },
   { label: "New Projects",  Icon: TrendingUp,  type: "New" },
 ];
 

@@ -14,7 +14,7 @@ export function CategoriesSection() {
               Top Categories
             </h2>
           </div>
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:grid-cols-6">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:grid-cols-7">
             {CATEGORIES.map(({ label, Icon, type, image }, i) => (
               <Link
                 key={label}
