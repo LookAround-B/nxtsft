@@ -31,7 +31,7 @@ const nav = [
   { label: "Click-to-Call", to: "/sales-portal#call", icon: <Phone size={14} /> },
   { label: "Site Visits", to: "/sales-portal#visits", icon: <Building size={14} /> },
   { label: "Listings", to: "/sales-portal#listings", icon: <LayoutGrid size={14} /> },
-  { label: "My Commission", to: "/sales-portal#commission", icon: <Wallet size={14} /> },
+  { label: "My Earnings", to: "/sales-portal#commission", icon: <Wallet size={14} /> },
   { label: "Reports", to: "/sales-portal#reports", icon: <BarChart2 size={14} /> },
 ];
 
