@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, type ReactNode } from "react";
-import { Download, Filter, ChevronDown, ChevronUp } from "lucide-react";
+import { Download, Filter, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Badge } from "@/components/portal/PortalShell";
 import { REPORT_CATEGORIES } from "@/data/reports";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -13,10 +13,33 @@ interface Filters {
   preset: DatePreset;
   from: string;
   to: string;
+  // Dimension filters
   category: string;
   city: string;
   state: string;
+  builder: string;
+  supervisor: string;
+  salesStaff: string;
+  // Sub-dimension filters
+  userStatus: string;
+  subType: string;
+  subStatus: string;
 }
+
+const DEFAULT_FILTERS: Filters = {
+  preset: "all",
+  from: "2000-01-01",
+  to: "2099-12-31",
+  category: "All",
+  city: "All",
+  state: "All",
+  builder: "All",
+  supervisor: "All",
+  salesStaff: "All",
+  userStatus: "All",
+  subType: "All",
+  subStatus: "All",
+};
 
 function buildPresets(): Record<DatePreset, [string, string]> {
   const now = new Date();
@@ -45,6 +68,10 @@ const PRESET_LABELS: Record<DatePreset, string> = {
   lastmonth: "Last Month",
   all: "All Time",
 };
+
+const USER_STATUS_OPTIONS = ["All", "Active", "Inactive"] as const;
+const SUB_TYPE_OPTIONS = ["All", "Fresh", "Renewal"] as const;
+const SUB_STATUS_OPTIONS = ["All", "Paid", "Unpaid", "Follow-up", "Not Interested"] as const;
 
 /* ─── Helpers ───────────────────────────────────────────────── */
 function dlCSV(filename: string, headers: string[], rows: (string | number)[][]) {
@@ -151,14 +178,7 @@ export function ReportsDashboard({
   // registrations and support tickets don't attribute to a rep, so hide them.
   showAgentsAndTickets?: boolean;
 }) {
-  const [filters, setFilters] = useState<Filters>({
-    preset: "all",
-    from: PRESETS.all[0],
-    to: PRESETS.all[1],
-    category: "All",
-    city: "All",
-    state: "All",
-  });
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
   const setF = (key: keyof Filters, value: string) => setFilters((f) => ({ ...f, [key]: value }));
 
@@ -167,45 +187,99 @@ export function ReportsDashboard({
     setFilters((f) => ({ ...f, preset, from, to }));
   };
 
+  const resetFilters = () =>
+    setFilters({ ...DEFAULT_FILTERS, from: PRESETS.all[0], to: PRESETS.all[1] });
+
   const { from, to } = filters;
 
   const snap = trpc.reports.snapshot.useQuery({ from, to });
   const snapData = snap.data;
 
-  // City/State options come from the live data — only dimensions the backend
-  // can actually populate are offered as filters.
-  const { cityOptions, stateOptions } = useMemo(() => {
-    const cities = new Set<string>();
-    const states = new Set<string>();
-    const add = (city?: string, state?: string) => {
-      if (city && city !== "—") cities.add(city);
-      if (state && state !== "—") states.add(state);
-    };
-    (snapData?.users ?? []).forEach((u) => add(u.city, u.state));
-    (snapData?.subscriptions ?? []).forEach((s) => add(s.city, s.state));
-    (snapData?.siteVisits ?? []).forEach((v) => add(v.city, v.state));
-    (snapData?.agentRegs ?? []).forEach((a) => add(a.city, a.state));
-    return {
-      cityOptions: ["All", ...[...cities].sort()],
-      stateOptions: ["All", ...[...states].sort()],
-    };
-  }, [snapData]);
+  const activeFilterCount = [
+    filters.category !== "All",
+    filters.city !== "All",
+    filters.state !== "All",
+    filters.builder !== "All",
+    filters.supervisor !== "All",
+    filters.salesStaff !== "All",
+    filters.userStatus !== "All",
+    filters.subType !== "All",
+    filters.subStatus !== "All",
+  ].filter(Boolean).length;
 
-  const matchDims = (item: { category?: string; city: string; state: string }) => {
+  // Derive option lists dynamically from live data
+  const { cityOptions, stateOptions, builderOptions, supervisorOptions, salesStaffOptions } =
+    useMemo(() => {
+      const cities = new Set<string>();
+      const states = new Set<string>();
+      const builders = new Set<string>();
+      const supervisors = new Set<string>();
+      const sales = new Set<string>();
+      const addFull = (item: {
+        city?: string;
+        state?: string;
+        builder?: string;
+        supervisor?: string;
+        salesStaff?: string;
+      }) => {
+        if (item.city && item.city !== "—") cities.add(item.city);
+        if (item.state && item.state !== "—") states.add(item.state);
+        if (item.builder && item.builder !== "—") builders.add(item.builder);
+        if (item.supervisor && item.supervisor !== "—") supervisors.add(item.supervisor);
+        if (item.salesStaff && item.salesStaff !== "—") sales.add(item.salesStaff);
+      };
+      const addGeo = (item: { city?: string; state?: string }) => {
+        if (item.city && item.city !== "—") cities.add(item.city);
+        if (item.state && item.state !== "—") states.add(item.state);
+      };
+      (snapData?.users ?? []).forEach(addFull);
+      (snapData?.subscriptions ?? []).forEach(addFull);
+      (snapData?.siteVisits ?? []).forEach(addFull);
+      (snapData?.agentRegs ?? []).forEach(addGeo);
+      return {
+        cityOptions: ["All", ...[...cities].sort()],
+        stateOptions: ["All", ...[...states].sort()],
+        builderOptions: ["All", ...[...builders].sort()],
+        supervisorOptions: ["All", ...[...supervisors].sort()],
+        salesStaffOptions: ["All", ...[...sales].sort()],
+      };
+    }, [snapData]);
+
+  const matchDims = (item: {
+    category?: string;
+    city: string;
+    state: string;
+    builder?: string;
+    supervisor?: string;
+    salesStaff?: string;
+  }) => {
     if (filters.category !== "All" && item.category !== filters.category) return false;
     if (filters.city !== "All" && item.city !== filters.city) return false;
     if (filters.state !== "All" && item.state !== filters.state) return false;
+    if (filters.builder !== "All" && item.builder !== filters.builder) return false;
+    if (filters.supervisor !== "All" && item.supervisor !== filters.supervisor) return false;
+    if (filters.salesStaff !== "All" && item.salesStaff !== filters.salesStaff) return false;
     return true;
   };
 
   const fUsers = useMemo(
-    () => (snapData?.users ?? []).filter((u) => matchDims(u)),
+    () =>
+      (snapData?.users ?? []).filter(
+        (u) =>
+          matchDims(u) && (filters.userStatus === "All" || u.status === filters.userStatus),
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [snapData, filters],
   );
 
   const fSubs = useMemo(
-    () => (snapData?.subscriptions ?? []).filter((s) => matchDims(s)),
+    () =>
+      (snapData?.subscriptions ?? []).filter(
+        (s) =>
+          matchDims(s) &&
+          (filters.subType === "All" || s.type === filters.subType) &&
+          (filters.subStatus === "All" || s.status === filters.subStatus),
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [snapData, filters],
   );
@@ -227,9 +301,18 @@ export function ReportsDashboard({
     [snapData, filters],
   );
 
-  // Tickets carry no geo/attribution yet, so they aren't filtered by the
-  // dimension dropdowns — only by the date range (applied server-side).
-  const fTickets = useMemo(() => snapData?.tickets ?? [], [snapData]);
+  const fTickets = useMemo(
+    () =>
+      (snapData?.tickets ?? []).filter((t) => {
+        if (filters.city !== "All" && t.city !== filters.city) return false;
+        if (filters.state !== "All" && t.state !== filters.state) return false;
+        if (filters.supervisor !== "All" && t.supervisor !== filters.supervisor) return false;
+        if (filters.salesStaff !== "All" && t.assignedTo !== filters.salesStaff) return false;
+        return true;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [snapData, filters],
+  );
 
   /* ── TAT summary ─────────────────────────────────────────── */
   const resolvedTickets = fTickets.filter((t) => t.status === "Resolved");
@@ -257,11 +340,26 @@ export function ReportsDashboard({
 
       {/* Filter bar */}
       <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2">
-          <Filter size={13} className="text-muted-foreground" />
-          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Filters
-          </span>
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Filter size={13} className="text-muted-foreground" />
+            <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Filters
+            </span>
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </div>
+          {activeFilterCount > 0 && (
+            <button
+              onClick={resetFilters}
+              className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-accent transition-colors"
+            >
+              <X size={11} /> Reset filters
+            </button>
+          )}
         </div>
 
         {/* Preset buttons + date range */}
@@ -296,8 +394,8 @@ export function ReportsDashboard({
           </div>
         </div>
 
-        {/* Dimension filters */}
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+        {/* Row 1: Category / City / State */}
+        <div className="mb-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
           <Sel
             label="Category"
             value={filters.category}
@@ -315,6 +413,50 @@ export function ReportsDashboard({
             value={filters.state}
             options={stateOptions}
             onChange={(v) => setF("state", v)}
+          />
+        </div>
+
+        {/* Row 2: Builder / Supervisor / Sales Staff */}
+        <div className="mb-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+          <Sel
+            label="Builder / Project"
+            value={filters.builder}
+            options={builderOptions}
+            onChange={(v) => setF("builder", v)}
+          />
+          <Sel
+            label="Supervisor"
+            value={filters.supervisor}
+            options={supervisorOptions}
+            onChange={(v) => setF("supervisor", v)}
+          />
+          <Sel
+            label="Sales Staff"
+            value={filters.salesStaff}
+            options={salesStaffOptions}
+            onChange={(v) => setF("salesStaff", v)}
+          />
+        </div>
+
+        {/* Row 3: Status sub-filters */}
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+          <Sel
+            label="User Status"
+            value={filters.userStatus}
+            options={USER_STATUS_OPTIONS}
+            onChange={(v) => setF("userStatus", v)}
+          />
+          <Sel
+            label="Subscription Type"
+            value={filters.subType}
+            options={SUB_TYPE_OPTIONS}
+            onChange={(v) => setF("subType", v)}
+          />
+          <Sel
+            label="Subscription Status"
+            value={filters.subStatus}
+            options={SUB_STATUS_OPTIONS}
+            onChange={(v) => setF("subStatus", v)}
           />
         </div>
       </div>

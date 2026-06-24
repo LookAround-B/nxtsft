@@ -250,6 +250,160 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   );
 }
 
+/* ─── Logged-in referral dashboard ───────────────────────────── */
+function ReferralDashboard({ session }: { session: NonNullable<ReturnType<typeof useAuth>["session"]> }) {
+  const referralCode = `${session.name.replace(/\s+/g, "").toLowerCase().slice(0, 8)}${Math.abs(
+    session.email.charCodeAt(0) * 7,
+  )
+    .toString()
+    .slice(0, 4)}`;
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* ── Dashboard hero ──────────────────────────────────────── */}
+      <section
+        className="relative overflow-hidden border-b border-border"
+        style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #2563EB 100%)" }}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 opacity-20"
+          style={{
+            backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px)",
+            backgroundSize: "20px 20px",
+          }}
+        />
+        <div className="relative mx-auto max-w-4xl px-4 py-10 sm:px-6">
+          <div className="mb-1 text-[11px] font-bold uppercase tracking-widest text-white/50">
+            Refer &amp; Earn
+          </div>
+          <h1 className="font-display text-2xl font-black text-white sm:text-3xl">
+            Welcome back, {session.name.split(" ")[0]}!
+          </h1>
+          <p className="mt-1 text-sm text-white/60">
+            Share your link and earn up to ₹500 per successful referral.
+          </p>
+
+          {/* Referral link box */}
+          <CopyLinkBox referralCode={referralCode} />
+        </div>
+      </section>
+
+      {/* ── Stats ───────────────────────────────────────────────── */}
+      <section className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: "Total Referrals", value: "—", sub: "updated on deal close" },
+            { label: "Wallet Balance", value: "₹0", sub: "available to redeem" },
+            { label: "Pending Rewards", value: "₹0", sub: "under verification" },
+            { label: "Paid Out", value: "₹0", sub: "all time" },
+          ].map(({ label, value, sub }) => (
+            <div
+              key={label}
+              className="rounded-2xl border border-border bg-white p-4 shadow-sm"
+            >
+              <div className="font-display text-2xl font-black text-navy">{value}</div>
+              <div className="mt-0.5 text-xs font-semibold text-navy/80">{label}</div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">{sub}</div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Real-time stats will populate as your referrals sign up and close deals. Check your{" "}
+          <a href="/user-portal" className="text-accent hover:underline">
+            User Portal → Wallet
+          </a>{" "}
+          for transaction history.
+        </p>
+      </section>
+
+      {/* ── 3 ways to earn (compact) ────────────────────────────── */}
+      <section className="border-t border-border bg-white px-4 py-8 sm:px-6">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-1 text-xs font-bold uppercase tracking-widest text-accent">
+            How to earn
+          </div>
+          <h2 className="font-display text-xl font-black text-navy">3 ways to refer &amp; earn</h2>
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            {EARN_PATHS.map((ep) => (
+              <div
+                key={ep.tag}
+                className={`rounded-2xl border-2 p-5 ${ep.bgLight}`}
+              >
+                <div
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${ep.tagColor}`}
+                >
+                  <ep.icon size={11} />
+                  {ep.tag}
+                </div>
+                <div className="mt-3 font-display text-2xl font-black text-navy">
+                  {ep.reward}
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                    {ep.rewardNote}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-3">
+                  {ep.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Activity / empty state ──────────────────────────────── */}
+      <section className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <h2 className="mb-4 font-display text-lg font-bold text-navy">Recent activity</h2>
+        <div className="rounded-2xl border border-dashed border-border bg-white py-12 text-center">
+          <Gift size={32} className="mx-auto mb-3 text-muted-foreground/30" />
+          <p className="text-sm font-semibold text-navy">No activity yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Share your referral link to start earning rewards.
+          </p>
+        </div>
+      </section>
+
+      {/* ── Payout methods (compact) ────────────────────────────── */}
+      <section className="border-t border-border bg-white px-4 py-8 sm:px-6">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-1 text-xs font-bold uppercase tracking-widest text-accent">
+            Redemption
+          </div>
+          <h2 className="font-display text-lg font-bold text-navy">How to redeem</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[
+              { label: "UPI", note: "Instant payout · Recommended", Icon: Smartphone, accent: true },
+              { label: "Bank Transfer", note: "1–2 working days (NEFT/IMPS)", Icon: Wallet, accent: false },
+              { label: "NxtSft Credits", note: "Use toward property search", Icon: Gift, accent: false },
+            ].map(({ label, note, Icon, accent }) => (
+              <div
+                key={label}
+                className={`flex items-center gap-3 rounded-2xl border p-4 ${accent ? "border-accent/30 bg-accent/6" : "border-border"}`}
+              >
+                <div
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${accent ? "bg-accent text-white" : "bg-secondary text-foreground/60"}`}
+                >
+                  <Icon size={16} />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-navy">{label}</div>
+                  <div className="text-[11px] text-muted-foreground">{note}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Minimum redemption ₹100. Go to{" "}
+            <a href="/user-portal" className="text-accent hover:underline">
+              User Portal → Wallet
+            </a>{" "}
+            to request a payout.
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function ReferPage() {
   const { session } = useAuth();
   const [activeEarn, setActiveEarn] = useState(0);
@@ -261,6 +415,9 @@ export default function ReferPage() {
         .slice(0, 4)}`
     : "NXTSFT2026";
   const ActiveEarnIcon = EARN_PATHS[activeEarn].icon;
+
+  /* ── Logged-in users get the dashboard, not the marketing page ── */
+  if (session) return <ReferralDashboard session={session} />;
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">

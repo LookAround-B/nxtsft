@@ -21,6 +21,9 @@ import {
   Star,
   Share2,
   Maximize2,
+  Eye,
+  Flame,
+  Users,
 } from "lucide-react";
 import { PropertyEngagement } from "@/components/PropertyEngagement";
 import { PropertyMapWrapper as PropertyMap } from "@/components/map/PropertyMapWrapper";
@@ -61,6 +64,8 @@ type FullProperty = {
   possession: string | null;
   builder: string | null;
   featured: boolean;
+  views: number;
+  viewBase: number;
   location: {
     city: string;
     locality: string;
@@ -71,6 +76,44 @@ type FullProperty = {
   };
   owner: { id: string; name: string; email: string; avatar: string | null } | null;
 };
+
+/* Simulated live viewer badge — random jitter every 45s, seeded by viewBase */
+function ViewerBadge({ views, viewBase }: { views: number; viewBase: number }) {
+  const seed = (viewBase % 9) + 3; // 3–11 starting live count
+  const [live, setLive] = useState(seed);
+  const totalViews = viewBase + views;
+
+  useEffect(() => {
+    const tick = () => {
+      setLive((n) => {
+        const delta = Math.random() < 0.5 ? 1 : -1;
+        return Math.max(2, Math.min(18, n + delta));
+      });
+    };
+    const id = setInterval(tick, 38_000 + Math.random() * 14_000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (totalViews === 0 && viewBase === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {totalViews > 0 && (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200 px-3 py-1 text-xs font-semibold text-orange-700">
+          <Flame size={12} className="text-orange-500" />
+          {totalViews.toLocaleString("en-IN")} people viewed this
+        </span>
+      )}
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/8 border border-accent/20 px-3 py-1 text-xs font-semibold text-accent">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+        </span>
+        {live} people viewing right now
+      </span>
+    </div>
+  );
+}
 
 function SpecItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
@@ -538,6 +581,9 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                   RERA Verified · {property.rera}
                 </div>
               )}
+
+              {/* Social-proof viewer badge */}
+              <ViewerBadge views={property.views} viewBase={property.viewBase} />
             </div>
 
             {/* Buyer activity / engagement */}

@@ -598,4 +598,59 @@ export const adminRouter = router({
         select: safeUserSelect,
       });
     }),
+
+  // ── View-boost controls ────────────────────────────────────────────────
+  // List properties with their real + boosted view counts for admin control
+  viewBoostList: adminProcedure
+    .input(z.object({ search: searchSchema.optional(), limit: limitSchema }))
+    .query(async ({ input }) => {
+      const { search, limit } = input;
+      const props = await prisma.property.findMany({
+        where: {
+          deletedAt: null,
+          ...(search
+            ? {
+                OR: [
+                  { title: { contains: search, mode: "insensitive" } },
+                  { location: { locality: { contains: search, mode: "insensitive" } } },
+                  { location: { city: { contains: search, mode: "insensitive" } } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          views: true,
+          viewBase: true,
+          location: { select: { city: true, locality: true } },
+        },
+        orderBy: [{ viewBase: "desc" }, { views: "desc" }],
+        take: limit,
+      });
+      return props;
+    }),
+
+  // Set the viewBase (social-proof boost) for a property
+  setViewBase: adminProcedure
+    .input(z.object({ propertyId: cuidSchema, base: z.number().int().min(0).max(9_999_999) }))
+    .mutation(async ({ input }) => {
+      await prisma.property.update({
+        where: { id: input.propertyId },
+        data: { viewBase: input.base },
+      });
+      return { ok: true };
+    }),
+
+  // Reset viewBase and real views for a property
+  resetViews: adminProcedure
+    .input(z.object({ propertyId: cuidSchema }))
+    .mutation(async ({ input }) => {
+      await prisma.property.update({
+        where: { id: input.propertyId },
+        data: { viewBase: 0, views: 0 },
+      });
+      return { ok: true };
+    }),
 });

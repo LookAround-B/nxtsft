@@ -88,7 +88,7 @@ export function fmtPrice(p: number): string {
   return `₹${p.toLocaleString("en-IN")}`;
 }
 
-export const CATEGORIES: { label: string; Icon: LucideIcon; type: string }[] = [
+export const CATEGORIES: { label: string; Icon: LucideIcon; type: string; image?: string }[] = [
   { label: "Apartments", Icon: Building2, type: "Apartment" },
   { label: "Villas", Icon: Home, type: "Villa" },
   { label: "Plots", Icon: MapPin, type: "Plot" },

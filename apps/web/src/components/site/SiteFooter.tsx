@@ -14,7 +14,7 @@ const FOOTER_LINKS = {
     { href: "/about", label: "About Us" },
     { href: "/pricing", label: "Pricing Plans" },
     { href: "/contact", label: "Contact" },
-    { href: "/contact", label: "Careers" },
+    { href: "/careers", label: "Careers" },
     { href: "/agents", label: "Find an Agent" },
   ],
   quick: [

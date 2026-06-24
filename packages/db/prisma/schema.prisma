@@ -127,6 +127,7 @@ model Property {
   propertyViews PropertyView[]
 
   views       Int      @default(0)
+  viewBase    Int      @default(0)  // admin-set boost for social-proof display
   contacts    Int      @default(0)
   featured    Boolean  @default(false)
   matchScore  Int?

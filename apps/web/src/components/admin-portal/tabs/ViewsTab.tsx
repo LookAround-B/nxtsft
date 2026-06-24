@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Eye, Search, Clock, Unlock } from "lucide-react";
+import { Eye, Search, Clock, Unlock, Flame, RotateCcw, Pencil, Check } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
@@ -25,6 +25,140 @@ function timeAgo(iso: string): string {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+/* ─── View Boost (social proof counter management) ─────────────────── */
+function ViewBoostSection() {
+  const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+
+  const listQ = trpc.admin.viewBoostList.useQuery({ search: search.trim() || undefined, limit: 50 });
+  const setBase = trpc.admin.setViewBase.useMutation({ onSuccess: () => { listQ.refetch().catch(() => null); setEditing(null); } });
+  const resetV  = trpc.admin.resetViews.useMutation({ onSuccess: () => listQ.refetch().catch(() => null) });
+
+  const items = listQ.data ?? [];
+
+  const startEdit = (id: string, current: number) => {
+    setEditing(id);
+    setDraft(String(current));
+  };
+
+  const save = (id: string) => {
+    const val = parseInt(draft, 10);
+    if (isNaN(val) || val < 0) return;
+    setBase.mutate({ propertyId: id, base: val });
+  };
+
+  return (
+    <Section
+      title="View Boost — Social Proof Counter"
+      action={
+        <div className="relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search property…"
+            className="rounded-md border border-border bg-white py-1.5 pl-8 pr-3 text-xs outline-none focus:border-accent"
+          />
+        </div>
+      }
+    >
+      <p className="mb-4 text-xs text-muted-foreground">
+        Set the <strong>viewBase</strong> for any property. The public listing will show{" "}
+        <em>viewBase + real views</em> as "people viewed this" plus a live-viewer badge.
+        Reset zeroes both the base and the real view count.
+      </p>
+
+      {listQ.isLoading && <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>}
+      {!listQ.isLoading && items.length === 0 && (
+        <p className="py-6 text-center text-sm text-muted-foreground">No properties found.</p>
+      )}
+
+      {items.length > 0 && (
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="portal-table">
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>City</th>
+                <th>Real Views</th>
+                <th>View Base</th>
+                <th>Displayed Total</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((p) => {
+                const prop = p as { id: string; slug: string; title: string; views: number; viewBase: number; location: { city: string; locality: string } | null };
+                const isEditing = editing === prop.id;
+                const displayed = prop.viewBase + prop.views;
+                return (
+                  <tr key={prop.id}>
+                    <td>
+                      <Link href={`/properties/${prop.slug}`} target="_blank"
+                        className="line-clamp-1 max-w-[180px] block text-sm font-semibold text-navy hover:text-accent">
+                        {prop.title}
+                      </Link>
+                    </td>
+                    <td className="text-xs text-muted-foreground">
+                      {prop.location ? `${prop.location.locality}, ${prop.location.city}` : "—"}
+                    </td>
+                    <td className="font-mono text-sm">{prop.views.toLocaleString()}</td>
+                    <td>
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          type="number"
+                          min={0}
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") save(prop.id); if (e.key === "Escape") setEditing(null); }}
+                          className="w-24 rounded border border-accent px-2 py-1 text-sm font-mono outline-none"
+                        />
+                      ) : (
+                        <span className={`font-mono text-sm font-bold ${prop.viewBase > 0 ? "text-orange-600" : "text-muted-foreground"}`}>
+                          {prop.viewBase.toLocaleString()}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-700">
+                        <Flame size={10} /> {displayed.toLocaleString()}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        {isEditing ? (
+                          <button onClick={() => save(prop.id)} disabled={setBase.isPending}
+                            className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90 disabled:opacity-50">
+                            <Check size={11} /> Save
+                          </button>
+                        ) : (
+                          <button onClick={() => startEdit(prop.id, prop.viewBase)}
+                            className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] font-semibold hover:border-accent hover:text-accent">
+                            <Pencil size={11} /> Set
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { if (confirm(`Reset all views for "${prop.title}"?`)) resetV.mutate({ propertyId: prop.id }); }}
+                          disabled={resetV.isPending}
+                          className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:border-rose-300 hover:bg-rose-50 disabled:opacity-50"
+                        >
+                          <RotateCcw size={11} /> Reset
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
+  );
 }
 
 function BuyerActivitySection() {
@@ -273,6 +407,8 @@ export function ViewsTab() {
           </Section>
         </>
       )}
+
+      <ViewBoostSection />
 
       <BuyerActivitySection />
     </>
