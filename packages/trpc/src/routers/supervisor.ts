@@ -59,7 +59,7 @@ export const supervisorRouter = router({
       const repId = lead.assignedToId!;
       if (lead.updatedAt >= fourWeeksAgo) {
         const trend = trendByRep.get(repId) ?? [0, 0, 0, 0];
-        trend[weekBucket(lead.updatedAt)] += 1;
+        trend[weekBucket(lead.updatedAt)] = (trend[weekBucket(lead.updatedAt)] ?? 0) + 1;
         trendByRep.set(repId, trend);
       }
       if (lead.updatedAt >= startOfMonth) {

@@ -49,7 +49,7 @@ export function OverviewDashboard({ userEmail }: { userEmail: string }) {
           accent={credits === 0 ? "text-accent" : "text-emerald-600"}
         />
         <StatCard
-          label="Site Visits Booked"
+          label="Scheduled Tours"
           value={visitsQ.data ? String(visitsQ.data.length) : "—"}
           sub="scheduled or completed"
         />

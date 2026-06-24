@@ -104,7 +104,7 @@ export const reportsRouter = router({
           builder: "—",
           supervisor: "—",
           salesStaff: "—",
-          type: (seenUsers[s.userId] > 1 ? "Renewal" : "Fresh") as "Fresh" | "Renewal",
+          type: ((seenUsers[s.userId] ?? 0) > 1 ? "Renewal" : "Fresh") as "Fresh" | "Renewal",
           status: subStatusToPayStatus(s.status),
           subscribedOn: s.createdAt.toISOString().slice(0, 10),
           dueDate: s.endDate.toISOString().slice(0, 10),
