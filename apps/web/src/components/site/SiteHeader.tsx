@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
 import {
   Menu,
   X,
@@ -14,6 +14,8 @@ import {
   Briefcase,
   Users,
   TrendingUp,
+  LogOut,
+  User as UserIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -51,10 +53,30 @@ const NAV_ITEMS = [
 ];
 
 export function SiteHeader() {
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
+        setAccountOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  async function handleSignOut() {
+    setAccountOpen(false);
+    setMobileOpen(false);
+    await signOut();
+    router.push("/");
+  }
 
   return (
     <>
@@ -161,15 +183,45 @@ export function SiteHeader() {
           <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0">
             {session && <NotificationBell />}
             {session ? (
-              <Link
-                href="/profile"
-                className="hidden items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-secondary md:inline-flex"
-              >
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
-                  {session.initials}
-                </span>
-                <span className="max-w-[100px] truncate">{session.name}</span>
-              </Link>
+              <div ref={accountRef} className="relative hidden md:block">
+                <button
+                  onClick={() => setAccountOpen((v) => !v)}
+                  className="flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-secondary"
+                  aria-label="Account menu"
+                >
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
+                    {session.initials}
+                  </span>
+                  <span className="max-w-[100px] truncate">{session.name}</span>
+                  <ChevronDown
+                    size={13}
+                    className={`text-muted-foreground transition-transform ${accountOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {accountOpen && (
+                  <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-border bg-white shadow-xl">
+                    <div className="border-b border-border px-4 py-3">
+                      <div className="truncate text-sm font-semibold text-navy">{session.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">{session.email}</div>
+                    </div>
+                    <div className="p-1.5">
+                      <Link
+                        href="/profile"
+                        onClick={() => setAccountOpen(false)}
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-navy transition hover:bg-secondary"
+                      >
+                        <UserIcon size={14} /> My Profile
+                      </Link>
+                      <button
+                        onClick={handleSignOut}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-accent transition hover:bg-accent/6"
+                      >
+                        <LogOut size={14} /> Sign out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <Link
                 href="/login"
@@ -311,19 +363,27 @@ export function SiteHeader() {
                 </Link>
               )}
               {session ? (
-                <Link
-                  href="/profile"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-foreground/80 transition hover:bg-secondary"
-                >
-                  <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
-                    {session.initials}
-                  </span>
-                  <div>
-                    <div className="font-semibold text-navy">{session.name}</div>
-                    <div className="text-xs text-muted-foreground">View profile</div>
-                  </div>
-                </Link>
+                <>
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-foreground/80 transition hover:bg-secondary"
+                  >
+                    <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
+                      {session.initials}
+                    </span>
+                    <div>
+                      <div className="font-semibold text-navy">{session.name}</div>
+                      <div className="text-xs text-muted-foreground">View profile</div>
+                    </div>
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="mt-1 flex w-full items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-accent transition hover:bg-accent/6"
+                  >
+                    <LogOut size={16} /> Sign out
+                  </button>
+                </>
               ) : (
                 <Link
                   href="/login"
