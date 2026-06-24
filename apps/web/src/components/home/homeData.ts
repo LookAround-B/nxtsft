@@ -87,13 +87,13 @@ export function fmtPrice(p: number): string {
   return `₹${p.toLocaleString("en-IN")}`;
 }
 
-export const CATEGORIES: { label: string; Icon: LucideIcon; type: string }[] = [
-  { label: "Apartments", Icon: Building2, type: "Apartment" },
-  { label: "Villas", Icon: Home, type: "Villa" },
-  { label: "Plots", Icon: MapPin, type: "Plot" },
-  { label: "Commercial", Icon: Briefcase, type: "Commercial" },
-  { label: "PG / Co-living", Icon: Users, type: "PG" },
-  { label: "New Projects", Icon: TrendingUp, type: "New" },
+export const CATEGORIES: { label: string; Icon: LucideIcon; type: string; image?: string }[] = [
+  { label: "Apartments",    Icon: Building2,   type: "Apartment",  image: "/categories/apartment.jpg" },
+  { label: "Villas",        Icon: Home,        type: "Villa",      image: "/categories/villa.jpg" },
+  { label: "Plots",         Icon: MapPin,      type: "Plot",       image: "/categories/plot.jpg" },
+  { label: "Commercial",    Icon: Briefcase,   type: "Commercial", image: "/categories/commercial.jpg" },
+  { label: "PG / Co-living",Icon: Users,       type: "PG",         image: "/categories/pg.jpg" },
+  { label: "New Projects",  Icon: TrendingUp,  type: "New" },
 ];
 
 export const CITIES: { label: string; Icon: LucideIcon; tagline: string }[] = [

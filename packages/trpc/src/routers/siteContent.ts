@@ -12,7 +12,7 @@ const KEY = z.string().min(1).max(100);
 export const siteContentRouter = router({
   get: publicProcedure.input(z.object({ key: KEY })).query(async ({ input }) => {
     const row = await prisma.siteSetting.findUnique({ where: { key: input.key } });
-    return row?.value ?? null;
+    return (row?.value ?? null) as Record<string, unknown> | null;
   }),
 
   set: adminProcedure
