@@ -557,9 +557,41 @@ export const adminRouter = router({
 
       return prisma.user.findMany({
         where,
-        select: safeUserSelect,
+        select: {
+          ...safeUserSelect,
+          supervisorId: true,
+          supervisor: { select: { id: true, name: true } },
+        },
         orderBy: { joined: "desc" },
       });
+    }),
+
+  // Assign (or clear) a sales rep's supervisor. Pass supervisorId: null to clear.
+  assignSupervisor: adminProcedure
+    .input(z.object({ userId: cuidSchema, supervisorId: cuidSchema.nullable() }))
+    .mutation(async ({ input }) => {
+      const rep = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true, role: true },
+      });
+      if (!rep) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+      if (rep.role !== "sales") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only sales reps can be assigned a supervisor." });
+      }
+      if (input.supervisorId) {
+        const sup = await prisma.user.findUnique({
+          where: { id: input.supervisorId },
+          select: { id: true, role: true },
+        });
+        if (!sup || sup.role !== "supervisor") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Selected supervisor is invalid." });
+        }
+      }
+      await prisma.user.update({
+        where: { id: input.userId },
+        data: { supervisorId: input.supervisorId },
+      });
+      return { ok: true };
     }),
 
   createTeamMember: adminProcedure

@@ -3,9 +3,17 @@ import prisma from "@nxtsft/db";
 import { router, staffProcedure } from "../server.js";
 import { deriveTicketRow } from "./tickets.js";
 
-function roleToCategory(role: string): "Buyer" | "Seller" | "Agent" | "Owner" | "Tenant" {
-  if (role === "home-seller") return "Seller";
+type ReportCategory = "Buyer" | "Seller" | "Agent" | "Owner" | "Tenant";
+
+// Derive the report category from role + lead interest. Renters/tenants are
+// users whose lead interest mentions rent/lease; property owners are sellers.
+function roleToCategory(role: string, interest?: string | null): ReportCategory {
   if (role === "sales") return "Agent";
+  if (role === "home-seller") return "Owner";
+  const i = (interest ?? "").toLowerCase();
+  if (i.includes("rent") || i.includes("lease") || i.includes("tenant") || i.includes("pg")) {
+    return "Tenant";
+  }
   return "Buyer";
 }
 
@@ -60,21 +68,6 @@ export const reportsRouter = router({
         take: 500,
       });
 
-      const users = dbUsers.map((u) => ({
-        id: u.id.slice(0, 6).toUpperCase(),
-        name: u.name,
-        email: u.email,
-        phone: u.phone ?? "—",
-        category: roleToCategory(u.role),
-        city: u.city,
-        state: u.state ?? "—",
-        builder: "—",
-        supervisor: "—",
-        salesStaff: "—",
-        registeredOn: u.joined.toISOString().slice(0, 10),
-        status: (u.verified ? "Active" : "Inactive") as "Active" | "Inactive",
-      }));
-
       // ── Subscriptions ────────────────────────────────────────
       const dbSubs = await prisma.subscription.findMany({
         where: {
@@ -88,22 +81,93 @@ export const reportsRouter = router({
         take: 500,
       });
 
+      // ── Attribution: rep → supervisor, and user → assigned rep / builder ──
+      // Staff (sales + supervisors) with their supervisor name resolved.
+      const staff = await prisma.user.findMany({
+        where: { role: { in: ["sales", "supervisor"] } },
+        select: { id: true, name: true, supervisorId: true },
+      });
+      const staffById = new Map(staff.map((s) => [s.id, s]));
+      const repName = (id?: string | null) => (id ? staffById.get(id)?.name ?? "—" : "—");
+      const supName = (repId?: string | null) => {
+        const rep = repId ? staffById.get(repId) : null;
+        return rep?.supervisorId ? staffById.get(rep.supervisorId)?.name ?? "—" : "—";
+      };
+
+      // Map each report user → their most recent lead (for rep, builder, interest).
+      const reportUserIds = [
+        ...new Set([...dbUsers.map((u) => u.id), ...dbSubs.map((s) => s.userId)]),
+      ];
+      const userLeads = reportUserIds.length
+        ? await prisma.lead.findMany({
+            where: { userId: { in: reportUserIds } },
+            select: { userId: true, assignedToId: true, interest: true, propertyId: true },
+            orderBy: { createdAt: "desc" },
+          })
+        : [];
+      const leadByUser = new Map<string, (typeof userLeads)[number]>();
+      for (const l of userLeads) {
+        if (l.userId && !leadByUser.has(l.userId)) leadByUser.set(l.userId, l);
+      }
+
+      // Resolve builder names for the properties referenced by those leads.
+      const leadPropIds = [
+        ...new Set([...leadByUser.values()].map((l) => l.propertyId).filter(Boolean)),
+      ];
+      const leadProps = leadPropIds.length
+        ? await prisma.property.findMany({
+            where: { id: { in: leadPropIds } },
+            select: { id: true, builder: true },
+          })
+        : [];
+      const builderByProp = new Map(leadProps.map((p) => [p.id, p.builder ?? "—"]));
+
+      const attrFor = (userId: string, role: string) => {
+        const lead = leadByUser.get(userId);
+        const builder = lead?.propertyId ? builderByProp.get(lead.propertyId) ?? "—" : "—";
+        return {
+          category: roleToCategory(role, lead?.interest),
+          builder,
+          supervisor: supName(lead?.assignedToId),
+          salesStaff: repName(lead?.assignedToId),
+        };
+      };
+
+      const users = dbUsers.map((u) => {
+        const a = attrFor(u.id, u.role);
+        return {
+          id: u.id.slice(0, 6).toUpperCase(),
+          name: u.name,
+          email: u.email,
+          phone: u.phone ?? "—",
+          category: a.category,
+          city: u.city,
+          state: u.state ?? "—",
+          builder: a.builder,
+          supervisor: a.supervisor,
+          salesStaff: a.salesStaff,
+          registeredOn: u.joined.toISOString().slice(0, 10),
+          status: (u.verified ? "Active" : "Inactive") as "Active" | "Inactive",
+        };
+      });
+
       // Count subs per user to distinguish Fresh vs Renewal
       const seenUsers: Record<string, number> = {};
       const subscriptions = dbSubs.map((s) => {
         seenUsers[s.userId] = (seenUsers[s.userId] ?? 0) + 1;
+        const a = attrFor(s.userId, s.user.role);
         return {
           id: s.id.slice(0, 6).toUpperCase(),
           userId: s.userId,
           userName: s.user.name,
           plan: s.planName,
           amount: Math.round(Number(s.amount) / 100),
-          category: roleToCategory(s.user.role),
+          category: a.category,
           city: s.user.city,
           state: s.user.state ?? "—",
-          builder: "—",
-          supervisor: "—",
-          salesStaff: "—",
+          builder: a.builder,
+          supervisor: a.supervisor,
+          salesStaff: a.salesStaff,
           type: ((seenUsers[s.userId] ?? 0) > 1 ? "Renewal" : "Fresh") as "Fresh" | "Renewal",
           status: subStatusToPayStatus(s.status),
           subscribedOn: s.createdAt.toISOString().slice(0, 10),
@@ -129,7 +193,12 @@ export const reportsRouter = router({
         propertyIds.length
           ? prisma.property.findMany({
               where: { id: { in: propertyIds } },
-              select: { id: true, title: true, location: { select: { city: true } } },
+              select: {
+                id: true,
+                title: true,
+                builder: true,
+                location: { select: { city: true } },
+              },
             })
           : Promise.resolve([]),
         buyerIds.length
@@ -161,8 +230,8 @@ export const reportsRouter = router({
           city: prop?.location?.city ?? "—",
           state: "—",
           category: "—",
-          builder: "—",
-          supervisor: "—",
+          builder: prop?.builder ?? "—",
+          supervisor: supName(v.salesRepId),
           salesStaff: rep?.name ?? "—",
           scheduledOn: v.scheduledAt.toISOString().slice(0, 10),
           status: v.status as "Scheduled" | "Completed" | "Cancelled" | "Rescheduled",

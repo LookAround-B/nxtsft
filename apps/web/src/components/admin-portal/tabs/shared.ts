@@ -19,6 +19,8 @@ export type TeamMember = {
   city: string;
   verified: boolean;
   joined: string;
+  supervisorId?: string | null;
+  supervisor?: { id: string; name: string } | null;
 };
 
 export const ROLE_LABEL: Record<string, string> = {

@@ -38,6 +38,11 @@ model User {
   slug         String?  @unique
   metadata     Json?
 
+  // Supervisor → sales-rep attribution (flat: a supervisor owns a set of reps)
+  supervisorId String?
+  supervisor   User?    @relation("Supervises", fields: [supervisorId], references: [id], onDelete: SetNull)
+  supervisees  User[]   @relation("Supervises")
+
   properties   Property[]
   listings     Listing[]
   leads        Lead[]
@@ -64,6 +69,7 @@ model User {
   @@index([email])
   @@index([role])
   @@index([city])
+  @@index([supervisorId])
 }
 
 model Session {

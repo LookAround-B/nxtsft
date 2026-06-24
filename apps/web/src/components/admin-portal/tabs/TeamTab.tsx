@@ -161,6 +161,16 @@ export function TeamTab() {
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
+  const assignSup = trpc.admin.assignSupervisor.useMutation({
+    onSuccess: () => {
+      teamQ.refetch();
+      toast.success("Supervisor updated");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const supervisors = members.filter((m) => m.role === "supervisor");
+
   const [showInvite, setShowInvite] = useState(false);
 
   return (
@@ -210,6 +220,7 @@ export function TeamTab() {
                   <th>Phone</th>
                   <th>Role</th>
                   <th>City</th>
+                  <th>Supervisor</th>
                   <th>Joined</th>
                   <th>Status</th>
                 </tr>
@@ -222,6 +233,31 @@ export function TeamTab() {
                     <td className="font-mono text-xs text-muted-foreground">{m.phone}</td>
                     <td className="text-xs">{ROLE_LABEL[m.role] ?? m.role}</td>
                     <td className="text-xs">{m.city}</td>
+                    <td className="text-xs">
+                      {m.role === "sales" ? (
+                        <Select
+                          value={m.supervisorId ?? "__none"}
+                          onValueChange={(v) =>
+                            assignSup.mutate({
+                              userId: m.id,
+                              supervisorId: v === "__none" ? null : v,
+                            })
+                          }
+                        >
+                          <SelectTrigger size="sm" className="min-w-[8.5rem]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none">— Unassigned</SelectItem>
+                            {supervisors.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="text-xs text-muted-foreground">{new Date(m.joined).toLocaleDateString("en-IN")}</td>
                     <td><Badge tone={m.verified ? "success" : "new"}>{m.verified ? "Active" : "Invited"}</Badge></td>
                   </tr>
