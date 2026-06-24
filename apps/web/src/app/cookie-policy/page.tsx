@@ -12,7 +12,7 @@ const SECTIONS = [
     id: "introduction",
     title: "1. Introduction",
     body: [
-      'This Cookie Policy explains how NxtSft.com Technology Pvt. Ltd. ("NxtSft.com", "we", "us", or "our") uses cookies and similar tracking technologies when you visit our website or mobile application (collectively, the "Platform").',
+      'This Cookie Policy explains how NxtSFT PropTech innovations ("NxtSft.com", "we", "us", or "our") uses cookies and similar tracking technologies when you visit our website or mobile application (collectively, the "Platform").',
       'By clicking "Accept All" on the cookie consent banner or by continuing to browse the Platform, you consent to the use of cookies as described in this Policy. If you select "Reject", only strictly necessary cookies will be placed. You may update your preferences at any time by clearing your browser\'s local storage or cookie settings.',
       "This Policy should be read alongside our Privacy Policy, which sets out the broader framework for how we handle your personal data.",
     ],
@@ -239,7 +239,7 @@ const SECTIONS = [
     title: "11. Contact Us",
     body: ["If you have questions about our use of cookies or this Policy, please contact:"],
     contact: {
-      name: "Data Privacy Team — NxtSft.com Technology Pvt. Ltd.",
+      name: "Data Privacy Team — NxtSFT PropTech innovations",
       address: "Cyber City, Gurugram 122002, Haryana, India",
       email: "hello@nxtsft.com",
       responseTime: "We aim to acknowledge all privacy-related enquiries within 48 hours.",

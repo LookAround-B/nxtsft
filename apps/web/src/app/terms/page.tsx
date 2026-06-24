@@ -13,7 +13,7 @@ const SECTIONS = [
     body: [
       'By accessing or using the NxtSft.com website, mobile application, or any related services (collectively, the "Platform"), you agree to be legally bound by these Terms of Use ("Terms"), our Privacy Policy, and any additional guidelines, rules, or policies applicable to specific features of the Platform, all of which are incorporated herein by reference.',
       "If you do not agree to these Terms, you must immediately cease using the Platform. Your continued use constitutes acceptance of any modifications to these Terms.",
-      'NxtSft.com Technology Pvt. Ltd. ("NxtSft.com", "we", "us", or "our") reserves the right to revise these Terms at any time. We will notify registered users of material changes via email or a prominent in-Platform notice. Changes take effect upon posting unless stated otherwise.',
+      'NxtSFT PropTech innovations. ("NxtSft.com", "we", "us", or "our") reserves the right to revise these Terms at any time. We will notify registered users of material changes via email or a prominent in-Platform notice. Changes take effect upon posting unless stated otherwise.',
     ],
   },
   {
@@ -40,7 +40,7 @@ const SECTIONS = [
     title: "4. Description of Services",
     body: [
       'NxtSft.com is an online real estate marketplace that connects buyers, sellers, tenants, landlords, property developers, and real estate agents ("Parties"). Our Platform provides tools for searching and listing residential, commercial, and other real estate properties across India.',
-      "NxtSft.com is an intermediary and facilitates communication between Parties. We do not own, sell, rent, or otherwise deal in properties listed on the Platform. We are not a real estate agent, broker, or advisor, and nothing on the Platform constitutes legal, financial, or investment advice.",
+      "NxtSft.com is an intermediary and facilitates communication between Parties. We do not own, sell, rent, or otherwise deal in properties listed on the Platform. We are not a real estate agent or advisor, and nothing on the Platform constitutes legal, financial, or investment advice.",
       "Property listings on the Platform are posted by sellers, developers, or agents and are subject to availability. NxtSft.com does not warrant the accuracy, completeness, or legality of any listing or the identity of any user.",
       "Certain features — including unlocking contact details, advanced search filters, and lead management tools — are available only to users with an active credit balance or subscription, as outlined on our Pricing page.",
     ],
@@ -76,7 +76,7 @@ const SECTIONS = [
     id: "ip",
     title: "7. Intellectual Property",
     body: [
-      "All content on the Platform — including the NxtSft.com name and logo, text, graphics, software, data compilations, and the overall look and feel of the Platform — is the exclusive property of NxtSft.com Technology Pvt. Ltd. or its licensors and is protected under applicable intellectual property laws.",
+      "All content on the Platform — including the NxtSft.com name and logo, text, graphics, software, data compilations, and the overall look and feel of the Platform — is the exclusive property of NxtSFT PropTech innovations or its licensors and is protected under applicable intellectual property laws.",
       "Nothing in these Terms grants you any right, title, or interest in or to our intellectual property. You may not reproduce, distribute, modify, create derivative works from, publicly display, or exploit any content from the Platform without our prior written permission.",
       "Any feedback, suggestions, or ideas you provide to us regarding the Platform may be used by us without any obligation to compensate you.",
     ],
@@ -113,7 +113,7 @@ const SECTIONS = [
     id: "indemnification",
     title: "11. Indemnification",
     body: [
-      "You agree to indemnify, defend, and hold harmless NxtSft.com Technology Pvt. Ltd., its officers, directors, employees, agents, and affiliates from and against any claims, liabilities, damages, losses, costs, and expenses (including reasonable legal fees) arising out of or in any way connected with: (a) your access to or use of the Platform; (b) your User Content; (c) your violation of these Terms; or (d) your violation of any applicable law or the rights of any third party.",
+      "You agree to indemnify, defend, and hold harmless NxtSFT PropTech innovations, its officers, directors, employees, agents, and affiliates from and against any claims, liabilities, damages, losses, costs, and expenses (including reasonable legal fees) arising out of or in any way connected with: (a) your access to or use of the Platform; (b) your User Content; (c) your violation of these Terms; or (d) your violation of any applicable law or the rights of any third party.",
     ],
   },
   {
@@ -157,7 +157,7 @@ const SECTIONS = [
     title: "16. Contact Us",
     body: ["If you have questions or concerns about these Terms, please contact:"],
     contact: {
-      company: "NxtSft.com Technology Pvt. Ltd.",
+      company: "NxtSFT PropTech innovations",
       address: "Cyber City, Gurugram 122002, Haryana, India",
       email: "hello@nxtsft.com",
       support: "care@nxtsft.com",

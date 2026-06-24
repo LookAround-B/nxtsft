@@ -214,7 +214,7 @@ export function PropertyIllustration({ className = "" }: { className?: string })
       >
         <div className="flex items-center gap-1.5 text-xs">
           <span className="font-bold text-accent">₹0</span>
-          <span className="font-semibold text-navy">Brokerage</span>
+          <span className="font-semibold text-navy">Commission</span>
         </div>
       </div>
     </div>

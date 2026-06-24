@@ -1,5 +1,32 @@
 import type { NextConfig } from "next";
 import path from "path";
+import fs from "fs";
+
+// Next only auto-loads env from this app's directory, but server-only secrets
+// (R2_*, DATABASE_URL, etc.) live in the monorepo-root .env. Load any missing
+// keys from there so server-side code (tRPC media uploads) sees them. Walks up
+// from cwd to find the first .env, mirroring packages/db/client.ts.
+(() => {
+  try {
+    // Find the monorepo root (has pnpm-workspace.yaml) and load its .env.
+    let dir = process.cwd();
+    while (dir && dir !== path.dirname(dir)) {
+      if (fs.existsSync(path.join(dir, "pnpm-workspace.yaml"))) break;
+      dir = path.dirname(dir);
+    }
+    const envPath = path.join(dir, ".env");
+    if (!fs.existsSync(envPath)) return;
+    for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/i);
+      if (!m) continue;
+      const key = m[1]!;
+      if (process.env[key] !== undefined) continue; // app-local .env wins
+      process.env[key] = m[2]!.replace(/^["']|["']$/g, "");
+    }
+  } catch {
+    // best-effort; missing env surfaces as the existing "not configured" errors
+  }
+})();
 
 // Hostname of the configured R2 public bucket (e.g. media.nxtsft.com or a
 // pub-*.r2.dev domain), so next/image and the CSP allow listing photos.

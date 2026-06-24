@@ -11,6 +11,7 @@ import { ServicesSection } from "@/components/home/ServicesSection";
 import { CitiesSection } from "@/components/home/CitiesSection";
 import { ReviewsSection } from "@/components/home/ReviewsSection";
 import { WhySection } from "@/components/home/WhySection";
+import { BannerSection } from "@/components/home/BannerSection";
 // import { PortalsSection } from "@/components/home/PortalsSection";
 import { CTASection } from "@/components/home/CTASection";
 
@@ -46,6 +47,7 @@ export default function HomePage() {
       <CitiesSection />
       <ReviewsSection />
       <WhySection />
+      <BannerSection />
       {/* <PortalsSection /> */}
       <CTASection />
     </div>

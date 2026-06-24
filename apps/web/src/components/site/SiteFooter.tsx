@@ -8,7 +8,7 @@ const FOOTER_LINKS = {
     { href: "/properties?type=Villa", label: "Villas" },
     { href: "/properties?type=Plot", label: "Plots & Land" },
     { href: "/properties?type=Office", label: "Commercial" },
-    { href: "/properties?type=PG", label: "Home Interiors" },
+    { href: "/properties?type=Home%20Interiors", label: "Home Interiors" },
   ],
   company: [
     { href: "/about", label: "About Us" },
@@ -98,7 +98,7 @@ export function SiteFooter() {
             />
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/55">
               India&apos;s next-generation real estate ecosystem — RERA-verified listings, AI-powered
-              matching, zero brokerage and an integrated CRM+ERP suite.
+              matching, zero commission and an integrated CRM+ERP suite.
             </p>
             <div className="mt-4 flex items-start gap-1.5 text-sm text-white/45">
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--gold)]" />
@@ -152,7 +152,7 @@ export function SiteFooter() {
       <div className="relative z-10 border-t border-white/8">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 py-5 sm:flex-row sm:justify-between sm:px-6">
           <span className="text-xs text-white/35">
-            © 2026 NxtSft.com Technology Pvt. Ltd. — All rights reserved.
+            © 2026 NxtSFT PropTech innovations — All rights reserved.
           </span>
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <Link href="/terms" className="text-xs text-white/35 transition hover:text-white/70">

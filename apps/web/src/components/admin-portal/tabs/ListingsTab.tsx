@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Mail, Phone } from "lucide-react";
+import { Mail, Phone, Star } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { getPendingListings, updateListingStatus as persistListingStatus } from "@/lib/listings";
@@ -28,6 +28,7 @@ type ListingItem = {
   area?: string;
   interested?: number;
   wishlisted?: number;
+  featured?: boolean;
 };
 
 type RawProp = {
@@ -41,6 +42,7 @@ type RawProp = {
   status: string;
   rera: string | null;
   slug: string;
+  featured: boolean;
   _count?: { leads: number; favoritedBy: number };
 };
 
@@ -50,6 +52,13 @@ export function ListingsTab() {
     onSuccess: () => {
       void dbListingsQ.refetch();
       toast.success("Property approved and set to Active.");
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+  const featuredMutation = trpc.properties.toggleFeatured.useMutation({
+    onSuccess: (res) => {
+      void dbListingsQ.refetch();
+      toast.success(res.featured ? "Pushed to home page." : "Removed from home page.");
     },
     onError: (err: { message: string }) => toast.error(err.message),
   });
@@ -100,6 +109,7 @@ export function ListingsTab() {
     rera: p.rera,
     interested: p._count?.leads ?? 0,
     wishlisted: p._count?.favoritedBy ?? 0,
+    featured: p.featured,
   }));
 
   const items = [...localItems, ...dbItems];
@@ -191,6 +201,11 @@ export function ListingsTab() {
                     >
                       {it.status}
                     </Badge>
+                    {it.featured && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                        <Star size={9} className="fill-current" /> On Home
+                      </span>
+                    )}
                   </div>
                   <div className="mt-1 text-sm font-semibold text-navy">{it.title}</div>
                   <div className="text-xs text-muted-foreground">{it.builder}</div>
@@ -266,6 +281,21 @@ export function ListingsTab() {
                 >
                   Reject
                 </button>
+                {it.isDbProperty && (
+                  <button
+                    onClick={() => featuredMutation.mutate({ id: it.id, featured: !it.featured })}
+                    disabled={featuredMutation.isPending}
+                    title="Show this project in the Trending Properties section on the home page"
+                    className={`ml-auto inline-flex items-center gap-1 rounded-md px-3 py-1 text-xs font-semibold transition disabled:opacity-40 ${
+                      it.featured
+                        ? "bg-gold/20 text-amber-700 hover:bg-gold/30"
+                        : "border border-border hover:bg-secondary"
+                    }`}
+                  >
+                    <Star size={11} className={it.featured ? "fill-current" : ""} />
+                    {it.featured ? "On Home" : "Push to Home"}
+                  </button>
+                )}
               </div>
             </div>
           ))}

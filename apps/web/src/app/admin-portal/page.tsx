@@ -17,6 +17,7 @@ import {
   Coins,
   ShieldCheck,
   UserCheck,
+  Image as ImageIcon,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -39,6 +40,7 @@ import { EnquiriesTab } from "@/components/admin-portal/tabs/EnquiriesTab";
 import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
 import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
 import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprovalsTab";
+import { SiteContentTab } from "@/components/admin-portal/tabs/SiteContentTab";
 
 // Mirrors the canonical tab order defined in the SA portal, limited to the tabs
 // the Admin role can access. Keep this in sync with sa-portal/page.tsx.
@@ -60,6 +62,7 @@ const nav = [
   { label: "Reports", to: "/admin-portal#reports", icon: <BarChart2 size={14} /> },
   { label: "Team Management", to: "/admin-portal#team", icon: <Users size={14} /> },
   { label: "Marketing", to: "/admin-portal#marketing", icon: <Megaphone size={14} /> },
+  { label: "Home Page Content", to: "/admin-portal#site-content", icon: <ImageIcon size={14} /> },
 ];
 
 function renderTab(hash: string) {
@@ -80,6 +83,7 @@ function renderTab(hash: string) {
     case "credits":       return <CreditsTab />;
     case "seller-approvals": return <SellerApprovalsTab />;
     case "kyc":           return <KYCReviewTab />;
+    case "site-content":  return <SiteContentTab />;
     default:              return <OperationsTab />;
   }
 }

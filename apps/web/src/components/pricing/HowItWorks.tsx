@@ -35,7 +35,7 @@ function getSteps(forSeeker: boolean, forReseller: boolean): Step[] {
       {
         step: "03",
         title: "Call directly",
-        body: "Call or WhatsApp the owner directly — zero brokerage, no middlemen. Mark the deal as closed in your dashboard when done.",
+        body: "Call or WhatsApp the owner directly — zero commission, no middlemen. Mark the deal as closed in your dashboard when done.",
       },
     ];
   }
@@ -53,7 +53,7 @@ function getSteps(forSeeker: boolean, forReseller: boolean): Step[] {
     {
       step: "03",
       title: "Close the deal",
-      body: "Talk directly to qualified, verified parties. No brokerage, no commissions — just a one-time listing fee.",
+      body: "Talk directly to qualified, verified parties. No commission, no commissions — just a one-time listing fee.",
     },
   ];
 }

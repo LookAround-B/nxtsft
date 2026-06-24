@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth";
 import { submitListing, type ListerType, type PendingListing } from "@/lib/listings";
 import { trpc } from "@/lib/trpc";
 import { validateRera } from "@/lib/rera";
+import { AMENITIES } from "@/data/amenities";
 import {
   Select,
   SelectTrigger,
@@ -48,23 +49,6 @@ const CITIES = [
   "Other",
 ];
 const BHK_OPTIONS = ["1 BHK", "2 BHK", "3 BHK", "4+ BHK", "Open Plot", "Studio"];
-const AMENITIES = [
-  "Swimming Pool",
-  "Gym / Fitness Centre",
-  "Covered Parking",
-  "Power Backup",
-  "24/7 Security",
-  "Clubhouse",
-  "Elevator / Lift",
-  "Landscaped Garden",
-  "Children's Play Area",
-  "Smart Home",
-  "Solar Panels",
-  "CCTV Surveillance",
-  "Jogging Track",
-  "Community Hall",
-  "Visitor Parking",
-];
 
 const STEPS = [
   { num: 1, label: "Role", Icon: User },
@@ -475,7 +459,7 @@ export default function ListPropertyPage() {
                   {
                     type: "agent" as const,
                     Icon: Briefcase,
-                    label: "Agent / Broker",
+                    label: "Agent",
                     desc: "I am a registered real estate agent",
                   },
                   {
@@ -708,12 +692,12 @@ export default function ListPropertyPage() {
                   </span>
                 </label>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {AMENITIES.map((a) => {
-                    const on = data.amenities.includes(a);
+                  {AMENITIES.map(({ name, Icon }) => {
+                    const on = data.amenities.includes(name);
                     return (
                       <button
-                        key={a}
-                        onClick={() => toggleAmenity(a)}
+                        key={name}
+                        onClick={() => toggleAmenity(name)}
                         className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition
                           ${on ? "border-accent bg-accent/8 font-semibold text-accent" : "border-border bg-white text-foreground/70 hover:border-accent/40"}`}
                       >
@@ -722,7 +706,8 @@ export default function ListPropertyPage() {
                         >
                           {on && <Check size={10} strokeWidth={3} className="text-white" />}
                         </div>
-                        {a}
+                        <Icon size={14} className="shrink-0 text-accent/80" />
+                        {name}
                       </button>
                     );
                   })}

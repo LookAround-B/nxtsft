@@ -406,7 +406,7 @@ export function PlansManagerTab() {
         />
         <PlanGroup
           title="Owner Sell Plans"
-          description="Listing plans for property sellers, brokers and developers."
+          description="Listing plans for property sellers, agents and developers."
           group={ownerSellGroup}
         />
       </div>

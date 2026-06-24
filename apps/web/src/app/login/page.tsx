@@ -112,7 +112,7 @@ export default function LoginPage() {
             Sign in to NxtSft.com
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Find your next home — zero brokerage, RERA-verified.
+            Find your next home — zero commission, RERA-verified.
           </p>
 
           <form

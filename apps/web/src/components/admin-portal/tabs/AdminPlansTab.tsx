@@ -218,7 +218,7 @@ export function AdminPlansTab() {
         )}
         {renderGroup(
           "Owner Sell Plans",
-          "Listing plans for property sellers, brokers and developers.",
+          "Listing plans for property sellers, agents and developers.",
           ownerSellG,
         )}
       </div>

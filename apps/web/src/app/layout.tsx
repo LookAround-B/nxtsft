@@ -12,11 +12,11 @@ import { CookieBanner } from "@/components/site/CookieBanner";
 export const metadata: Metadata = {
   title: "NxtSft.com — India's Smart Real Estate Platform",
   description:
-    "NxtSft.com is India's next-generation real estate ecosystem — verified listings, AI matching, zero brokerage, integrated CRM and ERP.",
+    "NxtSft.com is India's next-generation real estate ecosystem — verified listings, AI matching, zero commission, integrated CRM and ERP.",
   openGraph: {
     title: "NxtSft.com — Find. Own. Live Smarter.",
     description:
-      "India's most comprehensive real estate platform — AI matched, zero brokerage, CRM+ERP in one.",
+      "India's most comprehensive real estate platform — AI matched, zero commission, CRM+ERP in one.",
     type: "website",
   },
   twitter: {

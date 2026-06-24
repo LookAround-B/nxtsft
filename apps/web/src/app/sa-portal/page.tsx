@@ -26,6 +26,7 @@ import {
   Coins,
   UserCheck,
   ShieldCheck,
+  Image as ImageIcon,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -61,6 +62,7 @@ import { CommissionsTab } from "@/components/admin-portal/tabs/CommissionsTab";
 import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
 import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprovalsTab";
 import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
+import { SiteContentTab } from "@/components/admin-portal/tabs/SiteContentTab";
 
 // ─────────────────────────────────────────────────────────────────────────
 // CANONICAL TAB ORDER — this is the source-of-truth ordering for every staff
@@ -95,6 +97,7 @@ const nav = [
   { label: "All Teams", to: "/sa-portal#teams", icon: <Users2 size={14} /> },
   { label: "Role Permissions", to: "/sa-portal#permissions", icon: <Shield size={14} /> },
   { label: "Marketing", to: "/sa-portal#marketing", icon: <Megaphone size={14} /> },
+  { label: "Home Page Content", to: "/sa-portal#site-content", icon: <ImageIcon size={14} /> },
   { label: "Security Console", to: "/sa-portal#sec", icon: <Shield size={14} /> },
   { label: "Platform Config", to: "/sa-portal#config", icon: <Settings2 size={14} /> },
 ];
@@ -158,6 +161,8 @@ function renderTab(hash: string) {
       return <SellerApprovalsTab />;
     case "kyc":
       return <KYCReviewTab />;
+    case "site-content":
+      return <SiteContentTab />;
     default:
       return <Dashboard />;
   }

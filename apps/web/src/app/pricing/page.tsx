@@ -115,7 +115,7 @@ export default function PricingPage() {
       <section className="bg-linear-to-br from-navy-deep via-navy to-mid-blue py-20 text-white">
         <div className="mx-auto max-w-3xl px-6 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white/80">
-            <Shield size={12} /> Transparent, no-brokerage pricing
+            <Shield size={12} /> Transparent, no-commission pricing
           </div>
           <h1 className="mt-6 font-display text-4xl font-black leading-tight sm:text-5xl">
             Pay once. Talk directly. <span className="text-gold">No commissions.</span>

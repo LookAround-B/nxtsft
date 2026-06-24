@@ -11,7 +11,7 @@ const SECTIONS = [
     id: "introduction",
     title: "1. Introduction",
     body: [
-      'NxtSft.com Technology Pvt. Ltd. ("NxtSft.com", "we", "us", or "our") is committed to protecting your privacy and personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website, mobile application, or any related services (collectively, the "Platform").',
+      'NxtSFT PropTech innovations ("NxtSft.com", "we", "us", or "our") is committed to protecting your privacy and personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website, mobile application, or any related services (collectively, the "Platform").',
       'This Policy is published in accordance with the Information Technology Act, 2000, the Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011 ("SPDI Rules"), and, where applicable, the Digital Personal Data Protection Act, 2023 ("DPDPA").',
       "By using the Platform, you consent to the collection and use of your information as described in this Policy. If you do not agree, please discontinue use of the Platform immediately.",
     ],
@@ -175,7 +175,7 @@ const SECTIONS = [
       "In accordance with the Information Technology Act, 2000, and the SPDI Rules, 2011, we have appointed a Grievance Officer to address any complaints regarding data processing. You may reach our Grievance Officer at:",
     ],
     contact: {
-      name: "Grievance Officer — NxtSft.com Technology Pvt. Ltd.",
+      name: "Grievance Officer — NxtSFT PropTech innovations  ",
       address: "Cyber City, Gurugram 122002, Haryana, India",
       email: "hello@nxtsft.com",
       responseTime:

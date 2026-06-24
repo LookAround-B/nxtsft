@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   MapPin,
   BedDouble,
-  Bath,
   Car,
   SquareStack,
   BadgeCheck,
@@ -27,6 +26,7 @@ import { PropertyEngagement } from "@/components/PropertyEngagement";
 import { PropertyMapWrapper as PropertyMap } from "@/components/map/PropertyMapWrapper";
 import { GalleryLightbox } from "@/components/ui/GalleryLightbox";
 import { trpc } from "@/lib/trpc";
+import { amenityIcon } from "@/data/amenities";
 import { useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -544,7 +544,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
             <PropertyEngagement propertyId={property.id} />
 
             {/* Specs */}
-            <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+            <div className="">
               <h2 className="mb-4 font-display text-lg font-bold text-navy">Property Details</h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {property.bedrooms > 0 && (
@@ -552,13 +552,6 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                     icon={<BedDouble size={18} />}
                     label="Bedrooms"
                     value={property.bhk ?? `${property.bedrooms} BHK`}
-                  />
-                )}
-                {property.bathrooms > 0 && (
-                  <SpecItem
-                    icon={<Bath size={18} />}
-                    label="Bathrooms"
-                    value={`${property.bathrooms}`}
                   />
                 )}
                 <SpecItem
@@ -618,14 +611,18 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
               <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
                 <h2 className="mb-4 font-display text-lg font-bold text-navy">Amenities</h2>
                 <div className="flex flex-wrap gap-2">
-                  {property.amenities.map((a) => (
-                    <span
-                      key={a}
-                      className="rounded-full border border-border bg-secondary/50 px-3 py-1.5 text-xs font-semibold text-foreground/70"
-                    >
-                      {a}
-                    </span>
-                  ))}
+                  {property.amenities.map((a) => {
+                    const Icon = amenityIcon(a);
+                    return (
+                      <span
+                        key={a}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/50 px-3 py-1.5 text-xs font-semibold text-foreground/70"
+                      >
+                        <Icon size={14} className="text-accent" />
+                        {a}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             )}

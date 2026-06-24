@@ -115,12 +115,12 @@ export default function RegisterPage() {
               {regType === "buyer" ? (
                 <>Your perfect home<br />is one step away.<br /><span className="text-white/55">Sign up. Explore. Own.</span></>
               ) : (
-                <>List your property.<br />Reach lakh+ buyers.<br /><span className="text-white/55">Zero brokerage. Full control.</span></>
+                <>List your property.<br />Reach lakh+ buyers.<br /><span className="text-white/55">Zero commission. Full control.</span></>
               )}
             </h1>
             <ul className="mt-8 space-y-3">
               {(regType === "buyer"
-                ? ["Zero brokerage — save lakhs", "RERA-verified listings only", "Dedicated relationship manager", "1 free credit on signup, no card required"]
+                ? ["Zero commission — save lakhs", "RERA-verified listings only", "Dedicated relationship manager", "1 free credit on signup, no card required"]
                 : ["Verified buyer audience", "RERA-compliant listings", "Dedicated account manager", "Pay only when you sell"]
               ).map((pt) => (
                 <li key={pt} className="flex items-center gap-2.5 text-sm text-white/80">

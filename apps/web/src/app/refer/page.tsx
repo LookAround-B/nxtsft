@@ -132,7 +132,7 @@ const FAQS = [
   },
   {
     q: "Why was my submission rejected?",
-    a: "Common reasons: the property is already listed on NxtSft.com; the property has already been sold or rented; the contact details belong to a broker or agent; or the board photo was unclear or unverifiable. Ensure you're submitting genuine, unlisted properties.",
+    a: "Common reasons: the property is already listed on NxtSft.com; the property has already been sold or rented; the contact details belong to an agent; or the board photo was unclear or unverifiable. Ensure you're submitting genuine, unlisted properties.",
   },
   {
     q: "How long does reward verification take?",

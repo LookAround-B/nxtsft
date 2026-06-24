@@ -210,10 +210,24 @@ export function AboutContent() {
             className="mt-5 max-w-2xl text-lg text-white/70"
             style={{ transitionDelay: "160ms" }}
           >
-            NxtSft.com democratises real estate transactions by building a transparent,
-            technology-first marketplace — eliminating friction, opacity and information asymmetry
-            from every step.
+            We&apos;re tearing down the walls of Indian real estate — no commissions, no middlemen,
+            no guesswork. Just verified homes, honest prices and AI that actually understands what
+            you&apos;re looking for.
           </p>
+          <div
+            data-reveal
+            className="mt-7 flex flex-wrap gap-2.5"
+            style={{ transitionDelay: "240ms" }}
+          >
+            {["Zero Commission", "RERA-Verified", "AI-Matched", "10,000+ Homes"].map((chip) => (
+              <span
+                key={chip}
+                className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-semibold text-white/85 backdrop-blur-sm"
+              >
+                {chip}
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 

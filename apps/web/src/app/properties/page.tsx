@@ -20,7 +20,7 @@ import { trpc } from "@/lib/trpc";
 import { CardGridSkeleton } from "@/components/ui/skeleton";
 import { LoadMore } from "@/components/ui/load-more";
 
-const PROPERTY_TYPES = ["Apartment", "Villa", "Studio", "Office", "Bungalow", "Plot", "PG"] as const;
+const PROPERTY_TYPES = ["Apartment", "Villa", "Studio", "Office", "Bungalow", "Plot", "PG", "Home Interiors"] as const;
 const PURPOSES = ["Sale", "Rent"] as const;
 const BHKS = [1, 2, 3, 4, 5];
 const CITIES = [

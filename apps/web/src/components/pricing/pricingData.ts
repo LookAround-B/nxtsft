@@ -124,7 +124,7 @@ export const CHOOSER_FLOWS: Record<
         q: "How many properties are you listing for sale?",
         options: [
           { label: "1 property", sub: "Homeowner", value: "1" },
-          { label: "2 – 3", sub: "Small broker / agent", value: "2-3" },
+          { label: "2 – 3", sub: "Independent agent", value: "2-3" },
           { label: "7 or more", sub: "Builder / developer", value: "7+" },
         ],
       },
@@ -161,7 +161,7 @@ export const CHOOSER_FLOWS: Record<
         return {
           planId: "sell-gold",
           name: "Sell Monthly Gold",
-          why: "3 listings, Facebook Ad Boost, top placement and 120 verified buyer leads — the sweet spot for brokers.",
+          why: "3 listings, Facebook Ad Boost, top placement and 120 verified buyer leads — the sweet spot for agents.",
         };
       return {
         planId: "sell-silver",
@@ -389,7 +389,7 @@ export const ownerFaqs: string[][] = [
 export const ownerSellFaqs: string[][] = [
   [
     "What is the difference between all the selling plans?",
-    "Sell Silver (₹4,999) is for individual homeowners with 1 property and basic lead access. Sell Gold (₹9,999) adds Facebook Ads and top search placement — ideal for active brokers with 2–3 listings. Sell Platinum (₹14,999) adds homepage rotation and dedicated lead filters for independent agencies. Builder Pro (₹24,999) includes CRM integration, Google + Meta campaigns, and is built for developers. Enterprise (₹49,999) is for large-scale developers needing a dedicated project landing page, 40 listings, and a personal account manager.",
+    "Sell Silver (₹4,999) is for individual homeowners with 1 property and basic lead access. Sell Gold (₹9,999) adds Facebook Ads and top search placement — ideal for active agents with 2–3 listings. Sell Platinum (₹14,999) adds homepage rotation and dedicated lead filters for independent agencies. Builder Pro (₹24,999) includes CRM integration, Google + Meta campaigns, and is built for developers. Enterprise (₹49,999) is for large-scale developers needing a dedicated project landing page, 40 listings, and a personal account manager.",
   ],
   [
     "When will my listing go live after I purchase?",

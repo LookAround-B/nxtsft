@@ -22,7 +22,6 @@ function HeroBlobs() {
         className="absolute bottom-8 right-1/3 h-[200px] w-[200px] animate-float rounded-full opacity-10 blur-[60px]"
         style={{ background: "oklch(0.72 0.12 186)" }}
       />
-      <div className="absolute left-8 top-8 h-20 w-20 animate-spin-slow rounded-full border border-white/10" />
       <div className="absolute right-16 bottom-16 h-12 w-12 animate-spin-slow-r rounded-full border border-white/8" />
     </div>
   );

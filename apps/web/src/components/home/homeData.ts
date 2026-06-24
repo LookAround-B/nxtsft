@@ -21,6 +21,7 @@ import {
   BarChart2,
   Lock,
   CheckCircle2,
+  Sofa,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -38,7 +39,7 @@ export const HERO_IMAGES = [
 export const ROTATING_STATS = [
   "Trusted by 1 Lakh+ Happy Customers",
   "10,000+ RERA-Verified Properties",
-  "Zero Brokerage — Save Lakhs",
+  "Zero Commission — Save Lakhs",
   "Covering 50+ Cities Across India",
   "AI-Matched Listings for Every Budget",
   "Dedicated Relationship Manager Support",
@@ -49,7 +50,7 @@ export const KPI_BAND = [
   { num: 50, prefix: "", suffix: "+", decimals: 0, l: "Cities Covered" },
   { num: 4.8, prefix: "", suffix: " ★", decimals: 1, l: "Average Rating" },
   { num: 1, prefix: "", suffix: " Lakh+", decimals: 0, l: "Happy Customers" },
-  { num: 0, prefix: "₹", suffix: "", decimals: 0, l: "Brokerage Fee" },
+  { num: 0, prefix: "₹", suffix: "", decimals: 0, l: "Commission Fee" },
   { num: 100, prefix: "", suffix: "%", decimals: 0, l: "RERA Verified" },
 ];
 
@@ -94,6 +95,7 @@ export const CATEGORIES: { label: string; Icon: LucideIcon; type: string }[] = [
   { label: "Commercial", Icon: Briefcase, type: "Commercial" },
   { label: "PG / Co-living", Icon: Users, type: "PG" },
   { label: "New Projects", Icon: TrendingUp, type: "New" },
+  { label: "Home Interiors", Icon: Sofa, type: "Home Interiors" },
 ];
 
 export const CITIES: { label: string; Icon: LucideIcon; tagline: string }[] = [
@@ -124,7 +126,7 @@ export const SERVICES: { Icon: LucideIcon; title: string; desc: string }[] = [
   },
   {
     Icon: DollarSign,
-    title: "Zero Brokerage",
+    title: "Zero Commission",
     desc: "No middlemen. Connect directly with owners and builders.",
   },
   {
@@ -161,7 +163,7 @@ export const REVIEWS = [
     bg: "#2563EB",
     rating: 5,
     age: "1 week ago",
-    text: "The relationship manager was incredibly helpful. Organised 4 site visits in a weekend. Zero brokerage saved me ₹1.2 lakhs on my villa in Whitefield.",
+    text: "The relationship manager was incredibly helpful. Organised 4 site visits in a weekend. Zero commission saved me ₹1.2 lakhs on my villa in Whitefield.",
   },
   {
     name: "Vikram Singh",
@@ -204,7 +206,7 @@ export const REVIEWS = [
 export const PRESS = [
   {
     outlet: "Economic Times",
-    headline: "NxtSft.com disrupts India's real estate brokerage model with zero-fee platform",
+    headline: "NxtSft.com disrupts India's real estate commission model with zero-fee platform",
   },
   {
     outlet: "Business Standard",

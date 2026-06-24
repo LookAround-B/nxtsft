@@ -747,7 +747,7 @@ export const ownerSellPlans = [
     validity: "30 days",
     listings: 3,
     leads: 120,
-    tagline: "Premium broker",
+    tagline: "Premium agent",
     badge: "Popular",
     features: [
       "3 Property Listings",
