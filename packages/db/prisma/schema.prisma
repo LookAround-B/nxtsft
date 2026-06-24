@@ -340,22 +340,71 @@ model Favorite {
   @@index([userId])
 }
 
-// Builders / developers directory — bulk-uploadable (Excel/CSV).
+// Builders / developers directory — bulk-uploadable (CSV or XML).
 model Builder {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   companyName String
   ownerName   String?
   mobile      String?
-  projectType String?
+  projectType String?   // legacy single-type field; projects relation is the richer model
   state       String?
   district    String?
   city        String?
-  createdAt   DateTime @default(now())
+
+  // Extended fields for public-facing directory (populated via XML import)
+  slug        String?   @unique
+  logo        String?
+  description String?   @db.Text
+  website     String?
+  reraNo      String?
+  established Int?      // founding year
+  verified    Boolean   @default(false)
+
+  projects    Project[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
 
   @@unique([companyName, mobile, city])
   @@index([state])
   @@index([city])
   @@index([projectType])
+  @@index([slug])
+}
+
+// Individual projects under a builder — searchable by city/area/type.
+model Project {
+  id             String    @id @default(cuid())
+  builderId      String
+  builder        Builder   @relation(fields: [builderId], references: [id], onDelete: Cascade)
+
+  name           String
+  slug           String    @unique
+  city           String
+  area           String?   // locality / sector
+  type           String    @default("Apartment") // Apartment | HighRise | Villa | Commercial | Plot | Studio | PG | Others
+  status         String    @default("Ongoing")   // Ongoing | Completed | Upcoming
+
+  priceMin       BigInt?
+  priceMax       BigInt?
+  sftMin         Int?
+  sftMax         Int?
+
+  description    String?   @db.Text
+  amenities      String[]  @default([])
+  images         String[]  @default([])
+  reraNo         String?
+  totalUnits     Int?
+  launchDate     DateTime?
+  possessionDate DateTime?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([builderId])
+  @@index([city])
+  @@index([type])
+  @@index([status])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
