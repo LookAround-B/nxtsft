@@ -3,11 +3,6 @@ import { useState, useMemo, type ReactNode } from "react";
 import { Download, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/portal/PortalShell";
 import {
-  reportUsers,
-  reportSubscriptions,
-  reportSiteVisits,
-  reportAgentRegs,
-  reportTickets,
   REPORT_CATEGORIES,
   REPORT_CITIES,
   REPORT_STATES,
@@ -16,6 +11,7 @@ import {
   REPORT_SALES,
 } from "@/data/reports";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { trpc } from "@/lib/trpc";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 type DatePreset = "today" | "week" | "month" | "lastmonth" | "all";
@@ -32,13 +28,25 @@ interface Filters {
   sales: string;
 }
 
-const PRESETS: Record<DatePreset, [string, string]> = {
-  today: ["2026-06-09", "2026-06-09"],
-  week: ["2026-06-03", "2026-06-09"],
-  month: ["2026-06-01", "2026-06-30"],
-  lastmonth: ["2026-05-01", "2026-05-31"],
-  all: ["2000-01-01", "2099-12-31"],
-};
+function buildPresets(): Record<DatePreset, [string, string]> {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  const fmt = (dt: Date) => dt.toISOString().slice(0, 10);
+  const today = new Date(y, m, d);
+  const weekStart = new Date(today);
+  weekStart.setDate(d - ((now.getDay() + 6) % 7)); // Monday of current ISO week
+  return {
+    today: [fmt(today), fmt(today)],
+    week: [fmt(weekStart), fmt(today)],
+    month: [fmt(new Date(y, m, 1)), fmt(new Date(y, m + 1, 0))],
+    lastmonth: [fmt(new Date(y, m - 1, 1)), fmt(new Date(y, m, 0))],
+    all: ["2000-01-01", "2099-12-31"],
+  };
+}
+
+const PRESETS = buildPresets();
 
 const PRESET_LABELS: Record<DatePreset, string> = {
   today: "Today",
@@ -178,6 +186,9 @@ export function ReportsDashboard({
 
   const { from, to } = filters;
 
+  const snap = trpc.reports.snapshot.useQuery({ from, to });
+  const snapData = snap.data;
+
   const matchDims = (item: {
     category?: string;
     city: string;
@@ -196,39 +207,37 @@ export function ReportsDashboard({
   };
 
   const fUsers = useMemo(
-    () => reportUsers.filter((u) => inRange(u.registeredOn, from, to) && matchDims(u)),
+    () => (snapData?.users ?? []).filter((u) => matchDims(u)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
+    [snapData, filters],
   );
 
   const fSubs = useMemo(
-    () => reportSubscriptions.filter((s) => inRange(s.subscribedOn, from, to) && matchDims(s)),
+    () => (snapData?.subscriptions ?? []).filter((s) => matchDims(s)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
+    [snapData, filters],
   );
 
   const fVisits = useMemo(
-    () => reportSiteVisits.filter((v) => inRange(v.scheduledOn, from, to) && matchDims(v)),
+    () => (snapData?.siteVisits ?? []).filter((v) => matchDims(v)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
+    [snapData, filters],
   );
 
   const fAgents = useMemo(
     () =>
-      reportAgentRegs.filter((a) => {
-        if (!inRange(a.registeredOn, from, to)) return false;
+      (snapData?.agentRegs ?? []).filter((a) => {
         if (filters.city !== "All" && a.city !== filters.city) return false;
         if (filters.state !== "All" && a.state !== filters.state) return false;
         return true;
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
+    [snapData, filters],
   );
 
   const fTickets = useMemo(
     () =>
-      reportTickets.filter((t) => {
-        if (!inRange(t.raisedOn, from, to)) return false;
+      (snapData?.tickets ?? []).filter((t) => {
         if (filters.city !== "All" && t.city !== filters.city) return false;
         if (filters.state !== "All" && t.state !== filters.state) return false;
         if (filters.supervisor !== "All" && t.supervisor !== filters.supervisor) return false;
@@ -236,7 +245,7 @@ export function ReportsDashboard({
         return true;
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
+    [snapData, filters],
   );
 
   /* ── TAT summary ─────────────────────────────────────────── */
@@ -256,6 +265,12 @@ export function ReportsDashboard({
         <h2 className="font-display text-2xl font-bold text-navy">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
       </div>
+
+      {snap.isLoading && (
+        <div className="rounded-2xl border border-border bg-white px-5 py-4 text-sm text-muted-foreground shadow-sm">
+          Loading report data…
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">

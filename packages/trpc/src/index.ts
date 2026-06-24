@@ -18,6 +18,7 @@ import { listingsRouter } from "./routers/listings.js";
 import { mediaRouter } from "./routers/media.js";
 import { campaignsRouter } from "./routers/campaigns.js";
 import { contactRouter } from "./routers/contact.js";
+import { reportsRouter } from "./routers/reports.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -39,6 +40,7 @@ export const appRouter = router({
   media: mediaRouter,
   campaigns: campaignsRouter,
   contact: contactRouter,
+  reports: reportsRouter,
 });
 
 export type AppRouter = typeof appRouter;
