@@ -9,6 +9,7 @@ import {
   CreditCard,
   Eye,
   Bell,
+  Gift,
 } from "lucide-react";
 import { Home as HomeIcon } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
@@ -25,6 +26,7 @@ import { SearchAlertsTab } from "@/components/user-portal/tabs/SearchAlertsTab";
 import { SiteVisitsTab } from "@/components/user-portal/tabs/SiteVisitsTab";
 import { EMICalcTab } from "@/components/user-portal/tabs/EMICalcTab";
 import { KYCTab } from "@/components/user-portal/tabs/KYCTab";
+import { ReferTab } from "@/components/user-portal/tabs/ReferTab";
 
 export default function UserPortal() {
   const { session } = useAuth();
@@ -45,6 +47,7 @@ export default function UserPortal() {
     { label: "Scheduled Tours",   to: "/user-portal#visits",   icon: <Calendar size={14} /> },
     { label: "EMI Calculator",   to: "/user-portal#emi",      icon: <Calculator size={14} /> },
     { label: "Documents (KYC)",  to: "/user-portal#kyc",      icon: <FileCheck size={14} /> },
+    { label: "Refer & Earn",     to: "/user-portal#refer",    icon: <Gift size={14} /> },
   ];
 
   const displayUser = { name: session.name, initials: session.initials };
@@ -73,6 +76,7 @@ function renderTab(h: string, userEmail: string) {
     case "kyc":     return <KYCTab />;
     case "profile": return <ProfileTab />;
     case "alerts":  return <SearchAlertsTab />;
+    case "refer":   return <ReferTab />;
     default:        return <OverviewDashboard userEmail={userEmail} />;
   }
 }

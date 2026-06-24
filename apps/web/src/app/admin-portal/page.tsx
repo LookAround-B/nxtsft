@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   UserCheck,
   Image as ImageIcon,
+  Gift,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -41,6 +42,7 @@ import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
 import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
 import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprovalsTab";
 import { SiteContentTab } from "@/components/admin-portal/tabs/SiteContentTab";
+import { ReferralsTab } from "@/components/admin-portal/tabs/ReferralsTab";
 
 // Grouped nav — groups surface in the sidebar as section headings.
 // Badge counts are static placeholders; wire to live queries once API endpoints expose them.
@@ -67,7 +69,8 @@ const nav = [
   { label: "Plans",          to: "/admin-portal#plans",        icon: <PackageOpen size={14} /> },
 
   // ── Intelligence ─────────────────────────────────────────────────────
-  { label: "Reports",        to: "/admin-portal#reports",   icon: <BarChart2 size={14} />, group: "Intelligence" },
+  { label: "Reports",    to: "/admin-portal#reports",    icon: <BarChart2 size={14} />, group: "Intelligence" },
+  { label: "Referrals",  to: "/admin-portal#referrals",  icon: <Gift size={14} /> },
 
   // ── Admin ─────────────────────────────────────────────────────────────
   { label: "Team Management",  to: "/admin-portal#team",         icon: <Users size={14} />,      group: "Admin" },
@@ -95,6 +98,7 @@ function renderTab(hash: string) {
     case "seller-approvals": return <SellerApprovalsTab />;
     case "kyc":           return <KYCReviewTab />;
     case "site-content":  return <SiteContentTab />;
+    case "referrals":     return <ReferralsTab />;
     default:              return <OperationsTab />;
   }
 }
