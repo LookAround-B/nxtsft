@@ -855,8 +855,11 @@ async function main() {
   console.log(`✓ Seeded ${builderTotal} builders (of ${buildersData.length} in file)`);
 
   // ── Team Members (Sales Reps) ────────────────────────────────────────────
+  // NOTE: Priya Sharma is intentionally NOT in this roster — she already exists
+  // as the sales rep "priya@nxtsft.com" (created above with leads/visits/
+  // listings). A second "priya.sharma@nxtsft.com" here created a duplicate
+  // account, so it was removed.
   const teamMembers = [
-    { email: "priya.sharma@nxtsft.com", name: "Priya Sharma", city: "Mumbai" },
     { email: "karan.joshi@nxtsft.com", name: "Karan Joshi", city: "Bengaluru" },
     { email: "anita.rao@nxtsft.com", name: "Anita Rao", city: "Hyderabad" },
     { email: "devansh.patel@nxtsft.com", name: "Devansh Patel", city: "Pune" },

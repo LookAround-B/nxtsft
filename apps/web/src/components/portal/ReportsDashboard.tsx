@@ -2,20 +2,9 @@
 import { useState, useMemo, type ReactNode } from "react";
 import { Download, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/portal/PortalShell";
-import {
-  reportUsers,
-  reportSubscriptions,
-  reportSiteVisits,
-  reportAgentRegs,
-  reportTickets,
-  REPORT_CATEGORIES,
-  REPORT_CITIES,
-  REPORT_STATES,
-  REPORT_BUILDERS,
-  REPORT_SUPERVISORS,
-  REPORT_SALES,
-} from "@/data/reports";
+import { REPORT_CATEGORIES } from "@/data/reports";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { trpc } from "@/lib/trpc";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 type DatePreset = "today" | "week" | "month" | "lastmonth" | "all";
@@ -27,18 +16,27 @@ interface Filters {
   category: string;
   city: string;
   state: string;
-  builder: string;
-  supervisor: string;
-  sales: string;
 }
 
-const PRESETS: Record<DatePreset, [string, string]> = {
-  today: ["2026-06-09", "2026-06-09"],
-  week: ["2026-06-03", "2026-06-09"],
-  month: ["2026-06-01", "2026-06-30"],
-  lastmonth: ["2026-05-01", "2026-05-31"],
-  all: ["2000-01-01", "2099-12-31"],
-};
+function buildPresets(): Record<DatePreset, [string, string]> {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  const fmt = (dt: Date) => dt.toISOString().slice(0, 10);
+  const today = new Date(y, m, d);
+  const weekStart = new Date(today);
+  weekStart.setDate(d - ((now.getDay() + 6) % 7)); // Monday of current ISO week
+  return {
+    today: [fmt(today), fmt(today)],
+    week: [fmt(weekStart), fmt(today)],
+    month: [fmt(new Date(y, m, 1)), fmt(new Date(y, m + 1, 0))],
+    lastmonth: [fmt(new Date(y, m - 1, 1)), fmt(new Date(y, m, 0))],
+    all: ["2000-01-01", "2099-12-31"],
+  };
+}
+
+const PRESETS = buildPresets();
 
 const PRESET_LABELS: Record<DatePreset, string> = {
   today: "Today",
@@ -49,10 +47,6 @@ const PRESET_LABELS: Record<DatePreset, string> = {
 };
 
 /* ─── Helpers ───────────────────────────────────────────────── */
-function inRange(date: string, from: string, to: string) {
-  return date >= from && date <= to;
-}
-
 function dlCSV(filename: string, headers: string[], rows: (string | number)[][]) {
   const csv = [headers, ...rows]
     .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
@@ -147,15 +141,15 @@ function RptSection({
 
 /* ─── Main component ────────────────────────────────────────── */
 export function ReportsDashboard({
-  defaultSupervisor,
-  defaultSales,
   title = "Reports",
   subtitle = "Calendar-filtered reports across all dimensions.",
+  showAgentsAndTickets = true,
 }: {
-  defaultSupervisor?: string;
-  defaultSales?: string;
   title?: string;
   subtitle?: string;
+  // Sales reps see only their own buyers/subscriptions/visits — agent
+  // registrations and support tickets don't attribute to a rep, so hide them.
+  showAgentsAndTickets?: boolean;
 }) {
   const [filters, setFilters] = useState<Filters>({
     preset: "all",
@@ -164,9 +158,6 @@ export function ReportsDashboard({
     category: "All",
     city: "All",
     state: "All",
-    builder: "All",
-    supervisor: defaultSupervisor ?? "All",
-    sales: defaultSales ?? "All",
   });
 
   const setF = (key: keyof Filters, value: string) => setFilters((f) => ({ ...f, [key]: value }));
@@ -178,66 +169,67 @@ export function ReportsDashboard({
 
   const { from, to } = filters;
 
-  const matchDims = (item: {
-    category?: string;
-    city: string;
-    state: string;
-    builder?: string;
-    supervisor?: string;
-    salesStaff?: string;
-  }) => {
+  const snap = trpc.reports.snapshot.useQuery({ from, to });
+  const snapData = snap.data;
+
+  // City/State options come from the live data — only dimensions the backend
+  // can actually populate are offered as filters.
+  const { cityOptions, stateOptions } = useMemo(() => {
+    const cities = new Set<string>();
+    const states = new Set<string>();
+    const add = (city?: string, state?: string) => {
+      if (city && city !== "—") cities.add(city);
+      if (state && state !== "—") states.add(state);
+    };
+    (snapData?.users ?? []).forEach((u) => add(u.city, u.state));
+    (snapData?.subscriptions ?? []).forEach((s) => add(s.city, s.state));
+    (snapData?.siteVisits ?? []).forEach((v) => add(v.city, v.state));
+    (snapData?.agentRegs ?? []).forEach((a) => add(a.city, a.state));
+    return {
+      cityOptions: ["All", ...[...cities].sort()],
+      stateOptions: ["All", ...[...states].sort()],
+    };
+  }, [snapData]);
+
+  const matchDims = (item: { category?: string; city: string; state: string }) => {
     if (filters.category !== "All" && item.category !== filters.category) return false;
     if (filters.city !== "All" && item.city !== filters.city) return false;
     if (filters.state !== "All" && item.state !== filters.state) return false;
-    if (filters.builder !== "All" && item.builder !== filters.builder) return false;
-    if (filters.supervisor !== "All" && item.supervisor !== filters.supervisor) return false;
-    if (filters.sales !== "All" && item.salesStaff !== filters.sales) return false;
     return true;
   };
 
   const fUsers = useMemo(
-    () => reportUsers.filter((u) => inRange(u.registeredOn, from, to) && matchDims(u)),
+    () => (snapData?.users ?? []).filter((u) => matchDims(u)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
+    [snapData, filters],
   );
 
   const fSubs = useMemo(
-    () => reportSubscriptions.filter((s) => inRange(s.subscribedOn, from, to) && matchDims(s)),
+    () => (snapData?.subscriptions ?? []).filter((s) => matchDims(s)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
+    [snapData, filters],
   );
 
   const fVisits = useMemo(
-    () => reportSiteVisits.filter((v) => inRange(v.scheduledOn, from, to) && matchDims(v)),
+    () => (snapData?.siteVisits ?? []).filter((v) => matchDims(v)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
+    [snapData, filters],
   );
 
   const fAgents = useMemo(
     () =>
-      reportAgentRegs.filter((a) => {
-        if (!inRange(a.registeredOn, from, to)) return false;
+      (snapData?.agentRegs ?? []).filter((a) => {
         if (filters.city !== "All" && a.city !== filters.city) return false;
         if (filters.state !== "All" && a.state !== filters.state) return false;
         return true;
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
+    [snapData, filters],
   );
 
-  const fTickets = useMemo(
-    () =>
-      reportTickets.filter((t) => {
-        if (!inRange(t.raisedOn, from, to)) return false;
-        if (filters.city !== "All" && t.city !== filters.city) return false;
-        if (filters.state !== "All" && t.state !== filters.state) return false;
-        if (filters.supervisor !== "All" && t.supervisor !== filters.supervisor) return false;
-        if (filters.sales !== "All" && t.assignedTo !== filters.sales) return false;
-        return true;
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
-  );
+  // Tickets carry no geo/attribution yet, so they aren't filtered by the
+  // dimension dropdowns — only by the date range (applied server-side).
+  const fTickets = useMemo(() => snapData?.tickets ?? [], [snapData]);
 
   /* ── TAT summary ─────────────────────────────────────────── */
   const resolvedTickets = fTickets.filter((t) => t.status === "Resolved");
@@ -256,6 +248,12 @@ export function ReportsDashboard({
         <h2 className="font-display text-2xl font-bold text-navy">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
       </div>
+
+      {snap.isLoading && (
+        <div className="rounded-2xl border border-border bg-white px-5 py-4 text-sm text-muted-foreground shadow-sm">
+          Loading report data…
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
@@ -299,7 +297,7 @@ export function ReportsDashboard({
         </div>
 
         {/* Dimension filters */}
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
           <Sel
             label="Category"
             value={filters.category}
@@ -309,34 +307,14 @@ export function ReportsDashboard({
           <Sel
             label="City"
             value={filters.city}
-            options={REPORT_CITIES}
+            options={cityOptions}
             onChange={(v) => setF("city", v)}
           />
           <Sel
             label="State"
             value={filters.state}
-            options={REPORT_STATES}
+            options={stateOptions}
             onChange={(v) => setF("state", v)}
-          />
-          <Sel
-            label="Builder"
-            value={filters.builder}
-            options={REPORT_BUILDERS}
-            onChange={(v) => setF("builder", v)}
-          />
-          <Sel
-            label="Supervisor"
-            value={filters.supervisor}
-            options={REPORT_SUPERVISORS}
-            onChange={(v) => setF("supervisor", v)}
-            locked={!!defaultSupervisor}
-          />
-          <Sel
-            label="Sales Staff"
-            value={filters.sales}
-            options={REPORT_SALES}
-            onChange={(v) => setF("sales", v)}
-            locked={!!defaultSales}
           />
         </div>
       </div>
@@ -353,14 +331,20 @@ export function ReportsDashboard({
         <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
           {fVisits.length} Site Visits
         </span>
-        <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
-          {fAgents.length} Agent Regs
-        </span>
-        <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">
-          {fTickets.length} Tickets ·{" "}
-          {resolvedTickets.length > 0 ? Math.round((withinTAT / resolvedTickets.length) * 100) : 0}%
-          within TAT
-        </span>
+        {showAgentsAndTickets && (
+          <>
+            <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
+              {fAgents.length} Agent Regs
+            </span>
+            <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">
+              {fTickets.length} Tickets ·{" "}
+              {resolvedTickets.length > 0
+                ? Math.round((withinTAT / resolvedTickets.length) * 100)
+                : 0}
+              % within TAT
+            </span>
+          </>
+        )}
       </div>
 
       {/* ── Registered Users ───────────────────────────────────── */}
@@ -636,6 +620,8 @@ export function ReportsDashboard({
         )}
       </RptSection>
 
+      {showAgentsAndTickets && (
+        <>
       {/* ── Agent Registrations ────────────────────────────────── */}
       <RptSection
         title="Agent Registrations"
@@ -797,6 +783,8 @@ export function ReportsDashboard({
           </table></div>
         )}
       </RptSection>
+        </>
+      )}
     </div>
   );
 }

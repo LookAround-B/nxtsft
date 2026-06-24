@@ -62,37 +62,41 @@ import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
 import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprovalsTab";
 import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
 
+// ─────────────────────────────────────────────────────────────────────────
+// CANONICAL TAB ORDER — this is the source-of-truth ordering for every staff
+// portal. Other dashboards mirror this relative order for the tabs they expose
+// (skipping any tab the role can't access). Keep new tabs slotted logically.
+// ─────────────────────────────────────────────────────────────────────────
 const nav = [
   { label: "Command Dashboard", to: "/sa-portal", icon: <LayoutDashboard size={14} /> },
-  { label: "User Management", to: "/sa-portal#users", icon: <Users size={14} /> },
-  { label: "All Teams", to: "/sa-portal#teams", icon: <Users2 size={14} /> },
-  { label: "Platform Config", to: "/sa-portal#config", icon: <Settings2 size={14} /> },
   { label: "Global Analytics", to: "/sa-portal#analytics", icon: <BarChart3 size={14} /> },
-  { label: "Audit Trail", to: "/sa-portal#audit", icon: <ClipboardList size={14} /> },
-  { label: "AI Model Control", to: "/sa-portal#ai", icon: <Cpu size={14} /> },
-  { label: "Notifications", to: "/sa-portal#notify", icon: <Bell size={14} /> },
-  { label: "Content CMS", to: "/sa-portal#cms", icon: <FileText size={14} /> },
-  { label: "Security Console", to: "/sa-portal#sec", icon: <Shield size={14} /> },
-  { label: "Billing & Revenue", to: "/sa-portal#bill", icon: <CreditCard size={14} /> },
-  { label: "Role Permissions", to: "/sa-portal#permissions", icon: <Shield size={14} /> },
-  { label: "Plans Manager", to: "/sa-portal#plans", icon: <PackageOpen size={14} /> },
-  { label: "Support Tickets", to: "/sa-portal#tickets", icon: <FileText size={14} /> },
-  { label: "Reports", to: "/sa-portal#reports", icon: <FileText size={14} /> },
-  // ── Operations (superset of the admin portal) ──
   { label: "Operations", to: "/sa-portal#operations", icon: <LayoutGrid size={14} /> },
-  { label: "Contact Enquiries", to: "/sa-portal#enquiries", icon: <Inbox size={14} /> },
-  { label: "Lead Management", to: "/sa-portal#leads", icon: <Target size={14} /> },
   { label: "CRM Pipeline", to: "/sa-portal#crm", icon: <Kanban size={14} /> },
-  { label: "Listings", to: "/sa-portal#listings", icon: <Building2 size={14} /> },
-  { label: "Subscriptions", to: "/sa-portal#subscriptions", icon: <ReceiptText size={14} /> },
-  { label: "Property Views", to: "/sa-portal#views", icon: <Eye size={14} /> },
-  { label: "Click Alerts", to: "/sa-portal#alerts", icon: <BellRing size={14} /> },
-  { label: "Marketing", to: "/sa-portal#marketing", icon: <Megaphone size={14} /> },
-  { label: "Developers", to: "/sa-portal#developers", icon: <Building size={14} /> },
-  { label: "Commissions", to: "/sa-portal#commissions", icon: <Wallet size={14} /> },
+  { label: "Lead Management", to: "/sa-portal#leads", icon: <Target size={14} /> },
   { label: "Buyer Wallets", to: "/sa-portal#credits", icon: <Coins size={14} /> },
   { label: "Seller Approvals", to: "/sa-portal#seller-approvals", icon: <UserCheck size={14} /> },
   { label: "KYC Review", to: "/sa-portal#kyc", icon: <ShieldCheck size={14} /> },
+  { label: "Property Views", to: "/sa-portal#views", icon: <Eye size={14} /> },
+  { label: "Listings", to: "/sa-portal#listings", icon: <Building2 size={14} /> },
+  { label: "Plans Manager", to: "/sa-portal#plans", icon: <PackageOpen size={14} /> },
+  { label: "Subscriptions", to: "/sa-portal#subscriptions", icon: <ReceiptText size={14} /> },
+  { label: "Billing & Revenue", to: "/sa-portal#bill", icon: <CreditCard size={14} /> },
+  { label: "Commissions", to: "/sa-portal#commissions", icon: <Wallet size={14} /> },
+  { label: "Developers", to: "/sa-portal#developers", icon: <Building size={14} /> },
+  { label: "Notifications", to: "/sa-portal#notify", icon: <Bell size={14} /> },
+  { label: "Click Alerts", to: "/sa-portal#alerts", icon: <BellRing size={14} /> },
+  { label: "Content CMS", to: "/sa-portal#cms", icon: <FileText size={14} /> },
+  { label: "Contact Enquiries", to: "/sa-portal#enquiries", icon: <Inbox size={14} /> },
+  { label: "Support Tickets", to: "/sa-portal#tickets", icon: <FileText size={14} /> },
+  { label: "Reports", to: "/sa-portal#reports", icon: <FileText size={14} /> },
+  { label: "AI Model Control", to: "/sa-portal#ai", icon: <Cpu size={14} /> },
+  { label: "Audit Trail", to: "/sa-portal#audit", icon: <ClipboardList size={14} /> },
+  { label: "User Management", to: "/sa-portal#users", icon: <Users size={14} /> },
+  { label: "All Teams", to: "/sa-portal#teams", icon: <Users2 size={14} /> },
+  { label: "Role Permissions", to: "/sa-portal#permissions", icon: <Shield size={14} /> },
+  { label: "Marketing", to: "/sa-portal#marketing", icon: <Megaphone size={14} /> },
+  { label: "Security Console", to: "/sa-portal#sec", icon: <Shield size={14} /> },
+  { label: "Platform Config", to: "/sa-portal#config", icon: <Settings2 size={14} /> },
 ];
 
 function renderTab(hash: string) {

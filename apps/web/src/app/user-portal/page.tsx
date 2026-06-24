@@ -42,7 +42,7 @@ export default function UserPortal() {
     { label: "Profile",          to: "/user-portal#profile",  icon: <Settings2 size={14} /> },
     { label: "Search Alerts",    to: "/user-portal#alerts",   icon: <Bell size={14} /> },
     ...(isSeller ? [{ label: "My Listings", to: "/user-portal#mylist", icon: <Building2 size={14} /> }] : []),
-    { label: "Site Visits",      to: "/user-portal#visits",   icon: <Calendar size={14} /> },
+    { label: "Scheduled Tours",   to: "/user-portal#visits",   icon: <Calendar size={14} /> },
     { label: "EMI Calculator",   to: "/user-portal#emi",      icon: <Calculator size={14} /> },
     { label: "Documents (KYC)",  to: "/user-portal#kyc",      icon: <FileCheck size={14} /> },
   ];

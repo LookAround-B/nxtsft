@@ -1,11 +1,13 @@
 "use client";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
-import { reportTickets } from "@/data/reports";
+import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
 import { PageHead } from "./shared";
 
 export function TATReportTab() {
-  const resolved = reportTickets.filter((t) => t.status === "Resolved");
+  const ticketsQ = trpc.tickets.report.useQuery();
+  const allTickets = ticketsQ.data ?? [];
+  const resolved = allTickets.filter((t) => t.status === "Resolved");
   const withinTAT = resolved.filter((t) => t.withinTAT === true).length;
   const breached = resolved.filter((t) => t.withinTAT === false).length;
   const tatPct = resolved.length > 0 ? Math.round((withinTAT / resolved.length) * 100) : 0;
@@ -32,7 +34,7 @@ export function TATReportTab() {
               downloadCSV(
                 "tat-report.csv",
                 ["ID", "Subject", "Category", "City", "Assigned To", "TAT (hrs)", "Actual (hrs)", "Status", "Within TAT"],
-                reportTickets.map((t) => [
+                allTickets.map((t) => [
                   t.id,
                   t.subject,
                   t.category,
@@ -97,9 +99,9 @@ export function TATReportTab() {
                 </tr>
               </thead>
               <tbody>
-                {reportTickets.map((t) => (
+                {allTickets.map((t) => (
                   <tr key={t.id}>
-                    <td className="font-mono text-xs">{t.id}</td>
+                    <td className="font-mono text-xs">{t.id.slice(0, 8)}</td>
                     <td className="max-w-[160px] truncate text-xs font-semibold text-navy">
                       {t.subject}
                     </td>

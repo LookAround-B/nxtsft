@@ -49,12 +49,12 @@ export default function SupervisorPortal() {
       nav={nav}
       basePath="/supervisor-portal"
     >
-      {renderTab(hash, session.name)}
+      {renderTab(hash)}
     </PortalShell>
   );
 }
 
-function renderTab(h: string, supervisorName: string) {
+function renderTab(h: string) {
   switch (h) {
     case "leads":       return <TeamLeadsTab />;
     case "reassign":    return <ReassignmentTab />;
@@ -65,9 +65,8 @@ function renderTab(h: string, supervisorName: string) {
     case "reports":
       return (
         <ReportsDashboard
-          defaultSupervisor={supervisorName}
-          title="My Team Reports"
-          subtitle={`Reports filtered to your team — ${supervisorName}.`}
+          title="Team Reports"
+          subtitle="Platform-wide reports across all reps — users, subscriptions, visits, agents and tickets."
         />
       );
     default: return <DashboardTab />;

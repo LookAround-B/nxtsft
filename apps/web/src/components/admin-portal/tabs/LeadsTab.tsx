@@ -8,8 +8,31 @@ import { PageHead } from "./PageHead";
 
 export function LeadsTab() {
   const [filter, setFilter] = useState<string>("All");
+  const utils = trpc.useUtils();
   const dbLeadsQ = trpc.admin.leads.list.useQuery({ limit: 50, status: filter === "All" ? undefined : filter });
   const dbLeads = dbLeadsQ.data?.items ?? [];
+
+  const repsQ = trpc.admin.users.list.useQuery({ role: "sales", limit: 100 });
+  const reps = repsQ.data?.items ?? [];
+
+  const assign = trpc.leads.assign.useMutation({
+    onSuccess: (_data, vars) => {
+      utils.admin.leads.list.invalidate();
+      const rep = reps.find((r) => r.id === vars.assignedToId);
+      toast.success(rep ? `Lead assigned to ${rep.name}` : "Lead assigned");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const unassign = trpc.leads.unassign.useMutation({
+    onSuccess: () => {
+      utils.admin.leads.list.invalidate();
+      toast.success("Lead unassigned");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const busy = assign.isPending || unassign.isPending;
 
   return (
     <>
@@ -37,10 +60,9 @@ export function LeadsTab() {
                 <th>Lead</th>
                 <th>Property</th>
                 <th>Source</th>
-                <th>Assigned To</th>
                 <th>Status</th>
                 <th>Created</th>
-                <th></th>
+                <th>Assigned To</th>
               </tr>
             </thead>
             <tbody>
@@ -57,7 +79,6 @@ export function LeadsTab() {
                       {l.source ?? "Portal"}
                     </span>
                   </td>
-                  <td className="text-xs">{l.assignedToId ? l.assignedToId.slice(0, 8) + "…" : "Unassigned"}</td>
                   <td>
                     <Badge tone={(l.status?.toLowerCase() ?? "new") as "hot" | "warm" | "cold" | "new"}>
                       {l.status ?? "New"}
@@ -66,13 +87,30 @@ export function LeadsTab() {
                   <td className="text-xs text-muted-foreground">
                     {new Date(l.createdAt).toLocaleDateString("en-IN")}
                   </td>
-                  <td className="text-right">
-                    <button
-                      onClick={() => toast.success(`Assigning lead…`)}
-                      className="text-xs font-semibold text-accent"
+                  <td>
+                    <select
+                      value={l.assignedToId ?? ""}
+                      disabled={busy || repsQ.isLoading || reps.length === 0}
+                      onChange={(ev) => {
+                        const v = ev.target.value;
+                        if (v === "") unassign.mutate({ id: l.id });
+                        else assign.mutate({ id: l.id, assignedToId: v });
+                      }}
+                      className="rounded-lg border border-border bg-white px-2 py-1 text-xs font-medium outline-none focus:border-accent disabled:opacity-60"
                     >
-                      Assign →
-                    </button>
+                      {l.assignedToId ? (
+                        <option value="">— Unassign —</option>
+                      ) : (
+                        <option value="" disabled>
+                          {reps.length === 0 ? "No sales reps" : "Unassigned — pick rep"}
+                        </option>
+                      )}
+                      {reps.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                 </tr>
               )) : (leads.filter((l) => filter === "All" || l.status === filter)).map((l) => (
@@ -88,21 +126,13 @@ export function LeadsTab() {
                       {l.source}
                     </span>
                   </td>
-                  <td className="text-xs">{l.owner}</td>
                   <td>
                     <Badge tone={l.status.toLowerCase() as "hot" | "warm" | "cold" | "new"}>
                       {l.status}
                     </Badge>
                   </td>
                   <td className="text-xs text-muted-foreground">{l.lastActivity}</td>
-                  <td className="text-right">
-                    <button
-                      onClick={() => toast.success(`Assigning ${l.name}…`)}
-                      className="text-xs font-semibold text-accent"
-                    >
-                      Assign →
-                    </button>
-                  </td>
+                  <td className="text-xs">{l.owner}</td>
                 </tr>
               ))}
             </tbody>

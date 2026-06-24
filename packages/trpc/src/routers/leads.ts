@@ -217,6 +217,19 @@ export const leadsRouter = router({
       return updated;
     }),
 
+  // Remove a lead's sales-rep assignment, returning it to the pool (admin only)
+  unassign: adminProcedure
+    .input(z.object({ id: cuidSchema }))
+    .mutation(async ({ input }) => {
+      const lead = await prisma.lead.findUnique({ where: { id: input.id } });
+      if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
+
+      return prisma.lead.update({
+        where: { id: input.id },
+        data: { assignedToId: null },
+      });
+    }),
+
   // Schedule a site visit for a lead
   scheduleVisit: staffProcedure
     .input(

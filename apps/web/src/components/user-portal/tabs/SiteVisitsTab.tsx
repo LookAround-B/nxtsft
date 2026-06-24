@@ -111,7 +111,7 @@ export function SiteVisitsTab() {
 
   return (
     <>
-      <Head t="Site Visits" s="Tours you've booked." />
+      <Head t="Scheduled Tours" s="Physical tours booked by your sales rep." />
       {visitsQ.isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 2 }).map((_, i) => (

@@ -22,14 +22,16 @@ import { VisitsTab } from "@/components/sales-portal/tabs/VisitsTab";
 import { CommissionTab } from "@/components/sales-portal/tabs/CommissionTab";
 import { ListingsTab } from "@/components/sales-portal/tabs/ListingsTab";
 
+// Follows the canonical tab order (see sa-portal/page.tsx) for the shared tabs;
+// the rep's lead-working tabs (not in the canonical list) keep their flow.
 const nav = [
   { label: "My Leads", to: "/sales-portal", icon: <Target size={14} /> },
   { label: "Lead Details", to: "/sales-portal#detail", icon: <FileText size={14} /> },
   { label: "Activity Log", to: "/sales-portal#log", icon: <ClipboardList size={14} /> },
   { label: "Click-to-Call", to: "/sales-portal#call", icon: <Phone size={14} /> },
   { label: "Site Visits", to: "/sales-portal#visits", icon: <Building size={14} /> },
-  { label: "My Commission", to: "/sales-portal#commission", icon: <Wallet size={14} /> },
   { label: "Listings", to: "/sales-portal#listings", icon: <LayoutGrid size={14} /> },
+  { label: "My Commission", to: "/sales-portal#commission", icon: <Wallet size={14} /> },
   { label: "Reports", to: "/sales-portal#reports", icon: <BarChart2 size={14} /> },
 ];
 
@@ -50,12 +52,12 @@ export default function SalesPortal() {
       nav={nav}
       basePath="/sales-portal"
     >
-      {renderTab(h, session.name)}
+      {renderTab(h)}
     </PortalShell>
   );
 }
 
-function renderTab(h: string, salesName: string) {
+function renderTab(h: string) {
   switch (h) {
     case "detail":     return <DetailTab />;
     case "log":        return <LogTab />;
@@ -66,9 +68,9 @@ function renderTab(h: string, salesName: string) {
     case "reports":
       return (
         <ReportsDashboard
-          defaultSales={salesName}
           title="My Reports"
-          subtitle={`Reports filtered to your activity — ${salesName}.`}
+          subtitle="Your buyers, their subscriptions, and your site visits."
+          showAgentsAndTickets={false}
         />
       );
     default: return <MyLeadsTab />;
