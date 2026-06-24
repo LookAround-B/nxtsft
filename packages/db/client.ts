@@ -46,7 +46,16 @@ function loadEnv() {
 function createPrismaClient() {
   loadEnv();
   const connectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/postgres";
-  const pool = new pg.Pool({ connectionString });
+  // max:1 prevents connection exhaustion in Vercel serverless — each function
+  // instance is single-threaded so it never needs more than one connection.
+  // connectionTimeoutMillis ensures a hung DB surfaces as a fast error rather
+  // than a 30-second Vercel function timeout.
+  const pool = new pg.Pool({
+    connectionString,
+    max: 1,
+    idleTimeoutMillis: 20_000,
+    connectionTimeoutMillis: 8_000,
+  });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
