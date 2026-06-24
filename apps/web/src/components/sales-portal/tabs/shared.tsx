@@ -31,10 +31,18 @@ export type DbLead = {
   interest: string | null;
   status: string;
   source: string;
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
   property: { id: string; title: string; slug: string } | null;
 };
+
+/** Extract the most recent note line from the appended notes string. */
+export function latestNote(notes: string | null | undefined): string | null {
+  if (!notes?.trim()) return null;
+  const lines = notes.split("\n").map((l) => l.trim()).filter(Boolean);
+  return lines.at(-1) ?? null;
+}
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 export function daysSince(iso: string) {
