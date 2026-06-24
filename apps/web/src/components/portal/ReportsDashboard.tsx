@@ -143,9 +143,13 @@ function RptSection({
 export function ReportsDashboard({
   title = "Reports",
   subtitle = "Calendar-filtered reports across all dimensions.",
+  showAgentsAndTickets = true,
 }: {
   title?: string;
   subtitle?: string;
+  // Sales reps see only their own buyers/subscriptions/visits — agent
+  // registrations and support tickets don't attribute to a rep, so hide them.
+  showAgentsAndTickets?: boolean;
 }) {
   const [filters, setFilters] = useState<Filters>({
     preset: "all",
@@ -327,14 +331,20 @@ export function ReportsDashboard({
         <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
           {fVisits.length} Site Visits
         </span>
-        <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
-          {fAgents.length} Agent Regs
-        </span>
-        <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">
-          {fTickets.length} Tickets ·{" "}
-          {resolvedTickets.length > 0 ? Math.round((withinTAT / resolvedTickets.length) * 100) : 0}%
-          within TAT
-        </span>
+        {showAgentsAndTickets && (
+          <>
+            <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
+              {fAgents.length} Agent Regs
+            </span>
+            <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">
+              {fTickets.length} Tickets ·{" "}
+              {resolvedTickets.length > 0
+                ? Math.round((withinTAT / resolvedTickets.length) * 100)
+                : 0}
+              % within TAT
+            </span>
+          </>
+        )}
       </div>
 
       {/* ── Registered Users ───────────────────────────────────── */}
@@ -610,6 +620,8 @@ export function ReportsDashboard({
         )}
       </RptSection>
 
+      {showAgentsAndTickets && (
+        <>
       {/* ── Agent Registrations ────────────────────────────────── */}
       <RptSection
         title="Agent Registrations"
@@ -771,6 +783,8 @@ export function ReportsDashboard({
           </table></div>
         )}
       </RptSection>
+        </>
+      )}
     </div>
   );
 }

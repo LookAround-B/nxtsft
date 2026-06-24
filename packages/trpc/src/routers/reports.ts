@@ -15,18 +15,42 @@ function subStatusToPayStatus(status: string): "Paid" | "Unpaid" | "Follow-up" |
   return "Unpaid";
 }
 
+// Derive a ticket report row, then truncate the id for dashboard display
+// consistency with the other report arrays.
+function shapeTicket(
+  t: Parameters<typeof deriveTicketRow>[0],
+  assignedMap: Record<string, string>,
+) {
+  const row = deriveTicketRow(t, assignedMap);
+  return { ...row, id: row.id.slice(0, 6).toUpperCase() };
+}
+
 export const reportsRouter = router({
   snapshot: staffProcedure
     .input(z.object({ from: z.string(), to: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const from = new Date(input.from + "T00:00:00.000Z");
       const to = new Date(input.to + "T23:59:59.999Z");
+
+      // Sales reps see only what's attributable to them: buyers on their
+      // assigned leads (for users & subscriptions) and their own site visits.
+      // Other staff (supervisor/admin/super-admin/support-admin) see all data.
+      const isSales = ctx.user.role === "sales";
+      let repBuyerIds: string[] | null = null;
+      if (isSales) {
+        const repLeads = await prisma.lead.findMany({
+          where: { assignedToId: ctx.user.id },
+          select: { userId: true },
+        });
+        repBuyerIds = [...new Set(repLeads.map((l) => l.userId).filter(Boolean))];
+      }
 
       // ── Registered Users (buyers & sellers) ─────────────────
       const dbUsers = await prisma.user.findMany({
         where: {
           joined: { gte: from, lte: to },
           role: { in: ["user", "home-seller"] },
+          ...(repBuyerIds ? { id: { in: repBuyerIds } } : {}),
         },
         select: {
           id: true, name: true, email: true, phone: true,
@@ -53,7 +77,10 @@ export const reportsRouter = router({
 
       // ── Subscriptions ────────────────────────────────────────
       const dbSubs = await prisma.subscription.findMany({
-        where: { createdAt: { gte: from, lte: to } },
+        where: {
+          createdAt: { gte: from, lte: to },
+          ...(repBuyerIds ? { userId: { in: repBuyerIds } } : {}),
+        },
         include: {
           user: { select: { name: true, city: true, state: true, role: true } },
         },
@@ -86,7 +113,10 @@ export const reportsRouter = router({
 
       // ── Site Visits (manual joins — SiteVisit has no Prisma relations) ──
       const dbVisits = await prisma.siteVisit.findMany({
-        where: { scheduledAt: { gte: from, lte: to } },
+        where: {
+          scheduledAt: { gte: from, lte: to },
+          ...(isSales ? { salesRepId: ctx.user.id } : {}),
+        },
         orderBy: { scheduledAt: "desc" },
         take: 500,
       });
@@ -139,58 +169,65 @@ export const reportsRouter = router({
         };
       });
 
-      // ── Agent Registrations (sales-role users) ───────────────
-      const dbAgents = await prisma.user.findMany({
-        where: {
-          joined: { gte: from, lte: to },
-          role: "sales",
-        },
-        select: {
-          id: true, name: true, email: true, city: true, state: true, joined: true,
-        },
-        orderBy: { joined: "desc" },
-        take: 200,
-      });
+      // ── Agent Registrations & Support Tickets ────────────────
+      // Neither attributes to an individual sales rep, so reps get empty
+      // sections; all other staff see the full platform-wide lists.
+      type AgentReg = {
+        id: string; name: string; email: string; city: string; state: string;
+        rera: string; supervisor: string; registeredOn: string;
+        status: "Active" | "Pending" | "Rejected";
+      };
+      let agentRegs: AgentReg[] = [];
+      let tickets: ReturnType<typeof shapeTicket>[] = [];
 
-      const agentRegs = dbAgents.map((a) => ({
-        id: a.id.slice(0, 6).toUpperCase(),
-        name: a.name,
-        email: a.email,
-        city: a.city,
-        state: a.state ?? "—",
-        rera: "—",
-        supervisor: "—",
-        registeredOn: a.joined.toISOString().slice(0, 10),
-        status: "Active" as "Active" | "Pending" | "Rejected",
-      }));
+      if (!isSales) {
+        const dbAgents = await prisma.user.findMany({
+          where: {
+            joined: { gte: from, lte: to },
+            role: "sales",
+          },
+          select: {
+            id: true, name: true, email: true, city: true, state: true, joined: true,
+          },
+          orderBy: { joined: "desc" },
+          take: 200,
+        });
 
-      // ── Support Tickets ──────────────────────────────────────
-      const dbTickets = await prisma.ticket.findMany({
-        where: { createdAt: { gte: from, lte: to } },
-        include: {
-          user: { select: { name: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 500,
-      });
+        agentRegs = dbAgents.map((a) => ({
+          id: a.id.slice(0, 6).toUpperCase(),
+          name: a.name,
+          email: a.email,
+          city: a.city,
+          state: a.state ?? "—",
+          rera: "—",
+          supervisor: "—",
+          registeredOn: a.joined.toISOString().slice(0, 10),
+          status: "Active" as const,
+        }));
 
-      // Batch-resolve assignedTo user names (assignedTo is String?, no relation)
-      const assignedIds = [...new Set(
-        dbTickets.map((t) => t.assignedTo).filter(Boolean) as string[]
-      )];
-      const assignedUsers = assignedIds.length
-        ? await prisma.user.findMany({
-            where: { id: { in: assignedIds } },
-            select: { id: true, name: true },
-          })
-        : [];
-      const assignedMap = Object.fromEntries(assignedUsers.map((u) => [u.id, u.name]));
+        const dbTickets = await prisma.ticket.findMany({
+          where: { createdAt: { gte: from, lte: to } },
+          include: {
+            user: { select: { name: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 500,
+        });
 
-      const tickets = dbTickets.map((t) => {
-        const row = deriveTicketRow(t, assignedMap);
-        // Truncate id for dashboard display consistency with the other arrays.
-        return { ...row, id: row.id.slice(0, 6).toUpperCase() };
-      });
+        // Batch-resolve assignedTo user names (assignedTo is String?, no relation)
+        const assignedIds = [...new Set(
+          dbTickets.map((t) => t.assignedTo).filter(Boolean) as string[]
+        )];
+        const assignedUsers = assignedIds.length
+          ? await prisma.user.findMany({
+              where: { id: { in: assignedIds } },
+              select: { id: true, name: true },
+            })
+          : [];
+        const assignedMap = Object.fromEntries(assignedUsers.map((u) => [u.id, u.name]));
+
+        tickets = dbTickets.map((t) => shapeTicket(t, assignedMap));
+      }
 
       return { users, subscriptions, siteVisits, agentRegs, tickets };
     }),

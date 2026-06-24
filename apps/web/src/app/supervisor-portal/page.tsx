@@ -5,12 +5,14 @@ import {
   ArrowLeftRight,
   TrendingUp,
   AlertTriangle,
+  BarChart2,
 } from "lucide-react";
 import { Activity as ActivityIcon, Calendar as CalendarIcon } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
 import { usePortalGuard } from "@/lib/use-portal-guard";
+import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
 import { DashboardTab } from "@/components/supervisor-portal/tabs/DashboardTab";
 import { TeamLeadsTab } from "@/components/supervisor-portal/tabs/TeamLeadsTab";
 import { ReassignmentTab } from "@/components/supervisor-portal/tabs/ReassignmentTab";
@@ -27,6 +29,7 @@ const nav = [
   { label: "Performance", to: "/supervisor-portal#performance", icon: <TrendingUp size={14} /> },
   { label: "Visit Calendar", to: "/supervisor-portal#calendar", icon: <CalendarIcon size={14} /> },
   { label: "Escalations", to: "/supervisor-portal#escalations", icon: <AlertTriangle size={14} /> },
+  { label: "Reports", to: "/supervisor-portal#reports", icon: <BarChart2 size={14} /> },
 ];
 
 export default function SupervisorPortal() {
@@ -59,6 +62,13 @@ function renderTab(h: string) {
     case "performance": return <PerformanceTab />;
     case "calendar":    return <VisitCalendarTab />;
     case "escalations": return <EscalationsTab />;
+    case "reports":
+      return (
+        <ReportsDashboard
+          title="Team Reports"
+          subtitle="Platform-wide reports across all reps — users, subscriptions, visits, agents and tickets."
+        />
+      );
     default: return <DashboardTab />;
   }
 }
