@@ -13,6 +13,59 @@ import {
   ticketStatusSchema,
 } from "../sanitize.js";
 
+// TAT (turnaround) thresholds in hours, keyed by ticket priority.
+export const TAT_HOURS: Record<string, number> = {
+  low: 72, medium: 48, high: 24, urgent: 4,
+};
+
+export function ticketDisplayStatus(
+  status: string,
+  priority: string,
+): "Open" | "Resolved" | "Escalated" {
+  if (priority === "urgent" && !["resolved", "closed"].includes(status)) return "Escalated";
+  if (["resolved", "closed"].includes(status)) return "Resolved";
+  return "Open";
+}
+
+type TicketRowInput = {
+  id: string;
+  subject: string;
+  category: string;
+  status: string;
+  priority: string;
+  createdAt: Date;
+  resolvedAt: Date | null;
+  assignedTo: string | null;
+  user: { name: string };
+};
+
+// Shape a raw ticket into the report row consumed by ReportsDashboard,
+// TATReportTab, and SupportTicketsTab. `assignedMap` resolves the
+// assignedTo user id to a display name (assignedTo has no Prisma relation).
+// City/State/Supervisor are placeholders — tickets carry no geo/attribution yet.
+export function deriveTicketRow(t: TicketRowInput, assignedMap: Record<string, string>) {
+  const tatHours = TAT_HOURS[t.priority] ?? 48;
+  const actualHours = t.resolvedAt
+    ? Math.round((t.resolvedAt.getTime() - t.createdAt.getTime()) / 3600000)
+    : null;
+  return {
+    id: t.id,
+    subject: t.subject,
+    raisedBy: t.user.name,
+    category: t.category,
+    city: "—",
+    state: "—",
+    assignedTo: t.assignedTo ? (assignedMap[t.assignedTo] ?? "—") : "—",
+    supervisor: "—",
+    raisedOn: t.createdAt.toISOString().slice(0, 10),
+    resolvedOn: t.resolvedAt?.toISOString().slice(0, 10) ?? null,
+    tatHours,
+    actualHours,
+    withinTAT: actualHours != null ? actualHours <= tatHours : null,
+    status: ticketDisplayStatus(t.status, t.priority),
+  };
+}
+
 export const ticketsRouter = router({
   create: protectedProcedure
     .input(
@@ -110,6 +163,28 @@ export const ticketsRouter = router({
 
       return prisma.ticket.update({ where: { id: input.id }, data });
     }),
+
+  // Derived TAT report rows for staff dashboards (all tickets, recent first).
+  report: staffProcedure.query(async () => {
+    const dbTickets = await prisma.ticket.findMany({
+      include: { user: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
+
+    const assignedIds = [
+      ...new Set(dbTickets.map((t) => t.assignedTo).filter(Boolean) as string[]),
+    ];
+    const assignedUsers = assignedIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: assignedIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const assignedMap = Object.fromEntries(assignedUsers.map((u) => [u.id, u.name]));
+
+    return dbTickets.map((t) => deriveTicketRow(t, assignedMap));
+  }),
 
   stats: staffProcedure.query(async () => {
     const [total, open, inProgress, resolved, closed, low, medium, high, urgent] = await Promise.all([

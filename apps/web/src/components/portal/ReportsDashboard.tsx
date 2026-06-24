@@ -2,14 +2,7 @@
 import { useState, useMemo, type ReactNode } from "react";
 import { Download, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/portal/PortalShell";
-import {
-  REPORT_CATEGORIES,
-  REPORT_CITIES,
-  REPORT_STATES,
-  REPORT_BUILDERS,
-  REPORT_SUPERVISORS,
-  REPORT_SALES,
-} from "@/data/reports";
+import { REPORT_CATEGORIES } from "@/data/reports";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 
@@ -23,9 +16,6 @@ interface Filters {
   category: string;
   city: string;
   state: string;
-  builder: string;
-  supervisor: string;
-  sales: string;
 }
 
 function buildPresets(): Record<DatePreset, [string, string]> {
@@ -57,10 +47,6 @@ const PRESET_LABELS: Record<DatePreset, string> = {
 };
 
 /* ─── Helpers ───────────────────────────────────────────────── */
-function inRange(date: string, from: string, to: string) {
-  return date >= from && date <= to;
-}
-
 function dlCSV(filename: string, headers: string[], rows: (string | number)[][]) {
   const csv = [headers, ...rows]
     .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
@@ -155,13 +141,9 @@ function RptSection({
 
 /* ─── Main component ────────────────────────────────────────── */
 export function ReportsDashboard({
-  defaultSupervisor,
-  defaultSales,
   title = "Reports",
   subtitle = "Calendar-filtered reports across all dimensions.",
 }: {
-  defaultSupervisor?: string;
-  defaultSales?: string;
   title?: string;
   subtitle?: string;
 }) {
@@ -172,9 +154,6 @@ export function ReportsDashboard({
     category: "All",
     city: "All",
     state: "All",
-    builder: "All",
-    supervisor: defaultSupervisor ?? "All",
-    sales: defaultSales ?? "All",
   });
 
   const setF = (key: keyof Filters, value: string) => setFilters((f) => ({ ...f, [key]: value }));
@@ -189,20 +168,29 @@ export function ReportsDashboard({
   const snap = trpc.reports.snapshot.useQuery({ from, to });
   const snapData = snap.data;
 
-  const matchDims = (item: {
-    category?: string;
-    city: string;
-    state: string;
-    builder?: string;
-    supervisor?: string;
-    salesStaff?: string;
-  }) => {
+  // City/State options come from the live data — only dimensions the backend
+  // can actually populate are offered as filters.
+  const { cityOptions, stateOptions } = useMemo(() => {
+    const cities = new Set<string>();
+    const states = new Set<string>();
+    const add = (city?: string, state?: string) => {
+      if (city && city !== "—") cities.add(city);
+      if (state && state !== "—") states.add(state);
+    };
+    (snapData?.users ?? []).forEach((u) => add(u.city, u.state));
+    (snapData?.subscriptions ?? []).forEach((s) => add(s.city, s.state));
+    (snapData?.siteVisits ?? []).forEach((v) => add(v.city, v.state));
+    (snapData?.agentRegs ?? []).forEach((a) => add(a.city, a.state));
+    return {
+      cityOptions: ["All", ...[...cities].sort()],
+      stateOptions: ["All", ...[...states].sort()],
+    };
+  }, [snapData]);
+
+  const matchDims = (item: { category?: string; city: string; state: string }) => {
     if (filters.category !== "All" && item.category !== filters.category) return false;
     if (filters.city !== "All" && item.city !== filters.city) return false;
     if (filters.state !== "All" && item.state !== filters.state) return false;
-    if (filters.builder !== "All" && item.builder !== filters.builder) return false;
-    if (filters.supervisor !== "All" && item.supervisor !== filters.supervisor) return false;
-    if (filters.sales !== "All" && item.salesStaff !== filters.sales) return false;
     return true;
   };
 
@@ -235,18 +223,9 @@ export function ReportsDashboard({
     [snapData, filters],
   );
 
-  const fTickets = useMemo(
-    () =>
-      (snapData?.tickets ?? []).filter((t) => {
-        if (filters.city !== "All" && t.city !== filters.city) return false;
-        if (filters.state !== "All" && t.state !== filters.state) return false;
-        if (filters.supervisor !== "All" && t.supervisor !== filters.supervisor) return false;
-        if (filters.sales !== "All" && t.assignedTo !== filters.sales) return false;
-        return true;
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [snapData, filters],
-  );
+  // Tickets carry no geo/attribution yet, so they aren't filtered by the
+  // dimension dropdowns — only by the date range (applied server-side).
+  const fTickets = useMemo(() => snapData?.tickets ?? [], [snapData]);
 
   /* ── TAT summary ─────────────────────────────────────────── */
   const resolvedTickets = fTickets.filter((t) => t.status === "Resolved");
@@ -314,7 +293,7 @@ export function ReportsDashboard({
         </div>
 
         {/* Dimension filters */}
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
           <Sel
             label="Category"
             value={filters.category}
@@ -324,34 +303,14 @@ export function ReportsDashboard({
           <Sel
             label="City"
             value={filters.city}
-            options={REPORT_CITIES}
+            options={cityOptions}
             onChange={(v) => setF("city", v)}
           />
           <Sel
             label="State"
             value={filters.state}
-            options={REPORT_STATES}
+            options={stateOptions}
             onChange={(v) => setF("state", v)}
-          />
-          <Sel
-            label="Builder"
-            value={filters.builder}
-            options={REPORT_BUILDERS}
-            onChange={(v) => setF("builder", v)}
-          />
-          <Sel
-            label="Supervisor"
-            value={filters.supervisor}
-            options={REPORT_SUPERVISORS}
-            onChange={(v) => setF("supervisor", v)}
-            locked={!!defaultSupervisor}
-          />
-          <Sel
-            label="Sales Staff"
-            value={filters.sales}
-            options={REPORT_SALES}
-            onChange={(v) => setF("sales", v)}
-            locked={!!defaultSales}
           />
         </div>
       </div>

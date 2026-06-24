@@ -7,13 +7,11 @@ import {
   Building,
   Wallet,
   LayoutGrid,
-  BarChart2,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
 import { usePortalGuard } from "@/lib/use-portal-guard";
-import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
 import { MyLeadsTab } from "@/components/sales-portal/tabs/MyLeadsTab";
 import { DetailTab } from "@/components/sales-portal/tabs/DetailTab";
 import { LogTab } from "@/components/sales-portal/tabs/LogTab";
@@ -32,7 +30,6 @@ const nav = [
   { label: "Site Visits", to: "/sales-portal#visits", icon: <Building size={14} /> },
   { label: "Listings", to: "/sales-portal#listings", icon: <LayoutGrid size={14} /> },
   { label: "My Commission", to: "/sales-portal#commission", icon: <Wallet size={14} /> },
-  { label: "Reports", to: "/sales-portal#reports", icon: <BarChart2 size={14} /> },
 ];
 
 export default function SalesPortal() {
@@ -52,12 +49,12 @@ export default function SalesPortal() {
       nav={nav}
       basePath="/sales-portal"
     >
-      {renderTab(h, session.name)}
+      {renderTab(h)}
     </PortalShell>
   );
 }
 
-function renderTab(h: string, salesName: string) {
+function renderTab(h: string) {
   switch (h) {
     case "detail":     return <DetailTab />;
     case "log":        return <LogTab />;
@@ -65,14 +62,6 @@ function renderTab(h: string, salesName: string) {
     case "visits":     return <VisitsTab />;
     case "commission": return <CommissionTab />;
     case "listings":   return <ListingsTab />;
-    case "reports":
-      return (
-        <ReportsDashboard
-          defaultSales={salesName}
-          title="My Reports"
-          subtitle={`Reports filtered to your activity — ${salesName}.`}
-        />
-      );
     default: return <MyLeadsTab />;
   }
 }

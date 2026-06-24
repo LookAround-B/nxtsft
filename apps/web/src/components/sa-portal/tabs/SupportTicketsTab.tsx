@@ -2,12 +2,14 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
-import { reportTickets } from "@/data/reports";
+import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
 import { TabHeader } from "./shared";
 
 export function SupportTicketsTab() {
-  const [tickets, setTickets] = useState(reportTickets.map((t) => ({ ...t })));
+  const utils = trpc.useUtils();
+  const ticketsQ = trpc.tickets.report.useQuery();
+  const tickets = ticketsQ.data ?? [];
   const [statusFilter, setStatusFilter] = useState<"All" | "Open" | "Resolved" | "Escalated">(
     "All",
   );
@@ -24,14 +26,14 @@ export function SupportTicketsTab() {
     return true;
   });
 
-  const resolve = (id: string) => {
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, status: "Resolved" as const, resolvedOn: "2026-06-09" } : t,
-      ),
-    );
-    toast.success(`Ticket ${id} resolved`);
-  };
+  const resolveM = trpc.tickets.update.useMutation({
+    onSuccess: () => {
+      utils.tickets.report.invalidate();
+      toast.success("Ticket resolved");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+  const resolve = (id: string) => resolveM.mutate({ id, status: "resolved" });
 
   const open = tickets.filter((t) => t.status === "Open").length;
   const escalated = tickets.filter((t) => t.status === "Escalated").length;
@@ -142,7 +144,7 @@ export function SupportTicketsTab() {
             <tbody>
               {filtered.map((t) => (
                 <tr key={t.id}>
-                  <td className="font-mono text-xs">{t.id}</td>
+                  <td className="font-mono text-xs">{t.id.slice(0, 8)}</td>
                   <td className="max-w-[160px] truncate text-xs font-semibold text-navy">
                     {t.subject}
                   </td>
@@ -179,7 +181,8 @@ export function SupportTicketsTab() {
                     {t.status === "Open" && (
                       <button
                         onClick={() => resolve(t.id)}
-                        className="rounded-md bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-600 transition"
+                        disabled={resolveM.isPending}
+                        className="rounded-md bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-600 transition disabled:opacity-60"
                       >
                         Resolve
                       </button>

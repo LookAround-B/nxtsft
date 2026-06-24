@@ -1,10 +1,7 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, staffProcedure } from "../server.js";
-
-const TAT_HOURS: Record<string, number> = {
-  low: 72, medium: 48, high: 24, urgent: 4,
-};
+import { deriveTicketRow } from "./tickets.js";
 
 function roleToCategory(role: string): "Buyer" | "Seller" | "Agent" | "Owner" | "Tenant" {
   if (role === "home-seller") return "Seller";
@@ -16,12 +13,6 @@ function subStatusToPayStatus(status: string): "Paid" | "Unpaid" | "Follow-up" |
   if (status === "Active") return "Paid";
   if (status === "Cancelled") return "Not Interested";
   return "Unpaid";
-}
-
-function ticketDisplayStatus(status: string, priority: string): "Open" | "Resolved" | "Escalated" {
-  if (priority === "urgent" && !["resolved", "closed"].includes(status)) return "Escalated";
-  if (["resolved", "closed"].includes(status)) return "Resolved";
-  return "Open";
 }
 
 export const reportsRouter = router({
@@ -196,26 +187,9 @@ export const reportsRouter = router({
       const assignedMap = Object.fromEntries(assignedUsers.map((u) => [u.id, u.name]));
 
       const tickets = dbTickets.map((t) => {
-        const tatHours = TAT_HOURS[t.priority] ?? 48;
-        const actualHours = t.resolvedAt
-          ? Math.round((t.resolvedAt.getTime() - t.createdAt.getTime()) / 3600000)
-          : null;
-        return {
-          id: t.id.slice(0, 6).toUpperCase(),
-          subject: t.subject,
-          raisedBy: t.user.name,
-          category: t.category,
-          city: "—",
-          state: "—",
-          assignedTo: t.assignedTo ? (assignedMap[t.assignedTo] ?? "—") : "—",
-          supervisor: "—",
-          raisedOn: t.createdAt.toISOString().slice(0, 10),
-          resolvedOn: t.resolvedAt?.toISOString().slice(0, 10) ?? null,
-          tatHours,
-          actualHours,
-          withinTAT: actualHours != null ? actualHours <= tatHours : null,
-          status: ticketDisplayStatus(t.status, t.priority),
-        };
+        const row = deriveTicketRow(t, assignedMap);
+        // Truncate id for dashboard display consistency with the other arrays.
+        return { ...row, id: row.id.slice(0, 6).toUpperCase() };
       });
 
       return { users, subscriptions, siteVisits, agentRegs, tickets };

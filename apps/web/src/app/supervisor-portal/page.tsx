@@ -5,14 +5,12 @@ import {
   ArrowLeftRight,
   TrendingUp,
   AlertTriangle,
-  BarChart2,
 } from "lucide-react";
 import { Activity as ActivityIcon, Calendar as CalendarIcon } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
 import { usePortalGuard } from "@/lib/use-portal-guard";
-import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
 import { DashboardTab } from "@/components/supervisor-portal/tabs/DashboardTab";
 import { TeamLeadsTab } from "@/components/supervisor-portal/tabs/TeamLeadsTab";
 import { ReassignmentTab } from "@/components/supervisor-portal/tabs/ReassignmentTab";
@@ -29,7 +27,6 @@ const nav = [
   { label: "Performance", to: "/supervisor-portal#performance", icon: <TrendingUp size={14} /> },
   { label: "Visit Calendar", to: "/supervisor-portal#calendar", icon: <CalendarIcon size={14} /> },
   { label: "Escalations", to: "/supervisor-portal#escalations", icon: <AlertTriangle size={14} /> },
-  { label: "Reports", to: "/supervisor-portal#reports", icon: <BarChart2 size={14} /> },
 ];
 
 export default function SupervisorPortal() {
@@ -49,12 +46,12 @@ export default function SupervisorPortal() {
       nav={nav}
       basePath="/supervisor-portal"
     >
-      {renderTab(hash, session.name)}
+      {renderTab(hash)}
     </PortalShell>
   );
 }
 
-function renderTab(h: string, supervisorName: string) {
+function renderTab(h: string) {
   switch (h) {
     case "leads":       return <TeamLeadsTab />;
     case "reassign":    return <ReassignmentTab />;
@@ -62,14 +59,6 @@ function renderTab(h: string, supervisorName: string) {
     case "performance": return <PerformanceTab />;
     case "calendar":    return <VisitCalendarTab />;
     case "escalations": return <EscalationsTab />;
-    case "reports":
-      return (
-        <ReportsDashboard
-          defaultSupervisor={supervisorName}
-          title="My Team Reports"
-          subtitle={`Reports filtered to your team — ${supervisorName}.`}
-        />
-      );
     default: return <DashboardTab />;
   }
 }
