@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "pnpm --filter @nxtsft/db run db:generate && next build",
     "start": "next start",
     "lint": "next lint",
@@ -24,6 +24,8 @@
     "@tanstack/react-query": "^5.28.0",
     "@trpc/client": "^11.0.0-rc.445",
     "@trpc/react-query": "^11.0.0-rc.445",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "axios": "^1.6.0",
     "boneyard-js": "^1.8.1",
     "class-variance-authority": "^0.7.1",

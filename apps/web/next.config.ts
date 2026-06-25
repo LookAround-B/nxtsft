@@ -74,6 +74,11 @@ const nextConfig: NextConfig = {
     ],
   },
   images: {
+    // The dev server's egress to images.unsplash.com is slow (~7s), which trips
+    // Next's image-optimizer fetch timeout and yields 504s when several images
+    // load at once. Skip the optimizer in dev so the browser fetches originals
+    // directly; production (fast egress + CDN cache) keeps optimization on.
+    unoptimized: process.env.NODE_ENV === "development",
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "*.r2.cloudflarecontent.com" },
@@ -126,6 +131,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Turbopack (dev: `next dev --turbopack`) resolves `.js` specifiers to their
+  // `.ts`/`.tsx` source natively, so no extensionAlias is needed here — this
+  // block just acknowledges Turbopack so Next doesn't warn about the webpack
+  // config below going unused in dev.
+  turbopack: {
+    resolveExtensions: [".tsx", ".ts", ".jsx", ".js", ".mjs", ".json"],
+  },
+  // Used by `next build` (production still bundles with webpack). Maps `.js`
+  // import specifiers (NodeNext-style, used by @nxtsft/trpc) to TS source.
   webpack: (config) => {
     config.resolve.extensionAlias = {
       ".js": [".ts", ".tsx", ".js", ".jsx"],
