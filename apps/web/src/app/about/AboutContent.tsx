@@ -488,7 +488,7 @@ export function AboutContent() {
                 className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:opacity-90">
                 Browse Properties <ArrowRight size={14} />
               </Link>
-              <Link href="/nri-guide"
+              <Link href="/nri-investment-guide"
                 className="inline-flex items-center gap-2 rounded-xl border border-border px-6 py-3 text-sm font-semibold text-navy transition hover:bg-secondary">
                 NRI Investment Guide
               </Link>

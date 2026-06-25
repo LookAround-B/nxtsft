@@ -16,6 +16,7 @@ const FOOTER_LINKS = {
     { href: "/contact", label: "Contact" },
     { href: "/careers", label: "Careers" },
     { href: "/agents", label: "Find an Agent" },
+    { href: "/nri-guide", label: "For NRIs" },
   ],
   quick: [
     { href: "/contact", label: "Help & Support" },

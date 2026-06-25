@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { NriGuideContent } from "./NriGuideContent";
+import { NriShowcase } from "./NriShowcase";
 
 export const metadata: Metadata = {
-  title: "NRI Guide to Investing in Indian Real Estate | NxtSft.com",
+  title: "Invest, Buy & Rent in India from Abroad — For NRIs | NxtSft.com",
   description:
-    "Complete guide for NRIs investing in Indian real estate — FEMA rules, tax insights, RERA compliance, home loans, and repatriation limits. Curated by NxtSft.com",
+    "NxtSft.com lets Non-Resident Indians invest, buy and rent property in India entirely online — RERA-verified listings, a dedicated NRI desk, FEMA-ready paperwork and repatriation support. No travel required.",
 };
 
-export default function NriGuidePage() {
-  return <NriGuideContent />;
+export default function NriShowcasePage() {
+  return <NriShowcase />;
 }

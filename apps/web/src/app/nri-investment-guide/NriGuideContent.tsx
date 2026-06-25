@@ -21,8 +21,7 @@ import {
   Wallet,
   BadgeCheck,
 } from "lucide-react";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
+// SiteHeader/SiteFooter are provided globally by SiteChrome — do not render here.
 
 /* ── Decorative city skyline (reused from About) ───────────── */
 function CitySVG() {
@@ -218,7 +217,6 @@ export function NriGuideContent() {
 
   return (
     <>
-      {/* <SiteHeader /> */}
       <main>
         {/* ── Hero ──────────────────────────────────────────── */}
         <section className="relative overflow-hidden border-b border-border bg-navy text-white">
@@ -1072,7 +1070,6 @@ export function NriGuideContent() {
           </div>
         </section>
       </main>
-      <SiteFooter />
     </>
   );
 }
