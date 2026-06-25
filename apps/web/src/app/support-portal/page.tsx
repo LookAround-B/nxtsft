@@ -11,6 +11,7 @@ import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
 import { usePortalGuard } from "@/lib/use-portal-guard";
+import { SupportPortalProvider } from "@/lib/support-portal-context";
 import { DashboardTab } from "@/components/support-portal/tabs/DashboardTab";
 import { QueueTab } from "@/components/support-portal/tabs/QueueTab";
 import { EscalationsTab } from "@/components/support-portal/tabs/EscalationsTab";
@@ -36,16 +37,18 @@ export default function SupportPortal() {
   const user = { name: session.name, initials: session.initials };
 
   return (
-    <PortalShell
-      brand="NxtSft.com Support"
-      role="Support Admin"
-      accent="blue"
-      user={user}
-      nav={nav}
-      basePath="/support-portal"
-    >
-      {renderTab(hash)}
-    </PortalShell>
+    <SupportPortalProvider>
+      <PortalShell
+        brand="NxtSft.com Support"
+        role="Support Admin"
+        accent="blue"
+        user={user}
+        nav={nav}
+        basePath="/support-portal"
+      >
+        {renderTab(hash)}
+      </PortalShell>
+    </SupportPortalProvider>
   );
 }
 

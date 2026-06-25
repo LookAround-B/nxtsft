@@ -1,8 +1,11 @@
 "use client";
+import { useContext } from "react";
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";
+import { SupportPortalContext } from "@/lib/support-portal-context";
+import { SupportDashboardHeader } from "@/components/support-portal/SupportDashboardHeader";
 import {
   PageHead,
   type DbTicket,
@@ -13,7 +16,17 @@ import {
 
 export function MyAssignmentsTab() {
   const { session } = useAuth();
-  const listQ = trpc.tickets.list.useQuery({ limit: 100 });
+  const ctx = useContext(SupportPortalContext);
+  const startDate = ctx?.startDate?.toISOString().slice(0, 10);
+  const endDate = ctx?.endDate?.toISOString().slice(0, 10);
+  const jobRoles = ctx?.selectedJobRoles ?? [];
+
+  const listQ = trpc.tickets.list.useQuery({
+    limit: 100,
+    startDate,
+    endDate,
+    jobRole: jobRoles.length ? jobRoles : undefined,
+  });
   const updateTicket = trpc.tickets.update.useMutation({
     onSuccess: () => listQ.refetch(),
     onError: (err: { message: string }) => toast.error(err.message),
@@ -30,6 +43,7 @@ export function MyAssignmentsTab() {
   return (
     <>
       <PageHead title="My Assignments" subtitle="Tickets assigned to you — respond within SLA." />
+      <SupportDashboardHeader />
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Assigned to Me" value={String(mine.length)} sub="total" />
         <StatCard label="Open" value={String(openCount)} sub="action needed" accent="text-amber-600" />

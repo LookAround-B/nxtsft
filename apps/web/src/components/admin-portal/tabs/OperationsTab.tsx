@@ -15,6 +15,10 @@ import {
   Zap,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useContext } from "react";
+import { AdminPortalContext } from "@/lib/admin-portal-context";
+import { AdminDashboardHeader } from "@/components/admin-portal/AdminDashboardHeader";
+import { LeadStatusSummary } from "@/components/admin-portal/LeadStatusSummary";
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
 function fmtRevenue(r: number) {
@@ -352,7 +356,18 @@ function Card({ title, action, children }: { title: string; action?: ReactNode; 
 
 /* ─── Main component ─────────────────────────────────────────────────── */
 export function OperationsTab() {
-  const statsQ = trpc.admin.stats.useQuery();
+  const ctx = useContext(AdminPortalContext);
+  const selectedRoles = ctx?.selectedRoles ?? [];
+  const startDate = ctx?.startDate ?? null;
+  const endDate = ctx?.endDate ?? null;
+  const visibleReports = ctx?.visibleReports ?? [];
+
+  const input: any = {};
+  if (selectedRoles.length > 0) input.roles = selectedRoles;
+  if (startDate instanceof Date) input.startDate = startDate.toISOString();
+  if (endDate instanceof Date) input.endDate = endDate.toISOString();
+
+  const statsQ = trpc.admin.stats.useQuery(input);
   const s = statsQ.data;
 
   // Sort leaderboard by closedMTD desc
@@ -360,6 +375,9 @@ export function OperationsTab() {
 
   return (
     <div className="space-y-6">
+
+      {/* ── Dashboard Filters (Calendar + Role Selection) ─────────────── */}
+      <AdminDashboardHeader />
 
       {/* ── Command Header ─────────────────────────────────────────────── */}
       <CommandHeader
@@ -369,6 +387,9 @@ export function OperationsTab() {
         hotLeads={s?.hotLeads}
         activeListings={s?.activeListings}
       />
+
+      {/* ── Lead Status Summary ────────────────────────────────────────── */}
+      <LeadStatusSummary />
 
       {/* ── Action Queue ───────────────────────────────────────────────── */}
       <div>
@@ -392,123 +413,133 @@ export function OperationsTab() {
         <div className="space-y-6 lg:col-span-3">
 
           {/* KPI Scorecard */}
-          <div className="grid grid-cols-2 gap-4">
-            <KpiCard
-              label="Total Revenue"
-              value={s ? fmtRevenue(s.totalRevenue) : "…"}
-              sub="+8% vs last month"
-              trend="up"
-              icon={<TrendingUp size={15} />}
-            />
-            <KpiCard
-              label="Open Leads"
-              value={s ? String(s.totalLeads) : "…"}
-              sub={s ? `${s.hotLeads} hot` : "loading"}
-              trend="up"
-            />
-            <KpiCard
-              label="Active Listings"
-              value={s ? String(s.activeListings) : "…"}
-              sub={s ? `of ${s.totalProperties} total` : "loading"}
-              trend="neutral"
-              icon={<Building2 size={15} />}
-            />
-            <KpiCard
-              label="Registered Users"
-              value={s ? String(s.totalUsers) : "…"}
-              sub="buyers + sellers"
-              trend="up"
-              icon={<Users size={15} />}
-            />
-          </div>
+          {visibleReports.includes("kpi") && (
+            <div className="grid grid-cols-2 gap-4">
+              <KpiCard
+                label="Total Revenue"
+                value={s ? fmtRevenue(s.totalRevenue) : "…"}
+                sub="+8% vs last month"
+                trend="up"
+                icon={<TrendingUp size={15} />}
+              />
+              <KpiCard
+                label="Open Leads"
+                value={s ? String(s.totalLeads) : "…"}
+                sub={s ? `${s.hotLeads} hot` : "loading"}
+                trend="up"
+              />
+              <KpiCard
+                label="Active Listings"
+                value={s ? String(s.activeListings) : "…"}
+                sub={s ? `of ${s.totalProperties} total` : "loading"}
+                trend="neutral"
+                icon={<Building2 size={15} />}
+              />
+              <KpiCard
+                label="Registered Users"
+                value={s ? String(s.totalUsers) : "…"}
+                sub="buyers + sellers"
+                trend="up"
+                icon={<Users size={15} />}
+              />
+            </div>
+          )}
 
           {/* Conversion Funnel */}
-          <Card title="Conversion Funnel — This Month">
-            <div className="space-y-3 py-1">
-              <FunnelBar label="Leads"     count={412} max={412} color="bg-blue-500" />
-              <FunnelBar label="Qualified" count={198} max={412} color="bg-violet-500" pct="48%" />
-              <FunnelBar label="Site Visit"count={87}  max={412} color="bg-amber-500" pct="44%" />
-              <FunnelBar label="Closed"    count={23}  max={412} color="bg-emerald-500" pct="26%" />
-            </div>
-            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 border-t border-border pt-3 text-[11px] text-muted-foreground">
-              <span>Qualify rate: <strong className="text-navy">48%</strong></span>
-              <span>Visit rate: <strong className="text-navy">44%</strong></span>
-              <span>Close rate: <strong className="text-navy">26%</strong></span>
-              <span>Overall: <strong className="text-emerald-600">5.6%</strong></span>
-            </div>
-          </Card>
+          {visibleReports.includes("funnel") && (
+            <Card title="Conversion Funnel — This Month">
+              <div className="space-y-3 py-1">
+                <FunnelBar label="Leads"     count={412} max={412} color="bg-blue-500" />
+                <FunnelBar label="Qualified" count={198} max={412} color="bg-violet-500" pct="48%" />
+                <FunnelBar label="Site Visit"count={87}  max={412} color="bg-amber-500" pct="44%" />
+                <FunnelBar label="Closed"    count={23}  max={412} color="bg-emerald-500" pct="26%" />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 border-t border-border pt-3 text-[11px] text-muted-foreground">
+                <span>Qualify rate: <strong className="text-navy">48%</strong></span>
+                <span>Visit rate: <strong className="text-navy">44%</strong></span>
+                <span>Close rate: <strong className="text-navy">26%</strong></span>
+                <span>Overall: <strong className="text-emerald-600">5.6%</strong></span>
+              </div>
+            </Card>
+          )}
 
           {/* Sales Leaderboard */}
-          <Card
-            title="Sales Team — This Month"
-            action={
-              <button
-                onClick={() => (window.location.hash = "team")}
-                className="text-xs font-semibold text-accent hover:underline"
-              >
-                View All →
-              </button>
-            }
-          >
-            <div className="space-y-1">
-              {leaderboard.map((m, i) => (
-                <LeaderboardRow
-                  key={m.id}
-                  rank={i + 1}
-                  name={m.name}
-                  city={m.city}
-                  closedMTD={m.closedMTD}
-                  conversion={m.conversion}
-                  achieved={m.achieved}
-                />
-              ))}
-            </div>
-          </Card>
+          {visibleReports.includes("leaderboard") && (
+            <Card
+              title="Sales Team — This Month"
+              action={
+                <button
+                  onClick={() => (window.location.hash = "team")}
+                  className="text-xs font-semibold text-accent hover:underline"
+                >
+                  View All →
+                </button>
+              }
+            >
+              <div className="space-y-1">
+                {leaderboard.map((m, i) => (
+                  <LeaderboardRow
+                    key={m.id}
+                    rank={i + 1}
+                    name={m.name}
+                    city={m.city}
+                    closedMTD={m.closedMTD}
+                    conversion={m.conversion}
+                    achieved={m.achieved}
+                  />
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* ── Right column: Activity + Quick Actions ─────────────────── */}
         <div className="space-y-6 lg:col-span-2">
 
           {/* Live Activity Stream */}
-          <Card title="Live Activity Stream">
-            <div>
-              {activities.map((a, i) => (
-                <div
-                  key={i}
-                  className={`border-b border-border py-3 pl-3 last:border-0 border-l-4 ${activityBorder(a.user)}`}
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-navy">{a.user}</span>
-                    <span className="font-mono text-muted-foreground">{a.ts}</span>
+          {visibleReports.includes("activity") && (
+            <Card title="Live Activity Stream">
+              <div>
+                {activities.map((a, i) => (
+                  <div
+                    key={i}
+                    className={`border-b border-border py-3 pl-3 last:border-0 border-l-4 ${activityBorder(a.user)}`}
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-navy">{a.user}</span>
+                      <span className="font-mono text-muted-foreground">{a.ts}</span>
+                    </div>
+                    <div className="mt-0.5 text-sm">{a.action}</div>
+                    <div className="text-xs text-muted-foreground">{a.outcome}</div>
                   </div>
-                  <div className="mt-0.5 text-sm">{a.action}</div>
-                  <div className="text-xs text-muted-foreground">{a.outcome}</div>
-                </div>
-              ))}
-            </div>
-          </Card>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Quick Actions */}
-          <Card title="Quick Actions">
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: "Approve Listing",   hash: "listings",      color: "text-blue-600 border-blue-100 hover:border-blue-300" },
-                { label: "Invite Team Member",hash: "team",          color: "text-violet-600 border-violet-100 hover:border-violet-300" },
-                { label: "Run Report",        hash: "reports",       color: "text-emerald-600 border-emerald-100 hover:border-emerald-300" },
-                { label: "View Enquiries",    hash: "enquiries",     color: "text-amber-600 border-amber-100 hover:border-amber-300" },
-                { label: "CRM Pipeline",      hash: "crm",           color: "text-accent border-accent/10 hover:border-accent/30" },
-                { label: "Check Alerts",      hash: "alerts",        color: "text-slate-600 border-slate-100 hover:border-slate-300" },
-              ].map((a) => (
-                <button
-                  key={a.hash}
-                  onClick={() => (window.location.hash = a.hash)}
-                  className={`rounded-xl border bg-white p-3 text-left text-xs font-semibold transition-all hover:bg-secondary/30 ${a.color}`}
-                >
-                  {a.label} →
-                </button>
-              ))}
-            </div>
-          </Card>
+          {visibleReports.includes("quickActions") && (
+            <Card title="Quick Actions">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Approve Listing",   hash: "listings",      color: "text-blue-600 border-blue-100 hover:border-blue-300" },
+                  { label: "Invite Team Member",hash: "team",          color: "text-violet-600 border-violet-100 hover:border-violet-300" },
+                  { label: "Run Report",        hash: "reports",       color: "text-emerald-600 border-emerald-100 hover:border-emerald-300" },
+                  { label: "View Enquiries",    hash: "enquiries",     color: "text-amber-600 border-amber-100 hover:border-amber-300" },
+                  { label: "CRM Pipeline",      hash: "crm",           color: "text-accent border-accent/10 hover:border-accent/30" },
+                  { label: "Check Alerts",      hash: "alerts",        color: "text-slate-600 border-slate-100 hover:border-slate-300" },
+                ].map((a) => (
+                  <button
+                    key={a.hash}
+                    onClick={() => (window.location.hash = a.hash)}
+                    className={`rounded-xl border bg-white p-3 text-left text-xs font-semibold transition-all hover:bg-secondary/30 ${a.color}`}
+                  >
+                    {a.label} →
+                  </button>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>

@@ -1,11 +1,23 @@
 "use client";
+import { useContext } from "react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
+import { SupportPortalContext } from "@/lib/support-portal-context";
+import { SupportDashboardHeader } from "@/components/support-portal/SupportDashboardHeader";
 import { PageHead } from "./shared";
 
 export function TATReportTab() {
-  const ticketsQ = trpc.tickets.report.useQuery();
+  const ctx = useContext(SupportPortalContext);
+  const startDate = ctx?.startDate?.toISOString().slice(0, 10);
+  const endDate = ctx?.endDate?.toISOString().slice(0, 10);
+  const jobRoles = ctx?.selectedJobRoles ?? [];
+
+  const ticketsQ = trpc.tickets.report.useQuery({
+    startDate,
+    endDate,
+    jobRole: jobRoles.length ? jobRoles : undefined,
+  });
   const allTickets = ticketsQ.data ?? [];
   const resolved = allTickets.filter((t) => t.status === "Resolved");
   const withinTAT = resolved.filter((t) => t.withinTAT === true).length;
@@ -53,6 +65,8 @@ export function TATReportTab() {
           </button>
         }
       />
+
+      <SupportDashboardHeader />
 
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Total Resolved" value={String(resolved.length)} />

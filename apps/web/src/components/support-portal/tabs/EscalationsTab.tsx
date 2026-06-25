@@ -1,7 +1,10 @@
 "use client";
+import { useContext } from "react";
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { SupportPortalContext } from "@/lib/support-portal-context";
+import { SupportDashboardHeader } from "@/components/support-portal/SupportDashboardHeader";
 import {
   PageHead,
   type DbTicket,
@@ -11,7 +14,17 @@ import {
 } from "./shared";
 
 export function EscalationsTab() {
-  const listQ = trpc.tickets.list.useQuery({ limit: 100 });
+  const ctx = useContext(SupportPortalContext);
+  const startDate = ctx?.startDate?.toISOString().slice(0, 10);
+  const endDate = ctx?.endDate?.toISOString().slice(0, 10);
+  const jobRoles = ctx?.selectedJobRoles ?? [];
+
+  const listQ = trpc.tickets.list.useQuery({
+    limit: 100,
+    startDate,
+    endDate,
+    jobRole: jobRoles.length ? jobRoles : undefined,
+  });
   const updateTicket = trpc.tickets.update.useMutation({
     onSuccess: () => listQ.refetch(),
     onError: (err: { message: string }) => toast.error(err.message),
@@ -32,6 +45,7 @@ export function EscalationsTab() {
         title="Escalations"
         subtitle="High-priority tickets requiring urgent attention or management intervention."
       />
+      <SupportDashboardHeader />
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Escalated" value={String(escalated.length)} sub="active" accent="text-red-600" />
         <StatCard label="Open Tickets" value={String(openCount)} sub="platform-wide" accent="text-amber-600" />

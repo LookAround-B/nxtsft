@@ -24,6 +24,7 @@ import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
 import { usePortalGuard } from "@/lib/use-portal-guard";
+import { AdminPortalProvider } from "@/lib/admin-portal-context";
 import { OperationsTab } from "@/components/admin-portal/tabs/OperationsTab";
 import { TeamTab } from "@/components/admin-portal/tabs/TeamTab";
 import { ListingsTab } from "@/components/admin-portal/tabs/ListingsTab";
@@ -113,15 +114,17 @@ export default function AdminPortal() {
   const user = { name: session.name, initials: session.initials };
 
   return (
-    <PortalShell
-      brand="NxtSft.com Control"
-      role="Admin"
-      accent="red"
-      user={user}
-      nav={nav}
-      basePath="/admin-portal"
-    >
-      {renderTab(hash)}
-    </PortalShell>
+    <AdminPortalProvider>
+      <PortalShell
+        brand="NxtSft.com Control"
+        role="Admin"
+        accent="red"
+        user={user}
+        nav={nav}
+        basePath="/admin-portal"
+      >
+        {renderTab(hash)}
+      </PortalShell>
+    </AdminPortalProvider>
   );
 }

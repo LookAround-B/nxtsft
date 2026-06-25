@@ -35,32 +35,91 @@ const safeUserSelect = {
 
 export const adminRouter = router({
   // Platform KPIs for the command dashboard
-  stats: adminProcedure.query(async () => {
-    const [
-      totalUsers,
-      totalProperties,
-      activeListings,
-      totalLeads,
-      hotLeads,
-      totalRevenue,
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.property.count({ where: { deletedAt: null } }),
-      prisma.property.count({ where: { status: "Active", deletedAt: null } }),
-      prisma.lead.count(),
-      prisma.lead.count({ where: { status: "Hot" } }),
-      prisma.payment.aggregate({ where: { status: "Success" }, _sum: { amount: true } }),
-    ]);
+  stats: adminProcedure
+    .input(
+      z.object({
+        roles: z.array(z.string()).optional(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      }).optional(),
+    )
+    .query(async ({ input = {} }) => {
+      const userWhere: any = input.roles ? { role: { in: input.roles } } : {};
+      const dateWhere: any = {};
+      if (input.startDate) dateWhere.gte = new Date(input.startDate);
+      if (input.endDate) dateWhere.lte = new Date(input.endDate);
+      const hasDateFilter = Object.keys(dateWhere).length > 0;
 
-    return {
-      totalUsers,
-      totalProperties,
-      activeListings,
-      totalLeads,
-      hotLeads,
-      totalRevenue: Number(totalRevenue._sum.amount ?? 0) / 100, // convert paise to rupees
-    };
-  }),
+      const [
+        totalUsers,
+        totalProperties,
+        activeListings,
+        totalLeads,
+        hotLeads,
+        totalRevenue,
+      ] = await Promise.all([
+        prisma.user.count({ where: userWhere }),
+        // Properties have no `role` — the role filter only applies to user counts.
+        prisma.property.count({ where: { deletedAt: null } }),
+        prisma.property.count({ where: { status: "Active", deletedAt: null } }),
+        prisma.lead.count({ where: hasDateFilter ? { createdAt: dateWhere } : undefined }),
+        prisma.lead.count({ where: hasDateFilter ? { createdAt: dateWhere, status: "Hot" } : { status: "Hot" } }),
+        prisma.payment.aggregate({ where: { status: "Success", ...(hasDateFilter ? { createdAt: dateWhere } : {}) }, _sum: { amount: true } }),
+      ]);
+
+      return {
+        totalUsers,
+        totalProperties,
+        activeListings,
+        totalLeads,
+        hotLeads,
+        totalRevenue: Number(totalRevenue._sum.amount ?? 0) / 100, // convert paise to rupees
+      };
+    }),
+
+  // Lead status breakdown by temperature
+  leadStatus: adminProcedure
+    .input(
+      z.object({
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      }).optional(),
+    )
+    .query(async ({ input = {} }) => {
+      const where: NonNullable<Parameters<typeof prisma.lead.count>[0]>["where"] = {};
+      if (input.startDate || input.endDate) {
+        where.createdAt = {};
+        if (input.startDate) where.createdAt.gte = new Date(input.startDate);
+        if (input.endDate) where.createdAt.lte = new Date(input.endDate);
+      }
+
+      const [hot, warm, cold, lost, converted, newLeads] = await Promise.all([
+        prisma.lead.count({ where: { ...where, status: "Hot" } }),
+        prisma.lead.count({ where: { ...where, status: "Warm" } }),
+        prisma.lead.count({ where: { ...where, status: "Cold" } }),
+        prisma.lead.count({ where: { ...where, status: "Lost" } }),
+        prisma.lead.count({ where: { ...where, status: "Converted" } }),
+        prisma.lead.count({ where: { ...where, status: "New" } }),
+      ]);
+
+      const total = hot + warm + cold + lost + converted + newLeads;
+
+      return {
+        hot,
+        warm,
+        cold,
+        lost,
+        converted,
+        new: newLeads,
+        total,
+        hotPct: total > 0 ? Math.round((hot / total) * 100) : 0,
+        warmPct: total > 0 ? Math.round((warm / total) * 100) : 0,
+        coldPct: total > 0 ? Math.round((cold / total) * 100) : 0,
+        lostPct: total > 0 ? Math.round((lost / total) * 100) : 0,
+        convertedPct: total > 0 ? Math.round((converted / total) * 100) : 0,
+        newPct: total > 0 ? Math.round((newLeads / total) * 100) : 0,
+      };
+    }),
 
   // User management
   users: router({

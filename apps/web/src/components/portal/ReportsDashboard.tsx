@@ -2,8 +2,9 @@
 import { useState, useMemo, type ReactNode } from "react";
 import { Download, Filter, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Badge } from "@/components/portal/PortalShell";
-import { REPORT_CATEGORIES } from "@/data/reports";
+import { REPORT_CATEGORIES, JOB_CATEGORIES } from "@/data/reports";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { DateRangePicker } from "@/components/admin-portal/DateRangePicker";
 import { trpc } from "@/lib/trpc";
 
 /* ─── Types ─────────────────────────────────────────────────── */
@@ -15,6 +16,7 @@ interface Filters {
   to: string;
   // Dimension filters
   category: string;
+  jobCategory: string;
   city: string;
   state: string;
   builder: string;
@@ -31,6 +33,7 @@ const DEFAULT_FILTERS: Filters = {
   from: "2000-01-01",
   to: "2099-12-31",
   category: "All",
+  jobCategory: "All",
   city: "All",
   state: "All",
   builder: "All",
@@ -192,11 +195,18 @@ export function ReportsDashboard({
 
   const { from, to } = filters;
 
+  // Calendar picker <-> filter string bridge. Hide the all-time sentinel dates
+  // so the picker shows "Select date" rather than 2000/2099.
+  const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+  const calStart = from && from !== DEFAULT_FILTERS.from ? new Date(from) : null;
+  const calEnd = to && to !== DEFAULT_FILTERS.to ? new Date(to) : null;
+
   const snap = trpc.reports.snapshot.useQuery({ from, to });
   const snapData = snap.data;
 
   const activeFilterCount = [
     filters.category !== "All",
+    filters.jobCategory !== "All",
     filters.city !== "All",
     filters.state !== "All",
     filters.builder !== "All",
@@ -266,7 +276,9 @@ export function ReportsDashboard({
     () =>
       (snapData?.users ?? []).filter(
         (u) =>
-          matchDims(u) && (filters.userStatus === "All" || u.status === filters.userStatus),
+          matchDims(u) &&
+          (filters.jobCategory === "All" || u.jobCategory === filters.jobCategory) &&
+          (filters.userStatus === "All" || u.status === filters.userStatus),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [snapData, filters],
@@ -377,25 +389,30 @@ export function ReportsDashboard({
               {PRESET_LABELS[p]}
             </button>
           ))}
-          <div className="ml-1 flex items-center gap-2">
-            <input
-              type="date"
-              value={filters.from}
-              onChange={(e) => setFilters((f) => ({ ...f, preset: "all", from: e.target.value }))}
-              className="rounded-lg border border-input bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none"
-            />
-            <span className="text-xs text-muted-foreground">→</span>
-            <input
-              type="date"
-              value={filters.to}
-              onChange={(e) => setFilters((f) => ({ ...f, preset: "all", to: e.target.value }))}
-              className="rounded-lg border border-input bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none"
+          <div className="ml-1">
+            <DateRangePicker
+              startDate={calStart}
+              endDate={calEnd}
+              onChange={(start, end) =>
+                setFilters((f) => ({
+                  ...f,
+                  preset: "all",
+                  from: start ? fmtDate(start) : DEFAULT_FILTERS.from,
+                  to: end ? fmtDate(end) : DEFAULT_FILTERS.to,
+                }))
+              }
             />
           </div>
         </div>
 
-        {/* Row 1: Category / City / State */}
-        <div className="mb-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+        {/* Row 1: Job Category / Category / City / State */}
+        <div className="mb-3 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+          <Sel
+            label="Job Category"
+            value={filters.jobCategory}
+            options={JOB_CATEGORIES}
+            onChange={(v) => setF("jobCategory", v)}
+          />
           <Sel
             label="Category"
             value={filters.category}
@@ -501,6 +518,7 @@ export function ReportsDashboard({
               "Name",
               "Email",
               "Phone",
+              "Job Category",
               "Category",
               "City",
               "State",
@@ -515,6 +533,7 @@ export function ReportsDashboard({
               u.name,
               u.email,
               u.phone,
+              u.jobCategory,
               u.category,
               u.city,
               u.state,
@@ -537,6 +556,7 @@ export function ReportsDashboard({
               <tr>
                 <th className="py-2">ID</th>
                 <th>Name</th>
+                <th>Job Category</th>
                 <th>Category</th>
                 <th>City</th>
                 <th>State</th>
@@ -555,6 +575,7 @@ export function ReportsDashboard({
                     <div className="font-semibold text-navy">{u.name}</div>
                     <div className="text-[10px] text-muted-foreground">{u.email}</div>
                   </td>
+                  <td className="text-xs">{u.jobCategory}</td>
                   <td className="text-xs">{u.category}</td>
                   <td className="text-xs">{u.city}</td>
                   <td className="text-xs text-muted-foreground">{u.state}</td>

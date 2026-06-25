@@ -63,6 +63,7 @@ import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
 import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprovalsTab";
 import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
 import { SiteContentTab } from "@/components/admin-portal/tabs/SiteContentTab";
+import { AdminPortalProvider } from "@/lib/admin-portal-context";
 
 // ─────────────────────────────────────────────────────────────────────────
 // CANONICAL TAB ORDER — this is the source-of-truth ordering for every staff
@@ -177,15 +178,17 @@ export default function SAPortal() {
   const user = { name: session.name, initials: session.initials };
 
   return (
-    <PortalShell
-      brand="NxtSft.com Command"
-      role="Super Admin"
-      accent="gold"
-      user={user}
-      nav={nav}
-      basePath="/sa-portal"
-    >
-      {renderTab(hash)}
-    </PortalShell>
+    <AdminPortalProvider>
+      <PortalShell
+        brand="NxtSft.com Command"
+        role="Super Admin"
+        accent="gold"
+        user={user}
+        nav={nav}
+        basePath="/sa-portal"
+      >
+        {renderTab(hash)}
+      </PortalShell>
+    </AdminPortalProvider>
   );
 }

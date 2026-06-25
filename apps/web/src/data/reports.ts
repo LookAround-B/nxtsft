@@ -75,6 +75,21 @@ export type ReportTicket = {
 };
 
 export const REPORT_CATEGORIES = ["All", "Buyer", "Seller", "Owner", "Agent", "Tenant"] as const;
+
+// Org-role "job category" taxonomy (GOL-137). Distinct from REPORT_CATEGORIES
+// (which is a property-relationship classification). Used by the report-display
+// Job Category filter. Keep labels in sync with roleToJobCategory in the trpc
+// reports router.
+export const JOB_CATEGORIES = [
+  "All",
+  "Super Admin",
+  "Admin",
+  "Supervisor",
+  "Sales Rep",
+  "Customer",
+  "Agent",
+  "Referral",
+] as const;
 export const REPORT_CITIES = [
   "All",
   "Mumbai",
