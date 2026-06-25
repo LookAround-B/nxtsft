@@ -15,6 +15,18 @@ function roleToCategory(role: string, interest?: string | null): ReportCategory 
   return "Buyer";
 }
 
+function roleToJobCategory(role: string): string {
+  switch (role) {
+    case "super-admin": return "Super Admin";
+    case "admin": return "Admin";
+    case "supervisor": return "Supervisor";
+    case "sales": return "Sales Rep";
+    case "user": return "Customer";
+    case "home-seller": return "Agent";
+    default: return "—";
+  }
+}
+
 function subStatusToPayStatus(status: string): "Paid" | "Unpaid" | "Follow-up" | "Not Interested" {
   if (status === "Active") return "Paid";
   if (status === "Cancelled") return "Not Interested";
@@ -180,6 +192,7 @@ export const reportsRouter = router({
           email: u.email,
           phone: u.phone ?? "—",
           category: a.category,
+          jobCategory: roleToJobCategory(u.role),
           city: u.city,
           state: u.state ?? "—",
           builder: a.builder,

@@ -75,6 +75,9 @@ export type ReportTicket = {
 };
 
 export const REPORT_CATEGORIES = ["All", "Buyer", "Seller", "Owner", "Agent", "Tenant"] as const;
+export const JOB_CATEGORIES = [
+  "All", "Super Admin", "Admin", "Supervisor", "Sales Rep", "Customer", "Agent", "Referral",
+] as const;
 export const REPORT_CITIES = [
   "All",
   "Mumbai",

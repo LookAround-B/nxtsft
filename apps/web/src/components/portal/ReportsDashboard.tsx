@@ -2,12 +2,13 @@
 import { useState, useMemo, type ReactNode } from "react";
 import {
   Download, Filter, ChevronDown, ChevronUp, X,
-  TrendingUp, Wallet, Users, MapPin, Star, Megaphone,
-  ArrowUpRight, ArrowDownRight, Target,
+  TrendingUp, Wallet, MapPin, Target,
+  ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
 import { Badge } from "@/components/portal/PortalShell";
-import { REPORT_CATEGORIES } from "@/data/reports";
+import { REPORT_CATEGORIES, JOB_CATEGORIES } from "@/data/reports";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { DateRangePicker } from "@/components/admin-portal/DateRangePicker";
 import { trpc } from "@/lib/trpc";
 
 /* ─── Types ─────────────────────────────────────────────────── */
@@ -18,6 +19,7 @@ interface Filters {
   from: string;
   to: string;
   category: string;
+  jobCategory: string;
   city: string;
   state: string;
   builder: string;
@@ -33,6 +35,7 @@ const DEFAULT_FILTERS: Filters = {
   from: "2000-01-01",
   to: "2099-12-31",
   category: "All",
+  jobCategory: "All",
   city: "All",
   state: "All",
   builder: "All",
@@ -170,13 +173,24 @@ export function ReportsDashboard({
   const resetFilters = () => setFilters({ ...DEFAULT_FILTERS, from: PRESETS.all[0], to: PRESETS.all[1] });
 
   const { from, to } = filters;
+  const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+  const calStart = from && from !== DEFAULT_FILTERS.from ? new Date(from) : null;
+  const calEnd = to && to !== DEFAULT_FILTERS.to ? new Date(to) : null;
+
   const snap = trpc.reports.snapshot.useQuery({ from, to });
   const snapData = snap.data;
 
   const activeFilterCount = [
-    filters.category !== "All", filters.city !== "All", filters.state !== "All",
-    filters.builder !== "All", filters.supervisor !== "All", filters.salesStaff !== "All",
-    filters.userStatus !== "All", filters.subType !== "All", filters.subStatus !== "All",
+    filters.category !== "All",
+    filters.jobCategory !== "All",
+    filters.city !== "All",
+    filters.state !== "All",
+    filters.builder !== "All",
+    filters.supervisor !== "All",
+    filters.salesStaff !== "All",
+    filters.userStatus !== "All",
+    filters.subType !== "All",
+    filters.subStatus !== "All",
   ].filter(Boolean).length;
 
   const { cityOptions, stateOptions, builderOptions, supervisorOptions, salesStaffOptions } = useMemo(() => {
@@ -189,9 +203,14 @@ export function ReportsDashboard({
       if (item.supervisor && item.supervisor !== "—") supervisors.add(item.supervisor);
       if (item.salesStaff && item.salesStaff !== "—") sales.add(item.salesStaff);
     };
+    const addGeo = (item: { city?: string; state?: string }) => {
+      if (item.city && item.city !== "—") cities.add(item.city);
+      if (item.state && item.state !== "—") states.add(item.state);
+    };
     (snapData?.users ?? []).forEach(addFull);
     (snapData?.subscriptions ?? []).forEach(addFull);
     (snapData?.siteVisits ?? []).forEach(addFull);
+    (snapData?.agentRegs ?? []).forEach(addGeo);
     return {
       cityOptions: ["All", ...[...cities].sort()],
       stateOptions: ["All", ...[...states].sort()],
@@ -212,7 +231,11 @@ export function ReportsDashboard({
   };
 
   const fUsers = useMemo(() =>
-    (snapData?.users ?? []).filter((u) => matchDims(u) && (filters.userStatus === "All" || u.status === filters.userStatus)),
+    (snapData?.users ?? []).filter((u) =>
+      matchDims(u) &&
+      (filters.jobCategory === "All" || u.jobCategory === filters.jobCategory) &&
+      (filters.userStatus === "All" || u.status === filters.userStatus),
+    ),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [snapData, filters]);
 
@@ -360,18 +383,24 @@ export function ReportsDashboard({
               {PRESET_LABELS[p]}
             </button>
           ))}
-          <div className="ml-1 flex items-center gap-2">
-            <input type="date" value={filters.from}
-              onChange={(e) => setFilters((f) => ({ ...f, preset: "all", from: e.target.value }))}
-              className="rounded-lg border border-input bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none" />
-            <span className="text-xs text-muted-foreground">→</span>
-            <input type="date" value={filters.to}
-              onChange={(e) => setFilters((f) => ({ ...f, preset: "all", to: e.target.value }))}
-              className="rounded-lg border border-input bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none" />
+          <div className="ml-1">
+            <DateRangePicker
+              startDate={calStart}
+              endDate={calEnd}
+              onChange={(start, end) =>
+                setFilters((f) => ({
+                  ...f,
+                  preset: "all",
+                  from: start ? fmtDate(start) : DEFAULT_FILTERS.from,
+                  to: end ? fmtDate(end) : DEFAULT_FILTERS.to,
+                }))
+              }
+            />
           </div>
         </div>
 
-        <div className="mb-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+        <div className="mb-3 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+          <Sel label="Job Category" value={filters.jobCategory} options={JOB_CATEGORIES} onChange={(v) => setF("jobCategory", v)} />
           <Sel label="Category" value={filters.category} options={REPORT_CATEGORIES} onChange={(v) => setF("category", v)} />
           <Sel label="City" value={filters.city} options={cityOptions} onChange={(v) => setF("city", v)} />
           <Sel label="State" value={filters.state} options={stateOptions} onChange={(v) => setF("state", v)} />
@@ -654,8 +683,8 @@ export function ReportsDashboard({
         count={fUsers.length}
         onExport={() =>
           dlCSV("registered-users.csv",
-            ["ID", "Name", "Email", "Phone", "Category", "City", "State", "Builder", "Supervisor", "Sales Staff", "Registered On", "Status"],
-            fUsers.map((u) => [u.id, u.name, u.email, u.phone, u.category, u.city, u.state, u.builder, u.supervisor, u.salesStaff, u.registeredOn, u.status]),
+            ["ID", "Name", "Email", "Phone", "Job Category", "Category", "City", "State", "Builder", "Supervisor", "Sales Staff", "Registered On", "Status"],
+            fUsers.map((u) => [u.id, u.name, u.email, u.phone, u.jobCategory, u.category, u.city, u.state, u.builder, u.supervisor, u.salesStaff, u.registeredOn, u.status]),
           )
         }
       >
@@ -665,7 +694,7 @@ export function ReportsDashboard({
           <div className="overflow-x-auto"><table className="portal-table">
             <thead>
               <tr>
-                <th className="py-2">ID</th><th>Name</th><th>Category</th><th>City</th>
+                <th className="py-2">ID</th><th>Name</th><th>Job Category</th><th>Category</th><th>City</th>
                 <th>State</th><th>Builder</th><th>Supervisor</th><th>Sales</th>
                 <th>Registered</th><th>Status</th>
               </tr>
@@ -675,6 +704,7 @@ export function ReportsDashboard({
                 <tr key={u.id}>
                   <td className="font-mono text-xs">{u.id}</td>
                   <td><div className="font-semibold text-navy">{u.name}</div><div className="text-[10px] text-muted-foreground">{u.email}</div></td>
+                  <td className="text-xs">{u.jobCategory}</td>
                   <td className="text-xs">{u.category}</td>
                   <td className="text-xs">{u.city}</td>
                   <td className="text-xs text-muted-foreground">{u.state}</td>
