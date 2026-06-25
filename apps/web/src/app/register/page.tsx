@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, CheckCircle2, Home, Building2 } from "lucide-react";
@@ -19,6 +19,16 @@ export default function RegisterPage() {
   const { session, signOut, register, registerSeller } = useAuth();
 
   const [regType, setRegType] = useState<RegistrationType>("buyer");
+  // RERA agents/partners onboard through the home-seller pipeline (same record,
+  // same admin approval queue) — `?type=agent` just preselects it and reframes
+  // the copy. `?type=seller` preselects the seller tab without agent framing.
+  const [isAgent, setIsAgent] = useState(false);
+
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("type");
+    if (t === "seller" || t === "agent") setRegType("seller");
+    if (t === "agent") setIsAgent(true);
+  }, []);
   const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", password: "", confirm: "" });
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -82,8 +92,9 @@ export default function RegisterPage() {
           </div>
           <h2 className="mt-5 font-display text-2xl font-black text-navy">Application Submitted!</h2>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            Your Home Seller account is under review. Our team will verify your details and notify you
-            once your account is approved. This usually takes 1–2 business days.
+            Your {isAgent ? "Agent / Partner" : "Home Seller"} account is under review. Our team will
+            verify your details and notify you once your account is approved. This usually takes 1–2
+            business days.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             Questions? Contact us at{" "}
@@ -167,10 +178,10 @@ export default function RegisterPage() {
                 {t === "buyer" ? <Home size={20} className={regType === t ? "text-accent" : "text-muted-foreground"} /> : <Building2 size={20} className={regType === t ? "text-accent" : "text-muted-foreground"} />}
                 <div>
                   <div className={`text-sm font-bold ${regType === t ? "text-accent" : "text-navy"}`}>
-                    {t === "buyer" ? "Home Buyer" : "Home Seller"}
+                    {t === "buyer" ? "Home Buyer" : isAgent ? "Agent / Partner" : "Home Seller"}
                   </div>
                   <div className="text-[11px] text-muted-foreground">
-                    {t === "buyer" ? "Browse & buy" : "List & sell"}
+                    {t === "buyer" ? "Browse & buy" : isAgent ? "List & sell as a verified agent" : "List & sell"}
                   </div>
                 </div>
               </button>
@@ -179,7 +190,9 @@ export default function RegisterPage() {
 
           {regType === "seller" && (
             <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-700">
-              Home Seller accounts require admin approval before you can log in and list properties.
+              {isAgent
+                ? "Agent / partner accounts require admin approval (RERA verification) before you can log in and list properties."
+                : "Home Seller accounts require admin approval before you can log in and list properties."}
             </p>
           )}
 

@@ -55,9 +55,29 @@ export function CallTab() {
   const [callStatuses, setCallStatuses] = useState<Record<string, CallStatus>>({});
   const [durations, setDurations]       = useState<Record<string, string>>({});
   const [recentCalls, setRecentCalls]   = useState<RecentCall[]>([]);
+  const [noteDrafts, setNoteDrafts]     = useState<Record<string, string>>({});
 
+  const utils    = trpc.useUtils();
   const leadsQ   = trpc.leads.list.useQuery({ status: category, limit: 10 });
   const dialQueue = (leadsQ.data?.items ?? []) as DbLead[];
+
+  const addNote = trpc.leads.addNote.useMutation({
+    onSuccess: () => utils.leads.list.invalidate(),
+  });
+
+  function saveNote(l: DbLead) {
+    const note = noteDrafts[l.id]?.trim();
+    if (!note) return;
+    addNote.mutate(
+      { id: l.id, note },
+      {
+        onSuccess: () => {
+          setNoteDrafts((prev) => ({ ...prev, [l.id]: "" }));
+          toast.success("Comment added");
+        },
+      },
+    );
+  }
 
   function dial(l: DbLead) {
     toast.success(`Dialing ${l.phone}…`);
@@ -162,6 +182,29 @@ export function CallTab() {
                       </p>
                     </div>
                   )}
+
+                  {/* Add comment ── appends to lead notes, flows to reports */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Add a comment…"
+                      value={noteDrafts[l.id] ?? ""}
+                      onChange={(e) =>
+                        setNoteDrafts((prev) => ({ ...prev, [l.id]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveNote(l);
+                      }}
+                      className="min-w-0 flex-1 rounded-lg border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                    <button
+                      onClick={() => saveNote(l)}
+                      disabled={!noteDrafts[l.id]?.trim() || addNote.isPending}
+                      className="shrink-0 rounded-lg bg-navy px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+                    >
+                      Save
+                    </button>
+                  </div>
 
                   {/* Post-dial controls */}
                   {status !== "idle" && (

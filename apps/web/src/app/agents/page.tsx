@@ -774,7 +774,7 @@ export default function AgentsPage() {
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
               <Link
-                href="/register"
+                href="/register?type=agent"
                 className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white shadow-sm shadow-accent/20 transition hover:opacity-90"
               >
                 Join as Agent <ArrowRight size={15} />

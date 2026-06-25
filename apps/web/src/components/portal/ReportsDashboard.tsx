@@ -527,6 +527,7 @@ export function ReportsDashboard({
               "Sales Staff",
               "Registered On",
               "Status",
+              "Latest Comment",
             ],
             fUsers.map((u) => [
               u.id,
@@ -542,6 +543,7 @@ export function ReportsDashboard({
               u.salesStaff,
               u.registeredOn,
               u.status,
+              u.latestComment,
             ]),
           )
         }
@@ -565,11 +567,12 @@ export function ReportsDashboard({
                 <th>Sales</th>
                 <th>Registered</th>
                 <th>Status</th>
+                <th>Latest Comment</th>
               </tr>
             </thead>
             <tbody>
-              {fUsers.map((u) => (
-                <tr key={u.id}>
+              {fUsers.map((u, i) => (
+                <tr key={`${u.id}-${i}`}>
                   <td className="font-mono text-xs">{u.id}</td>
                   <td>
                     <div className="font-semibold text-navy">{u.name}</div>
@@ -585,6 +588,9 @@ export function ReportsDashboard({
                   <td className="font-mono text-xs">{u.registeredOn}</td>
                   <td>
                     <Badge tone={u.status === "Active" ? "success" : "warm"}>{u.status}</Badge>
+                  </td>
+                  <td className="max-w-[200px] truncate text-xs text-muted-foreground" title={u.latestComment}>
+                    {u.latestComment}
                   </td>
                 </tr>
               ))}
@@ -615,6 +621,7 @@ export function ReportsDashboard({
               "Status",
               "Subscribed On",
               "Due Date",
+              "Latest Comment",
             ],
             fSubs.map((s) => [
               s.id,
@@ -631,6 +638,7 @@ export function ReportsDashboard({
               s.status,
               s.subscribedOn,
               s.dueDate,
+              s.latestComment,
             ]),
           )
         }
@@ -654,11 +662,12 @@ export function ReportsDashboard({
                 <th>Sales</th>
                 <th>Subscribed</th>
                 <th>Due</th>
+                <th>Latest Comment</th>
               </tr>
             </thead>
             <tbody>
-              {fSubs.map((s) => (
-                <tr key={s.id}>
+              {fSubs.map((s, i) => (
+                <tr key={`${s.id}-${i}`}>
                   <td className="font-mono text-xs">{s.id}</td>
                   <td className="font-semibold text-navy">{s.userName}</td>
                   <td className="text-xs">{s.plan}</td>
@@ -686,6 +695,9 @@ export function ReportsDashboard({
                   <td className="text-xs">{s.salesStaff}</td>
                   <td className="font-mono text-xs">{s.subscribedOn}</td>
                   <td className="font-mono text-xs">{s.dueDate}</td>
+                  <td className="max-w-[200px] truncate text-xs text-muted-foreground" title={s.latestComment}>
+                    {s.latestComment}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -712,6 +724,7 @@ export function ReportsDashboard({
               "Category",
               "Scheduled On",
               "Status",
+              "Latest Comment",
             ],
             fVisits.map((v) => [
               v.id,
@@ -725,6 +738,7 @@ export function ReportsDashboard({
               v.category,
               v.scheduledOn,
               v.status,
+              v.latestComment,
             ]),
           )
         }
@@ -747,11 +761,12 @@ export function ReportsDashboard({
                 <th>Category</th>
                 <th>Scheduled</th>
                 <th>Status</th>
+                <th>Latest Comment</th>
               </tr>
             </thead>
             <tbody>
-              {fVisits.map((v) => (
-                <tr key={v.id}>
+              {fVisits.map((v, i) => (
+                <tr key={`${v.id}-${i}`}>
                   <td className="font-mono text-xs">{v.id}</td>
                   <td className="font-semibold text-navy">{v.leadName}</td>
                   <td className="max-w-[180px] truncate text-xs">{v.property}</td>
@@ -776,6 +791,9 @@ export function ReportsDashboard({
                       {v.status}
                     </Badge>
                   </td>
+                  <td className="max-w-[200px] truncate text-xs text-muted-foreground" title={v.latestComment}>
+                    {v.latestComment}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -792,8 +810,8 @@ export function ReportsDashboard({
         onExport={() =>
           dlCSV(
             "agent-registrations.csv",
-            ["ID", "Name", "City", "State", "RERA Number", "Registered On", "Status"],
-            fAgents.map((a) => [a.id, a.name, a.city, a.state, a.rera, a.registeredOn, a.status]),
+            ["ID", "Name", "City", "State", "RERA Number", "Registered On", "Latest Comment", "Status"],
+            fAgents.map((a) => [a.id, a.name, a.city, a.state, a.rera, a.registeredOn, a.latestComment, a.status]),
           )
         }
       >
@@ -811,18 +829,22 @@ export function ReportsDashboard({
                 <th>State</th>
                 <th>RERA Number</th>
                 <th>Registered On</th>
+                <th>Latest Comment</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {fAgents.map((a) => (
-                <tr key={a.id}>
+              {fAgents.map((a, i) => (
+                <tr key={`${a.id}-${i}`}>
                   <td className="font-mono text-xs">{a.id}</td>
                   <td className="font-semibold text-navy">{a.name}</td>
                   <td className="text-xs">{a.city}</td>
                   <td className="text-xs text-muted-foreground">{a.state}</td>
                   <td className="font-mono text-xs">{a.rera}</td>
                   <td className="font-mono text-xs">{a.registeredOn}</td>
+                  <td className="max-w-[200px] truncate text-xs text-muted-foreground" title={a.latestComment}>
+                    {a.latestComment}
+                  </td>
                   <td>
                     <Badge
                       tone={
@@ -859,6 +881,7 @@ export function ReportsDashboard({
               "Resolved On",
               "TAT (hrs)",
               "Actual (hrs)",
+              "Latest Comment",
               "Status",
               "Within TAT",
             ],
@@ -875,6 +898,7 @@ export function ReportsDashboard({
               t.resolvedOn ?? "—",
               t.tatHours,
               t.actualHours ?? "—",
+              t.latestComment,
               t.status,
               t.withinTAT === null ? "—" : t.withinTAT ? "Yes" : "No",
             ]),
@@ -898,13 +922,14 @@ export function ReportsDashboard({
                 <th>Raised On</th>
                 <th>TAT</th>
                 <th>Actual</th>
+                <th>Latest Comment</th>
                 <th>Status</th>
                 <th>Within TAT</th>
               </tr>
             </thead>
             <tbody>
-              {fTickets.map((t) => (
-                <tr key={t.id}>
+              {fTickets.map((t, i) => (
+                <tr key={`${t.id}-${i}`}>
                   <td className="font-mono text-xs">{t.id}</td>
                   <td className="max-w-[180px] truncate text-xs font-semibold text-navy">
                     {t.subject}
@@ -917,6 +942,9 @@ export function ReportsDashboard({
                   <td className="font-mono text-xs">{t.tatHours}h</td>
                   <td className="font-mono text-xs">
                     {t.actualHours != null ? `${t.actualHours}h` : "—"}
+                  </td>
+                  <td className="max-w-[200px] truncate text-xs text-muted-foreground" title={t.latestComment}>
+                    {t.latestComment}
                   </td>
                   <td>
                     <Badge

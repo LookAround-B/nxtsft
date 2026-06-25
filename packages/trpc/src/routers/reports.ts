@@ -32,6 +32,15 @@ function roleToJobCategory(role: string): string {
   }
 }
 
+// Latest comment = the most recent appended line of a lead's notes string.
+// Mirrors latestNote() in the sales-portal shared client helper; kept here so
+// reports surface the same comment the rep sees on the lead/caller.
+function latestNote(notes?: string | null): string {
+  if (!notes?.trim()) return "—";
+  const lines = notes.split("\n").map((l) => l.trim()).filter(Boolean);
+  return lines.at(-1) ?? "—";
+}
+
 function subStatusToPayStatus(status: string): "Paid" | "Unpaid" | "Follow-up" | "Not Interested" {
   if (status === "Active") return "Paid";
   if (status === "Cancelled") return "Not Interested";
@@ -116,7 +125,7 @@ export const reportsRouter = router({
       const userLeads = reportUserIds.length
         ? await prisma.lead.findMany({
             where: { userId: { in: reportUserIds } },
-            select: { userId: true, assignedToId: true, interest: true, propertyId: true },
+            select: { userId: true, assignedToId: true, interest: true, propertyId: true, notes: true },
             orderBy: { createdAt: "desc" },
           })
         : [];
@@ -145,6 +154,7 @@ export const reportsRouter = router({
           builder,
           supervisor: supName(lead?.assignedToId),
           salesStaff: repName(lead?.assignedToId),
+          latestComment: latestNote(lead?.notes),
         };
       };
 
@@ -162,6 +172,7 @@ export const reportsRouter = router({
           builder: a.builder,
           supervisor: a.supervisor,
           salesStaff: a.salesStaff,
+          latestComment: a.latestComment,
           registeredOn: u.joined.toISOString().slice(0, 10),
           status: (u.verified ? "Active" : "Inactive") as "Active" | "Inactive",
         };
@@ -184,6 +195,7 @@ export const reportsRouter = router({
           builder: a.builder,
           supervisor: a.supervisor,
           salesStaff: a.salesStaff,
+          latestComment: a.latestComment,
           type: ((seenUsers[s.userId] ?? 0) > 1 ? "Renewal" : "Fresh") as "Fresh" | "Renewal",
           status: subStatusToPayStatus(s.status),
           subscribedOn: s.createdAt.toISOString().slice(0, 10),
@@ -235,6 +247,23 @@ export const reportsRouter = router({
       const buyerMap = Object.fromEntries(buyers.map((u) => [u.id, u]));
       const repMap = Object.fromEntries(reps.map((u) => [u.id, u]));
 
+      // Latest comment per visit buyer, from their most recent lead. Visit
+      // buyers aren't necessarily in leadByUser (built from users/subs), so
+      // resolve notes for them directly.
+      const visitLeads = buyerIds.length
+        ? await prisma.lead.findMany({
+            where: { userId: { in: buyerIds } },
+            select: { userId: true, notes: true },
+            orderBy: { createdAt: "desc" },
+          })
+        : [];
+      const commentByBuyer = new Map<string, string>();
+      for (const l of visitLeads) {
+        if (l.userId && !commentByBuyer.has(l.userId)) {
+          commentByBuyer.set(l.userId, latestNote(l.notes));
+        }
+      }
+
       const siteVisits = dbVisits.map((v) => {
         const prop = propMap[v.propertyId];
         const buyer = buyerMap[v.userId];
@@ -249,6 +278,7 @@ export const reportsRouter = router({
           builder: prop?.builder ?? "—",
           supervisor: supName(v.salesRepId),
           salesStaff: rep?.name ?? "—",
+          latestComment: commentByBuyer.get(v.userId) ?? "—",
           scheduledOn: v.scheduledAt.toISOString().slice(0, 10),
           status: v.status as "Scheduled" | "Completed" | "Cancelled" | "Rescheduled",
         };
@@ -260,10 +290,11 @@ export const reportsRouter = router({
       type AgentReg = {
         id: string; name: string; email: string; city: string; state: string;
         rera: string; supervisor: string; registeredOn: string;
+        latestComment: string;
         status: "Active" | "Pending" | "Rejected";
       };
       let agentRegs: AgentReg[] = [];
-      let tickets: ReturnType<typeof shapeTicket>[] = [];
+      let tickets: (ReturnType<typeof shapeTicket> & { latestComment: string })[] = [];
 
       if (!isSales) {
         const dbAgents = await prisma.user.findMany({
@@ -287,6 +318,8 @@ export const reportsRouter = router({
           rera: "—",
           supervisor: "—",
           registeredOn: a.joined.toISOString().slice(0, 10),
+          // Agent registrations have no associated lead, so no comment.
+          latestComment: "—",
           status: "Active" as const,
         }));
 
@@ -311,7 +344,8 @@ export const reportsRouter = router({
           : [];
         const assignedMap = Object.fromEntries(assignedUsers.map((u) => [u.id, u.name]));
 
-        tickets = dbTickets.map((t) => shapeTicket(t, assignedMap));
+        // Tickets aren't lead-linked either; keep the column consistent.
+        tickets = dbTickets.map((t) => ({ ...shapeTicket(t, assignedMap), latestComment: "—" }));
       }
 
       return { users, subscriptions, siteVisits, agentRegs, tickets };

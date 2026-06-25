@@ -412,6 +412,7 @@ export const leads = [
     source: "Website",
     owner: "Priya S.",
     value: 32500000,
+    notes: "[06-06 10:42] Priya: Site visit booked Sat 11am — wants sea-facing, ready to close if price holds.",
     lastActivity: "2h ago",
   },
   {
@@ -424,6 +425,7 @@ export const leads = [
     source: "WhatsApp",
     owner: "Karan J.",
     value: 41000000,
+    notes: "[06-06 09:15] Karan: Sent floor plan on WhatsApp, awaiting feedback on Whitefield villa.",
     lastActivity: "5h ago",
   },
   {
@@ -436,6 +438,7 @@ export const leads = [
     source: "Google Ads",
     owner: "Unassigned",
     value: 35000,
+    notes: "[06-05 14:20] Unassigned: Fresh enquiry, not yet contacted — budget unclear.",
     lastActivity: "1d ago",
   },
   {
@@ -448,6 +451,7 @@ export const leads = [
     source: "Referral",
     owner: "Anita R.",
     value: 175000,
+    notes: "[06-03 16:05] Anita: Called twice, no answer. Cold — retry next week.",
     lastActivity: "3d ago",
   },
   {
@@ -460,6 +464,7 @@ export const leads = [
     source: "Walk-in",
     owner: "Priya S.",
     value: 68000000,
+    notes: "[06-06 11:30] Priya: Walk-in, very keen on GK bungalow — negotiating on parking.",
     lastActivity: "30m ago",
   },
   {
@@ -472,6 +477,7 @@ export const leads = [
     source: "Facebook",
     owner: "Karan J.",
     value: 28500000,
+    notes: "[06-06 08:50] Karan: Interested in Worli 2BHK, comparing with two other projects.",
     lastActivity: "6h ago",
   },
 ];

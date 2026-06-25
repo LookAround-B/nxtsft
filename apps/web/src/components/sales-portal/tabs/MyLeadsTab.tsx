@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Phone, Calendar, Download } from "lucide-react";
+import { Phone, Calendar, Download, MessageSquare } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
-import { Head, type DbLead, type OutcomeTone, daysSince, fmtRelative } from "./shared";
+import { Head, latestNote, type DbLead, type OutcomeTone, daysSince, fmtRelative } from "./shared";
 
 const sourceTone: Record<string, OutcomeTone> = {
   WhatsApp: "hot",
@@ -26,10 +26,11 @@ export function MyLeadsTab() {
   const hotCount = items.filter((l) => l.status === "Hot").length;
 
   function handleExport() {
-    const headers = ["ID", "Name", "Phone", "City", "Interest", "Status", "Source", "Days In Pipeline", "Last Activity"];
+    const headers = ["ID", "Name", "Phone", "City", "Interest", "Status", "Source", "Days In Pipeline", "Last Activity", "Latest Comment"];
     const rows = items.map((l) => [
       l.id, l.name, l.phone, l.city ?? "", l.interest ?? l.property?.title ?? "",
       l.status, l.source, String(daysSince(l.createdAt)), fmtRelative(l.updatedAt),
+      latestNote(l.notes) ?? "",
     ]);
     downloadCSV("my-leads.csv", headers, rows);
     toast.success("CSV downloaded");
@@ -104,6 +105,12 @@ export function MyLeadsTab() {
                       {daysSince(l.createdAt)}d in pipeline
                     </span>
                   </div>
+                  {latestNote(l.notes) && (
+                    <div className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground">
+                      <MessageSquare size={12} className="mt-0.5 shrink-0 text-muted-foreground/50" />
+                      <p className="line-clamp-2 leading-relaxed">{latestNote(l.notes)}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button

@@ -4,8 +4,9 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { MessageSquare } from "lucide-react";
 import { leads, activities, propertyViews, properties } from "@/data/static";
-import { Head, Field } from "./shared";
+import { Head, Field, latestNote } from "./shared";
 
 const leadMeta: Record<
   string,
@@ -52,6 +53,17 @@ export function DetailTab() {
           <Field k="Timeline" v="6 months" />
           <Field k="Last Contacted" v={l.lastActivity} />
         </div>
+        {latestNote(l.notes) && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3">
+            <MessageSquare size={14} className="mt-0.5 shrink-0 text-muted-foreground/60" />
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Latest Comment
+              </div>
+              <p className="mt-0.5 text-sm text-navy">{latestNote(l.notes)}</p>
+            </div>
+          </div>
+        )}
       </Section>
 
       {/* Next Action */}

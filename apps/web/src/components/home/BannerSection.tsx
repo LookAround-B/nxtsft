@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { trpc } from "@/lib/trpc";
@@ -15,6 +16,27 @@ export function BannerSection() {
   const banners = ((q.data as { banners?: HomeBanner[] } | null)?.banners ?? []).filter(
     (b) => b.image,
   );
+
+  // Banners mount after the tRPC query resolves — after the home page's
+  // mount-time reveal observer has already run — so their [data-reveal]
+  // elements would stay opacity:0 forever. Run our own observer once they
+  // load (mirrors FeaturedProperties' dynamic-card handling).
+  useEffect(() => {
+    const els = document.querySelectorAll<HTMLElement>("[data-reveal]:not([data-visible])");
+    if (!els.length) return;
+    const obs = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            (e.target as HTMLElement).setAttribute("data-visible", "");
+            obs.unobserve(e.target);
+          }
+        }),
+      { threshold: 0.08, rootMargin: "0px 0px -52px 0px" },
+    );
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, [q.data]);
 
   if (banners.length === 0) return null;
 
