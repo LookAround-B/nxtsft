@@ -17,7 +17,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://nxtsft.com";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "NxtSft.com — India's Smart Real Estate Platform",
+    default: "NxtSft.com  — India's Smart Real Estate Platform",
     template: "%s | NxtSft.com",
   },
   description:
