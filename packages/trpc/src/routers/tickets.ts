@@ -18,26 +18,6 @@ export const TAT_HOURS: Record<string, number> = {
   low: 72, medium: 48, high: 24, urgent: 4,
 };
 
-// Accepts a single category or a multi-select array and returns the Prisma
-// filter fragment ({ in: [...] }) or undefined when nothing is selected.
-function categoryFilter(category?: string | string[]) {
-  if (!category) return undefined;
-  const cats = (Array.isArray(category) ? category : [category]).filter(Boolean);
-  return cats.length ? { in: cats } : undefined;
-}
-
-const categoryInput = z.union([z.string(), z.array(z.string())]).optional();
-
-// GOL-137 "job category" filter: scope tickets by the raiser's auth role.
-// Values are role strings (super-admin | admin | supervisor | sales | user |
-// home-seller). Returns a Prisma `user` relation filter or undefined.
-const jobRoleInput = z.union([z.string(), z.array(z.string())]).optional();
-function jobRoleFilter(jobRole?: string | string[]) {
-  if (!jobRole) return undefined;
-  const roles = (Array.isArray(jobRole) ? jobRole : [jobRole]).filter(Boolean);
-  return roles.length ? { role: { in: roles } } : undefined;
-}
-
 export function ticketDisplayStatus(
   status: string,
   priority: string,
@@ -113,31 +93,18 @@ export const ticketsRouter = router({
     .input(
       z.object({
         status: ticketStatusSchema.optional(),
-        category: categoryInput,
-        jobRole: jobRoleInput,
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
         cursor: cursorSchema,
         limit: limitSchema,
       }),
     )
     .query(async ({ input, ctx }) => {
-      const { cursor, limit, status, category, jobRole, startDate, endDate } = input;
+      const { cursor, limit, status } = input;
 
       const isStaff = ["super-admin", "admin", "supervisor", "support-admin"].includes(ctx.user.role);
 
       const where: NonNullable<Parameters<typeof prisma.ticket.findMany>[0]>["where"] = {};
       if (!isStaff) where.userId = ctx.user.id; // consumers see only own tickets
       if (status) where.status = status;
-      const catFilter = categoryFilter(category);
-      if (catFilter) where.category = catFilter;
-      const jrFilter = jobRoleFilter(jobRole);
-      if (jrFilter) where.user = jrFilter;
-      if (startDate || endDate) {
-        where.createdAt = {};
-        if (startDate) where.createdAt.gte = new Date(startDate + "T00:00:00.000Z");
-        if (endDate) where.createdAt.lte = new Date(endDate + "T23:59:59.999Z");
-      }
 
       const items = await prisma.ticket.findMany({
         where,
@@ -198,93 +165,47 @@ export const ticketsRouter = router({
     }),
 
   // Derived TAT report rows for staff dashboards (all tickets, recent first).
-  report: staffProcedure
-    .input(
-      z.object({
-        category: categoryInput,
-        jobRole: jobRoleInput,
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-      }).optional(),
-    )
-    .query(async ({ input = {} }) => {
-      const { category, jobRole, startDate, endDate } = input;
+  report: staffProcedure.query(async () => {
+    const dbTickets = await prisma.ticket.findMany({
+      include: { user: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
 
-      const where: any = {};
-      const catFilter = categoryFilter(category);
-      if (catFilter) where.category = catFilter;
-      const jrFilter = jobRoleFilter(jobRole);
-      if (jrFilter) where.user = jrFilter;
-      if (startDate || endDate) {
-        where.createdAt = {};
-        if (startDate) where.createdAt.gte = new Date(startDate + "T00:00:00.000Z");
-        if (endDate) where.createdAt.lte = new Date(endDate + "T23:59:59.999Z");
-      }
+    const assignedIds = [
+      ...new Set(dbTickets.map((t) => t.assignedTo).filter(Boolean) as string[]),
+    ];
+    const assignedUsers = assignedIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: assignedIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const assignedMap = Object.fromEntries(assignedUsers.map((u) => [u.id, u.name]));
 
-      const dbTickets = await prisma.ticket.findMany({
-        where,
-        include: { user: { select: { name: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 500,
-      });
+    return dbTickets.map((t) => deriveTicketRow(t, assignedMap));
+  }),
 
-      const assignedIds = [
-        ...new Set(dbTickets.map((t) => t.assignedTo).filter(Boolean) as string[]),
-      ];
-      const assignedUsers = assignedIds.length
-        ? await prisma.user.findMany({
-            where: { id: { in: assignedIds } },
-            select: { id: true, name: true },
-          })
-        : [];
-      const assignedMap = Object.fromEntries(assignedUsers.map((u) => [u.id, u.name]));
+  stats: staffProcedure.query(async () => {
+    const [total, open, inProgress, resolved, closed, low, medium, high, urgent] = await Promise.all([
+      prisma.ticket.count(),
+      prisma.ticket.count({ where: { status: "open" } }),
+      prisma.ticket.count({ where: { status: "in_progress" } }),
+      prisma.ticket.count({ where: { status: "resolved" } }),
+      prisma.ticket.count({ where: { status: "closed" } }),
+      prisma.ticket.count({ where: { priority: "low" } }),
+      prisma.ticket.count({ where: { priority: "medium" } }),
+      prisma.ticket.count({ where: { priority: "high" } }),
+      prisma.ticket.count({ where: { priority: "urgent" } }),
+    ]);
 
-      return dbTickets.map((t) => deriveTicketRow(t, assignedMap));
-    }),
-
-  stats: staffProcedure
-    .input(
-      z.object({
-        category: categoryInput,
-        jobRole: jobRoleInput,
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-      }).optional(),
-    )
-    .query(async ({ input = {} }) => {
-      const { category, jobRole, startDate, endDate } = input;
-
-      const dateWhere: any = {};
-      if (startDate) dateWhere.gte = new Date(startDate + "T00:00:00.000Z");
-      if (endDate) dateWhere.lte = new Date(endDate + "T23:59:59.999Z");
-      const hasDateFilter = Object.keys(dateWhere).length > 0;
-
-      const baseWhere: any = {};
-      const catFilter = categoryFilter(category);
-      if (catFilter) baseWhere.category = catFilter;
-      const jrFilter = jobRoleFilter(jobRole);
-      if (jrFilter) baseWhere.user = jrFilter;
-      if (hasDateFilter) baseWhere.createdAt = dateWhere;
-
-      const [total, open, inProgress, resolved, closed, low, medium, high, urgent] = await Promise.all([
-        prisma.ticket.count({ where: baseWhere }),
-        prisma.ticket.count({ where: { ...baseWhere, status: "open" } }),
-        prisma.ticket.count({ where: { ...baseWhere, status: "in_progress" } }),
-        prisma.ticket.count({ where: { ...baseWhere, status: "resolved" } }),
-        prisma.ticket.count({ where: { ...baseWhere, status: "closed" } }),
-        prisma.ticket.count({ where: { ...baseWhere, priority: "low" } }),
-        prisma.ticket.count({ where: { ...baseWhere, priority: "medium" } }),
-        prisma.ticket.count({ where: { ...baseWhere, priority: "high" } }),
-        prisma.ticket.count({ where: { ...baseWhere, priority: "urgent" } }),
-      ]);
-
-      return {
-        total,
-        open,
-        inProgress,
-        resolved,
-        closed,
-        byPriority: { low, medium, high, urgent },
-      };
-    }),
+    return {
+      total,
+      open,
+      inProgress,
+      resolved,
+      closed,
+      byPriority: { low, medium, high, urgent },
+    };
+  }),
 });

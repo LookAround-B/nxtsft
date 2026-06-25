@@ -9,18 +9,8 @@ interface DateRangePickerProps {
 }
 
 const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -49,7 +39,7 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
 
   const daysInMonth = getDaysInMonth(displayMonth);
   const firstDay = getFirstDayOfMonth(displayMonth);
-  const days = [];
+  const days: (Date | null)[] = [];
 
   for (let i = 0; i < firstDay; i++) {
     days.push(null);
@@ -97,7 +87,6 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
 
       {isOpen && (
         <div className="absolute top-full mt-2 left-0 bg-white border border-border rounded-lg shadow-lg p-4 z-50 w-80">
-          {/* Month/Year header */}
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() - 1))}
@@ -116,29 +105,25 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
             </button>
           </div>
 
-          {/* Days header */}
           <div className="grid grid-cols-7 gap-1 mb-2">
             {DAYS.map((day) => (
-              <div key={day} className="text-center text-xs font-bold text-muted-foreground">
-                {day}
-              </div>
+              <div key={day} className="text-center text-xs font-bold text-muted-foreground">{day}</div>
             ))}
           </div>
 
-          {/* Days grid */}
           <div className="grid grid-cols-7 gap-1">
             {days.map((day, idx) => {
               const isSelectable = day !== null;
               const isStart = isSameDay(day, startDate);
               const isEnd = isSameDay(day, endDate);
-              const isBetween = isSelectable && isBetweenDates(day, startDate, endDate);
-              const isDisabled = isSelectable && startDate && !endDate && day ? day < startDate : false;
+              const isBetween = isSelectable && day !== null && isBetweenDates(day, startDate, endDate);
+              const isDisabled = isSelectable && !!startDate && !endDate && day ? day < startDate : false;
 
               return (
                 <button
                   key={idx}
-                  onClick={() => isSelectable && !isDisabled && handleDayClick(day!)}
-                  disabled={Boolean(!isSelectable || isDisabled)}
+                  onClick={() => isSelectable && !isDisabled && day && handleDayClick(day)}
+                  disabled={!isSelectable || isDisabled}
                   className={`
                     h-8 text-sm font-medium rounded transition-colors
                     ${!isSelectable ? "text-transparent" : ""}
@@ -154,13 +139,9 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
             })}
           </div>
 
-          {/* Clear button */}
-          {(startDate || endDate) && (
+          {(startDate ?? endDate) && (
             <button
-              onClick={() => {
-                onChange(null, null);
-                setIsOpen(false);
-              }}
+              onClick={() => { onChange(null, null); setIsOpen(false); }}
               className="mt-4 w-full py-2 text-xs font-semibold text-accent hover:bg-secondary/20 rounded transition-colors"
             >
               Clear dates

@@ -1,12 +1,10 @@
 "use client";
-import { useState, useContext } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
-import { SupportPortalContext } from "@/lib/support-portal-context";
-import { SupportDashboardHeader } from "@/components/support-portal/SupportDashboardHeader";
 import {
   PageHead,
   type DbTicket,
@@ -18,17 +16,7 @@ import {
 } from "./shared";
 
 export function QueueTab() {
-  const ctx = useContext(SupportPortalContext);
-  const startDate = ctx?.startDate?.toISOString().slice(0, 10);
-  const endDate = ctx?.endDate?.toISOString().slice(0, 10);
-  const filterJobRoles = ctx?.selectedJobRoles ?? [];
-
-  const listQ = trpc.tickets.list.useQuery({
-    limit: 100,
-    startDate,
-    endDate,
-    jobRole: filterJobRoles.length ? filterJobRoles : undefined,
-  });
+  const listQ = trpc.tickets.list.useQuery({ limit: 100 });
   const updateTicket = trpc.tickets.update.useMutation({
     onSuccess: () => listQ.refetch(),
     onError: (err: { message: string }) => toast.error(err.message),
@@ -91,8 +79,6 @@ export function QueueTab() {
           </button>
         }
       />
-
-      <SupportDashboardHeader />
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-3">

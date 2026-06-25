@@ -1,28 +1,11 @@
 "use client";
-import { useContext } from "react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
-import { SupportPortalContext } from "@/lib/support-portal-context";
-import { SupportDashboardHeader } from "@/components/support-portal/SupportDashboardHeader";
 import { PageHead, type DbTicket, STATUS_LABEL, ticketTone, capitalize, fmtTicketDate } from "./shared";
 
 export function DashboardTab() {
-  const ctx = useContext(SupportPortalContext);
-  const startDate = ctx?.startDate?.toISOString().slice(0, 10);
-  const endDate = ctx?.endDate?.toISOString().slice(0, 10);
-  const jobRoles = ctx?.selectedJobRoles ?? [];
-
-  const statsQ = trpc.tickets.stats.useQuery({
-    startDate,
-    endDate,
-    jobRole: jobRoles.length ? jobRoles : undefined,
-  });
-  const listQ = trpc.tickets.list.useQuery({
-    limit: 100,
-    startDate,
-    endDate,
-    jobRole: jobRoles.length ? jobRoles : undefined,
-  });
+  const statsQ = trpc.tickets.stats.useQuery();
+  const listQ = trpc.tickets.list.useQuery({ limit: 100 });
   const s = statsQ.data;
   const items = (listQ.data?.items ?? []) as unknown as DbTicket[];
 
@@ -38,8 +21,6 @@ export function DashboardTab() {
         title="Support Dashboard"
         subtitle="Live overview of all support tickets across the platform."
       />
-
-      <SupportDashboardHeader />
 
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Open Tickets" value={s ? String(s.open) : "…"} sub="needs action" accent="text-amber-600" />
