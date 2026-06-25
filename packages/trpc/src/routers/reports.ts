@@ -5,8 +5,6 @@ import { deriveTicketRow } from "./tickets.js";
 
 type ReportCategory = "Buyer" | "Seller" | "Agent" | "Owner" | "Tenant";
 
-// Derive the report category from role + lead interest. Renters/tenants are
-// users whose lead interest mentions rent/lease; property owners are sellers.
 function roleToCategory(role: string, interest?: string | null): ReportCategory {
   if (role === "sales") return "Agent";
   if (role === "home-seller") return "Owner";
@@ -23,8 +21,6 @@ function subStatusToPayStatus(status: string): "Paid" | "Unpaid" | "Follow-up" |
   return "Unpaid";
 }
 
-// Derive a ticket report row, then truncate the id for dashboard display
-// consistency with the other report arrays.
 function shapeTicket(
   t: Parameters<typeof deriveTicketRow>[0],
   assignedMap: Record<string, string>,
@@ -40,9 +36,6 @@ export const reportsRouter = router({
       const from = new Date(input.from + "T00:00:00.000Z");
       const to = new Date(input.to + "T23:59:59.999Z");
 
-      // Sales reps see only what's attributable to them: buyers on their
-      // assigned leads (for users & subscriptions) and their own site visits.
-      // Other staff (supervisor/admin/super-admin/support-admin) see all data.
       const isSales = ctx.user.role === "sales";
       let repBuyerIds: string[] | null = null;
       if (isSales) {
@@ -53,39 +46,85 @@ export const reportsRouter = router({
         repBuyerIds = [...new Set(repLeads.map((l) => l.userId).filter(Boolean))];
       }
 
-      // ── Registered Users (buyers & sellers) ─────────────────
-      const dbUsers = await prisma.user.findMany({
-        where: {
-          joined: { gte: from, lte: to },
-          role: { in: ["user", "home-seller"] },
-          ...(repBuyerIds ? { id: { in: repBuyerIds } } : {}),
-        },
-        select: {
-          id: true, name: true, email: true, phone: true,
-          role: true, city: true, state: true, verified: true, joined: true,
-        },
-        orderBy: { joined: "desc" },
-        take: 500,
-      });
+      // ── Core data — run in parallel ──────────────────────────
+      const [dbUsers, dbSubs, dbVisitsRaw, dbLeadsAll, dbCommissions, dbCampaigns] =
+        await Promise.all([
+          prisma.user.findMany({
+            where: {
+              joined: { gte: from, lte: to },
+              role: { in: ["user", "home-seller"] },
+              ...(repBuyerIds ? { id: { in: repBuyerIds } } : {}),
+            },
+            select: {
+              id: true, name: true, email: true, phone: true,
+              role: true, city: true, state: true, verified: true, joined: true,
+            },
+            orderBy: { joined: "desc" },
+            take: 500,
+          }),
 
-      // ── Subscriptions ────────────────────────────────────────
-      const dbSubs = await prisma.subscription.findMany({
-        where: {
-          createdAt: { gte: from, lte: to },
-          ...(repBuyerIds ? { userId: { in: repBuyerIds } } : {}),
-        },
-        include: {
-          user: { select: { name: true, city: true, state: true, role: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 500,
-      });
+          prisma.subscription.findMany({
+            where: {
+              createdAt: { gte: from, lte: to },
+              ...(repBuyerIds ? { userId: { in: repBuyerIds } } : {}),
+            },
+            include: {
+              user: { select: { name: true, city: true, state: true, role: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 500,
+          }),
 
-      // ── Attribution: rep → supervisor, and user → assigned rep / builder ──
-      // Staff (sales + supervisors) with their supervisor name resolved.
+          prisma.siteVisit.findMany({
+            where: {
+              scheduledAt: { gte: from, lte: to },
+              ...(isSales ? { salesRepId: ctx.user.id } : {}),
+            },
+            orderBy: { scheduledAt: "desc" },
+            take: 500,
+          }),
+
+          // All leads in period — for funnel + staff performance
+          prisma.lead.findMany({
+            where: {
+              createdAt: { gte: from, lte: to },
+              ...(isSales ? { assignedToId: ctx.user.id } : {}),
+            },
+            select: {
+              id: true, assignedToId: true, status: true,
+              userId: true, value: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 1000,
+          }),
+
+          // Commissions in period
+          prisma.commission.findMany({
+            where: {
+              createdAt: { gte: from, lte: to },
+              ...(isSales ? { salesRepId: ctx.user.id } : {}),
+            },
+            include: {
+              salesRep: { select: { id: true, name: true, supervisorId: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 500,
+          }),
+
+          // Campaigns — admin-level only
+          isSales
+            ? Promise.resolve([] as Awaited<ReturnType<typeof prisma.campaign.findMany>>)
+            : prisma.campaign.findMany({
+                where: { createdAt: { gte: from, lte: to } },
+                orderBy: { createdAt: "desc" },
+                take: 100,
+              }),
+        ]);
+
+      // ── Staff lookup (sales + supervisors with role) ─────────
       const staff = await prisma.user.findMany({
         where: { role: { in: ["sales", "supervisor"] } },
-        select: { id: true, name: true, supervisorId: true },
+        select: { id: true, name: true, supervisorId: true, role: true },
       });
       const staffById = new Map(staff.map((s) => [s.id, s]));
       const repName = (id?: string | null) => (id ? staffById.get(id)?.name ?? "—" : "—");
@@ -94,7 +133,7 @@ export const reportsRouter = router({
         return rep?.supervisorId ? staffById.get(rep.supervisorId)?.name ?? "—" : "—";
       };
 
-      // Map each report user → their most recent lead (for rep, builder, interest).
+      // ── Attribution: user → most-recent lead → rep, builder ──
       const reportUserIds = [
         ...new Set([...dbUsers.map((u) => u.id), ...dbSubs.map((s) => s.userId)]),
       ];
@@ -110,7 +149,6 @@ export const reportsRouter = router({
         if (l.userId && !leadByUser.has(l.userId)) leadByUser.set(l.userId, l);
       }
 
-      // Resolve builder names for the properties referenced by those leads.
       const leadPropIds = [
         ...new Set([...leadByUser.values()].map((l) => l.propertyId).filter(Boolean)),
       ];
@@ -133,6 +171,7 @@ export const reportsRouter = router({
         };
       };
 
+      // ── Shape users ───────────────────────────────────────────
       const users = dbUsers.map((u) => {
         const a = attrFor(u.id, u.role);
         return {
@@ -151,7 +190,7 @@ export const reportsRouter = router({
         };
       });
 
-      // Count subs per user to distinguish Fresh vs Renewal
+      // ── Shape subscriptions ───────────────────────────────────
       const seenUsers: Record<string, number> = {};
       const subscriptions = dbSubs.map((s) => {
         seenUsers[s.userId] = (seenUsers[s.userId] ?? 0) + 1;
@@ -175,51 +214,63 @@ export const reportsRouter = router({
         };
       });
 
-      // ── Site Visits (manual joins — SiteVisit has no Prisma relations) ──
-      const dbVisits = await prisma.siteVisit.findMany({
-        where: {
-          scheduledAt: { gte: from, lte: to },
-          ...(isSales ? { salesRepId: ctx.user.id } : {}),
-        },
-        orderBy: { scheduledAt: "desc" },
-        take: 500,
-      });
+      // ── Revenue summary ───────────────────────────────────────
+      const paidSubs = subscriptions.filter((s) => s.status === "Paid");
+      const totalRevenue = paidSubs.reduce((a, s) => a + s.amount, 0);
+      const freshRevenue = paidSubs.filter((s) => s.type === "Fresh").reduce((a, s) => a + s.amount, 0);
+      const renewalRevenue = paidSubs.filter((s) => s.type === "Renewal").reduce((a, s) => a + s.amount, 0);
+      const pendingRevenue = subscriptions.filter((s) => s.status !== "Paid").reduce((a, s) => a + s.amount, 0);
+      const byPlanMap: Record<string, { count: number; total: number }> = {};
+      for (const s of paidSubs) {
+        byPlanMap[s.plan] = byPlanMap[s.plan] ?? { count: 0, total: 0 };
+        byPlanMap[s.plan]!.count++;
+        byPlanMap[s.plan]!.total += s.amount;
+      }
+      const revSummary = {
+        totalRevenue,
+        freshRevenue,
+        renewalRevenue,
+        pendingRevenue,
+        avgDeal: paidSubs.length > 0 ? Math.round(totalRevenue / paidSubs.length) : 0,
+        byPlan: Object.entries(byPlanMap).map(([plan, v]) => ({
+          plan,
+          count: v.count,
+          total: v.total,
+        })),
+      };
 
-      const propertyIds = [...new Set(dbVisits.map((v) => v.propertyId))];
-      const buyerIds = [...new Set(dbVisits.map((v) => v.userId))];
-      const repIds = [...new Set(dbVisits.map((v) => v.salesRepId).filter(Boolean))] as string[];
+      // ── Leads funnel ──────────────────────────────────────────
+      const FUNNEL_STAGES = ["New", "Hot", "Warm", "Cold", "Converted", "Lost"] as const;
+      const leadsFunnel = FUNNEL_STAGES.map((status) => ({
+        status,
+        count: dbLeadsAll.filter((l) => l.status === status).length,
+      }));
 
-      const [properties, buyers, reps] = await Promise.all([
+      // ── Site visits shape ─────────────────────────────────────
+      const propertyIds = [...new Set(dbVisitsRaw.map((v) => v.propertyId))];
+      const buyerIds = [...new Set(dbVisitsRaw.map((v) => v.userId))];
+      const repIds = [...new Set(dbVisitsRaw.map((v) => v.salesRepId).filter(Boolean))] as string[];
+
+      const [properties, buyers, repsArr] = await Promise.all([
         propertyIds.length
           ? prisma.property.findMany({
               where: { id: { in: propertyIds } },
-              select: {
-                id: true,
-                title: true,
-                builder: true,
-                location: { select: { city: true } },
-              },
+              select: { id: true, title: true, builder: true, location: { select: { city: true } } },
             })
           : Promise.resolve([]),
         buyerIds.length
-          ? prisma.user.findMany({
-              where: { id: { in: buyerIds } },
-              select: { id: true, name: true },
-            })
+          ? prisma.user.findMany({ where: { id: { in: buyerIds } }, select: { id: true, name: true } })
           : Promise.resolve([]),
         repIds.length
-          ? prisma.user.findMany({
-              where: { id: { in: repIds } },
-              select: { id: true, name: true },
-            })
+          ? prisma.user.findMany({ where: { id: { in: repIds } }, select: { id: true, name: true } })
           : Promise.resolve([]),
       ]);
 
       const propMap = Object.fromEntries(properties.map((p) => [p.id, p]));
       const buyerMap = Object.fromEntries(buyers.map((u) => [u.id, u]));
-      const repMap = Object.fromEntries(reps.map((u) => [u.id, u]));
+      const repMap = Object.fromEntries(repsArr.map((u) => [u.id, u]));
 
-      const siteVisits = dbVisits.map((v) => {
+      const siteVisits = dbVisitsRaw.map((v) => {
         const prop = propMap[v.propertyId];
         const buyer = buyerMap[v.userId];
         const rep = v.salesRepId ? repMap[v.salesRepId] : null;
@@ -238,9 +289,62 @@ export const reportsRouter = router({
         };
       });
 
-      // ── Agent Registrations & Support Tickets ────────────────
-      // Neither attributes to an individual sales rep, so reps get empty
-      // sections; all other staff see the full platform-wide lists.
+      // ── Staff performance (one row per sales rep) ─────────────
+      const salesReps = staff.filter((s) => s.role === "sales");
+      const staffPerf = salesReps.map((rep) => {
+        const repLeads = dbLeadsAll.filter((l) => l.assignedToId === rep.id);
+        const repVisits = dbVisitsRaw.filter((v) => v.salesRepId === rep.id);
+        const repSubs = subscriptions.filter((s) => s.salesStaff === rep.name && s.status === "Paid");
+        const repComms = dbCommissions.filter((c) => c.salesRepId === rep.id);
+        const converted = repLeads.filter((l) => l.status === "Converted").length;
+        return {
+          repId: rep.id,
+          repName: rep.name,
+          supervisor: rep.supervisorId ? staffById.get(rep.supervisorId)?.name ?? "—" : "—",
+          leadsTotal: repLeads.length,
+          leadsConverted: converted,
+          conversionRate: repLeads.length > 0 ? Math.round((converted / repLeads.length) * 100) : 0,
+          siteVisitsTotal: repVisits.length,
+          siteVisitsCompleted: repVisits.filter((v) => v.status === "Completed").length,
+          subsCount: repSubs.length,
+          subsRevenue: repSubs.reduce((a, s) => a + s.amount, 0),
+          commissionsTotal: repComms.reduce((a, c) => a + Math.round(Number(c.amount) / 100), 0),
+          commissionsPaid: repComms
+            .filter((c) => c.status === "cleared")
+            .reduce((a, c) => a + Math.round(Number(c.amount) / 100), 0),
+        };
+      });
+
+      // ── Shape commissions ─────────────────────────────────────
+      const commissions = dbCommissions.map((c) => ({
+        id: c.id.slice(0, 6).toUpperCase(),
+        repName: c.salesRep.name,
+        supervisor: c.salesRep.supervisorId
+          ? staffById.get(c.salesRep.supervisorId)?.name ?? "—"
+          : "—",
+        dealValue: Math.round(Number(c.dealValue) / 100),
+        amount: Math.round(Number(c.amount) / 100),
+        status: c.status as "pending" | "cleared",
+        period: c.periodMonth ?? "—",
+        note: c.note ?? "—",
+        createdAt: c.createdAt.toISOString().slice(0, 10),
+      }));
+
+      // ── Shape campaigns ───────────────────────────────────────
+      const campaigns = dbCampaigns.map((c) => ({
+        id: c.id.slice(0, 6).toUpperCase(),
+        name: c.name,
+        type: c.type,
+        audience: c.audience,
+        status: c.status,
+        budget: c.budget ?? 0,
+        leads: c.leads,
+        clicks: c.clicks,
+        scheduledAt: c.scheduledAt?.toISOString().slice(0, 10) ?? "—",
+        createdAt: c.createdAt.toISOString().slice(0, 10),
+      }));
+
+      // ── Agent regs + tickets (non-sales staff only) ───────────
       type AgentReg = {
         id: string; name: string; email: string; city: string; state: string;
         rera: string; supervisor: string; registeredOn: string;
@@ -276,17 +380,14 @@ export const reportsRouter = router({
 
         const dbTickets = await prisma.ticket.findMany({
           where: { createdAt: { gte: from, lte: to } },
-          include: {
-            user: { select: { name: true } },
-          },
+          include: { user: { select: { name: true } } },
           orderBy: { createdAt: "desc" },
           take: 500,
         });
 
-        // Batch-resolve assignedTo user names (assignedTo is String?, no relation)
-        const assignedIds = [...new Set(
-          dbTickets.map((t) => t.assignedTo).filter(Boolean) as string[]
-        )];
+        const assignedIds = [
+          ...new Set(dbTickets.map((t) => t.assignedTo).filter(Boolean) as string[]),
+        ];
         const assignedUsers = assignedIds.length
           ? await prisma.user.findMany({
               where: { id: { in: assignedIds } },
@@ -298,6 +399,17 @@ export const reportsRouter = router({
         tickets = dbTickets.map((t) => shapeTicket(t, assignedMap));
       }
 
-      return { users, subscriptions, siteVisits, agentRegs, tickets };
+      return {
+        users,
+        subscriptions,
+        siteVisits,
+        agentRegs,
+        tickets,
+        revSummary,
+        leadsFunnel,
+        staffPerf,
+        commissions,
+        campaigns,
+      };
     }),
 });
