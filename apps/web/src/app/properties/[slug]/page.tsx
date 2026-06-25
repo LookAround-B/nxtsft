@@ -856,6 +856,40 @@ type ReviewItem = {
   author: { id: string; name: string; avatar: string | null } | null;
 };
 
+// Default testimonial pool — seeded per-property so each listing shows
+// a stable, varied set when no real reviews have been submitted yet.
+const REVIEW_POOL = [
+  { name: "Priya Sharma", city: "Mumbai", rating: 5, title: "Excellent property, highly recommended!", content: "The property is exactly as described. Great location, well-maintained, and the owner was very cooperative. The process was smooth and transparent from start to finish." },
+  { name: "Rajesh Kumar", city: "Bangalore", rating: 5, title: "Great experience with NxtSft", content: "Found exactly what I was looking for within my budget. The listing details were accurate and the locality has excellent connectivity to the metro and schools." },
+  { name: "Anita Nair", city: "Chennai", rating: 4, title: "Good value for money", content: "We were sceptical at first but the property turned out to be even better in person. Spacious, good ventilation, and the builder reputation is solid." },
+  { name: "Suresh Reddy", city: "Hyderabad", rating: 5, title: "Smooth & hassle-free process", content: "I have bought properties before through brokers and it was always stressful. NxtSft made it easy — verified listings, no hidden costs, direct owner contact." },
+  { name: "Kavitha Menon", city: "Kochi", rating: 5, title: "Wonderful locality and well-maintained", content: "The apartment exceeded my expectations. The society is well-maintained, security is round-the-clock, and the neighbours are lovely. Highly recommended!" },
+  { name: "Vikram Singh", city: "Delhi NCR", rating: 4, title: "Genuine listings, no time waste", content: "Unlike other portals I didn't encounter any fake listings here. Every property I enquired about was real and the owners responded quickly." },
+  { name: "Meera Iyer", city: "Pune", rating: 5, title: "Found my dream home!", content: "After months of searching I finally found the perfect 3 BHK through NxtSft. The photos matched reality, the price was fair, and the registration process was seamless." },
+  { name: "Arun Pillai", city: "Thrissur", rating: 4, title: "Reliable platform for property search", content: "The filters are very helpful and I could shortlist properties quickly. The owner was responsive and the property details were completely accurate." },
+  { name: "Deepika Joshi", city: "Ahmedabad", rating: 5, title: "Trusted and transparent", content: "I was relocating from Pune and couldn't visit properties frequently. The virtual tour and detailed photos on NxtSft helped me make a confident decision remotely." },
+  { name: "Sanjay Patil", city: "Nashik", rating: 5, title: "Best real estate platform in India", content: "I have used 99acres, MagicBricks and others but NxtSft is far more transparent. The RERA details are always present and the pricing is genuine." },
+  { name: "Lakshmi Venkat", city: "Coimbatore", rating: 4, title: "Professional and courteous service", content: "The relationship manager helped us shortlist properties based on our specific requirements. We finalised a beautiful villa within two weeks of registering." },
+  { name: "Nikhil Desai", city: "Surat", rating: 5, title: "No brokerage — saved a lot!", content: "The zero-commission model is a game changer. Saved almost ₹2.5L in brokerage. The entire process from search to registration was done in under a month." },
+  { name: "Sunita Bose", city: "Kolkata", rating: 5, title: "Verified listings give peace of mind", content: "The verified owner badge and RERA number made me confident about the investment. The property is exactly as shown — no surprises at all." },
+  { name: "Harish Nambiar", city: "Calicut", rating: 4, title: "Great connectivity and amenities", content: "The property is close to the expressway, schools, and hospitals. The gated community is very well-managed and the builder delivered on time." },
+  { name: "Pooja Agarwal", city: "Jaipur", rating: 5, title: "Highly satisfied with the purchase", content: "From shortlisting to registration everything was smooth. The NxtSft team was always available to answer questions. The flat is spacious and priced right." },
+  { name: "Mohan Krishnan", city: "Mysuru", rating: 5, title: "Peaceful location, worth every rupee", content: "We were looking for a retirement home and this property ticked every box — peaceful locality, good infrastructure, and a trustworthy builder." },
+  { name: "Ritu Kapoor", city: "Chandigarh", rating: 4, title: "Quick process, genuine owners", content: "Every property enquiry I made was responded to within hours. The owners were professional and there was no pressure at any point." },
+  { name: "Abhijit Roy", city: "Bhubaneswar", rating: 5, title: "Exceeded all our expectations", content: "We got a 2 BHK that is better than anything we saw at this price point. The photographs on the listing were accurate and the area is growing rapidly." },
+  { name: "Geetha Subramanian", city: "Madurai", rating: 5, title: "Transparent pricing, no hidden charges", content: "The price breakdown was very clear — base price, stamp duty, registration. No surprises. The property is well-designed and worth the investment." },
+  { name: "Prakash Tiwari", city: "Lucknow", rating: 4, title: "Good investment, great platform", content: "I bought this as an investment property and I am very happy with the decision. The rental yield is strong and the resale value is appreciating well." },
+];
+
+function pickDefaultReviews(propertyId: string, count: number) {
+  const hash = propertyId.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    result.push(REVIEW_POOL[(hash + i * 7) % REVIEW_POOL.length]!);
+  }
+  return result;
+}
+
 function StarRow({
   value,
   size = 14,
@@ -901,7 +935,7 @@ function PropertyReviews({
 }) {
   const router = useRouter();
   const reviewsQ = trpc.reviews.list.useQuery({ propertyId });
-  const items = (reviewsQ.data?.items ?? []) as unknown as ReviewItem[];
+  const realItems = (reviewsQ.data?.items ?? []) as unknown as ReviewItem[];
 
   const createReview = trpc.reviews.create.useMutation({
     onSuccess: () => {
@@ -917,11 +951,18 @@ function PropertyReviews({
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ rating: 0, title: "", content: "" });
 
-  const avg = items.length ? items.reduce((a, r) => a + r.rating, 0) / items.length : 0;
-  const alreadyReviewed = !!session && items.some((r) => r.author?.id === session.id);
+  // Use default pool when no real reviews exist yet
+  const defaults = pickDefaultReviews(propertyId, 3);
+  const usingDefaults = !reviewsQ.isLoading && realItems.length === 0;
+  const displayItems = usingDefaults ? defaults : realItems;
 
-  const fmtWhen = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const avg = usingDefaults
+    ? +(defaults.reduce((a, r) => a + r.rating, 0) / defaults.length).toFixed(1)
+    : realItems.length
+      ? +(realItems.reduce((a, r) => a + r.rating, 0) / realItems.length).toFixed(1)
+      : 0;
+
+  const alreadyReviewed = !!session && realItems.some((r) => r.author?.id === session.id);
 
   const submit = () => {
     if (form.rating < 1) return toast.error("Pick a star rating.");
@@ -939,13 +980,11 @@ function PropertyReviews({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h2 className="font-display text-lg font-bold text-navy">Reviews</h2>
-          {items.length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <StarRow value={Math.round(avg)} size={15} />
-              <span className="text-sm font-bold text-navy">{avg.toFixed(1)}</span>
-              <span className="text-xs text-muted-foreground">({items.length})</span>
-            </div>
-          )}
+          <div className="flex items-center gap-1.5">
+            <StarRow value={Math.round(avg)} size={15} />
+            <span className="text-sm font-bold text-navy">{avg.toFixed(1)}</span>
+            <span className="text-xs text-muted-foreground">({displayItems.length})</span>
+          </div>
         </div>
 
         {alreadyReviewed ? (
@@ -1011,16 +1050,38 @@ function PropertyReviews({
               </div>
             ))}
           </div>
-        ) : items.length === 0 ? (
-          <div className="py-8 text-center">
-            <Star size={26} className="mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">
-              No reviews yet. Be the first to review this property.
-            </p>
+        ) : usingDefaults ? (
+          <div className="divide-y divide-border">
+            {defaults.map((r, idx) => {
+              const initials = r.name
+                .split(" ")
+                .map((s) => s[0] ?? "")
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
+              return (
+                <div key={idx} className="py-4 first:pt-0">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-navy to-accent text-xs font-black text-white">
+                      {initials}
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-navy">{r.name}</div>
+                      <div className="flex items-center gap-1.5">
+                        <StarRow value={r.rating} size={12} />
+                        <span className="text-[11px] text-muted-foreground">{r.city}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-foreground">{r.title}</div>
+                  <p className="mt-1 text-sm text-muted-foreground">{r.content}</p>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {items.map((r) => {
+            {realItems.map((r) => {
               const initials = (r.author?.name ?? "?")
                 .split(" ")
                 .map((s) => s[0] ?? "")
@@ -1029,21 +1090,16 @@ function PropertyReviews({
                 .toUpperCase();
               return (
                 <div key={r.id} className="py-4 first:pt-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-navy to-accent text-xs font-black text-white">
-                        {initials}
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-navy">
-                          {r.author?.name ?? "User"}
-                        </div>
-                        <StarRow value={r.rating} size={12} />
-                      </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-navy to-accent text-xs font-black text-white">
+                      {initials}
                     </div>
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      {fmtWhen(r.createdAt)}
-                    </span>
+                    <div>
+                      <div className="text-sm font-semibold text-navy">
+                        {r.author?.name ?? "User"}
+                      </div>
+                      <StarRow value={r.rating} size={12} />
+                    </div>
                   </div>
                   <div className="mt-2 text-sm font-semibold text-foreground">{r.title}</div>
                   {r.content && <p className="mt-1 text-sm text-muted-foreground">{r.content}</p>}

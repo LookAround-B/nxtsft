@@ -17,6 +17,7 @@ import {
   propertyStatusSchema,
   cursorSchema,
   limitSchema,
+  ratingSchema,
 } from "../sanitize.js";
 
 const safeUserSelect = {
@@ -744,4 +745,83 @@ export const adminRouter = router({
       });
       return { ok: true };
     }),
+
+  // ── Review moderation ──────────────────────────────────────────────────
+  reviews: router({
+    list: adminProcedure
+      .input(
+        z.object({
+          cursor: cursorSchema,
+          limit: limitSchema,
+          propertyId: cuidSchema.optional(),
+          rating: z.number().int().min(1).max(5).optional(),
+        }),
+      )
+      .query(async ({ input }) => {
+        const { cursor, limit, propertyId, rating } = input;
+        const where: NonNullable<Parameters<typeof prisma.review.findMany>[0]>["where"] = {};
+        if (propertyId) where.propertyId = propertyId;
+        if (rating) where.rating = rating;
+
+        const items = await prisma.review.findMany({
+          where,
+          include: {
+            author: { select: { id: true, name: true, email: true, avatar: true } },
+            property: { select: { id: true, title: true, slug: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit + 1,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        });
+
+        const hasMore = items.length > limit;
+        const page = hasMore ? items.slice(0, limit) : items;
+        return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: cuidSchema }))
+      .mutation(async ({ input }) => {
+        const review = await prisma.review.findUnique({ where: { id: input.id } });
+        if (!review) throw new TRPCError({ code: "NOT_FOUND", message: "Review not found." });
+        await prisma.review.delete({ where: { id: input.id } });
+        return { ok: true };
+      }),
+
+    create: adminProcedure
+      .input(
+        z.object({
+          propertyId: cuidSchema,
+          rating: ratingSchema,
+          title: safeString(100, 3),
+          content: safeString(1000).optional(),
+        }),
+      )
+      .mutation(async ({ input, ctx }) => {
+        const property = await prisma.property.findFirst({
+          where: { id: input.propertyId, deletedAt: null },
+        });
+        if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+
+        // Admin can upsert: update existing review rather than erroring
+        const existing = await prisma.review.findFirst({
+          where: { propertyId: input.propertyId, authorId: ctx.user.id },
+        });
+        if (existing) {
+          return prisma.review.update({
+            where: { id: existing.id },
+            data: { rating: input.rating, title: input.title, content: input.content ?? null },
+          });
+        }
+        return prisma.review.create({
+          data: {
+            propertyId: input.propertyId,
+            authorId: ctx.user.id,
+            rating: input.rating,
+            title: input.title,
+            content: input.content,
+          },
+        });
+      }),
+  }),
 });

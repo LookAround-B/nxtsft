@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Mail, Phone, Star } from "lucide-react";
+import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { getPendingListings, updateListingStatus as persistListingStatus } from "@/lib/listings";
@@ -35,6 +35,8 @@ type RawProp = {
   id: string;
   title: string;
   images: string[];
+  description: string | null;
+  amenities: string[];
   owner: { name: string } | null;
   location: { city: string } | null;
   price: number;
@@ -45,6 +47,67 @@ type RawProp = {
   featured: boolean;
   _count?: { leads: number; favoritedBy: number };
 };
+
+// ─── Promote Checklist ────────────────────────────────────────────────────────
+function CheckRow({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div className={`flex items-center gap-2 text-xs ${ok ? "text-emerald-700" : "text-muted-foreground"}`}>
+      {ok ? <CheckCircle2 size={13} className="text-emerald-500" /> : <XCircle size={13} className="text-muted-foreground/50" />}
+      {label}
+    </div>
+  );
+}
+
+function PromoteChecklist({
+  it,
+  rawProp,
+  onPromote,
+  onClose,
+}: {
+  it: ListingItem;
+  rawProp: RawProp | undefined;
+  onPromote: () => void;
+  onClose: () => void;
+}) {
+  const checks = rawProp
+    ? [
+        { label: "Has images", ok: (rawProp.images?.length ?? 0) > 0 },
+        { label: "Has description", ok: !!rawProp.description },
+        { label: "Has RERA number", ok: !!rawProp.rera },
+        { label: "Has amenities", ok: (rawProp.amenities?.length ?? 0) > 0 },
+        { label: "Has location", ok: !!rawProp.location?.city },
+        { label: "Has leads / interest", ok: (rawProp._count?.leads ?? 0) > 0 },
+      ]
+    : [];
+  const score = checks.filter((c) => c.ok).length;
+  const ready = score >= 4;
+
+  return (
+    <div className="mt-3 rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-navy">Promote Checklist</span>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
+      </div>
+      <div className="space-y-1">
+        {checks.map((c) => <CheckRow key={c.label} label={c.label} ok={c.ok} />)}
+      </div>
+      <div className={`text-xs font-bold ${ready ? "text-emerald-600" : "text-amber-600"}`}>
+        Readiness: {score}/{checks.length} {ready ? "✓ Ready to promote" : "— Complete more items first"}
+      </div>
+      <button
+        onClick={onPromote}
+        className={`flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition ${
+          it.featured
+            ? "border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+            : "bg-accent text-white hover:opacity-90"
+        }`}
+      >
+        <Rocket size={12} />
+        {it.featured ? "Remove from Home Page" : "Promote to Home Page"}
+      </button>
+    </div>
+  );
+}
 
 export function ListingsTab() {
   const dbListingsQ = trpc.admin.properties.list.useQuery({ limit: 50 });
@@ -64,6 +127,7 @@ export function ListingsTab() {
   });
 
   const [localItems, setLocalItems] = useState<ListingItem[]>([]);
+  const [checklistOpen, setChecklistOpen] = useState<string | null>(null);
 
   useEffect(() => {
     const userSubs: ListingItem[] = getPendingListings().map((l) => ({
@@ -87,7 +151,8 @@ export function ListingsTab() {
     setLocalItems(userSubs);
   }, []);
 
-  const dbItems: ListingItem[] = ((dbListingsQ.data?.items ?? []) as RawProp[]).map((p) => ({
+  const rawProps = (dbListingsQ.data?.items ?? []) as RawProp[];
+  const dbItems: ListingItem[] = rawProps.map((p) => ({
     id: p.id,
     title: p.title,
     image: p.images?.[0] ?? "",
@@ -283,20 +348,31 @@ export function ListingsTab() {
                 </button>
                 {it.isDbProperty && (
                   <button
-                    onClick={() => featuredMutation.mutate({ id: it.id, featured: !it.featured })}
-                    disabled={featuredMutation.isPending}
-                    title="Show this project in the Trending Properties section on the home page"
-                    className={`ml-auto inline-flex items-center gap-1 rounded-md px-3 py-1 text-xs font-semibold transition disabled:opacity-40 ${
+                    onClick={() => setChecklistOpen(checklistOpen === it.id ? null : it.id)}
+                    className={`ml-auto inline-flex items-center gap-1 rounded-md px-3 py-1 text-xs font-semibold transition ${
                       it.featured
-                        ? "bg-gold/20 text-amber-700 hover:bg-gold/30"
+                        ? "bg-amber-50 text-amber-700 border border-amber-300"
                         : "border border-border hover:bg-secondary"
                     }`}
                   >
-                    <Star size={11} className={it.featured ? "fill-current" : ""} />
-                    {it.featured ? "On Home" : "Push to Home"}
+                    <Rocket size={11} />
+                    Promote
+                    {checklistOpen === it.id ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                   </button>
                 )}
               </div>
+
+              {it.isDbProperty && checklistOpen === it.id && (
+                <PromoteChecklist
+                  it={it}
+                  rawProp={rawProps.find((p) => p.id === it.id)}
+                  onPromote={() => {
+                    featuredMutation.mutate({ id: it.id, featured: !it.featured });
+                    setChecklistOpen(null);
+                  }}
+                  onClose={() => setChecklistOpen(null)}
+                />
+              )}
             </div>
           ))}
         </div>
