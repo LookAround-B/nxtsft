@@ -26,6 +26,7 @@ import {
   Users,
 } from "lucide-react";
 import { PropertyEngagement } from "@/components/PropertyEngagement";
+import { PropertyReport } from "@/components/PropertyReport";
 import { PropertyMapWrapper as PropertyMap } from "@/components/map/PropertyMapWrapper";
 import { GalleryLightbox } from "@/components/ui/GalleryLightbox";
 import { trpc } from "@/lib/trpc";
@@ -48,6 +49,7 @@ type FullProperty = {
   type: string;
   purpose: string;
   status: string;
+  createdAt: string;
   price: number;
   pricePerSqft: number;
   area: number;
@@ -586,8 +588,15 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
               <ViewerBadge views={property.views} viewBase={property.viewBase} />
             </div>
 
-            {/* Buyer activity / engagement */}
-            <PropertyEngagement propertyId={property.id} />
+            {/* Activity on this property (fabricated social proof — Active only) */}
+            <PropertyEngagement
+              propertyId={property.id}
+              createdAt={property.createdAt}
+              status={property.status}
+            />
+
+            {/* Report incorrect info */}
+            <PropertyReport propertyId={property.id} />
 
             {/* Specs */}
             <div className="">

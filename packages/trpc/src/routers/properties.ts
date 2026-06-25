@@ -211,6 +211,52 @@ export const propertiesRouter = router({
       };
     }),
 
+  // Public: report an issue on a listing (GOL-123 "Report what was not correct").
+  // Flag-style reports are anonymous; "more_info" carries optional contact back.
+  // Stored as an Enquiry (source "Report") so staff triage it with other enquiries.
+  reportIssue: publicProcedure
+    .use(contactRateLimit)
+    .input(
+      z.object({
+        propertyId: cuidSchema,
+        reason: z.enum(["broker", "rented", "sold", "wrong_info", "more_info"]),
+        name: safeString(80, 1).optional(),
+        phone: safeString(20, 1).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const property = await prisma.property.findFirst({
+        where: { id: input.propertyId, deletedAt: null },
+        select: { title: true, slug: true },
+      });
+      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+
+      const REASON_LABEL: Record<typeof input.reason, string> = {
+        broker: "Listed by Broker",
+        rented: "Rented Out",
+        sold: "Sold Out",
+        wrong_info: "Wrong Info",
+        more_info: "Request More Info",
+      };
+
+      const contact = input.name || input.phone
+        ? `\nReporter: ${input.name ?? "—"}${input.phone ? ` (${input.phone})` : ""}`
+        : "";
+
+      await prisma.enquiry.create({
+        data: {
+          name: input.name || "Property Report",
+          email: "report@nxtsft.local",
+          phone: input.phone,
+          message: `[${REASON_LABEL[input.reason]}] reported on "${property.title}" (/${property.slug}).${contact}`,
+          source: "Report",
+          status: "New",
+        },
+      });
+
+      return { ok: true };
+    }),
+
   // Single property by id or slug
   get: publicProcedure
     .input(z.object({ id: safeString(100, 1) }))
