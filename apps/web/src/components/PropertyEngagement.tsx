@@ -44,19 +44,21 @@ export function PropertyEngagement({
   propertyId,
   createdAt,
   status,
+  state,
   className,
 }: {
   propertyId: string;
   createdAt: string;
   status: string;
+  state?: string | null;
   className?: string;
 }) {
   const [data, setData] = useState<PropertyActivity | null>(null);
 
   useEffect(() => {
     if (status !== "Active") return;
-    setData(propertyActivity(propertyId, new Date(createdAt)));
-  }, [propertyId, createdAt, status]);
+    setData(propertyActivity(propertyId, new Date(createdAt), state));
+  }, [propertyId, createdAt, status, state]);
 
   if (status !== "Active" || !data) return null;
   const { counts, recent } = data;
