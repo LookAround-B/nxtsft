@@ -28,6 +28,9 @@ import type { LucideIcon } from "lucide-react";
 const img = (id: string) =>
   `https://images.unsplash.com/${id}?w=1600&q=80&auto=format&fit=crop`;
 
+// Public Cloudflare R2 bucket base for site assets (category artwork, etc.).
+const R2 = "https://pub-f4a95c3ec2954aabb9bd91fa3fdf4846.r2.dev";
+
 export const HERO_IMAGES = [
   img("photo-1600596542815-ffad4c1539a9"),
   img("photo-1613490493576-7fde63acd811"),
@@ -89,11 +92,11 @@ export function fmtPrice(p: number): string {
 }
 
 export const CATEGORIES: { label: string; Icon: LucideIcon; type: string; image?: string }[] = [
-  { label: "Apartments", Icon: Building2, type: "Apartment" },
-  { label: "Villas", Icon: Home, type: "Villa" },
-  { label: "Plots", Icon: MapPin, type: "Plot" },
-  { label: "Commercial", Icon: Briefcase, type: "Commercial" },
-  { label: "PG / Co-living", Icon: Users, type: "PG" },
+  { label: "Apartments", Icon: Building2, type: "Apartment", image: `${R2}/site/categories/apartment.png` },
+  { label: "Villas", Icon: Home, type: "Villa", image: `${R2}/site/categories/villas.png` },
+  { label: "Plots", Icon: MapPin, type: "Plot", image: `${R2}/site/categories/plots.png` },
+  { label: "Commercial", Icon: Briefcase, type: "Commercial", image: `${R2}/site/categories/commercial.png` },
+  { label: "PG / Co-living", Icon: Users, type: "PG", image: `${R2}/site/categories/pg.png` },
   { label: "New Projects", Icon: TrendingUp, type: "New" },
   { label: "Home Interiors", Icon: Sofa, type: "Home Interiors" },
 ];
