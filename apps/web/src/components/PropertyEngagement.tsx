@@ -73,7 +73,7 @@ export function PropertyEngagement({
       </div>
 
       <p className="mt-3 text-right text-xs text-muted-foreground">
-        Powered By : <span className="font-semibold text-navy">NBEstimate</span>
+        Powered By : <span className="font-semibold text-navy">NxtSft Insights</span>
       </p>
 
       {recent.length > 0 && (
@@ -83,7 +83,7 @@ export function PropertyEngagement({
             return (
               <li key={i} className="flex items-center gap-2.5 text-sm">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-base leading-none">
-                  <span aria-hidden>{e.gender === "m" ? "🤴🏻" : "👸🏻"}</span>
+                  <span aria-hidden>{e.gender === "m" ? "👨" : "👩"}</span>
                 </span>
                 <span className="min-w-0 flex-1 text-foreground/80">
                   <span className="font-semibold text-navy">{e.name}</span> <span className={a.tone}>{a.label}</span>
