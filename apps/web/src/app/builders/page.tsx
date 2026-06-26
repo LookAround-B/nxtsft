@@ -3,8 +3,6 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Search, Building2, MapPin, CheckCircle2, ChevronDown, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 
 const CITIES = ["Mumbai", "Bengaluru", "Delhi NCR", "Hyderabad", "Pune", "Chennai", "Kolkata", "Ahmedabad", "Jaipur", "Noida", "Gurgaon", "Kochi"];
 const TYPES  = ["Apartment", "HighRise", "Villa", "Commercial", "Plot", "Studio", "PG", "Others"];
@@ -36,7 +34,6 @@ export default function BuildersPage() {
 
   return (
     <>
-      <SiteHeader />
       <main className="min-h-screen bg-background">
         {/* Hero bar */}
         <div className="border-b border-border bg-white px-4 py-8 sm:px-6">
@@ -104,7 +101,6 @@ export default function BuildersPage() {
           )}
         </div>
       </main>
-      <SiteFooter />
     </>
   );
 }
