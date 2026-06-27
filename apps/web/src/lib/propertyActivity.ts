@@ -11,7 +11,7 @@
 // Only shown on Active listings (the caller gates on status). "Dummy"/non-active
 // listings get nothing — see PropertyEngagement.
 
-import { DUMMY_NAMES } from "@/data/dummyNames";
+import { NAMES_BY_STATE, DEFAULT_NAMES, type DummyName } from "@/data/dummyNames";
 
 export type ActivityAction = "interested" | "wishlisted" | "contact";
 
@@ -60,7 +60,15 @@ function dayNumber(d: Date): number {
  * Build the fabricated activity for one property. Deterministic for a given
  * (propertyId, calendar day) pair.
  */
-export function propertyActivity(propertyId: string, createdAt: Date, now: Date = new Date()): PropertyActivity {
+export function propertyActivity(
+  propertyId: string,
+  createdAt: Date,
+  state?: string | null,
+  now: Date = new Date(),
+): PropertyActivity {
+  // Region-appropriate buyer names: pick the listing state's pool, else a blend.
+  const names: DummyName[] = (state && NAMES_BY_STATE[state]) || DEFAULT_NAMES;
+
   const today = dayNumber(now);
   const born = dayNumber(createdAt);
   const ageDays = Math.max(1, today - born);
@@ -87,11 +95,11 @@ export function propertyActivity(propertyId: string, createdAt: Date, now: Date 
   const recent: ActivityEvent[] = [];
 
   for (let i = 0; i < count; i++) {
-    let idx = Math.floor(feedRng() * DUMMY_NAMES.length);
+    let idx = Math.floor(feedRng() * names.length);
     // linear-probe to avoid duplicate names in the same feed
-    while (used.has(idx)) idx = (idx + 1) % DUMMY_NAMES.length;
+    while (used.has(idx)) idx = (idx + 1) % names.length;
     used.add(idx);
-    const person = DUMMY_NAMES[idx]!;
+    const person = names[idx]!;
     const action = actions[Math.floor(feedRng() * actions.length)]!;
     // Spread events across the last ~3 days, newest first.
     const minutesAgo = Math.floor(feedRng() * 3 * 24 * 60) + i * 7;

@@ -610,6 +610,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
               propertyId={property.id}
               createdAt={property.createdAt}
               status={property.status}
+              state={property.location.state}
             />
 
             {/* Report incorrect info */}
