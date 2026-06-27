@@ -30,6 +30,7 @@ import { PropertyReport } from "@/components/PropertyReport";
 import { PropertyMapWrapper as PropertyMap } from "@/components/map/PropertyMapWrapper";
 import { GalleryLightbox } from "@/components/ui/GalleryLightbox";
 import { trpc } from "@/lib/trpc";
+import { propertyActivity } from "@/lib/propertyActivity";
 import { amenityIcon } from "@/data/amenities";
 import { useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,10 +81,28 @@ type FullProperty = {
 };
 
 /* Simulated live viewer badge — random jitter every 45s, seeded by viewBase */
-function ViewerBadge({ views, viewBase }: { views: number; viewBase: number }) {
+function ViewerBadge({
+  propertyId,
+  createdAt,
+  viewBase,
+}: {
+  propertyId: string;
+  createdAt: string;
+  viewBase: number;
+}) {
   const seed = (viewBase % 9) + 3; // 3–11 starting live count
   const [live, setLive] = useState(seed);
-  const totalViews = viewBase + views;
+  // Mass (total) views must always exceed Unique Views shown in "Activity On
+  // This Property". Both derive from the same fabricated source so they stay
+  // consistent: total = unique viewers × a repeat-view factor (1.3–1.6×).
+  // Computed after mount (date-dependent) to avoid SSR/CSR hydration mismatch.
+  const [massViews, setMassViews] = useState<number | null>(null);
+
+  useEffect(() => {
+    const unique = propertyActivity(propertyId, new Date(createdAt)).counts.views;
+    const factor = 1.3 + (viewBase % 4) * 0.1; // 1.3–1.6, deterministic per listing
+    setMassViews(Math.round(unique * factor));
+  }, [propertyId, createdAt, viewBase]);
 
   useEffect(() => {
     const tick = () => {
@@ -96,14 +115,12 @@ function ViewerBadge({ views, viewBase }: { views: number; viewBase: number }) {
     return () => clearInterval(id);
   }, []);
 
-  if (totalViews === 0 && viewBase === 0) return null;
-
   return (
     <div className="mt-3 flex flex-wrap gap-2">
-      {totalViews > 0 && (
+      {massViews !== null && massViews > 0 && (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200 px-3 py-1 text-xs font-semibold text-orange-700">
           <Flame size={12} className="text-orange-500" />
-          {totalViews.toLocaleString("en-IN")} people viewed this
+          {massViews.toLocaleString("en-IN")} people viewed this month
         </span>
       )}
       <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/8 border border-accent/20 px-3 py-1 text-xs font-semibold text-accent">
@@ -585,7 +602,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
               )}
 
               {/* Social-proof viewer badge */}
-              <ViewerBadge views={property.views} viewBase={property.viewBase} />
+              <ViewerBadge propertyId={property.id} createdAt={property.createdAt} viewBase={property.viewBase} />
             </div>
 
             {/* Activity on this property (fabricated social proof — Active only) */}

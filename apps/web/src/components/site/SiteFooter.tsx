@@ -177,6 +177,21 @@ export function SiteFooter() {
           </div>
         </div>
       </div>
+
+      {/* ── Disclaimer ── */}
+      <div className="relative z-10 border-t border-white/8">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+          <p className="text-[11px] leading-relaxed text-white/30">
+            The material and information contained herein is for general informational purposes only, and does not
+            constitute an endorsement/warranty/representation/offer from NxtSFT. Sources of Information: Project details
+            presented on this page are collected from public sources including State RERA websites (wherever applicable),
+            project websites created by builder and authorized channel partners and official documentation shared by
+            these authorized advertisers (project brochure, price list, payment plans). NxtSFT only presents this content
+            in easy format for user research and user education and does not own any content. Users are advised to
+            exercise caution and validate facts from builder / promoter before purchase.
+          </p>
+        </div>
+      </div>
     </footer>
   );
 }
