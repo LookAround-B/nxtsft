@@ -47,8 +47,10 @@ export const PUBLIC_ROUTES: readonly string[] = [
   "/refer",
   "/terms",
   "/privacy",
+  "/refund",
   "/cookie-policy",
   "/fraud-advisory",
+  "/payment",
 ];
 
 /**
