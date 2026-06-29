@@ -32,8 +32,7 @@ export function CreditsTab() {
   const creditsQ = trpc.users.credits.useQuery();
   const plansQ = trpc.subscriptions.plans.useQuery({ type: "seeker" });
   const planQ = trpc.subscriptions.myCurrent.useQuery();
-  const createOrder = trpc.subscriptions.createOrder.useMutation();
-  const verifyPayment = trpc.subscriptions.verifyPayment.useMutation();
+  const createPayUOrder = trpc.subscriptions.createPayUOrder.useMutation();
   const cancelPlan = trpc.subscriptions.cancel.useMutation({
     onSuccess: () => { planQ.refetch(); toast.success("Subscription cancelled"); },
     onError: (e: { message: string }) => toast.error(e.message),
@@ -51,21 +50,24 @@ export function CreditsTab() {
   const handleTopUp = async (plan: { id: string; name: string; credits: number }) => {
     setBuyingPlanId(plan.id);
     try {
-      const order = await createOrder.mutateAsync({ planId: plan.id });
-      await verifyPayment.mutateAsync({
-        razorpayOrderId: order.orderId,
-        razorpayPaymentId: `demo_pay_${Date.now()}`,
-        razorpaySignature: `demo_sig_${Date.now()}`,
-        planId: plan.id,
+      const fields = await createPayUOrder.mutateAsync({ planId: plan.id });
+      // Redirect to PayU checkout via hidden form POST
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = fields.action;
+      (Object.entries(fields) as [string, string][]).forEach(([k, v]) => {
+        if (k === "action") return;
+        const inp = document.createElement("input");
+        inp.type = "hidden";
+        inp.name = k;
+        inp.value = v;
+        form.appendChild(inp);
       });
-      await refreshCredits();
-      void creditsQ.refetch();
-      setShowTopUp(false);
-      toast.success(`${plan.name} activated! ${plan.credits} credit${plan.credits > 1 ? "s" : ""} added.`);
+      document.body.appendChild(form);
+      form.submit();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Purchase failed.");
-    } finally {
       setBuyingPlanId(null);
+      toast.error(err instanceof Error ? err.message : "Purchase failed.");
     }
   };
 

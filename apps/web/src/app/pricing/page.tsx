@@ -42,18 +42,14 @@ export default function PricingPage() {
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
 
   const plansQuery = trpc.subscriptions.plans.useQuery({ type: "seeker" });
-  const createOrder = trpc.subscriptions.createOrder.useMutation();
-  const verifyPayment = trpc.subscriptions.verifyPayment.useMutation();
+  const createPayUOrder = trpc.subscriptions.createPayUOrder.useMutation();
 
   const handleBuyOwner = (plan: OwnerPlan) => {
     if (!session) {
       toast.error("Please sign in first");
       return;
     }
-    toast.success(`${plan.name} plan activated!`, {
-      description: `Valid for ${plan.validity}.`,
-      duration: 5000,
-    });
+    toast.info(`${plan.name} — owner plan checkout coming soon.`);
   };
 
   const handleBuySeeker = async (plan: SeekerPlan) => {
@@ -63,22 +59,23 @@ export default function PricingPage() {
     }
     setBuyingPlanId(plan.id);
     try {
-      const order = await createOrder.mutateAsync({ planId: plan.id });
-      await verifyPayment.mutateAsync({
-        razorpayOrderId: order.orderId,
-        razorpayPaymentId: `demo_pay_${Date.now()}`,
-        razorpaySignature: `demo_sig_${Date.now()}`,
-        planId: plan.id,
+      const fields = await createPayUOrder.mutateAsync({ planId: plan.id });
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = fields.action;
+      (Object.entries(fields) as [string, string][]).forEach(([k, v]) => {
+        if (k === "action") return;
+        const inp = document.createElement("input");
+        inp.type = "hidden";
+        inp.name = k;
+        inp.value = v;
+        form.appendChild(inp);
       });
-      await refreshCredits();
-      toast.success(`${plan.name} plan activated!`, {
-        description: `${plan.credits} credit${plan.credits > 1 ? "s" : ""} added to your wallet.`,
-        duration: 5000,
-      });
+      document.body.appendChild(form);
+      form.submit();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Purchase failed. Please try again.");
-    } finally {
       setBuyingPlanId(null);
+      toast.error(err instanceof Error ? err.message : "Purchase failed. Please try again.");
     }
   };
 

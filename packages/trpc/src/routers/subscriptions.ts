@@ -12,6 +12,7 @@ import {
   cursorSchema,
   limitSchema,
 } from "../sanitize.js";
+import { generatePayUHash, PAYU_BASE_URL } from "../payu.js";
 
 // Seeker plans seeded in DB via migrations/seed. These are the canonical values.
 const SEEKER_PLANS = [
@@ -79,6 +80,64 @@ export const subscriptionsRouter = router({
         planId: input.planId,
         credits: plan.credits,
         userId: ctx.user.id,
+      };
+    }),
+
+  // Create a PayU order — returns all fields needed for the checkout form POST
+  createPayUOrder: protectedProcedure
+    .input(z.object({ planId: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const dbPlan = await prisma.plan.findUnique({ where: { id: input.planId } });
+      const staticPlan = SEEKER_PLANS.find((p) => p.id === input.planId);
+      const plan = dbPlan ?? staticPlan;
+      if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
+
+      if (!process.env.PAYU_MERCHANT_KEY || !process.env.PAYU_MERCHANT_SALT) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PayU not configured." });
+      }
+
+      const txnid = `nxtsft_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const amount = plan.price.toFixed(2); // PayU expects rupees as string e.g. "299.00"
+      const productinfo = `NxtSft ${plan.name} Plan`;
+      const firstname = ctx.user.name.split(" ")[0] || ctx.user.name;
+      const email = ctx.user.email;
+      const phone = ctx.user.phone ?? "9999999999";
+      const udf1 = ctx.user.id;   // userId — used in callback to grant credits
+      const udf2 = input.planId;   // planId — used in callback to look up credits
+
+      const hash = generatePayUHash({ txnid, amount, productinfo, firstname, email, udf1, udf2 });
+
+      // Persist a Pending payment row so the callback can look it up
+      await prisma.payment.create({
+        data: {
+          userId: ctx.user.id,
+          amount: BigInt(plan.price * 100), // stored in paise
+          status: "Pending",
+          method: "PayU",
+          gateway: "payu",
+          payuTxnId: txnid,
+          description: `${plan.name} plan — ${plan.credits} credits`,
+          metadata: { planId: input.planId, credits: plan.credits },
+        },
+      });
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://nxtsft.com";
+
+      return {
+        action: PAYU_BASE_URL,
+        key: process.env.PAYU_MERCHANT_KEY,
+        txnid,
+        amount,
+        productinfo,
+        firstname,
+        lastname: "",
+        email,
+        phone,
+        udf1,
+        udf2,
+        surl: `${baseUrl}/api/payu/callback`,
+        furl: `${baseUrl}/api/payu/callback`,
+        hash,
       };
     }),
 

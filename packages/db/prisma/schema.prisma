@@ -508,9 +508,14 @@ model Payment {
   user            User     @relation("UserPayments", fields: [userId], references: [id])
   amount          BigInt   // paise
   status          String   // Success | Pending | Failed | Refunded
-  method          String   // UPI | Card | Netbanking
+  method          String   // UPI | Card | Netbanking | PayU
+  gateway         String   @default("razorpay") // razorpay | payu
+  // Razorpay fields
   razorpayId      String?  @unique
   razorpayOrderId String?  @unique
+  // PayU fields
+  payuTxnId       String?  @unique  // our txnid sent to PayU
+  payuMihpayId    String?  @unique  // PayU's mihpayid returned on success
   description     String?
   metadata        Json?
   createdAt       DateTime @default(now())
@@ -518,6 +523,7 @@ model Payment {
 
   @@index([userId])
   @@index([status])
+  @@index([gateway])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
