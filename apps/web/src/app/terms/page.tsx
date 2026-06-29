@@ -6,7 +6,29 @@ export const metadata: Metadata = {
     "Read the Terms of Use governing your access to and use of the NxtSft.com platform and services.",
 };
 
+// ── Fill in before Razorpay KYC submission ──────────────────────────────────
+const PROPRIETOR_NAME    = "[PROPRIETOR_FULL_NAME]";
+const PROPRIETOR_ADDRESS = "[COMPLETE_ADDRESS, Medchal, Telangana — PIN]";
+const PROPRIETOR_PHONE   = "[+91-XXXXXXXXXX]";
+const PROPRIETOR_PAN     = "[PAN_NUMBER]";
+const TM_APP_NO          = "[TM_APPLICATION_NO]";
+// ────────────────────────────────────────────────────────────────────────────
+
 const SECTIONS = [
+  {
+    id: "nature-of-service",
+    title: "1. Nature of Service — ITeS Classification",
+    body: [
+      "NxtSft.com is a technology platform owned by " + PROPRIETOR_NAME + ", Proprietor, operating as an Information Technology Enabled Service (ITeS). We provide software tools, digital advertising, and listing services for real estate developers, agents, and owners to showcase properties.",
+    ],
+    list: [
+      "NxtSft.com is NOT a real estate broker, agent, or dealer under RERA",
+      "We are NOT party to any property transaction, sale, lease, or agreement",
+      "We are NOT responsible for title, ownership, possession, pricing, or legal status of listed properties",
+      "We do NOT hold any funds related to property transactions in escrow",
+      "All property listings are provided by third-party advertisers — NxtSft.com only provides technology for display and promotion",
+    ],
+  },
   {
     id: "acceptance",
     title: "1. Acceptance of Terms",
@@ -83,12 +105,16 @@ const SECTIONS = [
   },
   {
     id: "payments",
-    title: "8. Payments and Credits",
+    title: "8. Payments & Payment Gateway Usage",
     body: [
-      "Certain services on the Platform, such as viewing seller contact details, require the use of Credits purchased through our Pricing plans. All payments are processed through third-party payment gateways. NxtSft.com does not store card or banking details.",
-      "All fees are stated in Indian Rupees (INR) and are inclusive of applicable taxes unless stated otherwise. Credits are non-refundable, non-transferable, and have no cash value unless otherwise required by applicable law.",
-      "In the event of a payment dispute, you must contact us at care@nxtsft.com within 7 days of the transaction. We reserve the right to suspend your account pending resolution of any payment dispute.",
-      "We reserve the right to modify our fee structure at any time. Updated pricing will be displayed on the Platform and will apply prospectively.",
+      "All payments made via PayU / Razorpay on NxtSft.com are ONLY for the following digital services:",
+    ],
+    list: [
+      "Subscription Fees — for accessing SaaS/CRM features of NxtSft",
+      "Listing Fees — for paid promotion or featured placement of property advertisements",
+      "Lead Credits — for purchasing digital lead/contact-unlock packages",
+      "Advertising Services — for banner ads, homepage spots, email campaigns",
+      "NxtSft.com does NOT collect token amounts, booking amounts, rent, sale consideration, brokerage, or any monies related to property transactions. All such payments must be made directly between Buyer and Seller/Developer/Agent outside this platform.",
     ],
   },
   {
@@ -153,14 +179,53 @@ const SECTIONS = [
     ],
   },
   {
+    id: "rera-compliance",
+    title: "15. User Obligations — RERA Compliance",
+    body: ["All users posting property listings agree to the following:"],
+    list: [
+      "Provide a valid RERA registration number for projects/agents where applicable under the Real Estate Regulation Act, 2016",
+      "Confirm they are legally authorised to advertise the property",
+      "Ensure all information is true, accurate, and not misleading",
+      "NxtSft.com may remove any listing without notice if a RERA violation is suspected",
+    ],
+  },
+  {
+    id: "proprietor",
+    title: "16. Proprietor Details",
+    body: ["NxtSft.com is operated by a sole proprietorship. Mandatory disclosure for payment gateway compliance:"],
+    list: [
+      "Business Name: NxtSft.com",
+      "Legal Entity: Proprietorship",
+      "Proprietor Name: " + PROPRIETOR_NAME,
+      "Address: " + PROPRIETOR_ADDRESS,
+      "Contact: support@nxtsft.com | " + PROPRIETOR_PHONE,
+      "PAN: " + PROPRIETOR_PAN,
+      "GSTIN: Not Applicable (below threshold) — update if registered",
+      "Trademark: NxtSft.com™ — TM Application No. " + TM_APP_NO + " (Class 35 & 42)",
+    ],
+  },
+  {
+    id: "grievance-officer",
+    title: "17. Grievance Officer",
+    body: [
+      "In accordance with the Information Technology Act, 2000 and Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021, the details of the Grievance Officer are as follows:",
+    ],
+    list: [
+      "Name: " + PROPRIETOR_NAME,
+      "Email: grievance@nxtsft.com",
+      "Address: " + PROPRIETOR_ADDRESS,
+      "Time to Resolve: 15 days from receipt of complaint",
+    ],
+  },
+  {
     id: "contact",
-    title: "16. Contact Us",
+    title: "18. Contact Us",
     body: ["If you have questions or concerns about these Terms, please contact:"],
     contact: {
-      company: "NxtSFT PropTech innovations",
-      address: "Cyber City, Gurugram 122002, Haryana, India",
+      company: "NxtSft.com — " + PROPRIETOR_NAME + ", Proprietor",
+      address: PROPRIETOR_ADDRESS,
       email: "hello@nxtsft.com",
-      support: "care@nxtsft.com",
+      support: "support@nxtsft.com",
     },
   },
 ];

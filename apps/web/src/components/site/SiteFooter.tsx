@@ -162,6 +162,9 @@ export function SiteFooter() {
             <Link href="/privacy" className="text-xs text-white/35 transition hover:text-white/70">
               Privacy
             </Link>
+            <Link href="/refund" className="text-xs text-white/35 transition hover:text-white/70">
+              Refund Policy
+            </Link>
             <Link href="/cookie-policy" className="text-xs text-white/35 transition hover:text-white/70">
               Cookies
             </Link>
@@ -182,13 +185,15 @@ export function SiteFooter() {
       <div className="relative z-10 border-t border-white/8">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
           <p className="text-[11px] leading-relaxed text-white/30">
-            The material and information contained herein is for general informational purposes only, and does not
-            constitute an endorsement/warranty/representation/offer from NxtSFT. Sources of Information: Project details
-            presented on this page are collected from public sources including State RERA websites (wherever applicable),
-            project websites created by builder and authorized channel partners and official documentation shared by
-            these authorized advertisers (project brochure, price list, payment plans). NxtSFT only presents this content
-            in easy format for user research and user education and does not own any content. Users are advised to
-            exercise caution and validate facts from builder / promoter before purchase.
+            <strong className="text-white/45">NxtSft.com is a technology platform (ITeS) only — NOT a real estate broker, agent, or dealer under RERA.</strong>{" "}
+            We provide SaaS software, digital advertising, and listing services. We do not facilitate property
+            transactions, collect booking/token amounts, or hold any funds related to property sale or rent.
+            All transactions are solely between Buyer and Seller/Developer/Agent.{" "}
+            Property details are sourced from advertisers and public records (RERA websites, project brochures).
+            Users must independently verify all information before making any property decision.
+            Payments on this platform are only for SaaS, listing fees, and lead credit packs — see{" "}
+            <Link href="/refund" className="underline hover:text-white/60">Refund Policy</Link> and{" "}
+            <Link href="/terms" className="underline hover:text-white/60">Terms of Use</Link>.
           </p>
         </div>
       </div>
