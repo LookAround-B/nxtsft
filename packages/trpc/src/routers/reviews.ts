@@ -11,6 +11,7 @@ import {
 } from "../sanitize.js";
 
 export const reviewsRouter = router({
+  // Public: only Approved reviews are visible on the property page
   list: publicProcedure
     .input(
       z.object({
@@ -23,7 +24,7 @@ export const reviewsRouter = router({
       const { propertyId, cursor, limit } = input;
 
       const items = await prisma.review.findMany({
-        where: { propertyId },
+        where: { propertyId, status: "Approved" },
         include: {
           author: { select: { id: true, name: true, avatar: true } },
         },
@@ -38,6 +39,7 @@ export const reviewsRouter = router({
       return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
     }),
 
+  // Protected: user must be logged in to submit — goes to Pending, notifies admins
   create: protectedProcedure
     .input(
       z.object({
@@ -50,10 +52,10 @@ export const reviewsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const property = await prisma.property.findFirst({
         where: { id: input.propertyId, deletedAt: null },
+        select: { id: true, title: true },
       });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
 
-      // Check if user already reviewed this property
       const existing = await prisma.review.findFirst({
         where: { propertyId: input.propertyId, authorId: ctx.user.id },
       });
@@ -61,15 +63,34 @@ export const reviewsRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "You have already reviewed this property." });
       }
 
-      return prisma.review.create({
+      const review = await prisma.review.create({
         data: {
           propertyId: input.propertyId,
           authorId: ctx.user.id,
           rating: input.rating,
           title: input.title,
           content: input.content,
+          status: "Pending",
         },
       });
+
+      // Notify all admins and super-admins
+      const admins = await prisma.user.findMany({
+        where: { role: { in: ["admin", "super-admin"] } },
+        select: { id: true },
+      });
+      if (admins.length > 0) {
+        await prisma.notification.createMany({
+          data: admins.map((a) => ({
+            userId: a.id,
+            type: "review",
+            title: "New review pending approval",
+            content: `${ctx.user.name} left a ${input.rating}★ review on "${property.title}" — needs your approval.`,
+          })),
+        });
+      }
+
+      return review;
     }),
 
   markHelpful: protectedProcedure

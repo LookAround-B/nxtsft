@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import { Star, Trash2, PlusCircle, X, Search } from "lucide-react";
+import { Star, Trash2, PlusCircle, X, Search, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -12,6 +12,7 @@ type ReviewRow = {
   title: string;
   content: string | null;
   helpful: number;
+  status: string;
   createdAt: string;
   author: { id: string; name: string; email: string; avatar: string | null } | null;
   property: { id: string; title: string; slug: string } | null;
@@ -165,55 +166,67 @@ function PostReviewPanel({ onClose, onPosted }: { onClose: () => void; onPosted:
 // ─── Main Reviews Tab ─────────────────────────────────────────────────────────
 export function ReviewsTab() {
   const [ratingFilter, setRatingFilter] = useState<number | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<"Pending" | "Approved" | "Declined" | undefined>("Pending");
   const [showPostForm, setShowPostForm] = useState(false);
 
-  const reviewsQ = trpc.admin.reviews.list.useQuery({ limit: 100, rating: ratingFilter });
+  const reviewsQ = trpc.admin.reviews.list.useQuery({ limit: 200, rating: ratingFilter, status: statusFilter });
+  const allQ = trpc.admin.reviews.list.useQuery({ limit: 500 });
   const items = (reviewsQ.data?.items ?? []) as unknown as ReviewRow[];
+  const allItems = (allQ.data?.items ?? []) as unknown as ReviewRow[];
 
   const deleteMutation = trpc.admin.reviews.delete.useMutation({
-    onSuccess: () => { toast.success("Review deleted."); void reviewsQ.refetch(); },
+    onSuccess: () => { toast.success("Review deleted."); void reviewsQ.refetch(); void allQ.refetch(); },
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
-  const avg = items.length ? +(items.reduce((a, r) => a + r.rating, 0) / items.length).toFixed(1) : 0;
-  const dist = [5, 4, 3, 2, 1].map((s) => ({
-    stars: s,
-    count: items.filter((r) => r.rating === s).length,
-  }));
+  const moderateMutation = trpc.admin.reviews.moderate.useMutation({
+    onSuccess: (_, vars) => {
+      toast.success(vars.status === "Approved" ? "Review approved — now live." : "Review declined.");
+      void reviewsQ.refetch();
+      void allQ.refetch();
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const pendingCount = allItems.filter((r) => r.status === "Pending").length;
+  const approvedCount = allItems.filter((r) => r.status === "Approved").length;
+  const avg = approvedCount
+    ? +(allItems.filter((r) => r.status === "Approved").reduce((a, r) => a + r.rating, 0) / approvedCount).toFixed(1)
+    : 0;
 
   return (
     <>
       <PageHead
         title="Reviews"
-        subtitle="Moderate and post property reviews across the platform."
+        subtitle="Approve or decline user reviews before they go live on the site."
       />
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Total Reviews" value={String(items.length)} sub="All properties" />
-        <StatCard label="Avg Rating" value={avg ? `${avg} ★` : "—"} sub="Platform average" />
+        <StatCard label="Pending Approval" value={String(pendingCount)} sub="Needs your action" accent={pendingCount > 0 ? "text-amber-600" : undefined} />
+        <StatCard label="Approved & Live" value={String(approvedCount)} sub="Visible to buyers" />
+        <StatCard label="Avg Rating" value={avg ? `${avg} ★` : "—"} sub="Approved reviews" />
         <StatCard
-          label="5-Star"
-          value={String(dist.find((d) => d.stars === 5)?.count ?? 0)}
-          sub="Excellent reviews"
-        />
-        <StatCard
-          label="1–2 Star"
-          value={String(dist.filter((d) => d.stars <= 2).reduce((a, d) => a + d.count, 0))}
-          sub="Needs attention"
-          accent="text-accent"
+          label="Declined"
+          value={String(allItems.filter((r) => r.status === "Declined").length)}
+          sub="Not published"
         />
       </div>
 
-      {/* Rating distribution + actions */}
+      {/* Filters + actions */}
       <div className="flex flex-wrap items-center gap-2 mt-1">
-        <span className="text-xs font-semibold text-muted-foreground">Filter by rating:</span>
-        <button
-          onClick={() => setRatingFilter(undefined)}
-          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${!ratingFilter ? "bg-navy text-white" : "border border-border hover:bg-secondary"}`}
-        >
-          All
-        </button>
+        <span className="text-xs font-semibold text-muted-foreground">Status:</span>
+        {([undefined, "Pending", "Approved", "Declined"] as const).map((s) => (
+          <button
+            key={s ?? "all"}
+            onClick={() => setStatusFilter(s)}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${statusFilter === s ? "bg-navy text-white" : "border border-border hover:bg-secondary"}`}
+          >
+            {s ?? "All"}{s === "Pending" && pendingCount > 0 ? ` (${pendingCount})` : ""}
+          </button>
+        ))}
+        <span className="mx-1 text-border">|</span>
+        <span className="text-xs font-semibold text-muted-foreground">Rating:</span>
         {[5, 4, 3, 2, 1].map((s) => (
           <button
             key={s}
@@ -234,17 +247,19 @@ export function ReviewsTab() {
 
       {/* Post form */}
       {showPostForm && (
-        <PostReviewPanel onClose={() => setShowPostForm(false)} onPosted={() => void reviewsQ.refetch()} />
+        <PostReviewPanel onClose={() => setShowPostForm(false)} onPosted={() => { void reviewsQ.refetch(); void allQ.refetch(); }} />
       )}
 
       {/* Reviews table */}
-      <Section title={`All Reviews ${items.length > 0 ? `(${items.length})` : ""}`}>
+      <Section title={`${statusFilter ?? "All"} Reviews ${items.length > 0 ? `(${items.length})` : ""}`}>
         {reviewsQ.isLoading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
         ) : items.length === 0 ? (
           <div className="py-12 text-center">
             <Star size={28} className="mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">No reviews found.</p>
+            <p className="text-sm text-muted-foreground">
+              {statusFilter === "Pending" ? "No pending reviews — all caught up!" : "No reviews found."}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -255,9 +270,12 @@ export function ReviewsTab() {
                 .join("")
                 .slice(0, 2)
                 .toUpperCase();
+              const statusColor =
+                r.status === "Approved" ? "bg-emerald-100 text-emerald-700"
+                : r.status === "Declined" ? "bg-rose-100 text-rose-700"
+                : "bg-amber-100 text-amber-700";
               return (
                 <div key={r.id} className="flex gap-4 py-4 first:pt-0">
-                  {/* Author */}
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-navy to-accent text-xs font-black text-white">
                     {initials}
                   </div>
@@ -265,9 +283,12 @@ export function ReviewsTab() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-semibold text-navy">{r.author?.name ?? "Unknown"}</span>
                           <StarRow value={r.rating} />
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusColor}`}>
+                            {r.status}
+                          </span>
                         </div>
                         {r.property && (
                           <a
@@ -280,17 +301,33 @@ export function ReviewsTab() {
                           </a>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <span className="font-mono text-[11px] text-muted-foreground">{fmtDate(r.createdAt)}</span>
+                        {r.status !== "Approved" && (
+                          <button
+                            onClick={() => moderateMutation.mutate({ id: r.id, status: "Approved" })}
+                            disabled={moderateMutation.isPending}
+                            className="grid h-7 w-7 place-items-center rounded-lg border border-emerald-200 text-emerald-600 transition hover:bg-emerald-50 disabled:opacity-40"
+                            title="Approve"
+                          >
+                            <CheckCircle size={13} />
+                          </button>
+                        )}
+                        {r.status !== "Declined" && (
+                          <button
+                            onClick={() => moderateMutation.mutate({ id: r.id, status: "Declined" })}
+                            disabled={moderateMutation.isPending}
+                            className="grid h-7 w-7 place-items-center rounded-lg border border-rose-200 text-rose-500 transition hover:bg-rose-50 disabled:opacity-40"
+                            title="Decline"
+                          >
+                            <XCircle size={13} />
+                          </button>
+                        )}
                         <button
-                          onClick={() => {
-                            if (confirm("Delete this review?")) {
-                              deleteMutation.mutate({ id: r.id });
-                            }
-                          }}
+                          onClick={() => { if (confirm("Delete this review?")) deleteMutation.mutate({ id: r.id }); }}
                           disabled={deleteMutation.isPending}
                           className="grid h-7 w-7 place-items-center rounded-lg border border-border text-muted-foreground transition hover:border-accent hover:text-accent disabled:opacity-40"
-                          title="Delete review"
+                          title="Delete"
                         >
                           <Trash2 size={13} />
                         </button>

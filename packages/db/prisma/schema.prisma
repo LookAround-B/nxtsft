@@ -436,11 +436,13 @@ model Review {
   title      String
   content    String?
   helpful    Int      @default(0)
+  status     String   @default("Pending") // Pending | Approved | Declined
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@index([propertyId])
   @@index([authorId])
+  @@index([status])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

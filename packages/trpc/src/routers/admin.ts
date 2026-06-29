@@ -696,13 +696,15 @@ export const adminRouter = router({
           limit: limitSchema,
           propertyId: cuidSchema.optional(),
           rating: z.number().int().min(1).max(5).optional(),
+          status: z.enum(["Pending", "Approved", "Declined"]).optional(),
         }),
       )
       .query(async ({ input }) => {
-        const { cursor, limit, propertyId, rating } = input;
+        const { cursor, limit, propertyId, rating, status } = input;
         const where: NonNullable<Parameters<typeof prisma.review.findMany>[0]>["where"] = {};
         if (propertyId) where.propertyId = propertyId;
         if (rating) where.rating = rating;
+        if (status) where.status = status;
 
         const items = await prisma.review.findMany({
           where,
@@ -727,6 +729,28 @@ export const adminRouter = router({
         if (!review) throw new TRPCError({ code: "NOT_FOUND", message: "Review not found." });
         await prisma.review.delete({ where: { id: input.id } });
         return { ok: true };
+      }),
+
+    moderate: adminProcedure
+      .input(
+        z.object({
+          id: cuidSchema,
+          status: z.enum(["Approved", "Declined"]),
+          title: safeString(100, 3).optional(),
+          content: safeString(1000).optional(),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        const review = await prisma.review.findUnique({ where: { id: input.id } });
+        if (!review) throw new TRPCError({ code: "NOT_FOUND", message: "Review not found." });
+        return prisma.review.update({
+          where: { id: input.id },
+          data: {
+            status: input.status,
+            ...(input.title !== undefined && { title: input.title }),
+            ...(input.content !== undefined && { content: input.content }),
+          },
+        });
       }),
 
     create: adminProcedure

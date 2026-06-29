@@ -967,10 +967,11 @@ function PropertyReviews({
 
   const createReview = trpc.reviews.create.useMutation({
     onSuccess: () => {
-      reviewsQ.refetch();
       setForm({ rating: 0, title: "", content: "" });
       setShowForm(false);
-      toast.success("Review posted!");
+      toast.success("Review submitted!", {
+        description: "It will appear once an admin approves it.",
+      });
     },
     onError: (e) => toast.error(e.message),
   });
