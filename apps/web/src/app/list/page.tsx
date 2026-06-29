@@ -74,6 +74,7 @@ type FormData = {
   description: string;
   amenities: string[];
   rera: string;
+  reraLabel: string;
   possession: string;
   listerName: string;
   listerEmail: string;
@@ -94,6 +95,7 @@ const EMPTY: FormData = {
   description: "",
   amenities: [],
   rera: "",
+  reraLabel: "RERA",
   possession: "",
   listerName: "",
   listerEmail: "",
@@ -295,6 +297,7 @@ export default function ListPropertyPage() {
       amenities: data.amenities,
       images: listingImages,
       rera: data.rera,
+      reraLabel: data.reraLabel || undefined,
       possession: data.possession,
       listerName: data.listerName,
       listerEmail: data.listerEmail,
@@ -868,14 +871,32 @@ export default function ListPropertyPage() {
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-foreground">RERA Number</label>
-                  <input
-                    type="text"
-                    value={data.rera}
-                    onChange={(e) => set("rera", e.target.value)}
-                    placeholder="e.g. MH/2024/000123"
-                    className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.rera ? "border-rose-400" : "border-input"}`}
-                  />
+                  <label className="block text-sm font-semibold text-foreground">RERA / Authority Number</label>
+                  <div className="mt-1.5 flex gap-2">
+                    <select
+                      value={data.reraLabel}
+                      onChange={(e) => set("reraLabel", e.target.value)}
+                      className="rounded-xl border border-input bg-background px-2 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                    >
+                      <option value="RERA">RERA</option>
+                      <option value="TS RERA">TS RERA</option>
+                      <option value="KA RERA">KA RERA</option>
+                      <option value="TN RERA">TN RERA</option>
+                      <option value="MahaRERA">MahaRERA</option>
+                      <option value="GujRERA">GujRERA</option>
+                      <option value="HMDA">HMDA</option>
+                      <option value="DTCP">DTCP</option>
+                      <option value="BDA">BDA</option>
+                      <option value="CMDA">CMDA</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={data.rera}
+                      onChange={(e) => set("rera", e.target.value)}
+                      placeholder="e.g. P51800000053"
+                      className={`flex-1 rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.rera ? "border-rose-400" : "border-input"}`}
+                    />
+                  </div>
                   {errors.rera && <p className="mt-1 text-xs text-rose-500">{errors.rera}</p>}
                 </div>
                 <div>

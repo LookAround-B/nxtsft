@@ -63,6 +63,7 @@ type FullProperty = {
   amenities: string[];
   bhk: string | null;
   rera: string | null;
+  reraLabel: string | null;
   facing: string | null;
   possession: string | null;
   builder: string | null;
@@ -597,7 +598,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
               {property.rera && (
                 <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700">
                   <BadgeCheck size={16} />
-                  RERA Verified · {property.rera}
+                  {property.reraLabel ?? "RERA"} Verified · {property.rera}
                 </div>
               )}
 

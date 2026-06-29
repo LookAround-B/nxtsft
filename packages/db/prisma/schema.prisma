@@ -120,6 +120,7 @@ model Property {
   project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   rera        String?  // RERA registration number — required for Active listings
+  reraLabel   String?  // Authority label: "RERA" | "HMDA" | "TS RERA" | "KA RERA" | "TN RERA" | "MahaRERA" | "GujRERA"
 
   location    Location?
 

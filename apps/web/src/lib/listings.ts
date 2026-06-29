@@ -16,6 +16,7 @@ export interface PendingListing {
   amenities: string[];
   images: string[];
   rera: string;
+  reraLabel?: string;
   possession: string;
   listerName: string;
   listerEmail: string;
