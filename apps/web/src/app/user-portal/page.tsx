@@ -10,6 +10,7 @@ import {
   Eye,
   Bell,
   Gift,
+  PlusCircle,
 } from "lucide-react";
 import { Home as HomeIcon } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
@@ -35,7 +36,6 @@ export default function UserPortal() {
 
   if (!ready || !session) return null;
 
-  const isSeller = session.role === "home-seller";
   const nav = [
     { label: "Overview",         to: "/user-portal",          icon: <HomeIcon size={14} /> },
     { label: "Saved",            to: "/user-portal#saved",    icon: <Heart size={14} /> },
@@ -43,10 +43,11 @@ export default function UserPortal() {
     { label: "My Credits",       to: "/user-portal#credits",  icon: <CreditCard size={14} /> },
     { label: "Profile",          to: "/user-portal#profile",  icon: <Settings2 size={14} /> },
     { label: "Search Alerts",    to: "/user-portal#alerts",   icon: <Bell size={14} /> },
-    ...(isSeller ? [{ label: "My Listings", to: "/user-portal#mylist", icon: <Building2 size={14} /> }] : []),
-    { label: "Scheduled Tours",   to: "/user-portal#visits",   icon: <Calendar size={14} /> },
+    { label: "My Listings",      to: "/user-portal#mylist",   icon: <Building2 size={14} /> },
+    { label: "List a Property",  to: "/list",                 icon: <PlusCircle size={14} /> },
+    { label: "Scheduled Tours",  to: "/user-portal#visits",   icon: <Calendar size={14} /> },
     { label: "EMI Calculator",   to: "/user-portal#emi",      icon: <Calculator size={14} /> },
-    { label: "Documents (KYC)",  to: "/user-portal#kyc",      icon: <FileCheck size={14} /> },
+    { label: "Documents (KYC)", to: "/user-portal#kyc",      icon: <FileCheck size={14} /> },
     { label: "Refer & Earn",     to: "/user-portal#refer",    icon: <Gift size={14} /> },
   ];
 
