@@ -55,31 +55,77 @@ export const subscriptionsRouter = router({
       });
     }),
 
-  // Create a Razorpay order (stub — wire up Razorpay SDK in production)
+  // Active payment gateway — read by checkout pages to decide Razorpay vs PayU
+  activeGateway: publicProcedure.query(async () => {
+    const row = await prisma.siteSetting.findUnique({ where: { key: "active_payment_gateway" } });
+    const gw = (row?.value as string | null) ?? "razorpay";
+    return { gateway: gw as "razorpay" | "payu" };
+  }),
+
+  // Create a Razorpay order and return fields needed by the checkout widget
   createOrder: protectedProcedure
-    .input(z.object({ planId: cuidSchema }))
+    .input(z.object({ planId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
       const dbPlan = await prisma.plan.findUnique({ where: { id: input.planId } });
-
-      // Fall back to hardcoded plans for demo
       const staticPlan = SEEKER_PLANS.find((p) => p.id === input.planId);
       const plan = dbPlan ?? staticPlan;
-
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
-      // TODO: Create actual Razorpay order here
-      // const razorpay = new Razorpay({ key_id, key_secret });
-      // const order = await razorpay.orders.create({ amount: plan.price * 100, currency: 'INR', receipt: `nxtsft_${Date.now()}` });
-      // return { orderId: order.id, amount: plan.price, currency: 'INR', planId: input.planId };
+      const keyId = process.env.RAZORPAY_KEY_ID;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keyId || !keySecret) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Razorpay not configured." });
+      }
 
-      // Demo stub: return a mock order
+      const receipt = `nxtsft_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+
+      const res = await fetch("https://api.razorpay.com/v1/orders", {
+        method: "POST",
+        headers: { "Authorization": `Basic ${auth}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: plan.price * 100,
+          currency: "INR",
+          receipt,
+          notes: { userId: ctx.user.id, planId: input.planId },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: { description?: string } };
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: err?.error?.description ?? "Failed to create Razorpay order.",
+        });
+      }
+
+      const order = await res.json() as { id: string; amount: number; currency: string };
+
+      await prisma.payment.create({
+        data: {
+          userId: ctx.user.id,
+          amount: BigInt(plan.price * 100),
+          status: "Pending",
+          method: "Razorpay",
+          gateway: "razorpay",
+          razorpayOrderId: order.id,
+          description: `${plan.name} plan — ${plan.credits} credits`,
+          metadata: { planId: input.planId, credits: plan.credits },
+        },
+      });
+
       return {
-        orderId: `order_demo_${Date.now()}`,
-        amount: plan.price,
-        currency: "INR",
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
         planId: input.planId,
         credits: plan.credits,
-        userId: ctx.user.id,
+        keyId,
+        prefill: {
+          name: ctx.user.name,
+          email: ctx.user.email,
+          contact: ctx.user.phone ?? "",
+        },
       };
     }),
 
@@ -148,7 +194,7 @@ export const subscriptionsRouter = router({
         razorpayOrderId: safeString(200, 1),
         razorpayPaymentId: safeString(200, 1),
         razorpaySignature: safeString(200, 1),
-        planId: cuidSchema,
+        planId: z.string().min(1),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -196,12 +242,16 @@ export const subscriptionsRouter = router({
         prisma.creditTransaction.create({
           data: { userId: ctx.user.id, type: "credit", amount: plan.credits, reason: "purchase" },
         }),
-        prisma.payment.create({
-          data: {
+        // Update the pending payment row created by createOrder, or insert if missing
+        prisma.payment.upsert({
+          where: { razorpayOrderId: input.razorpayOrderId },
+          update: { status: "Success", razorpayId: input.razorpayPaymentId },
+          create: {
             userId: ctx.user.id,
-            amount: BigInt(plan.price * 100), // paise
+            amount: BigInt(plan.price * 100),
             status: "Success",
             method: "Razorpay",
+            gateway: "razorpay",
             razorpayId: input.razorpayPaymentId,
             razorpayOrderId: input.razorpayOrderId,
             description: `${plan.name} plan — ${plan.credits} credits`,

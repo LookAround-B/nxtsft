@@ -306,6 +306,24 @@ export const superAdminRouter = router({
       });
     }),
 
+  // Payment gateway toggle — stored in SiteSetting so it persists across deploys
+  getActiveGateway: superAdminProcedure.query(async () => {
+    const row = await prisma.siteSetting.findUnique({ where: { key: "active_payment_gateway" } });
+    const gw = (row?.value as string | null) ?? "razorpay";
+    return { gateway: gw as "razorpay" | "payu" };
+  }),
+
+  setActiveGateway: superAdminProcedure
+    .input(z.object({ gateway: z.enum(["razorpay", "payu"]) }))
+    .mutation(async ({ input, ctx }) => {
+      await prisma.siteSetting.upsert({
+        where: { key: "active_payment_gateway" },
+        create: { key: "active_payment_gateway", value: input.gateway, editorId: ctx.user.id },
+        update: { value: input.gateway, editorId: ctx.user.id },
+      });
+      return { gateway: input.gateway };
+    }),
+
   broadcastNotification: superAdminProcedure
     .use(broadcastRateLimit)
     .input(

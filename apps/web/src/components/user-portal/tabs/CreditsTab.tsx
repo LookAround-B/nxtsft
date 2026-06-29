@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 import { subscriptions, unlockedContacts, walletLedger, disputes } from "@/data/static";
 import { Head } from "./shared";
 
@@ -32,7 +33,10 @@ export function CreditsTab() {
   const creditsQ = trpc.users.credits.useQuery();
   const plansQ = trpc.subscriptions.plans.useQuery({ type: "seeker" });
   const planQ = trpc.subscriptions.myCurrent.useQuery();
+  const gatewayQ = trpc.subscriptions.activeGateway.useQuery();
+  const createOrder = trpc.subscriptions.createOrder.useMutation();
   const createPayUOrder = trpc.subscriptions.createPayUOrder.useMutation();
+  const verifyPayment = trpc.subscriptions.verifyPayment.useMutation();
   const cancelPlan = trpc.subscriptions.cancel.useMutation({
     onSuccess: () => { planQ.refetch(); toast.success("Subscription cancelled"); },
     onError: (e: { message: string }) => toast.error(e.message),
@@ -48,23 +52,53 @@ export function CreditsTab() {
   const transactions = (creditsQ.data?.transactions ?? []) as unknown as TxItem[];
 
   const handleTopUp = async (plan: { id: string; name: string; credits: number }) => {
+    const gateway = gatewayQ.data?.gateway ?? "razorpay";
     setBuyingPlanId(plan.id);
     try {
-      const fields = await createPayUOrder.mutateAsync({ planId: plan.id });
-      // Redirect to PayU checkout via hidden form POST
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = fields.action;
-      (Object.entries(fields) as [string, string][]).forEach(([k, v]) => {
-        if (k === "action") return;
-        const inp = document.createElement("input");
-        inp.type = "hidden";
-        inp.name = k;
-        inp.value = v;
-        form.appendChild(inp);
-      });
-      document.body.appendChild(form);
-      form.submit();
+      if (gateway === "razorpay") {
+        const order = await createOrder.mutateAsync({ planId: plan.id });
+        await openRazorpayCheckout({
+          keyId: order.keyId,
+          orderId: order.orderId,
+          amount: order.amount,
+          currency: order.currency,
+          prefill: order.prefill,
+          onDismiss: () => setBuyingPlanId(null),
+          onSuccess: async (resp) => {
+            try {
+              await verifyPayment.mutateAsync({
+                razorpayOrderId: resp.razorpay_order_id,
+                razorpayPaymentId: resp.razorpay_payment_id,
+                razorpaySignature: resp.razorpay_signature,
+                planId: plan.id,
+              });
+              toast.success(`${plan.credits} credit${plan.credits !== 1 ? "s" : ""} added!`);
+              refreshCredits?.();
+              creditsQ.refetch();
+            } catch (verifyErr) {
+              toast.error(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.");
+            } finally {
+              setBuyingPlanId(null);
+            }
+          },
+        });
+      } else {
+        // PayU — redirect flow
+        const fields = await createPayUOrder.mutateAsync({ planId: plan.id });
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = fields.action;
+        (Object.entries(fields) as [string, string][]).forEach(([k, v]) => {
+          if (k === "action") return;
+          const inp = document.createElement("input");
+          inp.type = "hidden";
+          inp.name = k;
+          inp.value = v;
+          form.appendChild(inp);
+        });
+        document.body.appendChild(form);
+        form.submit();
+      }
     } catch (err) {
       setBuyingPlanId(null);
       toast.error(err instanceof Error ? err.message : "Purchase failed.");
