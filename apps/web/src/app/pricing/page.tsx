@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Building2, Users, Key, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { ownerRentalPlans, ownerSellPlans } from "@/data/static";
@@ -38,6 +39,7 @@ const TAB_ICONS = [
 
 export default function PricingPage() {
   const { session, refreshCredits } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [ownerMode, setOwnerMode] = useState<"renting" | "selling">("renting");
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
@@ -73,9 +75,9 @@ export default function PricingPage() {
               razorpaySignature: resp.razorpay_signature,
               planId: plan.id,
             });
-            toast.success(`${plan.name} activated!`, {
-              description: "Your subscription is now live. Start listing your property.",
-            });
+            router.push(
+              `/payment/success?plan=${encodeURIComponent(plan.name)}&type=subscription`,
+            );
           } catch (verifyErr) {
             toast.error(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.");
           } finally {
@@ -114,10 +116,10 @@ export default function PricingPage() {
                 razorpaySignature: resp.razorpay_signature,
                 planId: plan.id,
               });
-              toast.success(`${plan.credits} credit${plan.credits !== 1 ? "s" : ""} added!`, {
-                description: "Credits are now in your wallet — start unlocking contacts.",
-              });
               refreshCredits();
+              router.push(
+                `/payment/success?credits=${plan.credits}&plan=${encodeURIComponent(plan.name)}`,
+              );
             } catch (verifyErr) {
               toast.error(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.");
             } finally {

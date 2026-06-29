@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, X, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
@@ -26,6 +27,7 @@ const creditTimeline = [
 
 export function CreditsTab() {
   const { credits, refreshCredits } = useAuth();
+  const router = useRouter();
   const [unlocks, setUnlocks] = useState(myUnlocks.map((u) => ({ ...u })));
   const [showTopUp, setShowTopUp] = useState(false);
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
@@ -72,9 +74,10 @@ export function CreditsTab() {
                 razorpaySignature: resp.razorpay_signature,
                 planId: plan.id,
               });
-              toast.success(`${plan.credits} credit${plan.credits !== 1 ? "s" : ""} added!`);
               refreshCredits?.();
-              creditsQ.refetch();
+              router.push(
+                `/payment/success?credits=${plan.credits}&plan=${encodeURIComponent(plan.name)}`,
+              );
             } catch (verifyErr) {
               toast.error(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.");
             } finally {

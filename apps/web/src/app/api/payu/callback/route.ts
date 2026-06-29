@@ -17,6 +17,12 @@ function verifyHash(
   return createHash("sha512").update(str).digest("hex") === receivedHash;
 }
 
+// Guard against direct browser GET hits (PayU always POSTs, but a browser
+// navigating to this URL directly would otherwise get a Next.js 405).
+export async function GET() {
+  return NextResponse.redirect(`${BASE_URL}/payment/failure?reason=invalid`);
+}
+
 // PayU POSTs here after every payment (success and failure both arrive here).
 export async function POST(req: NextRequest) {
   const form = await req.formData();
