@@ -61,11 +61,43 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const userId  = udf1 || payment.userId;
-  const meta    = payment.metadata as { credits?: number } | null;
-  const credits = meta?.credits ?? 0;
+  const userId = udf1 || payment.userId;
+  const meta   = payment.metadata as { credits?: number; type?: string; validityDays?: number; planName?: string; planId?: string; cycle?: string } | null;
 
   if (status === "success") {
+    if (meta?.type === "owner_subscription") {
+      // Owner subscription — create Subscription record
+      const validityDays = meta.validityDays ?? 30;
+      const now     = new Date();
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + validityDays);
+
+      await Promise.all([
+        prisma.payment.update({
+          where: { id: payment.id },
+          data: { status: "Success", payuMihpayId: mihpayid || null },
+        }),
+        prisma.subscription.create({
+          data: {
+            userId,
+            planId:   meta.planId ?? udf2,
+            planName: meta.planName ?? productinfo,
+            amount:   payment.amount,
+            status:   "Active",
+            cycle:    meta.cycle ?? "monthly",
+            startDate: now,
+            endDate,
+          },
+        }),
+      ]);
+
+      return NextResponse.redirect(
+        `${BASE_URL}/payment/success?txnid=${txnid}&plan=${encodeURIComponent(meta.planName ?? productinfo)}&type=subscription`,
+      );
+    }
+
+    // Seeker credit plan — grant credits
+    const credits = meta?.credits ?? 0;
     await Promise.all([
       prisma.payment.update({
         where: { id: payment.id },

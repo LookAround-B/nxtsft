@@ -48,6 +48,7 @@ export default function PricingPage() {
   const gatewayQ = trpc.subscriptions.activeGateway.useQuery();
   const createOrder = trpc.subscriptions.createOrder.useMutation();
   const createOwnerOrder = trpc.subscriptions.createOwnerOrder.useMutation();
+  const createOwnerPayUOrder = trpc.subscriptions.createOwnerPayUOrder.useMutation();
   const createPayUOrder = trpc.subscriptions.createPayUOrder.useMutation();
   const verifyPayment = trpc.subscriptions.verifyPayment.useMutation();
   const verifyOwnerPayment = trpc.subscriptions.verifyOwnerPayment.useMutation();
@@ -57,34 +58,53 @@ export default function PricingPage() {
       toast.error("Please sign in to purchase a plan.");
       return;
     }
+    const gateway = gatewayQ.data?.gateway ?? "razorpay";
     setBuyingPlanId(plan.id);
     try {
-      const order = await createOwnerOrder.mutateAsync({ planId: plan.id });
-      await openRazorpayCheckout({
-        keyId: order.keyId,
-        orderId: order.orderId,
-        amount: order.amount,
-        currency: order.currency,
-        prefill: order.prefill,
-        onDismiss: () => setBuyingPlanId(null),
-        onSuccess: async (resp) => {
-          try {
-            await verifyOwnerPayment.mutateAsync({
-              razorpayOrderId: resp.razorpay_order_id,
-              razorpayPaymentId: resp.razorpay_payment_id,
-              razorpaySignature: resp.razorpay_signature,
-              planId: plan.id,
-            });
-            router.push(
-              `/payment/success?plan=${encodeURIComponent(plan.name)}&type=subscription`,
-            );
-          } catch (verifyErr) {
-            toast.error(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.");
-          } finally {
-            setBuyingPlanId(null);
-          }
-        },
-      });
+      if (gateway === "razorpay") {
+        const order = await createOwnerOrder.mutateAsync({ planId: plan.id });
+        await openRazorpayCheckout({
+          keyId: order.keyId,
+          orderId: order.orderId,
+          amount: order.amount,
+          currency: order.currency,
+          prefill: order.prefill,
+          onDismiss: () => setBuyingPlanId(null),
+          onSuccess: async (resp) => {
+            try {
+              await verifyOwnerPayment.mutateAsync({
+                razorpayOrderId: resp.razorpay_order_id,
+                razorpayPaymentId: resp.razorpay_payment_id,
+                razorpaySignature: resp.razorpay_signature,
+                planId: plan.id,
+              });
+              router.push(
+                `/payment/success?plan=${encodeURIComponent(plan.name)}&type=subscription`,
+              );
+            } catch (verifyErr) {
+              toast.error(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.");
+            } finally {
+              setBuyingPlanId(null);
+            }
+          },
+        });
+      } else {
+        // PayU — redirect flow
+        const fields = await createOwnerPayUOrder.mutateAsync({ planId: plan.id });
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = fields.action;
+        (Object.entries(fields) as [string, string][]).forEach(([k, v]) => {
+          if (k === "action") return;
+          const inp = document.createElement("input");
+          inp.type = "hidden";
+          inp.name = k;
+          inp.value = v;
+          form.appendChild(inp);
+        });
+        document.body.appendChild(form);
+        form.submit();
+      }
     } catch (err) {
       setBuyingPlanId(null);
       toast.error(err instanceof Error ? err.message : "Purchase failed. Please try again.");

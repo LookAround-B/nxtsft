@@ -345,6 +345,62 @@ export const subscriptionsRouter = router({
       };
     }),
 
+  // Create a PayU order for an owner subscription plan (redirect flow)
+  createOwnerPayUOrder: protectedProcedure
+    .input(z.object({ planId: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const plan = OWNER_PLANS.find((p) => p.id === input.planId);
+      if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
+
+      if (!process.env.PAYU_MERCHANT_KEY || !process.env.PAYU_MERCHANT_SALT) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PayU not configured." });
+      }
+
+      const txnid = `nxtsft_owner_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const amount = plan.price.toFixed(2);
+      const productinfo = `NxtSft ${plan.name}`;
+      const firstname = ctx.user.name.split(" ")[0] || ctx.user.name;
+      const email = ctx.user.email;
+      const phone = ctx.user.phone ?? "9999999999";
+      const udf1 = ctx.user.id;
+      const udf2 = input.planId;
+
+      const hash = generatePayUHash({ txnid, amount, productinfo, firstname, email, udf1, udf2 });
+
+      await prisma.payment.create({
+        data: {
+          userId: ctx.user.id,
+          amount: BigInt(plan.price * 100),
+          status: "Pending",
+          method: "PayU",
+          gateway: "payu",
+          payuTxnId: txnid,
+          description: `${plan.name} subscription`,
+          // type + validityDays stored so callback can create Subscription without importing plan data
+          metadata: { planId: input.planId, type: "owner_subscription", validityDays: plan.validityDays, planName: plan.name, cycle: plan.cycle },
+        },
+      });
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://nxtsft.com";
+
+      return {
+        action: PAYU_BASE_URL,
+        key: process.env.PAYU_MERCHANT_KEY,
+        txnid,
+        amount,
+        productinfo,
+        firstname,
+        lastname: "",
+        email,
+        phone,
+        udf1,
+        udf2,
+        surl: `${baseUrl}/api/payu/callback`,
+        furl: `${baseUrl}/api/payu/callback`,
+        hash,
+      };
+    }),
+
   // Verify Razorpay payment for an owner subscription and activate it
   verifyOwnerPayment: protectedProcedure
     .input(
