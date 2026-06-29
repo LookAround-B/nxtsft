@@ -21,6 +21,19 @@ const SEEKER_PLANS = [
   { id: "premium", name: "Premium", price: 699, priceLabel: "₹699", credits: 15, validity: 90, tagline: "Best value", popular: false },
 ] as const;
 
+// Owner/landlord/builder subscription plans (not credit-based)
+const OWNER_PLANS = [
+  { id: "rent-weekly",     name: "Rent Weekly Booster",     price: 499,   validityDays: 7,  cycle: "weekly"  },
+  { id: "rent-silver",     name: "Rent Monthly Silver",     price: 999,   validityDays: 30, cycle: "monthly" },
+  { id: "rent-gold",       name: "Rent Monthly Gold",       price: 1999,  validityDays: 30, cycle: "monthly" },
+  { id: "rent-platinum",   name: "Rent Monthly Platinum",   price: 4999,  validityDays: 30, cycle: "monthly" },
+  { id: "sell-silver",     name: "Sell Monthly Silver",     price: 4999,  validityDays: 30, cycle: "monthly" },
+  { id: "sell-gold",       name: "Sell Monthly Gold",       price: 9999,  validityDays: 30, cycle: "monthly" },
+  { id: "sell-platinum",   name: "Sell Monthly Platinum",   price: 14999, validityDays: 30, cycle: "monthly" },
+  { id: "sell-builder",    name: "Sell Monthly Builder Pro",price: 24999, validityDays: 30, cycle: "monthly" },
+  { id: "sell-enterprise", name: "Sell Monthly Enterprise", price: 49999, validityDays: 30, cycle: "monthly" },
+] as const;
+
 export const subscriptionsRouter = router({
   // List available plans
   plans: publicProcedure
@@ -265,6 +278,144 @@ export const subscriptionsRouter = router({
       });
 
       return { ok: true, credits: updated.credits, planName: plan.name };
+    }),
+
+  // Create a Razorpay order for an owner/landlord subscription plan
+  createOwnerOrder: protectedProcedure
+    .input(z.object({ planId: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const plan = OWNER_PLANS.find((p) => p.id === input.planId);
+      if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
+
+      const keyId = process.env.RAZORPAY_KEY_ID;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keyId || !keySecret) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Razorpay not configured." });
+      }
+
+      const receipt = `nxtsft_owner_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+
+      const res = await fetch("https://api.razorpay.com/v1/orders", {
+        method: "POST",
+        headers: { "Authorization": `Basic ${auth}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: plan.price * 100,
+          currency: "INR",
+          receipt,
+          notes: { userId: ctx.user.id, planId: input.planId, type: "owner_subscription" },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: { description?: string } };
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: err?.error?.description ?? "Failed to create Razorpay order.",
+        });
+      }
+
+      const order = await res.json() as { id: string; amount: number; currency: string };
+
+      await prisma.payment.create({
+        data: {
+          userId: ctx.user.id,
+          amount: BigInt(plan.price * 100),
+          status: "Pending",
+          method: "Razorpay",
+          gateway: "razorpay",
+          razorpayOrderId: order.id,
+          description: `${plan.name} subscription`,
+          metadata: { planId: input.planId, type: "owner_subscription" },
+        },
+      });
+
+      return {
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        planId: input.planId,
+        planName: plan.name,
+        keyId,
+        prefill: {
+          name: ctx.user.name,
+          email: ctx.user.email,
+          contact: ctx.user.phone ?? "",
+        },
+      };
+    }),
+
+  // Verify Razorpay payment for an owner subscription and activate it
+  verifyOwnerPayment: protectedProcedure
+    .input(
+      z.object({
+        razorpayOrderId: safeString(200, 1),
+        razorpayPaymentId: safeString(200, 1),
+        razorpaySignature: safeString(200, 1),
+        planId: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const secret = process.env.RAZORPAY_KEY_SECRET;
+      if (secret) {
+        const expected = createHmac("sha256", secret)
+          .update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`)
+          .digest("hex");
+        const a = Buffer.from(expected);
+        const b = Buffer.from(input.razorpaySignature);
+        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Payment verification failed." });
+        }
+      } else if (process.env.NODE_ENV === "production") {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Payment gateway not configured." });
+      }
+
+      const existingPayment = await prisma.payment.findFirst({
+        where: { razorpayId: input.razorpayPaymentId },
+      });
+      if (existingPayment) {
+        throw new TRPCError({ code: "CONFLICT", message: "Payment already processed." });
+      }
+
+      const plan = OWNER_PLANS.find((p) => p.id === input.planId);
+      if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
+
+      const now = new Date();
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + plan.validityDays);
+
+      await Promise.all([
+        prisma.subscription.create({
+          data: {
+            userId: ctx.user.id,
+            planId: input.planId,
+            planName: plan.name,
+            amount: BigInt(plan.price * 100),
+            status: "Active",
+            cycle: plan.cycle,
+            razorpayId: input.razorpayPaymentId,
+            razorpayOrderId: input.razorpayOrderId,
+            startDate: now,
+            endDate,
+          },
+        }),
+        prisma.payment.upsert({
+          where: { razorpayOrderId: input.razorpayOrderId },
+          update: { status: "Success", razorpayId: input.razorpayPaymentId },
+          create: {
+            userId: ctx.user.id,
+            amount: BigInt(plan.price * 100),
+            status: "Success",
+            method: "Razorpay",
+            gateway: "razorpay",
+            razorpayId: input.razorpayPaymentId,
+            razorpayOrderId: input.razorpayOrderId,
+            description: `${plan.name} subscription`,
+          },
+        }),
+      ]);
+
+      return { ok: true, planName: plan.name, endDate };
     }),
 
   // Active subscription for current user

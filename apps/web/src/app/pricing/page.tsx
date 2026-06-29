@@ -45,15 +45,48 @@ export default function PricingPage() {
   const plansQuery = trpc.subscriptions.plans.useQuery({ type: "seeker" });
   const gatewayQ = trpc.subscriptions.activeGateway.useQuery();
   const createOrder = trpc.subscriptions.createOrder.useMutation();
+  const createOwnerOrder = trpc.subscriptions.createOwnerOrder.useMutation();
   const createPayUOrder = trpc.subscriptions.createPayUOrder.useMutation();
   const verifyPayment = trpc.subscriptions.verifyPayment.useMutation();
+  const verifyOwnerPayment = trpc.subscriptions.verifyOwnerPayment.useMutation();
 
-  const handleBuyOwner = (plan: OwnerPlan) => {
+  const handleBuyOwner = async (plan: OwnerPlan) => {
     if (!session) {
-      toast.error("Please sign in first");
+      toast.error("Please sign in to purchase a plan.");
       return;
     }
-    toast.info(`${plan.name} — owner plan checkout coming soon.`);
+    setBuyingPlanId(plan.id);
+    try {
+      const order = await createOwnerOrder.mutateAsync({ planId: plan.id });
+      await openRazorpayCheckout({
+        keyId: order.keyId,
+        orderId: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        prefill: order.prefill,
+        onDismiss: () => setBuyingPlanId(null),
+        onSuccess: async (resp) => {
+          try {
+            await verifyOwnerPayment.mutateAsync({
+              razorpayOrderId: resp.razorpay_order_id,
+              razorpayPaymentId: resp.razorpay_payment_id,
+              razorpaySignature: resp.razorpay_signature,
+              planId: plan.id,
+            });
+            toast.success(`${plan.name} activated!`, {
+              description: "Your subscription is now live. Start listing your property.",
+            });
+          } catch (verifyErr) {
+            toast.error(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.");
+          } finally {
+            setBuyingPlanId(null);
+          }
+        },
+      });
+    } catch (err) {
+      setBuyingPlanId(null);
+      toast.error(err instanceof Error ? err.message : "Purchase failed. Please try again.");
+    }
   };
 
   const handleBuySeeker = async (plan: SeekerPlan) => {
