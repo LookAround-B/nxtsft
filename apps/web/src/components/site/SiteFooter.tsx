@@ -103,7 +103,7 @@ export function SiteFooter() {
             </p>
             <div className="mt-4 flex items-start gap-1.5 text-sm text-white/45">
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--gold)]" />
-              Cyber City, Gurugram 122002, Haryana, India
+              Sterling Heights, Kompally, Hyderabad 500100, India
             </div>
             <div className="mt-5 flex items-center gap-2.5">
               {SOCIALS.map(({ Icon, href, label }) => (

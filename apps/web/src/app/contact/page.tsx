@@ -7,12 +7,12 @@ import { trpc } from "@/lib/trpc";
 const CONTACTS = [
   {
     label: "Headquarters",
-    value: "Cyber City Tower 4, Gurugram 122002, Haryana",
+    value: "Sterling Heights, Kompally, Hyderabad 500100",
     icon: <MapPin size={18} />,
   },
   {
     label: "Sales",
-    value: "+91 1800-NXTSFT-1 · sales@nxtsft.com",
+    value: "sales@nxtsft.com",
     icon: <Phone size={18} />,
   },
   {
