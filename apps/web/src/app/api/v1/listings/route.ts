@@ -5,10 +5,13 @@ import { getAuthUser, serializeBigInt } from "../helper";
 
 export const dynamic = "force-dynamic";
 
+const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+
 export async function GET(req: NextRequest) {
   try {
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!STAFF_ROLES.includes(user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const listings = await prisma.listing.findMany({
       include: {

@@ -507,21 +507,25 @@ export const propertiesRouter = router({
     .use(contactRateLimit)
     .input(z.object({ id: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
-      if (ctx.user.credits < 1) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "Insufficient credits. Purchase a plan to unlock contacts.",
-        });
-      }
-
       const property = await prisma.property.findFirst({
         where: { id: input.id, deletedAt: null },
         include: { owner: { select: { id: true, name: true, phone: true } } },
       });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
 
+      // Atomic deduct: WHERE credits >= 1 prevents double-spend from concurrent requests
+      const deducted = await prisma.user.updateMany({
+        where: { id: ctx.user.id, credits: { gte: 1 } },
+        data: { credits: { decrement: 1 } },
+      });
+      if (deducted.count === 0) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Insufficient credits. Purchase a plan to unlock contacts.",
+        });
+      }
+
       await Promise.all([
-        prisma.user.update({ where: { id: ctx.user.id }, data: { credits: { decrement: 1 } } }),
         prisma.creditTransaction.create({
           data: { userId: ctx.user.id, type: "debit", amount: 1, reason: "contact_unlock", propertyId: input.id },
         }),

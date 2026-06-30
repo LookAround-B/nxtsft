@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     }
 
     const { city, type, purpose, bedrooms, minPrice, maxPrice, search } = queryParams.data;
-    const whereClause: any = { deletedAt: null };
+    const whereClause: any = { deletedAt: null, status: "Active" };
 
     if (city) {
       whereClause.location = {
@@ -64,8 +64,6 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true,
-            phone: true,
             avatar: true,
           },
         },
