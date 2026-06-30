@@ -78,13 +78,15 @@ export const buildersRouter = router({
       prisma.builder.groupBy({
         by: ["state"],
         _count: { _all: true },
-        orderBy: { _count: { state: "desc" } },
-        take: 6,
       }),
     ]);
+    // Sort by count descending in application code — avoids Prisma groupBy orderBy quirks
+    const sorted = byState
+      .sort((a, b) => b._count._all - a._count._all)
+      .slice(0, 6);
     return {
       total,
-      byState: byState.map((s) => ({ state: s.state ?? "—", count: s._count._all })),
+      byState: sorted.map((s) => ({ state: s.state ?? "—", count: s._count._all })),
     };
   }),
 
