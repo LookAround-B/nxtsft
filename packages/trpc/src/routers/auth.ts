@@ -60,6 +60,17 @@ async function logSignIn(userId: string) {
   }
 }
 
+// Best-effort failed-login trail — userId is null when email doesn't exist.
+async function logFailedLogin(email: string, userId?: string) {
+  try {
+    await prisma.auditLog.create({
+      data: { userId: userId ?? null, action: "auth.login_failed", entity: "User", entityId: email },
+    });
+  } catch {
+    // audit is best-effort; never block login
+  }
+}
+
 function sessionExpiry() {
   const d = new Date();
   d.setDate(d.getDate() + SESSION_TTL_DAYS);
@@ -210,12 +221,15 @@ export const authRouter = router({
     .mutation(async ({ input }) => {
       const user = await prisma.user.findUnique({ where: { email: input.email } });
       if (!user || !user.passwordHash) {
+        void logFailedLogin(input.email);
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
       }
 
       const valid = await bcrypt.compare(input.password, user.passwordHash);
-      if (!valid)
+      if (!valid) {
+        void logFailedLogin(input.email, user.id);
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
+      }
 
       if (user.role === "home-seller" && !user.verified) {
         throw new TRPCError({
@@ -249,17 +263,21 @@ export const authRouter = router({
     .mutation(async ({ input }) => {
       const user = await prisma.user.findUnique({ where: { email: input.email } });
       if (!user || !user.passwordHash) {
+        void logFailedLogin(input.email);
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
       }
 
       const staffRoles = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
       if (!staffRoles.includes(user.role)) {
+        void logFailedLogin(input.email, user.id);
         throw new TRPCError({ code: "FORBIDDEN", message: "Use the consumer login page." });
       }
 
       const valid = await bcrypt.compare(input.password, user.passwordHash);
-      if (!valid)
+      if (!valid) {
+        void logFailedLogin(input.email, user.id);
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
+      }
 
       const token = generateToken();
       await prisma.session.create({

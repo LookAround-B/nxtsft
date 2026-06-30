@@ -114,7 +114,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://accounts.google.com https://checkout.razorpay.com",
+              "script-src 'self' 'unsafe-inline' blob: https://accounts.google.com https://checkout.razorpay.com",
               // Mapbox GL renders tiles in a blob web worker.
               "worker-src 'self' blob:",
               "child-src 'self' blob:",
