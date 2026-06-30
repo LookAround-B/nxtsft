@@ -1,6 +1,8 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { ZodError } from "zod";
 import prisma from "@nxtsft/db";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"] as const;
 const ADMIN_ROLES = ["admin", "super-admin"] as const;
@@ -107,9 +109,6 @@ export const supervisorProcedure = protectedProcedure.use(({ ctx, next }) => {
 });
 
 // ─── Rate Limiting (Upstash Redis — distributed, works on Vercel serverless) ──
-
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 
 // Fall back to an in-process stub when Upstash env vars are absent (local dev
 // without Redis credentials). The stub is intentionally permissive so local
