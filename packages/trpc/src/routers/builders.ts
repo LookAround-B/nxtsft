@@ -80,12 +80,14 @@ export const buildersRouter = router({
         by: ["state"],
         _count: { _all: true },
       });
+      // All states with a real name, sorted by count desc. Null/blank states are
+      // dropped so we don't surface an "—" KPI card.
       const sorted = byState
-        .sort((a, b) => b._count._all - a._count._all)
-        .slice(0, 6);
+        .filter((s) => s.state && s.state.trim())
+        .sort((a, b) => b._count._all - a._count._all);
       return {
         total,
-        byState: sorted.map((s) => ({ state: s.state ?? "—", count: s._count._all })),
+        byState: sorted.map((s) => ({ state: s.state as string, count: s._count._all })),
       };
     } catch (err) {
       console.error("[builders.stats] groupBy failed:", err);
