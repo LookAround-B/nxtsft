@@ -240,7 +240,7 @@ const SECTIONS = [
     body: ["If you have questions about our use of cookies or this Policy, please contact:"],
     contact: {
       name: "Data Privacy Team — NxtSFT PropTech innovations",
-      address: "Cyber City, Gurugram 122002, Haryana, India",
+      address: "Awfis, Kirloskar Business Park, Hebbal, Bengaluru, Karnataka 560024, India",
       email: "hello@nxtsft.com",
       responseTime: "We aim to acknowledge all privacy-related enquiries within 48 hours.",
     },

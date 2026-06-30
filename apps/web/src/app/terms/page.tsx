@@ -155,8 +155,8 @@ const SECTIONS = [
     title: "13. Governing Law and Dispute Resolution",
     body: [
       "These Terms shall be governed by and construed in accordance with the laws of India, without regard to conflict of law principles.",
-      "Any dispute arising out of or relating to these Terms or your use of the Platform shall first be attempted to be resolved through good-faith negotiation. If unresolved within 30 days, the dispute shall be submitted to binding arbitration in accordance with the Arbitration and Conciliation Act, 1996. The seat of arbitration shall be Gurugram, Haryana, India. The language of arbitration shall be English.",
-      "Notwithstanding the foregoing, either party may seek injunctive or other equitable relief from a court of competent jurisdiction in Gurugram, Haryana, India.",
+      "Any dispute arising out of or relating to these Terms or your use of the Platform shall first be attempted to be resolved through good-faith negotiation. If unresolved within 30 days, the dispute shall be submitted to binding arbitration in accordance with the Arbitration and Conciliation Act, 1996. The seat of arbitration shall be Bengaluru, Karnataka, India. The language of arbitration shall be English.",
+      "Notwithstanding the foregoing, either party may seek injunctive or other equitable relief from a court of competent jurisdiction in Bengaluru, Karnataka, India.",
     ],
   },
   {
