@@ -1,13 +1,13 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, adminProcedure } from "../server.js";
+import { router, publicProcedure, adminProcedure } from "../server";
 import {
   safeString,
   searchSchema,
   geoTextSchema,
   cursorSchema,
   limitSchema,
-} from "../sanitize.js";
+} from "../sanitize";
 
 function makeSlug(text: string): string {
   return text
@@ -212,6 +212,53 @@ export const buildersRouter = router({
         amenities:   p.amenities,
         reraNo:      p.reraNo ?? "",
       }));
+    }),
+
+  // Generates slugs for all builders that don't have one yet (bulk-imported records).
+  // Processes up to `limit` per call so the caller can loop without HTTP timeouts.
+  backfillSlugs: adminProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(10000).default(5000) }).optional())
+    .mutation(async ({ input }) => {
+      const limit = input?.limit ?? 5000;
+
+      const remaining = await prisma.builder.count({ where: { slug: null } });
+      if (remaining === 0) return { updated: 0, remaining: 0 };
+
+      // Fetch all existing slugs so we can avoid collisions.
+      const existingSlugs = new Set(
+        (await prisma.builder.findMany({ where: { slug: { not: null } }, select: { slug: true } }))
+          .map((b) => b.slug!),
+      );
+
+      const builders = await prisma.builder.findMany({
+        where: { slug: null },
+        select: { id: true, companyName: true, city: true },
+        take: limit,
+        orderBy: { id: "asc" },
+      });
+
+      if (!builders.length) return { updated: 0, remaining: 0 };
+
+      const updates: { id: string; slug: string }[] = [];
+      for (const b of builders) {
+        const base = makeSlug(b.companyName + (b.city ? `-${b.city}` : ""));
+        let slug = base;
+        let n = 2;
+        while (existingSlugs.has(slug)) slug = `${base}-${n++}`;
+        existingSlugs.add(slug);
+        updates.push({ id: b.id, slug });
+      }
+
+      const CHUNK = 500;
+      for (let i = 0; i < updates.length; i += CHUNK) {
+        await prisma.$transaction(
+          updates.slice(i, i + CHUNK).map(({ id, slug }) =>
+            prisma.builder.update({ where: { id }, data: { slug } }),
+          ),
+        );
+      }
+
+      return { updated: builders.length, remaining: remaining - builders.length };
     }),
 
   // ── XML import ─────────────────────────────────────────────────────────────

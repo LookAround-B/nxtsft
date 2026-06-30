@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Download, Upload, Loader2, FileSpreadsheet, Search, Check, X as XIcon, FileCode2 } from "lucide-react";
+import { Download, Upload, Loader2, FileSpreadsheet, Search, Check, X as XIcon, FileCode2, RefreshCw } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { LoadMore } from "@/components/ui/load-more";
 import { trpc } from "@/lib/trpc";
@@ -150,14 +150,20 @@ export function DevTab() {
   const [xmlFile,    setXmlFile]    = useState("");
   const [xmlParsing, setXmlParsing] = useState(false);
 
+  // Backfill state
+  const [backfillTotal,   setBackfillTotal]   = useState(0);
+  const [backfillDone,    setBackfillDone]    = useState(0);
+  const [backfillRunning, setBackfillRunning] = useState(false);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const listQ = (trpc.builders.list as any).useInfiniteQuery(
     { search: search || undefined, limit: 20 },
     { initialCursor: undefined as string | undefined, getNextPageParam: (l: { nextCursor: string | null }) => l.nextCursor ?? undefined },
   );
-  const statsQ    = trpc.builders.stats.useQuery();
-  const importMut = trpc.builders.bulkImport.useMutation();
-  const xmlMut    = trpc.builders.xmlImport.useMutation();
+  const statsQ      = trpc.builders.stats.useQuery();
+  const importMut   = trpc.builders.bulkImport.useMutation();
+  const xmlMut      = trpc.builders.xmlImport.useMutation();
+  const backfillMut = trpc.builders.backfillSlugs.useMutation();
 
   const builders = (listQ.data?.pages.flatMap((p: { items: BuilderRow[] }) => p.items) ?? []) as Array<BuilderRow & { id: string }>;
   const total = (listQ.data?.pages[0] as { total?: number } | undefined)?.total ?? 0;
@@ -195,6 +201,36 @@ export function DevTab() {
     }
   };
 
+  const runBackfill = (totalToProcess?: number) => {
+    setBackfillRunning(true);
+    if (totalToProcess !== undefined) {
+      setBackfillTotal(totalToProcess);
+      setBackfillDone(0);
+    }
+
+    const step = (done: number) => {
+      backfillMut.mutate(undefined, {
+        onSuccess: (res: { updated: number; remaining: number }) => {
+          const newDone = done + res.updated;
+          setBackfillDone(newDone);
+          if (res.remaining > 0) {
+            step(newDone);
+          } else {
+            setBackfillRunning(false);
+            toast.success(`Backfill complete — ${newDone.toLocaleString("en-IN")} builders now visible on public directory.`);
+            void statsQ.refetch();
+            void listQ.refetch();
+          }
+        },
+        onError: (err: { message: string }) => {
+          setBackfillRunning(false);
+          toast.error(`Backfill error: ${err.message}`);
+        },
+      });
+    };
+    step(totalToProcess !== undefined ? 0 : backfillDone);
+  };
+
   const doImport = () => {
     if (!parsed) return;
     importMut.mutate(
@@ -205,6 +241,7 @@ export function DevTab() {
           setParsed(null); setFileName("");
           void listQ.refetch();
           void statsQ.refetch();
+          if (res.inserted > 0) runBackfill(res.inserted);
         },
         onError: (err: { message: string }) => toast.error(err.message),
       },
@@ -413,6 +450,36 @@ export function DevTab() {
                 {xmlParsed.length > 6 && <p className="mt-2 text-[11px] text-muted-foreground">…and {xmlParsed.length - 6} more builders</p>}
               </div>
             </div>
+          )}
+        </div>
+      </Section>
+
+      {/* ── Public directory backfill ── */}
+      <Section title="Public directory visibility">
+        <p className="mb-3 text-xs text-muted-foreground">
+          Builders imported via CSV/Excel have no public URL slug and are invisible on{" "}
+          <strong>/builders</strong>. Run backfill to generate slugs for all of them.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => runBackfill()}
+            disabled={backfillRunning}
+            className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition hover:opacity-90 disabled:opacity-60"
+          >
+            {backfillRunning
+              ? <Loader2 size={14} className="animate-spin" />
+              : <RefreshCw size={14} />}
+            {backfillRunning ? "Backfilling…" : "Backfill slugs now"}
+          </button>
+          {backfillRunning && backfillTotal > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {backfillDone.toLocaleString("en-IN")} / {backfillTotal.toLocaleString("en-IN")} done
+            </span>
+          )}
+          {!backfillRunning && backfillDone > 0 && (
+            <span className="text-xs text-emerald-600 font-semibold">
+              ✓ {backfillDone.toLocaleString("en-IN")} slugs generated
+            </span>
           )}
         </div>
       </Section>

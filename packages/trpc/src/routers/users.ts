@@ -9,10 +9,10 @@ import {
   cuidSchema,
   safeString,
   passwordSchema,
-} from "../sanitize.js";
+} from "../sanitize";
 import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure, adminProcedure, publicProcedure } from "../server.js";
+import { router, protectedProcedure, adminProcedure, publicProcedure } from "../server";
 
 const NOTIFICATION_PREF_KEYS = ["email", "whatsapp", "sms", "marketing"] as const;
 type NotificationPrefs = Record<(typeof NOTIFICATION_PREF_KEYS)[number], boolean>;

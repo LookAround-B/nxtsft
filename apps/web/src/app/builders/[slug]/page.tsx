@@ -6,9 +6,6 @@ import {
   ArrowLeft, IndianRupee, Maximize2, Home,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
-
 const STATUS_COLOR: Record<string, string> = {
   Ongoing:   "bg-blue-50 text-blue-700",
   Completed: "bg-emerald-50 text-emerald-700",
@@ -30,11 +27,9 @@ export default function BuilderProfilePage({ params }: { params: Promise<{ slug:
   if (isLoading) {
     return (
       <>
-        <SiteHeader />
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
         </div>
-        <SiteFooter />
       </>
     );
   }
@@ -42,13 +37,11 @@ export default function BuilderProfilePage({ params }: { params: Promise<{ slug:
   if (!builder) {
     return (
       <>
-        <SiteHeader />
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
           <Building2 size={48} className="text-muted-foreground/30" />
           <p className="font-semibold text-navy">Builder not found</p>
           <Link href="/builders" className="text-sm text-accent hover:underline">← Back to directory</Link>
         </div>
-        <SiteFooter />
       </>
     );
   }
@@ -59,7 +52,6 @@ export default function BuilderProfilePage({ params }: { params: Promise<{ slug:
 
   return (
     <>
-      <SiteHeader />
       <main className="min-h-screen bg-background">
         {/* Header */}
         <div className="border-b border-border bg-white">
@@ -146,7 +138,6 @@ export default function BuilderProfilePage({ params }: { params: Promise<{ slug:
           )}
         </div>
       </main>
-      <SiteFooter />
     </>
   );
 }

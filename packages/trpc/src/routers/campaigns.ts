@@ -1,7 +1,7 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, adminProcedure } from "../server.js";
-import { safeString, cuidSchema } from "../sanitize.js";
+import { router, adminProcedure } from "../server";
+import { safeString, cuidSchema } from "../sanitize";
 
 export const campaignsRouter = router({
   list: adminProcedure.query(async () => {

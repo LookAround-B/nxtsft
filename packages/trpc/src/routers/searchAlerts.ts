@@ -1,13 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure } from "../server.js";
+import { router, protectedProcedure } from "../server";
 import {
   safeString,
   cuidSchema,
   searchAlertFiltersSchema,
   alertFrequencySchema,
-} from "../sanitize.js";
+} from "../sanitize";
 
 export const searchAlertsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {

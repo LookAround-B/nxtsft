@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server.js";
+import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server";
 import {
   cuidSchema,
   safeString,
@@ -11,8 +11,8 @@ import {
   planTypeSchema,
   cursorSchema,
   limitSchema,
-} from "../sanitize.js";
-import { generatePayUHash, PAYU_BASE_URL } from "../payu.js";
+} from "../sanitize";
+import { generatePayUHash, PAYU_BASE_URL } from "../payu";
 
 // Seeker plans seeded in DB via migrations/seed. These are the canonical values.
 const SEEKER_PLANS = [

@@ -21,9 +21,9 @@ import {
   safeUrlArraySchema,
   nearbyPlacesSchema,
   propertyStatusSchema,
-} from "../sanitize.js";
+} from "../sanitize";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server.js";
+import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server";
 
 // Serialize BigInt price fields to number for JSON transport
 function serializeProperty<T extends object>(obj: T): T {

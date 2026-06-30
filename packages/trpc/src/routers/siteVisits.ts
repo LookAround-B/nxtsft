@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure, staffProcedure } from "../server.js";
+import { router, protectedProcedure, staffProcedure } from "../server";
 import {
   cuidSchema,
   cursorSchema,
@@ -9,7 +9,7 @@ import {
   datetimeSchema,
   noteSchema,
   siteVisitStatusSchema,
-} from "../sanitize.js";
+} from "../sanitize";
 
 export const siteVisitsRouter = router({
   list: protectedProcedure

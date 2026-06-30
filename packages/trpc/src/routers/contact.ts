@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, staffProcedure, contactRateLimit } from "../server.js";
+import { router, publicProcedure, staffProcedure, contactRateLimit } from "../server";
 import {
   nameSchema,
   emailSchema,
@@ -10,7 +10,7 @@ import {
   enquiryStatusSchema,
   cursorSchema,
   limitSchema,
-} from "../sanitize.js";
+} from "../sanitize";
 
 // Public contact form accepts looser phone input than the strict Indian-mobile
 // schema (people paste "+91 98765 43210", country codes, etc.). Keep it simple:

@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, supervisorProcedure } from "../server.js";
-import { cuidSchema, noteSchema } from "../sanitize.js";
+import { router, supervisorProcedure } from "../server";
+import { cuidSchema, noteSchema } from "../sanitize";
 
 const escalationLevelSchema = z.enum(["Low", "Medium", "High"]);
 

@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
-import { router, adminProcedure, superAdminProcedure } from "../server.js";
+import { router, adminProcedure, superAdminProcedure } from "../server";
 import {
   cuidSchema,
   nameSchema,
@@ -18,7 +18,7 @@ import {
   cursorSchema,
   limitSchema,
   ratingSchema,
-} from "../sanitize.js";
+} from "../sanitize";
 
 const safeUserSelect = {
   id: true,

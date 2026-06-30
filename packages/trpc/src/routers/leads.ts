@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure, staffProcedure, adminProcedure, generalRateLimit } from "../server.js";
+import { router, protectedProcedure, staffProcedure, adminProcedure, generalRateLimit } from "../server";
 import {
   cuidSchema,
   nameSchema,
@@ -15,7 +15,7 @@ import {
   cursorSchema,
   limitSchema,
   datetimeSchema,
-} from "../sanitize.js";
+} from "../sanitize";
 
 export const leadsRouter = router({
   // Buyer submits an inquiry from a property detail page

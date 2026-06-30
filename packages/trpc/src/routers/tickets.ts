@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure, staffProcedure } from "../server.js";
+import { router, protectedProcedure, staffProcedure } from "../server";
 import {
   safeString,
   cuidSchema,
@@ -11,7 +11,7 @@ import {
   ticketCategorySchema,
   ticketPrioritySchema,
   ticketStatusSchema,
-} from "../sanitize.js";
+} from "../sanitize";
 
 // TAT (turnaround) thresholds in hours, keyed by ticket priority.
 export const TAT_HOURS: Record<string, number> = {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, adminProcedure } from "../server.js";
+import { router, publicProcedure, adminProcedure } from "../server";
 
 // Admin-editable site content stored as key/value JSON in SiteSetting.
 // `get` is public (the home page reads it); `set` is admin-only.

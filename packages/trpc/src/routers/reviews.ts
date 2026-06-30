@@ -1,14 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure } from "../server.js";
+import { router, publicProcedure, protectedProcedure } from "../server";
 import {
   safeString,
   cuidSchema,
   cursorSchema,
   limitSchema,
   ratingSchema,
-} from "../sanitize.js";
+} from "../sanitize";
 
 export const reviewsRouter = router({
   // Public: only Approved reviews are visible on the property page

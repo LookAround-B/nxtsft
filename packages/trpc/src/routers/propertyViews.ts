@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure, staffProcedure } from "../server.js";
-import { cuidSchema } from "../sanitize.js";
+import { router, publicProcedure, protectedProcedure, staffProcedure } from "../server";
+import { cuidSchema } from "../sanitize";
 
 const viewWithProperty = {
   property: {

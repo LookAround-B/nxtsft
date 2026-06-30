@@ -1,7 +1,7 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, staffProcedure } from "../server.js";
-import { deriveTicketRow } from "./tickets.js";
+import { router, staffProcedure } from "../server";
+import { deriveTicketRow } from "./tickets";
 
 type ReportCategory = "Buyer" | "Seller" | "Agent" | "Owner" | "Tenant";
 

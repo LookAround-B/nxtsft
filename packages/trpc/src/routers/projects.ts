@@ -1,7 +1,7 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, adminProcedure } from "../server.js";
-import { safeString, searchSchema, geoTextSchema, cursorSchema, limitSchema } from "../sanitize.js";
+import { router, publicProcedure, adminProcedure } from "../server";
+import { safeString, searchSchema, geoTextSchema, cursorSchema, limitSchema } from "../sanitize";
 
 const PROJECT_TYPES = ["Apartment", "HighRise", "Villa", "Commercial", "Plot", "Studio", "PG", "Others"] as const;
 const PROJECT_STATUSES = ["Ongoing", "Completed", "Upcoming"] as const;

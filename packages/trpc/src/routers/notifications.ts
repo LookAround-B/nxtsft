@@ -1,7 +1,7 @@
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure } from "../server.js";
-import { cuidSchema, cursorSchema } from "../sanitize.js";
+import { router, protectedProcedure } from "../server";
+import { cuidSchema, cursorSchema } from "../sanitize";
 
 export const notificationsRouter = router({
   list: protectedProcedure

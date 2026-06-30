@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, protectedProcedure, staffProcedure } from "../server.js";
-import { cuidSchema, cursorSchema, limitSchema, safeString } from "../sanitize.js";
+import { router, publicProcedure, protectedProcedure, staffProcedure } from "../server";
+import { cuidSchema, cursorSchema, limitSchema, safeString } from "../sanitize";
 
 export const listingsRouter = router({
   // Get all listings for a property

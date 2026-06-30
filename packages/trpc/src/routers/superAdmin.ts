@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, superAdminProcedure, broadcastRateLimit } from "../server.js";
+import { router, superAdminProcedure, broadcastRateLimit } from "../server";
 import {
   safeString,
   cuidSchema,
@@ -11,7 +11,7 @@ import {
   ipSchema,
   roleSchema,
   passwordComplexitySchema,
-} from "../sanitize.js";
+} from "../sanitize";
 
 // Access level for a (role, feature) cell, ascending privilege.
 const accessLevelSchema = z.enum(["none", "read", "write", "admin"]);

@@ -7,7 +7,7 @@ import {
   passwordSchema,
   geoTextSchema,
   safeString,
-} from "../sanitize.js";
+} from "../sanitize";
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
@@ -18,7 +18,7 @@ import {
   protectedProcedure,
   authRateLimit,
   registerRateLimit,
-} from "../server.js";
+} from "../server";
 
 const SESSION_TTL_DAYS = 30;
 const CONSUMER_ROLES = ["user", "home-seller"] as const;

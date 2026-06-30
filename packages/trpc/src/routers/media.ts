@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { router, protectedProcedure, publicProcedure } from "../server.js";
-import { uploadToR2, isR2Configured } from "../r2.js";
+import { router, protectedProcedure, publicProcedure } from "../server";
+import { uploadToR2, isR2Configured } from "../r2";
 
 const EXTENSION: Record<string, string> = {
   "image/jpeg": "jpg",
