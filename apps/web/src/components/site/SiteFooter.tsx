@@ -23,7 +23,6 @@ const FOOTER_LINKS = {
     { href: "/login", label: "Sign In" },
     { href: "/register", label: "Create Account" },
     { href: "/refer", label: "Refer & Earn" },
-    { href: "/admin-login", label: "Staff Portal", external: true },
   ],
   cities: [
     { href: "/properties?city=Mumbai", label: "Mumbai" },
@@ -170,12 +169,6 @@ export function SiteFooter() {
             </Link>
             <Link href="/fraud-advisory" className="text-xs text-white/35 transition hover:text-white/70">
               Fraud Advisory
-            </Link>
-            <Link
-              href="/admin-login"
-              className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold tracking-wide text-white/40 transition hover:bg-white/10 hover:text-white/70"
-            >
-              Staff Login
             </Link>
           </div>
         </div>
