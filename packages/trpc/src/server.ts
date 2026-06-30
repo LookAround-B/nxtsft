@@ -106,50 +106,50 @@ export const supervisorProcedure = protectedProcedure.use(({ ctx, next }) => {
   return next();
 });
 
-// ─── Rate Limiting ─────────────────────────────────────────────────────────
+// ─── Rate Limiting (Upstash Redis — distributed, works on Vercel serverless) ──
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+// Fall back to an in-process stub when Upstash env vars are absent (local dev
+// without Redis credentials). The stub is intentionally permissive so local
+// development is never blocked.
+function makeRatelimit(points: number, windowSeconds: number): Ratelimit | null {
+  const url   = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  return new Ratelimit({
+    redis: new Redis({ url, token }),
+    limiter: Ratelimit.slidingWindow(points, `${windowSeconds} s`),
+    prefix: "nxtsft:rl",
+  });
 }
 
-const rateLimitStore = new Map<string, RateLimitEntry>();
-
-// Clean up stale entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of rateLimitStore) {
-    if (entry.resetAt <= now) rateLimitStore.delete(key);
-  }
-}, 5 * 60 * 1000).unref?.();
-
 function createRateLimiter(points: number, windowMs: number) {
-  return middleware(({ ctx, next, path }) => {
+  const windowSeconds = Math.ceil(windowMs / 1000);
+  const limiter = makeRatelimit(points, windowSeconds);
+
+  return middleware(async ({ ctx, next, path }) => {
+    if (!limiter) return next(); // local dev without Redis — skip
+
     const key = `${path}:${ctx.user?.id ?? ctx.ip ?? "anon"}`;
-    const now = Date.now();
-    const entry = rateLimitStore.get(key);
-
-    if (entry && entry.resetAt > now) {
-      if (entry.count >= points) {
-        throw new TRPCError({
-          code: "TOO_MANY_REQUESTS",
-          message: `Rate limit exceeded. Try again in ${Math.ceil((entry.resetAt - now) / 1000)} seconds.`,
-        });
-      }
-      entry.count++;
-    } else {
-      rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+    const { success, reset } = await limiter.limit(key);
+    if (!success) {
+      const retryIn = Math.ceil((reset - Date.now()) / 1000);
+      throw new TRPCError({
+        code: "TOO_MANY_REQUESTS",
+        message: `Rate limit exceeded. Try again in ${retryIn} seconds.`,
+      });
     }
-
     return next();
   });
 }
 
 // Pre-built rate limiters
-const authRateLimit = createRateLimiter(10, 15 * 60 * 1000);     // 10 per 15 min
-const registerRateLimit = createRateLimiter(5, 60 * 60 * 1000);  // 5 per hour
-const contactRateLimit = createRateLimiter(5, 60 * 60 * 1000);   // 5 per hour
-const generalRateLimit = createRateLimiter(100, 60 * 60 * 1000); // 100 per hour
-const broadcastRateLimit = createRateLimiter(5, 60 * 60 * 1000); // 5 per hour
+const authRateLimit      = createRateLimiter(10,  15 * 60 * 1000); // 10 per 15 min
+const registerRateLimit  = createRateLimiter(5,   60 * 60 * 1000); // 5 per hour
+const contactRateLimit   = createRateLimiter(5,   60 * 60 * 1000); // 5 per hour
+const generalRateLimit   = createRateLimiter(100, 60 * 60 * 1000); // 100 per hour
+const broadcastRateLimit = createRateLimiter(5,   60 * 60 * 1000); // 5 per hour
 
 export { createRateLimiter, authRateLimit, registerRateLimit, contactRateLimit, generalRateLimit, broadcastRateLimit };
