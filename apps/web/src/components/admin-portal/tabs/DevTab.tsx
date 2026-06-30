@@ -282,7 +282,7 @@ export function DevTab() {
 
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard value={(statsQ.data?.total ?? 0).toLocaleString("en-IN")} label="Total builders" />
-        {(statsQ.data?.byState ?? []).slice(0, 3).map((s) => (
+        {(statsQ.data?.byState ?? []).map((s) => (
           <StatCard key={s.state} value={s.count.toLocaleString("en-IN")} label={s.state} sub="builders" />
         ))}
       </div>

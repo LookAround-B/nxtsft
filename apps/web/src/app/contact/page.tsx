@@ -7,7 +7,7 @@ import { trpc } from "@/lib/trpc";
 const CONTACTS = [
   {
     label: "Headquarters",
-    value: "Sterling Heights, Kompally, Hyderabad 500100",
+    value: "Awfis, Kirloskar Business Park, Hebbal, Bengaluru, Karnataka 560024",
     icon: <MapPin size={18} />,
   },
   {

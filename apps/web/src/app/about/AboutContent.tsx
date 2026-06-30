@@ -409,27 +409,24 @@ export function AboutContent() {
               <span className="text-accent">transparent and broker-free</span>.
             </h2>
 
-            <div className="mt-8 grid gap-8 md:grid-cols-2 md:items-center">
-              <div className="space-y-5 text-foreground/75 leading-relaxed">
-                <p>
-                  NxtSft.com was built because our founders — like millions of Indians — experienced
-                  first-hand the frustration of paying 1–2 months' rent as brokerage just to access
-                  information that should have been free. Brokers existed not because they added
-                  value, but because they held information hostage.
-                </p>
-                <p>
-                  We set out to fix this. By building a platform where property data, owner contacts,
-                  RERA registrations, price histories, and locality analytics are freely accessible
-                  to every buyer and renter — we have removed the broker's only advantage: information
-                  asymmetry.
-                </p>
-                <p>
-                  Today, NxtSft.com serves buyers, renters, sellers, developers and agents across
-                  30+ cities with RERA-verified listings, AI-powered matching, and a commitment that
-                  is simple: <strong className="text-navy">no buyer ever pays brokerage on our platform</strong>.
-                </p>
-              </div>
-              <PhotoBox className="aspect-[4/3]" />
+            <div className="mt-8 max-w-3xl space-y-5 text-foreground/75 leading-relaxed">
+              <p>
+                NxtSft.com was built because our founders — like millions of Indians — experienced
+                first-hand the frustration of paying 1–2 months' rent as brokerage just to access
+                information that should have been free. Brokers existed not because they added
+                value, but because they held information hostage.
+              </p>
+              <p>
+                We set out to fix this. By building a platform where property data, owner contacts,
+                RERA registrations, price histories, and locality analytics are freely accessible
+                to every buyer and renter — we have removed the broker's only advantage: information
+                asymmetry.
+              </p>
+              <p>
+                Today, NxtSft.com serves buyers, renters, sellers, developers and agents across
+                30+ cities with RERA-verified listings, AI-powered matching, and a commitment that
+                is simple: <strong className="text-navy">no buyer ever pays brokerage on our platform</strong>.
+              </p>
             </div>
 
             {/* Values */}
