@@ -57,15 +57,16 @@ export const buildersRouter = router({
         ];
       }
 
-      const [items, total] = await Promise.all([
-        prisma.builder.findMany({
-          where,
-          orderBy: { companyName: "asc" },
-          take: limit + 1,
-          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        }),
-        prisma.builder.count({ where }),
-      ]);
+      // Pool is max:1 (serverless) — run sequentially, not Promise.all, or the
+      // second query waits on the connection and hits the connect timeout.
+      // total never changes mid-scroll, so only count on the first page.
+      const items = await prisma.builder.findMany({
+        where,
+        orderBy: [{ companyName: "asc" }, { id: "asc" }],
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      const total = cursor ? null : await prisma.builder.count({ where });
 
       const hasMore = items.length > limit;
       const page = hasMore ? items.slice(0, limit) : items;
@@ -139,16 +140,14 @@ export const buildersRouter = router({
           { projects: { some: { name: { contains: search, mode: "insensitive" } } } },
         ];
       }
-      const [items, total] = await Promise.all([
-        prisma.builder.findMany({
-          where,
-          include: { _count: { select: { projects: true } } },
-          orderBy: [{ verified: "desc" }, { companyName: "asc" }],
-          take: limit + 1,
-          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        }),
-        prisma.builder.count({ where }),
-      ]);
+      const items = await prisma.builder.findMany({
+        where,
+        include: { _count: { select: { projects: true } } },
+        orderBy: [{ verified: "desc" }, { companyName: "asc" }, { id: "asc" }],
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      const total = cursor ? null : await prisma.builder.count({ where });
       const hasMore = items.length > limit;
       const page   = hasMore ? items.slice(0, limit) : items;
       return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore, total };

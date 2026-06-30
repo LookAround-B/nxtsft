@@ -379,6 +379,7 @@ model Builder {
   updatedAt   DateTime  @default(now()) @updatedAt
 
   @@unique([companyName, mobile, city])
+  @@index([companyName])
   @@index([state])
   @@index([city])
   @@index([projectType])

@@ -136,9 +136,7 @@ const nextConfig: NextConfig = {
   // `.ts`/`.tsx` source natively, so no extensionAlias is needed here — this
   // block just acknowledges Turbopack so Next doesn't warn about the webpack
   // config below going unused in dev.
-  turbopack: {
-    resolveExtensions: [".tsx", ".ts", ".jsx", ".js", ".mjs", ".json"],
-  },
+  turbopack: {},
   // Used by `next build` (production still bundles with webpack). Maps `.js`
   // import specifiers (NodeNext-style, used by @nxtsft/trpc) to TS source.
   webpack: (config) => {
