@@ -74,21 +74,23 @@ export const buildersRouter = router({
     }),
 
   stats: adminProcedure.query(async () => {
-    const [total, byState] = await Promise.all([
-      prisma.builder.count(),
-      prisma.builder.groupBy({
+    const total = await prisma.builder.count();
+    try {
+      const byState = await prisma.builder.groupBy({
         by: ["state"],
         _count: { _all: true },
-      }),
-    ]);
-    // Sort by count descending in application code — avoids Prisma groupBy orderBy quirks
-    const sorted = byState
-      .sort((a, b) => b._count._all - a._count._all)
-      .slice(0, 6);
-    return {
-      total,
-      byState: sorted.map((s) => ({ state: s.state ?? "—", count: s._count._all })),
-    };
+      });
+      const sorted = byState
+        .sort((a, b) => b._count._all - a._count._all)
+        .slice(0, 6);
+      return {
+        total,
+        byState: sorted.map((s) => ({ state: s.state ?? "—", count: s._count._all })),
+      };
+    } catch (err) {
+      console.error("[builders.stats] groupBy failed:", err);
+      return { total, byState: [] };
+    }
   }),
 
   // Bulk import parsed rows (from an uploaded Excel/CSV). Idempotent via the
