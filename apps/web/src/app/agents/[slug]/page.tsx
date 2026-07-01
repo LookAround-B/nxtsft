@@ -1,260 +1,147 @@
-"use client";
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import {
-  Star, Phone, MessageCircle, Lock, ShieldCheck, MapPin, Globe,
-  Award, ArrowLeft, Clock, TrendingUp, Building2, CheckCircle2,
-} from "lucide-react";
-import { trpcClient } from "@/lib/trpcClient";
-import { useAuth } from "@/lib/auth";
-import { toast } from "sonner";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { cache } from "react";
+import prisma from "@nxtsft/db";
+import AgentProfileClient from "./AgentProfileClient";
 
-type AgentRow = {
-  id: string; name: string; slug: string | null; city: string; verified: boolean;
-  initials?: string; rating?: number; reviews?: number; deals?: number; since?: number;
-  listings?: number; featured?: boolean; color?: string; responseTime?: string;
-  portfolioValue?: string; specialties?: string[]; languages?: string[]; cities?: string[];
+export const runtime = "nodejs";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://nxtsft.com";
+
+const getAgent = cache(async (slug: string) => {
+  return prisma.user.findFirst({
+    where: { slug, role: "agent" },
+    select: {
+      name: true,
+      slug: true,
+      city: true,
+      state: true,
+      bio: true,
+      avatar: true,
+      verified: true,
+      metadata: true,
+    },
+  });
+});
+
+type AgentMeta = {
+  rating?: number;
+  reviews?: number;
+  deals?: number;
+  since?: number;
+  portfolioValue?: string;
+  specialties?: string[];
 };
 
-function Stars({ n, size = 14 }: { n: number; size?: number }) {
-  return (
-    <span className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Star key={i} size={size}
-          className={i <= Math.round(n) ? "fill-amber-400 text-amber-400" : "fill-border text-border"} />
-      ))}
-    </span>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-secondary/40 p-4 text-center">
-      <div className="font-display text-2xl font-black text-navy">{value}</div>
-      <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
-export default function AgentProfilePage() {
-  const { slug } = useParams<{ slug: string }>();
-  const { session } = useAuth();
-  const [agent, setAgent] = useState<AgentRow | null | undefined>(undefined);
-
-  useEffect(() => {
-    trpcClient.users.getAgent.query({ slug })
-      .then(setAgent)
-      .catch(() => setAgent(null));
-  }, [slug]);
-
-  if (agent === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">
-        Loading…
-      </div>
-    );
-  }
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const agent = await getAgent(slug);
 
   if (!agent) {
-    return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <p className="text-lg font-bold text-navy">Agent not found</p>
-        <Link href="/agents" className="rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white hover:opacity-90">
-          Back to Agents
-        </Link>
-      </div>
-    );
+    return { title: "Agent not found", robots: { index: false, follow: false } };
   }
 
-  const yrs = new Date().getFullYear() - (agent.since ?? new Date().getFullYear());
-  const color = agent.color ?? "bg-accent";
-  const cities = agent.cities ?? [agent.city];
-  const specialties = agent.specialties ?? [];
-  const languages = agent.languages ?? [];
+  const meta = (agent.metadata ?? {}) as AgentMeta;
+  const canonical = `/agents/${agent.slug}`;
+  const specialties = meta.specialties?.length ? ` — ${meta.specialties.slice(0, 2).join(", ")}` : "";
 
-  const handleContact = (channel: "phone" | "whatsapp") => {
-    if (!session) {
-      toast.error("Sign in required", { description: `Sign in to contact ${agent.name}.` });
-      return;
-    }
-    toast.success(channel === "phone" ? "Connecting…" : "Opening WhatsApp…", {
-      description: channel === "phone" ? `Calling ${agent.name}.` : `Connecting you with ${agent.name}.`,
-    });
+  const title = `${agent.name}${agent.city ? `, Real Estate Agent in ${agent.city}` : ", Real Estate Agent"}`;
+  const description =
+    agent.bio?.trim() ||
+    `${agent.name} is a ${agent.verified ? "verified " : ""}real estate agent${
+      agent.city ? ` in ${agent.city}` : ""
+    }${specialties}${
+      meta.deals ? `, ${meta.deals}+ deals closed` : ""
+    }. Connect on NxtSft.com to buy, sell or rent property.`;
+
+  return {
+    title,
+    description: description.slice(0, 200),
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description: description.slice(0, 200),
+      url: canonical,
+      type: "profile",
+      images: agent.avatar ? [{ url: agent.avatar, alt: agent.name }] : undefined,
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description: description.slice(0, 200),
+      images: agent.avatar ? [agent.avatar] : undefined,
+    },
+    robots: { index: true, follow: true },
+  };
+}
+
+export default async function AgentProfilePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const agent = await getAgent(slug);
+  if (!agent) notFound();
+
+  const meta = (agent.metadata ?? {}) as AgentMeta;
+  const url = `${SITE_URL}/agents/${agent.slug}`;
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "RealEstateAgent",
+        "@id": `${url}#agent`,
+        name: agent.name,
+        url,
+        ...(agent.avatar ? { image: agent.avatar } : {}),
+        ...(agent.bio?.trim() ? { description: agent.bio.trim() } : {}),
+        ...(agent.city
+          ? {
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: agent.city,
+                ...(agent.state ? { addressRegion: agent.state } : {}),
+                addressCountry: "IN",
+              },
+              areaServed: agent.city,
+            }
+          : {}),
+        ...(meta.specialties?.length ? { knowsAbout: meta.specialties } : {}),
+        ...(meta.rating && meta.reviews
+          ? {
+              aggregateRating: {
+                "@type": "AggregateRating",
+                ratingValue: meta.rating,
+                reviewCount: meta.reviews,
+                bestRating: 5,
+              },
+            }
+          : {}),
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+          { "@type": "ListItem", position: 2, name: "Agents", item: `${SITE_URL}/agents` },
+          { "@type": "ListItem", position: 3, name: agent.name, item: url },
+        ],
+      },
+    ],
   };
 
   return (
-    <div className="min-h-screen bg-background">
-        <section className="border-b border-border bg-white">
-          <div className="mx-auto max-w-5xl px-5 py-10 sm:px-6 sm:py-14">
-            <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
-              <Link href="/" className="hover:text-accent">Home</Link>
-              <span>/</span>
-              <Link href="/agents" className="hover:text-accent">Agents</Link>
-              <span>/</span>
-              <span className="font-semibold text-navy">{agent.name}</span>
-            </div>
-            <Link href="/agents" className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition hover:text-accent">
-              <ArrowLeft size={14} /> Back to agents
-            </Link>
-            <div className="mt-4 flex flex-col gap-6 sm:flex-row sm:items-start">
-              <div className="relative shrink-0">
-                <div className={`flex h-24 w-24 items-center justify-center rounded-3xl font-display text-3xl font-black text-white sm:h-28 sm:w-28 ${color}`}>
-                  {agent.initials ?? agent.name[0]}
-                </div>
-                {agent.verified && (
-                  <span className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-accent shadow">
-                    <ShieldCheck size={14} className="text-white" strokeWidth={2.5} />
-                  </span>
-                )}
-              </div>
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="font-display text-3xl font-black text-navy sm:text-4xl">{agent.name}</h1>
-                  {agent.featured && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-gold/25 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-navy">
-                      <Award size={10} /> Featured
-                    </span>
-                  )}
-                  {agent.verified && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-bold text-accent">
-                      <ShieldCheck size={10} /> RERA Verified
-                    </span>
-                  )}
-                </div>
-                <div className="mt-1 text-sm text-muted-foreground">Senior RERA Agent · Partner since {agent.since}</div>
-                <div className="mt-3 flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Stars n={agent.rating ?? 0} size={15} />
-                    <span className="font-display text-base font-bold text-navy">{agent.rating}</span>
-                    <span className="text-sm text-muted-foreground">({agent.reviews} reviews)</span>
-                  </div>
-                  <span className="hidden h-4 w-px bg-border sm:block" />
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Clock size={13} /> Replies {agent.responseTime ?? "within 24 hrs"}
-                  </div>
-                </div>
-                {cities.length > 0 && (
-                  <div className="mt-3 flex items-start gap-2">
-                    <MapPin size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
-                    <span className="text-sm text-foreground/70">{cities.join(" · ")}</span>
-                  </div>
-                )}
-                {languages.length > 0 && (
-                  <div className="mt-1.5 flex items-start gap-2">
-                    <Globe size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
-                    <span className="text-sm text-foreground/70">{languages.join(" · ")}</span>
-                  </div>
-                )}
-              </div>
-              <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-                {session ? (
-                  <>
-                    <button onClick={() => handleContact("phone")} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90 sm:w-auto">
-                      <Phone size={15} /> Call Agent
-                    </button>
-                    <button onClick={() => handleContact("whatsapp")} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-emerald-500/25 transition hover:opacity-90 sm:w-auto">
-                      <MessageCircle size={15} /> WhatsApp
-                    </button>
-                  </>
-                ) : (
-                  <Link href="/login" className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90">
-                    <Lock size={14} /> Sign in to contact
-                  </Link>
-                )}
-              </div>
-            </div>
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat label="Closed Deals" value={String(agent.deals ?? 0)} />
-              <Stat label="Years Experience" value={`${yrs} yrs`} />
-              <Stat label="Portfolio Value" value={agent.portfolioValue ?? "—"} />
-              <Stat label="Active Listings" value={String(agent.listings ?? 0)} />
-            </div>
-          </div>
-        </section>
-
-        <div className="mx-auto max-w-5xl px-5 py-10 sm:px-6 sm:py-12">
-          <div className="grid gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <div className="rounded-2xl border border-dashed border-border bg-white p-8 text-center">
-                <Building2 size={32} className="mx-auto mb-3 text-muted-foreground/40" strokeWidth={1.5} />
-                <p className="text-sm font-semibold text-navy">Browse live listings</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {agent.name.split(" ")[0]} has closed {agent.deals ?? 0} deals. View available properties.
-                </p>
-                <Link href="/properties" className="mt-4 inline-block rounded-xl bg-accent px-5 py-2 text-sm font-bold text-white transition hover:opacity-90">
-                  Browse Properties →
-                </Link>
-              </div>
-            </div>
-            <div className="space-y-5">
-              {specialties.length > 0 && (
-                <div className="rounded-2xl border border-border bg-white p-5">
-                  <h3 className="mb-3 font-display text-base font-bold text-navy">Specialties</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {specialties.map((s) => (
-                      <span key={s} className="rounded-full border border-accent/20 bg-accent/6 px-3 py-1 text-xs font-semibold text-accent">{s}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {cities.length > 0 && (
-                <div className="rounded-2xl border border-border bg-white p-5">
-                  <h3 className="mb-3 font-display text-base font-bold text-navy">Cities Covered</h3>
-                  <ul className="space-y-2">
-                    {cities.map((c) => (
-                      <li key={c} className="flex items-center gap-2 text-sm text-foreground/75">
-                        <MapPin size={12} className="shrink-0 text-accent" />{c}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {languages.length > 0 && (
-                <div className="rounded-2xl border border-border bg-white p-5">
-                  <h3 className="mb-3 font-display text-base font-bold text-navy">Languages</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {languages.map((l) => (
-                      <span key={l} className="rounded-full border border-border bg-secondary/50 px-3 py-1 text-xs font-semibold text-navy">{l}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="rounded-2xl border border-border bg-white p-5">
-                <h3 className="mb-3 font-display text-base font-bold text-navy">Why work with {agent.name.split(" ")[0]}?</h3>
-                <ul className="space-y-2.5">
-                  {[
-                    `${agent.deals ?? 0} successful transactions`,
-                    `${yrs} years of market expertise`,
-                    agent.verified ? "RERA certified & verified" : "Active NxtSft.com partner",
-                    `Replies within ${agent.responseTime ?? "24 hrs"}`,
-                    `Portfolio value: ${agent.portfolioValue ?? "Available on request"}`,
-                  ].map((point) => (
-                    <li key={point} className="flex items-start gap-2 text-sm text-foreground/75">
-                      <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-500" />{point}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="rounded-2xl border border-accent/20 bg-navy p-5 text-white">
-                <div className="mb-1 flex items-center gap-2">
-                  <TrendingUp size={14} className="text-gold" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-gold">Get in Touch</span>
-                </div>
-                <p className="mt-2 text-sm text-white/75">Ready to buy, sell or rent? {agent.name.split(" ")[0]} is available to help.</p>
-                {session ? (
-                  <button onClick={() => handleContact("whatsapp")} className="mt-4 w-full rounded-xl bg-accent py-2.5 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90">
-                    Contact Now
-                  </button>
-                ) : (
-                  <Link href="/login" className="mt-4 block w-full rounded-xl bg-accent py-2.5 text-center text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90">
-                    Sign in to contact
-                  </Link>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-    </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <AgentProfileClient />
+    </>
   );
 }
