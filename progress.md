@@ -114,8 +114,9 @@ Canonical host is **`https://www.nxtsft.com`** (apex 308-redirects to www). Base
 | Global metadata | ✅ | `layout.tsx` — title template, OG, Twitter, robots, `metadataBase` |
 | `sitemap.xml` | ✅ | `app/sitemap.ts` — static routes + active properties, quality-gated builders, agents, active interiors. Node runtime, hourly ISR, 45k/type cap |
 | `robots.txt` | ✅ | `app/robots.ts` — allow public, disallow `/api`, portals, login routes, `/profile`, `/list`, `/payment` |
-| Property/builder/agent/interior detail pages | ✅ | Server-rendered with per-listing `generateMetadata` + JSON-LD (RealEstateListing/Organization/RealEstateAgent/HomeAndConstructionBusiness + BreadcrumbList). Client UI in `*Client.tsx` children |
-| Tier 3 (canonicals on filtered `/properties?…`, per-listing OG images) | 🔲 | Not started |
+| Property/builder/agent/interior detail pages | ✅ | Server-rendered with per-listing `generateMetadata` + JSON-LD (RealEstateListing/Organization/RealEstateAgent/HomeAndConstructionBusiness + BreadcrumbList). Client UI in `*Client.tsx` children. Per-listing OG images use the real listing photo/logo/avatar |
+| Listing hub metadata + self-canonicals | ✅ | `layout.tsx` per hub (properties, builders, agents, interiors, pg) — unique title/description + self-canonical collapses filtered `?city=…` variants (no duplicate content) |
+| Tier 3 remaining (generated OG image cards via `next/og`) | 🔲 | Optional; real photos already serve as OG images |
 
 **Google Search Console setup:**
 1. `search.google.com/search-console` → **Add property → Domain** → `nxtsft.com` → verify via **TXT record at BigRock** (DNS host; `dns1-4.bigrock.in`).
