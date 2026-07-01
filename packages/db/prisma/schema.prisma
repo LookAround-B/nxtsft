@@ -15,56 +15,58 @@ datasource db {
 // ═══════════════════════════════════════════════════════════════════════════
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  phone        String?  @unique // optional — OAuth (Google) users have no phone until KYC
-  name         String
-  avatar       String?
-  role         String   @default("user") // super-admin | admin | supervisor | sales | support-admin | user | home-seller
-  verified     Boolean  @default(false)
-  verifiedAt   DateTime?
-  kycStatus    String   @default("none") // none | pending | verified | rejected
+  id         String    @id @default(cuid())
+  email      String    @unique
+  phone      String?   @unique // optional — OAuth (Google) users have no phone until KYC
+  name       String
+  avatar     String?
+  role       String    @default("user") // super-admin | admin | supervisor | sales | support-admin | user | home-seller
+  verified   Boolean   @default(false)
+  verifiedAt DateTime?
+  kycStatus  String    @default("none") // none | pending | verified | rejected
 
-  city         String
-  state        String?
-  bio          String?
-  joined       DateTime @default(now())
-  lastActive   DateTime @default(now()) @updatedAt
+  city       String
+  state      String?
+  bio        String?
+  joined     DateTime @default(now())
+  lastActive DateTime @default(now()) @updatedAt
 
-  passwordHash String?
+  passwordHash     String?
   twoFactorEnabled Boolean @default(false)
 
-  credits      Int      @default(0)
-  slug         String?  @unique
-  metadata     Json?
+  credits  Int     @default(0)
+  slug     String? @unique
+  metadata Json?
 
   // Supervisor → sales-rep attribution (flat: a supervisor owns a set of reps)
   supervisorId String?
-  supervisor   User?    @relation("Supervises", fields: [supervisorId], references: [id], onDelete: SetNull)
-  supervisees  User[]   @relation("Supervises")
+  supervisor   User?   @relation("Supervises", fields: [supervisorId], references: [id], onDelete: SetNull)
+  supervisees  User[]  @relation("Supervises")
 
-  properties   Property[]
-  listings     Listing[]
-  leads        Lead[]
-  messages     Message[]
-  favorites    Favorite[]
-  reviews      Review[]
-  subscriptions Subscription[] @relation("UserSubscriptions")
-  payments     Payment[] @relation("UserPayments")
-  searchAlerts SearchAlert[]
-  notifications Notification[] @relation("UserNotifications")
-  tickets      Ticket[]
-  propertyViews PropertyView[] @relation("UserPropertyViews")
-  campaigns    Campaign[]
-  cmsPages     CmsPage[]
-  kycDocuments KycDocument[] @relation("UserKycDocuments")
-  enquiriesHandled Enquiry[] @relation("EnquiryHandler")
-  commissions  Commission[]  @relation("SalesRepCommissions")
-  salesActivities SalesActivity[] @relation("SalesRepActivities")
-  escalationsAssigned Escalation[] @relation("EscalationAssignee")
+  properties            Property[]
+  listings              Listing[]
+  leads                 Lead[]
+  messages              Message[]
+  favorites             Favorite[]
+  reviews               Review[]
+  subscriptions         Subscription[]         @relation("UserSubscriptions")
+  payments              Payment[]              @relation("UserPayments")
+  searchAlerts          SearchAlert[]
+  notifications         Notification[]         @relation("UserNotifications")
+  tickets               Ticket[]
+  propertyViews         PropertyView[]         @relation("UserPropertyViews")
+  interiorDesignerViews InteriorDesignerView[] @relation("UserInteriorDesignerViews")
+  designerFavorites     DesignerFavorite[]
+  campaigns             Campaign[]
+  cmsPages              CmsPage[]
+  kycDocuments          KycDocument[]          @relation("UserKycDocuments")
+  enquiriesHandled      Enquiry[]              @relation("EnquiryHandler")
+  commissions           Commission[]           @relation("SalesRepCommissions")
+  salesActivities       SalesActivity[]        @relation("SalesRepActivities")
+  escalationsAssigned   Escalation[]           @relation("EscalationAssignee")
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([role])
@@ -90,62 +92,73 @@ model Session {
 // ═══════════════════════════════════════════════════════════════════════════
 
 model Property {
-  id          String   @id @default(cuid())
-  slug        String   @unique
+  id          String  @id @default(cuid())
+  slug        String  @unique
   title       String
-  description String?  @db.Text
+  description String? @db.Text
 
-  type        String   // Apartment | Villa | Studio | Office | Bungalow | Plot | PG
-  purpose     String   // Sale | Rent
-  status      String   @default("Active") // Active | Sold | Rented | Inactive
+  type    String // Apartment | Villa | Studio | Office | Bungalow | Plot | PG
+  purpose String // Sale | Rent
+  status  String @default("Active") // Active | Sold | Rented | Inactive
 
-  price       BigInt   // in rupees
+  price        BigInt // in rupees
   pricePerSqft Int?
-  area        Int      // super built-up area, sqft
-  builtUpArea Int?     // built-up area, sqft
-  bhk         String?  // "2 BHK", "3 BHK", etc.
-  bedrooms    Int      @default(0)
-  bathrooms   Int      @default(0)
-  balconies   Int      @default(0)
-  parking     Int      @default(0)
-  floors      String?  // "G+5", "18/32"
-  age         String?  // "New", "1 Year", "5+ Years"
-  furnishing  String?  // Furnished | Semi-Furnished | Unfurnished
-  facing      String?  // North | South | East | West | North-East | South-East
-  possession  String?  // "Ready to Move", "Under Construction", "Dec 2025"
-  builder     String?
+  area         Int // super built-up area, sqft
+  builtUpArea  Int? // built-up area, sqft
+  bhk          String? // "2 BHK", "3 BHK", etc.
+  bedrooms     Int     @default(0)
+  bathrooms    Int     @default(0)
+  balconies    Int     @default(0)
+  parking      Int     @default(0)
+  floors       String? // "G+5", "18/32"
+  age          String? // "New", "1 Year", "5+ Years"
+  furnishing   String? // Furnished | Semi-Furnished | Unfurnished
+  facing       String? // North | South | East | West | North-East | South-East
+  possession   String? // "Ready to Move", "Under Construction", "Dec 2025"
+  builder      String?
+
+  // ── PG / co-living fields (only meaningful when type == "PG") ──────────────
+  pgGender            String? // Boys | Girls | Co-living
+  pgOccupancy         String[] @default([]) // Single | Double | Triple | Four Sharing
+  pgAvailableBeds     Int?
+  pgDeposit           BigInt? // security deposit, rupees
+  pgRoomTypes         String[] @default([]) // "AC Single", "Non-AC Double", ...
+  pgHouseRules        String[] @default([])
+  pgFood              String? // Included | Optional | Not Available
+  virtualTourUrl      String? // 360° tour embed (PG + interiors)
+  walkthroughVideoUrl String? // cinematic walkthrough
 
   // Optional hard link to a directory Project (set when listed against a known project)
-  projectId   String?
-  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  rera        String?  // RERA registration number — required for Active listings
-  reraLabel   String?  // Authority label: "RERA" | "HMDA" | "TS RERA" | "KA RERA" | "TN RERA" | "MahaRERA" | "GujRERA"
+  rera      String? // RERA registration number — required for Active listings
+  reraLabel String? // Authority label: "RERA" | "HMDA" | "TS RERA" | "KA RERA" | "TN RERA" | "MahaRERA" | "GujRERA"
 
-  location    Location?
+  location Location?
 
-  amenities   String[] @default([])
-  images      String[] @default([])
-  features    Json?
+  amenities String[] @default([])
+  images    String[] @default([])
+  features  Json?
 
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
 
-  listings    Listing[]
-  leads       Lead[]
-  favoritedBy Favorite[]
-  reviews     Review[]
+  listings      Listing[]
+  leads         Lead[]
+  favoritedBy   Favorite[]
+  reviews       Review[]
   propertyViews PropertyView[]
 
-  views       Int      @default(0)
-  viewBase    Int      @default(0)  // admin-set boost for social-proof display
-  contacts    Int      @default(0)
-  featured    Boolean  @default(false)
-  matchScore  Int?
+  views      Int     @default(0)
+  viewBase   Int     @default(0) // admin-set boost for social-proof display
+  contacts   Int     @default(0)
+  featured   Boolean @default(false)
+  matchScore Int?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([ownerId])
   @@index([type])
@@ -161,13 +174,13 @@ model Location {
   propertyId String   @unique
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  city       String
-  state      String
-  locality   String
-  address    String?
-  zipCode    String?
-  latitude   Float
-  longitude  Float
+  city      String
+  state     String
+  locality  String
+  address   String?
+  zipCode   String?
+  latitude  Float
+  longitude Float
 
   nearbyPlaces String[] @default([])
 
@@ -199,57 +212,57 @@ model Listing {
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id])
 
-  createdBy  String
-  agent      User     @relation(fields: [createdBy], references: [id])
+  createdBy String
+  agent     User   @relation(fields: [createdBy], references: [id])
 
   description String?
   highlights  String[] @default([])
 
-  active     Boolean  @default(true)
-  promoted   Boolean  @default(false)
+  active   Boolean @default(true)
+  promoted Boolean @default(false)
 
-  views      Int      @default(0)
-  leads      Int      @default(0)
+  views Int @default(0)
+  leads Int @default(0)
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([propertyId])
   @@index([createdBy])
 }
 
 model Lead {
-  id           String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  propertyId   String
-  property     Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
 
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   // Buyer contact info
-  name         String
-  phone        String
-  email        String?
-  city         String?
+  name  String
+  phone String
+  email String?
+  city  String?
 
   // Lead context
-  interest     String?  // what they're looking for: "2 BHK Apartment", "Villa", etc.
-  source       String?  // Portal | WhatsApp | Referral | Direct
-  status       String   @default("New") // Hot | Warm | Cold | New | Converted | Lost
-  notes        String?
-  value        Int?     // expected deal value in rupees
+  interest String? // what they're looking for: "2 BHK Apartment", "Villa", etc.
+  source   String? // Portal | WhatsApp | Referral | Direct
+  status   String  @default("New") // Hot | Warm | Cold | New | Converted | Lost
+  notes    String?
+  value    Int? // expected deal value in rupees
 
   // Assignment
-  assignedToId String?  // sales rep userId
+  assignedToId String? // sales rep userId
 
   visitScheduled DateTime?
   visitCompleted DateTime?
 
-  escalations  Escalation[]
+  escalations Escalation[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([propertyId])
   @@index([userId])
@@ -263,11 +276,11 @@ model Commission {
   salesRepId  String
   salesRep    User     @relation("SalesRepCommissions", fields: [salesRepId], references: [id])
   leadId      String?
-  dealValue   BigInt   // in rupees
+  dealValue   BigInt // in rupees
   rate        Float    @default(0.02)
-  amount      BigInt   // in rupees = dealValue * rate
+  amount      BigInt // in rupees = dealValue * rate
   status      String   @default("pending") // pending | cleared
-  periodMonth String?  // "2026-06" for grouping by month
+  periodMonth String? // "2026-06" for grouping by month
   note        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -282,7 +295,7 @@ model SalesActivity {
   id         String   @id @default(cuid())
   salesRepId String
   salesRep   User     @relation("SalesRepActivities", fields: [salesRepId], references: [id])
-  type       String   // call | visit | note
+  type       String // call | visit | note
   leadId     String?
   action     String
   outcome    String
@@ -295,20 +308,20 @@ model SalesActivity {
 // KYC document uploads awaiting staff review. Mirrors the live DB table that
 // predates this schema file (added directly to the database).
 model KycDocument {
-  id           String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId       String
-  user         User     @relation("UserKycDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation("UserKycDocuments", fields: [userId], references: [id], onDelete: Cascade)
 
-  type         String   // aadhaar | pan | passport | ...
+  type         String // aadhaar | pan | passport | ...
   fileUrl      String
-  status       String   @default("pending") // pending | verified | rejected
+  status       String    @default("pending") // pending | verified | rejected
   adminNotes   String?
   reviewedAt   DateTime?
-  reviewedById String?  // staff userId (no FK in DB)
+  reviewedById String? // staff userId (no FK in DB)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([status])
@@ -317,23 +330,23 @@ model KycDocument {
 // General contact-form enquiries from the public site. Unlike Lead, these are
 // not tied to a property or an authenticated user — anyone can submit one.
 model Enquiry {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  name        String
-  email       String
-  phone       String?
-  city        String?
-  message     String
+  name    String
+  email   String
+  phone   String?
+  city    String?
+  message String
 
-  source      String   @default("Website") // Website | Phone | Email
-  status      String   @default("New")      // New | In Progress | Resolved | Closed
+  source String @default("Website") // Website | Phone | Email
+  status String @default("New") // New | In Progress | Resolved | Closed
 
   // Staff member who picked it up (optional until someone responds).
   handledById String?
-  handledBy   User?    @relation("EnquiryHandler", fields: [handledById], references: [id])
+  handledBy   User?   @relation("EnquiryHandler", fields: [handledById], references: [id])
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([createdAt])
@@ -355,28 +368,28 @@ model Favorite {
 
 // Builders / developers directory — bulk-uploadable (CSV or XML).
 model Builder {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   companyName String
   ownerName   String?
   mobile      String?
-  projectType String?   // legacy single-type field; projects relation is the richer model
+  projectType String? // legacy single-type field; projects relation is the richer model
   state       String?
   district    String?
   city        String?
 
   // Extended fields for public-facing directory (populated via XML import)
-  slug        String?   @unique
+  slug        String? @unique
   logo        String?
-  description String?   @db.Text
+  description String? @db.Text
   website     String?
   reraNo      String?
-  established Int?      // founding year
-  verified    Boolean   @default(false)
+  established Int? // founding year
+  verified    Boolean @default(false)
 
-  projects    Project[]
+  projects Project[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@unique([companyName, mobile, city])
   @@index([companyName])
@@ -388,21 +401,21 @@ model Builder {
 
 // Individual projects under a builder — searchable by city/area/type.
 model Project {
-  id             String    @id @default(cuid())
-  builderId      String
-  builder        Builder   @relation(fields: [builderId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  builderId String
+  builder   Builder @relation(fields: [builderId], references: [id], onDelete: Cascade)
 
-  name           String
-  slug           String    @unique
-  city           String
-  area           String?   // locality / sector
-  type           String    @default("Apartment") // Apartment | HighRise | Villa | Commercial | Plot | Studio | PG | Others
-  status         String    @default("Ongoing")   // Ongoing | Completed | Upcoming
+  name   String
+  slug   String  @unique
+  city   String
+  area   String? // locality / sector
+  type   String  @default("Apartment") // Apartment | HighRise | Villa | Commercial | Plot | Studio | PG | Others
+  status String  @default("Ongoing") // Ongoing | Completed | Upcoming
 
-  priceMin       BigInt?
-  priceMax       BigInt?
-  sftMin         Int?
-  sftMax         Int?
+  priceMin BigInt?
+  priceMax BigInt?
+  sftMin   Int?
+  sftMax   Int?
 
   description    String?   @db.Text
   amenities      String[]  @default([])
@@ -412,15 +425,98 @@ model Project {
   launchDate     DateTime?
   possessionDate DateTime?
 
-  properties     Property[]
+  properties Property[]
 
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([builderId])
   @@index([city])
   @@index([type])
   @@index([status])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HOME INTERIORS — interior design company directory (mirrors Builder, but
+// companies are service providers, not property listers: portfolio + credit-
+// unlock contact instead of price/sqft/bedrooms).
+// ═══════════════════════════════════════════════════════════════════════════
+
+model InteriorDesigner {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  companyName String
+  logo        String?
+  coverImage  String?
+  description String? @db.Text
+
+  city        String
+  state       String?
+  areasServed String[] @default([])
+
+  yearsExperience   Int?
+  projectsCompleted Int     @default(0)
+  startingBudget    BigInt? // rupees
+
+  designStyles    String[] @default([]) // Modern | Minimal | Luxury | Contemporary | ...
+  servicesOffered String[] @default([])
+
+  portfolioImages String[] @default([])
+  portfolioVideos String[] @default([])
+
+  workingHours String?
+  website      String?
+  socialLinks  Json?
+
+  phone String
+  email String?
+
+  verified Boolean @default(false)
+  status   String  @default("pending") // pending | active | inactive — admin publish gate
+
+  views    Int @default(0)
+  contacts Int @default(0)
+
+  views_      InteriorDesignerView[]
+  favoritedBy DesignerFavorite[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city])
+  @@index([verified])
+  @@index([status])
+}
+
+// Wishlist join for interior designers — mirrors Favorite (properties).
+model DesignerFavorite {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  designerId String
+  designer   InteriorDesigner @relation(fields: [designerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime         @default(now())
+
+  @@unique([userId, designerId])
+  @@index([userId])
+  @@index([designerId])
+}
+
+model InteriorDesignerView {
+  id         String           @id @default(cuid())
+  designerId String
+  designer   InteriorDesigner @relation(fields: [designerId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?            @relation("UserInteriorDesignerViews", fields: [userId], references: [id])
+
+  durationSec     Int     @default(0)
+  contactUnlocked Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([designerId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -433,7 +529,7 @@ model Review {
   property   Property @relation(fields: [propertyId], references: [id])
   authorId   String
   author     User     @relation(fields: [authorId], references: [id])
-  rating     Int      // 1-5
+  rating     Int // 1-5
   title      String
   content    String?
   helpful    Int      @default(0)
@@ -455,14 +551,14 @@ model Review {
 model Plan {
   id         String   @id @default(cuid())
   name       String
-  price      Int      // rupees
-  priceLabel String   // "₹299"
-  credits    Int      // credits granted on purchase
-  validity   Int      // days
+  price      Int // rupees
+  priceLabel String // "₹299"
+  credits    Int // credits granted on purchase
+  validity   Int // days
   tagline    String
   features   String[]
   popular    Boolean  @default(false)
-  type       String   // seeker | owner-rent | owner-sell
+  type       String // seeker | owner-rent | owner-sell
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -472,35 +568,36 @@ model Plan {
 }
 
 model CreditTransaction {
-  id         String   @id @default(cuid())
-  userId     String
-  type       String   // credit | debit
-  amount     Int
-  reason     String   // purchase | welcome | demo | contact_unlock
-  propertyId String?  // for contact_unlock debits
-  metadata   Json?
-  createdAt  DateTime @default(now())
+  id                 String   @id @default(cuid())
+  userId             String
+  type               String // credit | debit
+  amount             Int
+  reason             String // purchase | welcome | demo | contact_unlock | designer_contact_unlock
+  propertyId         String? // for contact_unlock debits
+  interiorDesignerId String? // for designer_contact_unlock debits
+  metadata           Json?
+  createdAt          DateTime @default(now())
 
   @@index([userId])
   @@index([createdAt])
 }
 
 model Subscription {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   userId          String
-  user            User     @relation("UserSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
+  user            User      @relation("UserSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
   planId          String
   planName        String
-  amount          BigInt   // paise
-  status          String   @default("Active") // Active | Cancelled | Expired | Failed
-  cycle           String   @default("monthly")
-  razorpayId      String?  @unique
-  razorpayOrderId String?  @unique
-  startDate       DateTime @default(now())
+  amount          BigInt // paise
+  status          String    @default("Active") // Active | Cancelled | Expired | Failed
+  cycle           String    @default("monthly")
+  razorpayId      String?   @unique
+  razorpayOrderId String?   @unique
+  startDate       DateTime  @default(now())
   endDate         DateTime
   renewalDate     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([userId])
   @@index([status])
@@ -510,16 +607,16 @@ model Payment {
   id              String   @id @default(cuid())
   userId          String
   user            User     @relation("UserPayments", fields: [userId], references: [id])
-  amount          BigInt   // paise
-  status          String   // Success | Pending | Failed | Refunded
-  method          String   // UPI | Card | Netbanking | PayU
+  amount          BigInt // paise
+  status          String // Success | Pending | Failed | Refunded
+  method          String // UPI | Card | Netbanking | PayU
   gateway         String   @default("razorpay") // razorpay | payu
   // Razorpay fields
   razorpayId      String?  @unique
   razorpayOrderId String?  @unique
   // PayU fields
-  payuTxnId       String?  @unique  // our txnid sent to PayU
-  payuMihpayId    String?  @unique  // PayU's mihpayid returned on success
+  payuTxnId       String?  @unique // our txnid sent to PayU
+  payuMihpayId    String?  @unique // PayU's mihpayid returned on success
   description     String?
   metadata        Json?
   createdAt       DateTime @default(now())
@@ -536,7 +633,7 @@ model Payment {
 
 model SiteVisit {
   id          String   @id @default(cuid())
-  userId      String   // buyer
+  userId      String // buyer
   propertyId  String
   salesRepId  String?
   scheduledAt DateTime
@@ -556,15 +653,15 @@ model SiteVisit {
 // ═══════════════════════════════════════════════════════════════════════════
 
 model Message {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   senderId    String
-  sender      User     @relation(fields: [senderId], references: [id])
+  sender      User      @relation(fields: [senderId], references: [id])
   recipientId String
-  content     String   @db.Text
-  type        String   @default("text") // text | image | document
-  read        Boolean  @default(false)
+  content     String    @db.Text
+  type        String    @default("text") // text | image | document
+  read        Boolean   @default(false)
   readAt      DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([senderId])
   @@index([recipientId])
@@ -576,32 +673,32 @@ model Message {
 // ═══════════════════════════════════════════════════════════════════════════
 
 model SearchAlert {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name          String?
-  filters       Json     // { city, type, priceMin, priceMax, bedrooms, ... }
-  active        Boolean  @default(true)
-  frequency     String   @default("daily") // daily | weekly | instant
+  filters       Json // { city, type, priceMin, priceMax, bedrooms, ... }
+  active        Boolean   @default(true)
+  frequency     String    @default("daily") // daily | weekly | instant
   lastTriggered DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([userId])
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // property_alert | lead_update | message | system
+  user      User      @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  type      String // property_alert | lead_update | message | system
   title     String
   content   String?
   actionUrl String?
   metadata  Json?
-  read      Boolean  @default(false)
+  read      Boolean   @default(false)
   readAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([read])
@@ -612,20 +709,20 @@ model Notification {
 // ═══════════════════════════════════════════════════════════════════════════
 
 model Ticket {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
   subject     String
-  description String   @db.Text
-  category    String   // payment | property | agent | technical | other
-  priority    String   @default("medium") // low | medium | high | urgent
-  status      String   @default("open")  // open | in_progress | resolved | closed
+  description String    @db.Text
+  category    String // payment | property | agent | technical | other
+  priority    String    @default("medium") // low | medium | high | urgent
+  status      String    @default("open") // open | in_progress | resolved | closed
   assignedTo  String?
-  notes       String[] @default([])
-  attachments String[] @default([])
-  createdAt   DateTime @default(now())
+  notes       String[]  @default([])
+  attachments String[]  @default([])
+  createdAt   DateTime  @default(now())
   resolvedAt  DateTime?
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime  @updatedAt
 
   @@index([userId])
   @@index([status])
@@ -637,21 +734,21 @@ model Ticket {
 // ═══════════════════════════════════════════════════════════════════════════
 
 model Campaign {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
-  type        String   @default("email") // email | sms | whatsapp
-  audience    String   @default("all")   // all | user | sales | admin
+  type        String    @default("email") // email | sms | whatsapp
+  audience    String    @default("all") // all | user | sales | admin
   subject     String?
-  body        String?  @db.Text
-  status      String   @default("draft") // draft | scheduled | active | paused | completed
-  budget      Int?     // rupees
-  leads       Int      @default(0)
-  clicks      Int      @default(0)
+  body        String?   @db.Text
+  status      String    @default("draft") // draft | scheduled | active | paused | completed
+  budget      Int? // rupees
+  leads       Int       @default(0)
+  clicks      Int       @default(0)
   scheduledAt DateTime?
   createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([status])
   @@index([createdById])
@@ -731,26 +828,25 @@ model AuditLog {
 
 // Supervisor-raised escalations on at-risk leads. Resolved or bumped to admin.
 model Escalation {
-  id           String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  leadId       String
-  lead         Lead     @relation(fields: [leadId], references: [id])
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id])
 
-  note         String
-  level        String   @default("Medium") // Low | Medium | High
-  status       String   @default("open")   // open | resolved | escalated
+  note   String
+  level  String @default("Medium") // Low | Medium | High
+  status String @default("open") // open | resolved | escalated
 
-  assignedToId String?  // sales rep responsible for the lead
-  assignedTo   User?    @relation("EscalationAssignee", fields: [assignedToId], references: [id])
+  assignedToId String? // sales rep responsible for the lead
+  assignedTo   User?   @relation("EscalationAssignee", fields: [assignedToId], references: [id])
 
-  raisedById   String?  // supervisor who raised it (no FK)
-  resolvedAt   DateTime?
+  raisedById String? // supervisor who raised it (no FK)
+  resolvedAt DateTime?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([leadId])
   @@index([assignedToId])
 }
-

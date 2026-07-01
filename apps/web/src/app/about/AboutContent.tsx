@@ -155,13 +155,15 @@ const WHATSAPP_STEPS = [
   { n: "04", title: "Receive verified enquiries", desc: "All enquiries routed directly to your WhatsApp or phone. No broker intermediary, ever." },
 ];
 
+const R2 = "https://pub-f4a95c3ec2954aabb9bd91fa3fdf4846.r2.dev";
+
 const LEADERSHIP = [
-  { role: "Founder & CEO" },
-  { role: "Chief Technology Officer" },
-  { role: "Chief Product Officer" },
-  { role: "Chief Growth Officer" },
-  { role: "Chief People Officer" },
-  { role: "Chief Financial Officer" },
+  { name: "Shankar RVS",   role: "Founder & CEO",             img: `${R2}/leadership-imgs/ShankarRVS.png` },
+  { name: "Aditya Ram",    role: "Chief Technology Officer",   img: `${R2}/leadership-imgs/AdityaRam.png` },
+  { name: "Ajinkya Soni",  role: "Chief Product Officer",      img: `${R2}/leadership-imgs/AjinkyaSoni.png` },
+  { name: "Vijayasurya",   role: "Chief Sales Officer",        img: `${R2}/leadership-imgs/Vijayasurya.png` },
+  { name: "Sarika Jain",   role: "Chief People Officer",       img: `${R2}/leadership-imgs/SarikaJain.png` },
+  { name: "Ranjita Singh", role: "Chief Financial Officer",    img: `${R2}/leadership-imgs/RanjitaSingh.png` },
 ];
 
 const FAQS = [
@@ -624,12 +626,15 @@ export function AboutContent() {
             </p>
 
             <div className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3">
-              {LEADERSHIP.map(({ role }, i) => (
+              {LEADERSHIP.map(({ name, role, img }, i) => (
                 <div key={role} data-reveal="scale"
                   className="flex flex-col items-center text-center"
                   style={{ transitionDelay: `${i * 80}ms` }}>
-                  <PhotoBox className="w-full max-w-[180px] aspect-[3/4]" />
-                  <div className="mt-3 text-sm font-bold text-navy">{role}</div>
+                  <div className="w-full max-w-[180px] aspect-[3/4] overflow-hidden rounded-2xl bg-secondary/30">
+                    <img src={img} alt={name} className="w-full h-full object-cover object-top" />
+                  </div>
+                  <div className="mt-3 text-sm font-bold text-navy">{name}</div>
+                  <div className="text-xs text-muted-foreground">{role}</div>
                 </div>
               ))}
             </div>

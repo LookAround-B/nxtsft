@@ -100,12 +100,15 @@ export const propertiesRouter = router({
         bedrooms: roomCountSchema.optional(),
         search: searchSchema.optional(),
         featured: z.boolean().optional(),
+        // PG-specific filters (only meaningful when type === "PG")
+        pgGender: z.enum(["Boys", "Girls", "Co-living"]).optional(),
+        pgOccupancy: safeString(30).optional(),
         cursor: cursorSchema, // id of the last item
         limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
-      const { cursor, limit, city, type, purpose, minPrice, maxPrice, bedrooms, search, featured } = input;
+      const { cursor, limit, city, type, purpose, minPrice, maxPrice, bedrooms, search, featured, pgGender, pgOccupancy } = input;
 
       const where: NonNullable<Parameters<typeof prisma.property.findMany>[0]>["where"] = {
         deletedAt: null,
@@ -117,6 +120,8 @@ export const propertiesRouter = router({
       if (purpose) where.purpose = purpose;
       if (bedrooms) where.bedrooms = bedrooms;
       if (featured !== undefined) where.featured = featured;
+      if (pgGender) where.pgGender = pgGender;
+      if (pgOccupancy) where.pgOccupancy = { has: pgOccupancy };
 
       if (minPrice !== undefined || maxPrice !== undefined) {
         where.price = {};
@@ -312,10 +317,20 @@ export const propertiesRouter = router({
         amenities: amenitiesSchema,
         images: safeUrlArraySchema,
         nearbyPlaces: nearbyPlacesSchema,
+        // PG-specific (optional; only set when type === "PG")
+        pgGender: z.enum(["Boys", "Girls", "Co-living"]).optional(),
+        pgOccupancy: amenitiesSchema.optional(),
+        pgAvailableBeds: roomCountSchema.optional(),
+        pgDeposit: z.coerce.number().int().nonnegative().max(999_999_999_999).optional(),
+        pgRoomTypes: amenitiesSchema.optional(),
+        pgHouseRules: amenitiesSchema.optional(),
+        pgFood: safeString(30).optional(),
+        virtualTourUrl: safeString(500).optional(),
+        walkthroughVideoUrl: safeString(500).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, ...rest } =
+      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, ...rest } =
         input;
 
       assertReraValid(city, input.rera);
@@ -329,6 +344,7 @@ export const propertiesRouter = router({
           price: BigInt(price),
           pricePerSqft: Math.round(price / area),
           area,
+          ...(pgDeposit !== undefined && { pgDeposit: BigInt(pgDeposit) }),
           ownerId: ctx.user.id,
           location: {
             create: { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces },

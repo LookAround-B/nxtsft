@@ -18,7 +18,10 @@ import {
   cursorSchema,
   limitSchema,
   ratingSchema,
+  amenitiesSchema,
+  safeUrlArraySchema,
 } from "../sanitize";
+import { makeInteriorDesignerSlug } from "./interiorDesigners";
 
 const safeUserSelect = {
   id: true,
@@ -787,6 +790,171 @@ export const adminRouter = router({
             content: input.content,
           },
         });
+      }),
+  }),
+
+  // Home Interiors — interior design company directory, admin-managed like Builders.
+  interiorDesigners: router({
+    list: adminProcedure
+      .input(
+        z.object({
+          search: searchSchema.optional(),
+          status: z.enum(["pending", "active", "inactive"]).optional(),
+          cursor: cursorSchema,
+          limit: limitSchema,
+        }),
+      )
+      .query(async ({ input }): Promise<unknown> => {
+        const { search, status, cursor, limit } = input;
+        const where: NonNullable<Parameters<typeof prisma.interiorDesigner.findMany>[0]>["where"] = {};
+        if (status) where.status = status;
+        if (search) {
+          where.OR = [
+            { companyName: { contains: search, mode: "insensitive" } },
+            { city:        { contains: search, mode: "insensitive" } },
+            { phone:       { contains: search } },
+          ];
+        }
+        const items = await prisma.interiorDesigner.findMany({
+          where,
+          orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+          take: limit + 1,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        });
+        const total = cursor ? null : await prisma.interiorDesigner.count({ where });
+        const hasMore = items.length > limit;
+        const page = hasMore ? items.slice(0, limit) : items;
+        return {
+          items: page.map((d) => ({ ...d, startingBudget: d.startingBudget != null ? Number(d.startingBudget) : null })),
+          nextCursor: page.at(-1)?.id ?? null,
+          hasMore,
+          total,
+        };
+      }),
+
+    create: adminProcedure
+      .input(
+        z.object({
+          companyName: safeString(200, 1),
+          city: geoTextSchema,
+          state: geoTextSchema.optional(),
+          description: safeString(5000).optional(),
+          logo: safeString(500).optional(),
+          coverImage: safeString(500).optional(),
+          areasServed: amenitiesSchema.optional(),
+          yearsExperience: z.number().int().min(0).max(100).optional(),
+          projectsCompleted: z.number().int().min(0).max(100_000).optional(),
+          startingBudget: z.number().int().positive().max(999_999_999_999).optional(),
+          designStyles: amenitiesSchema.optional(),
+          servicesOffered: amenitiesSchema.optional(),
+          portfolioImages: safeUrlArraySchema.optional(),
+          portfolioVideos: safeUrlArraySchema.optional(),
+          virtualTourUrl: safeString(500).optional(),
+          walkthroughVideoUrl: safeString(500).optional(),
+          workingHours: safeString(120).optional(),
+          website: safeString(300).optional(),
+          phone: phoneSchema,
+          email: emailSchema.optional(),
+        }),
+      )
+      .mutation(async ({ input }): Promise<unknown> => {
+        const base = makeInteriorDesignerSlug(`${input.companyName}-${input.city}`);
+        let slug = base;
+        let n = 2;
+        while (await prisma.interiorDesigner.findUnique({ where: { slug } })) slug = `${base}-${n++}`;
+
+        const { startingBudget, ...rest } = input;
+        return prisma.interiorDesigner.create({
+          data: {
+            ...rest,
+            slug,
+            startingBudget: startingBudget != null ? BigInt(startingBudget) : null,
+          },
+        });
+      }),
+
+    update: adminProcedure
+      .input(
+        z.object({
+          id: cuidSchema,
+          companyName: safeString(200, 1).optional(),
+          city: geoTextSchema.optional(),
+          state: geoTextSchema.optional(),
+          description: safeString(5000).optional(),
+          logo: safeString(500).optional(),
+          coverImage: safeString(500).optional(),
+          areasServed: amenitiesSchema.optional(),
+          yearsExperience: z.number().int().min(0).max(100).optional(),
+          projectsCompleted: z.number().int().min(0).max(100_000).optional(),
+          startingBudget: z.number().int().positive().max(999_999_999_999).optional(),
+          designStyles: amenitiesSchema.optional(),
+          servicesOffered: amenitiesSchema.optional(),
+          portfolioImages: safeUrlArraySchema.optional(),
+          portfolioVideos: safeUrlArraySchema.optional(),
+          virtualTourUrl: safeString(500).optional(),
+          walkthroughVideoUrl: safeString(500).optional(),
+          workingHours: safeString(120).optional(),
+          website: safeString(300).optional(),
+          phone: phoneSchema.optional(),
+          email: emailSchema.optional(),
+        }),
+      )
+      .mutation(async ({ input }): Promise<unknown> => {
+        const { id, startingBudget, ...rest } = input;
+        const designer = await prisma.interiorDesigner.findUnique({ where: { id } });
+        if (!designer) throw new TRPCError({ code: "NOT_FOUND", message: "Designer not found." });
+        return prisma.interiorDesigner.update({
+          where: { id },
+          data: {
+            ...rest,
+            ...(startingBudget !== undefined && { startingBudget: BigInt(startingBudget) }),
+          },
+        });
+      }),
+
+    // Approve & publish (verified badge + goes live) or send back to pending/inactive.
+    setStatus: adminProcedure
+      .input(z.object({ id: cuidSchema, status: z.enum(["pending", "active", "inactive"]) }))
+      .mutation(async ({ input }): Promise<unknown> => {
+        const designer = await prisma.interiorDesigner.findUnique({ where: { id: input.id } });
+        if (!designer) throw new TRPCError({ code: "NOT_FOUND", message: "Designer not found." });
+        return prisma.interiorDesigner.update({
+          where: { id: input.id },
+          data: {
+            status: input.status,
+            ...(input.status === "active" && { verified: true }),
+          },
+        });
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: cuidSchema }))
+      .mutation(async ({ input }) => {
+        const designer = await prisma.interiorDesigner.findUnique({ where: { id: input.id } });
+        if (!designer) throw new TRPCError({ code: "NOT_FOUND", message: "Designer not found." });
+        await prisma.interiorDesigner.delete({ where: { id: input.id } });
+        return { ok: true };
+      }),
+
+    // Contact-unlock events — the designer's "lead" dashboard (spec §Lead Management).
+    leads: adminProcedure
+      .input(z.object({ designerId: cuidSchema.optional(), limit: z.number().int().min(1).max(200).default(50) }))
+      .query(async ({ input }) => {
+        const rows = await prisma.interiorDesignerView.findMany({
+          where: { contactUnlocked: true, ...(input.designerId && { designerId: input.designerId }) },
+          include: {
+            designer: { select: { id: true, companyName: true, city: true } },
+            user: { select: { id: true, name: true, email: true, phone: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: input.limit,
+        });
+        return rows.map((r) => ({
+          id: r.id,
+          createdAt: r.createdAt,
+          designer: r.designer,
+          lead: r.user ? { name: r.user.name, email: r.user.email, phone: r.user.phone } : null,
+        }));
       }),
   }),
 });

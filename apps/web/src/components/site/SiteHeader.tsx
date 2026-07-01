@@ -14,6 +14,7 @@ import {
   Briefcase,
   Users,
   TrendingUp,
+  Sofa,
   LogOut,
   User as UserIcon,
 } from "lucide-react";
@@ -25,8 +26,9 @@ const PROPERTY_TYPES = [
   { label: "Villas", Icon: Home, type: "Villa" },
   { label: "Plots & Land", Icon: MapPin, type: "Plot" },
   { label: "Commercial", Icon: Briefcase, type: "Office" },
-  { label: "PG / Co-living", Icon: Users, type: "PG" },
+  { label: "PG / Co-living", Icon: Users, type: "PG", href: "/pg" },
   { label: "Studios", Icon: TrendingUp, type: "Studio" },
+  { label: "Home Interiors", Icon: Sofa, type: "Home Interiors", href: "/interiors" },
 ];
 
 const PROPERTY_CITIES = [
@@ -122,7 +124,7 @@ export function SiteHeader() {
                             {PROPERTY_TYPES.map((t) => (
                               <li key={t.type}>
                                 <Link
-                                  href={`/properties?type=${encodeURIComponent(t.type)}`}
+                                  href={t.href ?? `/properties?type=${encodeURIComponent(t.type)}`}
                                   className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-foreground/70 transition hover:bg-secondary hover:text-accent"
                                 >
                                   <t.Icon size={14} className="shrink-0 text-accent/50" />
@@ -293,7 +295,7 @@ export function SiteHeader() {
                               {PROPERTY_TYPES.map((t) => (
                                 <Link
                                   key={t.type}
-                                  href={`/properties?type=${encodeURIComponent(t.type)}`}
+                                  href={t.href ?? `/properties?type=${encodeURIComponent(t.type)}`}
                                   onClick={() => setMobileOpen(false)}
                                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground/70 transition hover:bg-secondary hover:text-accent"
                                 >

@@ -1,0 +1,270 @@
+"use client";
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import { Search, Sofa, MapPin, CheckCircle2, ChevronDown, X, Palette } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+
+const CITIES = ["Mumbai", "Bengaluru", "Delhi NCR", "Hyderabad", "Pune", "Chennai", "Kolkata", "Ahmedabad", "Jaipur", "Noida", "Gurgaon", "Kochi"];
+const DESIGN_STYLES = ["Modern", "Minimal", "Luxury", "Contemporary", "Traditional", "Industrial"];
+const BUDGETS: { label: string; value: number }[] = [
+  { label: "Under ₹2 L", value: 200_000 },
+  { label: "Under ₹5 L", value: 500_000 },
+  { label: "Under ₹10 L", value: 1_000_000 },
+  { label: "Under ₹25 L", value: 2_500_000 },
+];
+const SORTS: { label: string; value: "featured" | "latest" | "popular" | "budget_low" }[] = [
+  { label: "Featured", value: "featured" },
+  { label: "Latest", value: "latest" },
+  { label: "Popular", value: "popular" },
+  { label: "Budget: Low to High", value: "budget_low" },
+];
+
+export default function InteriorsPage() {
+  const [search,      setSearch]      = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [city,        setCity]        = useState("");
+  const [designStyle, setDesignStyle] = useState("");
+  const [maxBudget,   setMaxBudget]   = useState("");
+  const [sort,        setSort]        = useState<"featured" | "latest" | "popular" | "budget_low">("featured");
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const listQ = trpc.interiorDesigners.publicList.useInfiniteQuery(
+    {
+      search: search || undefined,
+      city: city || undefined,
+      designStyle: designStyle || undefined,
+      maxBudget: maxBudget ? Number(maxBudget) : undefined,
+      sort,
+      limit: 24,
+    },
+    { initialCursor: undefined as string | undefined, getNextPageParam: (p: { nextCursor: string | null }) => p.nextCursor ?? undefined },
+  );
+
+  const designers = listQ.data?.pages.flatMap((p: { items: unknown[] }) => p.items) ?? [];
+  const total    = (listQ.data?.pages[0] as { total?: number } | undefined)?.total ?? 0;
+  const hasMore  = (listQ.data?.pages.at(-1) as { hasMore?: boolean } | undefined)?.hasMore ?? false;
+
+  // Prefill from ?q= (hero search hands off the query here).
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) { setSearchInput(q); setSearch(q); }
+  }, []);
+
+  useEffect(() => {
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setSearch(searchInput), 350);
+    return () => clearTimeout(searchTimer.current);
+  }, [searchInput]);
+
+  const clearFilters = () => { setSearchInput(""); setSearch(""); setCity(""); setDesignStyle(""); setMaxBudget(""); };
+  const hasFilters   = search || city || designStyle || maxBudget;
+
+  return (
+    <>
+      <main className="min-h-screen bg-background">
+        {/* Hero bar */}
+        <div className="border-b border-border bg-white px-4 py-8 sm:px-6">
+          <div className="mx-auto max-w-7xl">
+            <h1 className="font-display text-2xl font-black text-navy sm:text-3xl">
+              Home Interiors — Designer Directory
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Discover trusted interior design companies and their portfolios near you
+            </p>
+
+            {/* Search + filters */}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <div className="relative flex-1 min-w-[220px]">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search designer or locality…"
+                  className="w-full rounded-lg border border-border bg-white py-2 pl-8 pr-3 text-sm outline-none focus:border-accent"
+                />
+              </div>
+              <Filter label="City" value={city} onChange={setCity} options={CITIES} />
+              <Filter label="Style" value={designStyle} onChange={setDesignStyle} options={DESIGN_STYLES} />
+              <BudgetFilter value={maxBudget} onChange={setMaxBudget} />
+              <SortFilter value={sort} onChange={setSort} />
+              {hasFilters && (
+                <button onClick={clearFilters} className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-secondary">
+                  <X size={12} /> Clear
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+          {listQ.isLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="h-40 animate-pulse rounded-2xl border border-border bg-white" />
+              ))}
+            </div>
+          ) : designers.length === 0 ? (
+            <EmptyState hasFilters={!!hasFilters} onClear={clearFilters} />
+          ) : (
+            <>
+              <p className="mb-4 text-xs text-muted-foreground">
+                {total.toLocaleString()} designer{total !== 1 ? "s" : ""} found
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {(designers as DesignerItem[]).map((d) => (
+                  <DesignerCard key={d.id} designer={d} />
+                ))}
+              </div>
+              {hasMore && (
+                <div className="mt-8 text-center">
+                  <button
+                    onClick={() => listQ.fetchNextPage()}
+                    disabled={listQ.isFetchingNextPage}
+                    className="rounded-full border border-border px-6 py-2 text-sm font-semibold hover:bg-secondary disabled:opacity-50"
+                  >
+                    {listQ.isFetchingNextPage ? "Loading…" : "Load more"}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </main>
+    </>
+  );
+}
+
+// ── Types ──────────────────────────────────────────────────────────────────
+
+type DesignerItem = {
+  id: string; slug: string; companyName: string; city: string;
+  state: string | null; verified: boolean; logo: string | null;
+  coverImage: string | null; description: string | null;
+  yearsExperience: number | null; projectsCompleted: number;
+  designStyles: string[];
+};
+
+// ── Sub-components ─────────────────────────────────────────────────────────
+
+function DesignerCard({ designer: d }: { designer: DesignerItem }) {
+  return (
+    <Link
+      href={`/interiors/${d.slug}`}
+      className="group flex flex-col gap-3 rounded-2xl border border-border bg-white p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-lg"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-xl bg-accent/10 text-accent">
+          {d.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={d.logo} alt={d.companyName} className="h-10 w-10 rounded-lg object-contain" />
+          ) : (
+            <Sofa size={22} strokeWidth={1.75} />
+          )}
+        </div>
+        {d.verified && (
+          <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+            <CheckCircle2 size={10} /> Verified
+          </span>
+        )}
+      </div>
+
+      <div className="flex-1">
+        <h3 className="font-display text-sm font-bold leading-snug text-navy group-hover:text-accent">
+          {d.companyName}
+        </h3>
+        {(d.city || d.state) && (
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin size={10} />
+            {[d.city, d.state].filter(Boolean).join(", ")}
+          </p>
+        )}
+        {d.description && (
+          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{d.description}</p>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between border-t border-border pt-3">
+        <span className="text-xs text-muted-foreground">
+          {d.projectsCompleted} project{d.projectsCompleted !== 1 ? "s" : ""}
+          {d.yearsExperience != null ? ` · ${d.yearsExperience}y exp` : ""}
+        </span>
+        {d.designStyles[0] && (
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-navy">
+            {d.designStyles[0]}
+          </span>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+function Filter({ label, value, onChange, options }: {
+  label: string; value: string;
+  onChange: (v: string) => void; options: string[];
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none rounded-lg border border-border bg-white py-2 pl-3 pr-7 text-sm outline-none focus:border-accent"
+      >
+        <option value="">All {label}s</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  );
+}
+
+function BudgetFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none rounded-lg border border-border bg-white py-2 pl-3 pr-7 text-sm outline-none focus:border-accent"
+      >
+        <option value="">Any Budget</option>
+        {BUDGETS.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+      </select>
+      <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  );
+}
+
+function SortFilter({ value, onChange }: { value: string; onChange: (v: "featured" | "latest" | "popular" | "budget_low") => void }) {
+  return (
+    <div className="relative ml-auto">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as "featured" | "latest" | "popular" | "budget_low")}
+        className="appearance-none rounded-lg border border-border bg-white py-2 pl-3 pr-7 text-sm outline-none focus:border-accent"
+      >
+        {SORTS.map((s) => <option key={s.value} value={s.value}>Sort: {s.label}</option>)}
+      </select>
+      <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  );
+}
+
+function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center">
+      <Palette size={48} className="mb-4 text-muted-foreground/30" />
+      {hasFilters ? (
+        <>
+          <p className="font-semibold text-navy">No designers match your filters</p>
+          <button onClick={onClear} className="mt-3 text-sm text-accent hover:underline">Clear filters</button>
+        </>
+      ) : (
+        <>
+          <p className="font-display text-lg font-bold text-navy">Designer directory coming soon</p>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+            We're onboarding verified interior design companies. Check back soon to explore portfolios near you.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}

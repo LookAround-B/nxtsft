@@ -231,6 +231,42 @@ export const usersRouter = router({
       return { ok: true };
     }),
 
+  // ── Interior-designer favorites (mirror property favorites) ────────────────
+  designerFavorites: protectedProcedure.query(async ({ ctx }) => {
+    const favorites = await prisma.designerFavorite.findMany({
+      where: { userId: ctx.user.id, designer: { status: "active" } },
+      orderBy: { createdAt: "desc" },
+      include: { designer: true },
+    });
+    return favorites.map((f) => ({
+      ...f.designer,
+      startingBudget: f.designer.startingBudget != null ? Number(f.designer.startingBudget) : null,
+    }));
+  }),
+
+  addDesignerFavorite: protectedProcedure
+    .input(z.object({ designerId: cuidSchema }))
+    .mutation(async ({ input, ctx }) => {
+      const designer = await prisma.interiorDesigner.findFirst({ where: { id: input.designerId } });
+      if (!designer) throw new TRPCError({ code: "NOT_FOUND", message: "Designer not found." });
+      await prisma.designerFavorite.upsert({
+        where: { userId_designerId: { userId: ctx.user.id, designerId: input.designerId } },
+        create: { userId: ctx.user.id, designerId: input.designerId },
+        update: {},
+      });
+      await logActivity(ctx.user.id, "designer.favorited", "InteriorDesigner", input.designerId);
+      return { ok: true };
+    }),
+
+  removeDesignerFavorite: protectedProcedure
+    .input(z.object({ designerId: cuidSchema }))
+    .mutation(async ({ input, ctx }) => {
+      await prisma.designerFavorite.deleteMany({
+        where: { userId: ctx.user.id, designerId: input.designerId },
+      });
+      return { ok: true };
+    }),
+
   siteVisits: protectedProcedure.query(async ({ ctx }) => {
     const visits = await prisma.siteVisit.findMany({
       where: { userId: ctx.user.id },

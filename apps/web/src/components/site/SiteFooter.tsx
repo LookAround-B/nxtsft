@@ -8,7 +8,8 @@ const FOOTER_LINKS = {
     { href: "/properties?type=Villa", label: "Villas" },
     { href: "/properties?type=Plot", label: "Plots & Land" },
     { href: "/properties?type=Office", label: "Commercial" },
-    { href: "/properties?type=Home%20Interiors", label: "Home Interiors" },
+    { href: "/pg", label: "PG / Co-living" },
+    { href: "/interiors", label: "Home Interiors" },
   ],
   company: [
     { href: "/about", label: "About Us" },

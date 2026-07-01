@@ -30,7 +30,7 @@ function HeroBlobs() {
 export function HeroSection() {
   const router = useRouter();
 
-  const [tab, setTab] = useState<"Buy" | "Rent" | "Commercial" | "PG">("Buy");
+  const [tab, setTab] = useState<"Buy" | "Rent" | "Commercial" | "PG" | "Interiors">("Buy");
   const [query, setQuery] = useState("");
   const [statIdx, setStatIdx] = useState(0);
   const [fade, setFade] = useState(true);
@@ -61,8 +61,10 @@ export function HeroSection() {
 
   const handleSearch = useCallback(() => {
     const q = query.trim();
-    router.push(q ? `/properties?q=${encodeURIComponent(q)}` : "/properties");
-  }, [query, router]);
+    // Interiors and PG have their own discovery pages; other tabs use /properties.
+    const base = tab === "Interiors" ? "/interiors" : tab === "PG" ? "/pg" : "/properties";
+    router.push(q ? `${base}?q=${encodeURIComponent(q)}` : base);
+  }, [query, router, tab]);
 
   return (
     <section className="relative overflow-hidden bg-navy">
@@ -104,7 +106,7 @@ export function HeroSection() {
         {/* search widget */}
         <div className="mx-auto mt-6 max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl sm:mt-8">
           <div className="no-scrollbar flex overflow-x-auto border-b border-border px-3 pt-3 sm:px-4">
-            {(["Buy", "Rent", "Commercial", "PG"] as const).map((t) => (
+            {(["Buy", "Rent", "Commercial", "PG", "Interiors"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}

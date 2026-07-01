@@ -91,14 +91,14 @@ export function fmtPrice(p: number): string {
   return `₹${p.toLocaleString("en-IN")}`;
 }
 
-export const CATEGORIES: { label: string; Icon: LucideIcon; type: string; image?: string }[] = [
+export const CATEGORIES: { label: string; Icon: LucideIcon; type: string; image?: string; href?: string }[] = [
   { label: "Apartments", Icon: Building2, type: "Apartment", image: `${R2}/site/categories/apartment.png` },
   { label: "Villas", Icon: Home, type: "Villa", image: `${R2}/site/categories/villas.png` },
   { label: "Plots", Icon: MapPin, type: "Plot", image: `${R2}/site/categories/plots.png` },
   { label: "Commercial", Icon: Briefcase, type: "Commercial", image: `${R2}/site/categories/commercial.png` },
-  { label: "PG / Co-living", Icon: Users, type: "PG", image: `${R2}/site/categories/pg.png` },
+  { label: "PG / Co-living", Icon: Users, type: "PG", image: `${R2}/site/categories/pg.png`, href: "/pg" },
   { label: "New Projects", Icon: TrendingUp, type: "New" },
-  { label: "Home Interiors", Icon: Sofa, type: "Home Interiors" },
+  { label: "Home Interiors", Icon: Sofa, type: "Home Interiors", href: "/interiors" },
 ];
 
 export const CITIES: { label: string; Icon: LucideIcon; tagline: string }[] = [

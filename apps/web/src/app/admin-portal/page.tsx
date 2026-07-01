@@ -20,6 +20,7 @@ import {
   Image as ImageIcon,
   Gift,
   Star,
+  Sofa,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -45,6 +46,7 @@ import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprova
 import { SiteContentTab } from "@/components/admin-portal/tabs/SiteContentTab";
 import { ReferralsTab } from "@/components/admin-portal/tabs/ReferralsTab";
 import { ReviewsTab } from "@/components/admin-portal/tabs/ReviewsTab";
+import { InteriorsTab } from "@/components/admin-portal/tabs/InteriorsTab";
 
 // Grouped nav — groups surface in the sidebar as section headings.
 // Badge counts are static placeholders; wire to live queries once API endpoints expose them.
@@ -66,6 +68,7 @@ const nav = [
   // ── Platform ─────────────────────────────────────────────────────────
   { label: "Listings",       to: "/admin-portal#listings",     icon: <Building2 size={14} />,  group: "Platform", badge: 2 },
   { label: "Reviews",        to: "/admin-portal#reviews",      icon: <Star size={14} /> },
+  { label: "Home Interiors", to: "/admin-portal#interiors",    icon: <Sofa size={14} /> },
   { label: "Property Views", to: "/admin-portal#views",        icon: <Eye size={14} /> },
   { label: "Subscriptions",  to: "/admin-portal#subscriptions",icon: <ReceiptText size={14} /> },
   { label: "Buyer Wallets",  to: "/admin-portal#credits",      icon: <Coins size={14} /> },
@@ -103,6 +106,7 @@ function renderTab(hash: string) {
     case "site-content":  return <SiteContentTab />;
     case "referrals":     return <ReferralsTab />;
     case "reviews":       return <ReviewsTab />;
+    case "interiors":     return <InteriorsTab />;
     default:              return <OperationsTab />;
   }
 }

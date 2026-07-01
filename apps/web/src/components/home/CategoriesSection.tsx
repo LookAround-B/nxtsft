@@ -15,10 +15,10 @@ export function CategoriesSection() {
             </h2>
           </div>
           <div className="grid grid-cols-3 gap-3 sm:gap-4 md:grid-cols-7">
-            {CATEGORIES.map(({ label, Icon, type, image }, i) => (
+            {CATEGORIES.map(({ label, Icon, type, image, href }, i) => (
               <Link
                 key={label}
-                href={`/properties?type=${encodeURIComponent(type)}`}
+                href={href ?? `/properties?type=${encodeURIComponent(type)}`}
                 data-reveal="scale"
                 className="group relative flex flex-col items-center justify-end overflow-hidden rounded-2xl border border-border text-center transition hover:-translate-y-1 hover:shadow-lg"
                 style={{ transitionDelay: `${i * 55}ms`, minHeight: "120px" }}

@@ -24,6 +24,11 @@ import {
   Eye,
   Flame,
   Users,
+  UtensilsCrossed,
+  Rotate3d,
+  Play,
+  ScrollText,
+  IndianRupee,
 } from "lucide-react";
 import { PropertyEngagement } from "@/components/PropertyEngagement";
 import { PropertyReport } from "@/components/PropertyReport";
@@ -70,6 +75,15 @@ type FullProperty = {
   featured: boolean;
   views: number;
   viewBase: number;
+  pgGender: string | null;
+  pgOccupancy: string[];
+  pgAvailableBeds: number | null;
+  pgDeposit: number | null;
+  pgRoomTypes: string[];
+  pgHouseRules: string[];
+  pgFood: string | null;
+  virtualTourUrl: string | null;
+  walkthroughVideoUrl: string | null;
   location: {
     city: string;
     locality: string;
@@ -80,6 +94,17 @@ type FullProperty = {
   };
   owner: { id: string; name: string; email: string; avatar: string | null } | null;
 };
+
+/* Small labelled fact tile used in the PG details grid */
+function PgFact({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-secondary/40 p-3">
+      <div className="flex items-center gap-1.5 text-accent">{icon}</div>
+      <div className="mt-1.5 text-sm font-bold text-navy">{value}</div>
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+    </div>
+  );
+}
 
 /* Simulated live viewer badge — random jitter every 45s, seeded by viewBase */
 function ViewerBadge({
@@ -677,6 +702,97 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ slug:
                 <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/80">
                   {property.description}
                 </p>
+              </div>
+            )}
+
+            {/* PG-specific details — only when type === "PG" and at least one PG field is set */}
+            {property.type === "PG" && (
+              property.pgGender || property.pgAvailableBeds != null || property.pgFood ||
+              property.pgDeposit != null || property.pgOccupancy.length > 0 ||
+              property.pgRoomTypes.length > 0 || property.pgHouseRules.length > 0
+            ) && (
+              <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                <h2 className="mb-4 font-display text-lg font-bold text-navy">PG Details</h2>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  {property.pgGender && (
+                    <PgFact icon={<Users size={16} />} label="For" value={property.pgGender} />
+                  )}
+                  {property.pgAvailableBeds != null && (
+                    <PgFact icon={<BedDouble size={16} />} label="Available Beds" value={String(property.pgAvailableBeds)} />
+                  )}
+                  {property.pgFood && (
+                    <PgFact icon={<UtensilsCrossed size={16} />} label="Food" value={property.pgFood} />
+                  )}
+                  {property.pgDeposit != null && (
+                    <PgFact icon={<IndianRupee size={16} />} label="Deposit" value={`₹${property.pgDeposit.toLocaleString("en-IN")}`} />
+                  )}
+                </div>
+
+                {property.pgOccupancy.length > 0 && (
+                  <div className="mt-5">
+                    <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Occupancy</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {property.pgOccupancy.map((o) => (
+                        <span key={o} className="rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">{o}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {property.pgRoomTypes.length > 0 && (
+                  <div className="mt-4">
+                    <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Room Types</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {property.pgRoomTypes.map((r) => (
+                        <span key={r} className="rounded-full bg-secondary px-2.5 py-1 text-xs text-navy">{r}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {property.pgHouseRules.length > 0 && (
+                  <div className="mt-4">
+                    <div className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <ScrollText size={12} /> House Rules
+                    </div>
+                    <ul className="grid gap-1 sm:grid-cols-2">
+                      {property.pgHouseRules.map((r) => (
+                        <li key={r} className="flex items-start gap-1.5 text-sm text-foreground/80">
+                          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />{r}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 360° tour & walkthrough (PG + any listing that has them) */}
+            {(property.virtualTourUrl || property.walkthroughVideoUrl) && (
+              <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                <h2 className="mb-4 font-display text-lg font-bold text-navy">Virtual Tour</h2>
+                <div className="space-y-4">
+                  {property.virtualTourUrl && (
+                    <div>
+                      <div className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <Rotate3d size={12} /> 360° Virtual Tour
+                      </div>
+                      <div className="aspect-video overflow-hidden rounded-xl border border-border">
+                        <iframe src={property.virtualTourUrl} className="h-full w-full" allowFullScreen title="360° virtual tour" />
+                      </div>
+                    </div>
+                  )}
+                  {property.walkthroughVideoUrl && (
+                    <div>
+                      <div className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <Play size={12} /> Walkthrough Video
+                      </div>
+                      <div className="aspect-video overflow-hidden rounded-xl border border-border">
+                        <iframe src={property.walkthroughVideoUrl} className="h-full w-full" allowFullScreen title="Walkthrough video" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
