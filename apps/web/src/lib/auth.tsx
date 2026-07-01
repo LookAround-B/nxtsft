@@ -99,7 +99,12 @@ const TOKEN_KEY = "nxtsft.token";
 /* ---- Cookie helpers (mirror for Edge Middleware) ---- */
 
 function setSessionCookie(token: string, role: string): void {
-  document.cookie = `nxtsft_session=${token}|${role}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Strict${window.location.protocol === 'https:' ? '; Secure' : ''}`;
+  // SameSite=Lax (not Strict): a session cookie must travel on top-level
+  // navigations that originate off-site (WhatsApp/email/search links, bookmarks,
+  // new tabs). With Strict the browser withholds the cookie on those first
+  // requests, so the Edge middleware sees "no session" and bounces the user to
+  // /login even though they're signed in. Lax still blocks CSRF on unsafe methods.
+  document.cookie = `nxtsft_session=${token}|${role}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
 }
 
 function clearSessionCookie(): void {
