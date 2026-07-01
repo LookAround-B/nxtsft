@@ -25,6 +25,7 @@ const builderRow = z.object({
   ownerName: safeString(200).optional().default(""),
   mobile: safeString(40).optional().default(""),
   projectType: safeString(120).optional().default(""),
+  developmentStatus: safeString(120).optional().default(""),
   state: safeString(120).optional().default(""),
   district: safeString(120).optional().default(""),
   city: safeString(120).optional().default(""),

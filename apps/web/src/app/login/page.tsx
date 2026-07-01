@@ -213,14 +213,6 @@ export default function LoginPage() {
               Create a free account →
             </Link>
           </p>
-          <div className="mt-4 border-t border-border pt-4 text-center">
-            <p className="text-xs text-muted-foreground">
-              Are you staff or admin?{" "}
-              <Link href="/admin-login" className="font-semibold text-navy hover:underline">
-                Admin sign in →
-              </Link>
-            </p>
-          </div>
         </div>
       </div>
     </div>

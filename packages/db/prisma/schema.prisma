@@ -373,6 +373,7 @@ model Builder {
   ownerName   String?
   mobile      String?
   projectType String? // legacy single-type field; projects relation is the richer model
+  developmentStatus String? // present status of the project, e.g. Ongoing | Completed | Upcoming
   state       String?
   district    String?
   city        String?

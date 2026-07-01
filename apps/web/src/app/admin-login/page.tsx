@@ -100,8 +100,6 @@ export default function AdminLoginPage() {
 
   const selectRole = (r: AdminRole) => {
     setSelected(r);
-    setEmail(ROLE_META[r].demoEmail);
-    setPassword("demo1234");
     setError("");
   };
 

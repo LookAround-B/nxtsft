@@ -11,19 +11,22 @@ import { PageHead } from "./PageHead";
 
 type BuilderRow = {
   companyName: string; ownerName: string; mobile: string;
-  projectType: string; state: string; district: string; city: string;
+  projectType: string; developmentStatus: string; state: string; district: string; city: string;
 };
 
-const BUILDER_HEADERS = ["Company Name", "Owner Name", "Mobile Number", "Project Type", "State", "District", "City/Town"];
+const BUILDER_HEADERS = ["Project Name", "Owner Name", "Mobile Number", "Project Type", "Development Status", "State", "District", "City/Town"];
 const FIELD_BY_HEADER: Record<string, keyof BuilderRow> = {
-  "company name": "companyName", "owner name": "ownerName",
+  "project name": "companyName", "company name": "companyName",
+  "owner name": "ownerName",
   "mobile number": "mobile", mobile: "mobile",
-  "project type": "projectType", state: "state", district: "district",
+  "project type": "projectType",
+  "development status": "developmentStatus", status: "developmentStatus",
+  state: "state", district: "district",
   "city/town": "city", city: "city", town: "city",
 };
 
 function downloadBuilderTemplate() {
-  const example = ["Coastal Homes", "Mohan Goud", "7356771554", "Independent Home", "Andhra Pradesh", "Kadapa", "Rajampet"];
+  const example = ["Coastal Homes", "Mohan Goud", "7356771554", "Independent Home", "Ongoing", "Andhra Pradesh", "Kadapa", "Rajampet"];
   const csv = `${BUILDER_HEADERS.join(",")}\n${example.join(",")}\n`;
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
   const a = document.createElement("a");
@@ -58,7 +61,7 @@ function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows:
     const f = FIELD_BY_HEADER[h];
     if (f && idx[f] === undefined) idx[f] = i;
   });
-  if (idx.companyName === undefined) return { rows: [], error: "Missing required 'Company Name' column. Use the template." };
+  if (idx.companyName === undefined) return { rows: [], error: "Missing required 'Project Name' column. Use the template." };
   const cellAt = (r: number, f: keyof BuilderRow) =>
     idx[f] !== undefined ? String(matrix[r]?.[idx[f]!] ?? "").trim() : "";
   const rows: BuilderRow[] = [];
@@ -72,6 +75,7 @@ function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows:
       ownerName: cellAt(r, "ownerName") || undefined,
       mobile: cellAt(r, "mobile"),
       projectType: cellAt(r, "projectType") || undefined,
+      developmentStatus: cellAt(r, "developmentStatus") || undefined,
       state: cellAt(r, "state") || undefined,
       district: cellAt(r, "district") || undefined,
       city: cellAt(r, "city"),
@@ -308,7 +312,7 @@ export function DevTab() {
             {fileName && <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><FileSpreadsheet size={13} /> {fileName}</span>}
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Columns: {BUILDER_HEADERS.join(" · ")}. Only <strong>Company Name</strong> is required.
+            Columns: {BUILDER_HEADERS.join(" · ")}. Only <strong>Project Name</strong> is required.
           </p>
 
           {parseErr && (
@@ -515,10 +519,11 @@ export function DevTab() {
               <table className="w-full text-left text-sm">
                 <thead className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="py-2 pr-4">Company</th>
+                    <th className="py-2 pr-4">Project</th>
                     <th className="py-2 pr-4">Owner</th>
                     <th className="py-2 pr-4">Mobile</th>
                     <th className="py-2 pr-4">Project Type</th>
+                    <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4">City</th>
                     <th className="py-2 pr-4">State</th>
                   </tr>
@@ -530,6 +535,7 @@ export function DevTab() {
                       <td className="py-2 pr-4 text-foreground/80">{b.ownerName || "—"}</td>
                       <td className="py-2 pr-4 font-mono text-xs text-foreground/80">{b.mobile || "—"}</td>
                       <td className="py-2 pr-4">{b.projectType ? <Badge tone="default">{b.projectType}</Badge> : "—"}</td>
+                      <td className="py-2 pr-4 text-foreground/80">{b.developmentStatus || "—"}</td>
                       <td className="py-2 pr-4 text-foreground/80">{b.city || "—"}</td>
                       <td className="py-2 pr-4 text-foreground/80">{b.state || "—"}</td>
                     </tr>

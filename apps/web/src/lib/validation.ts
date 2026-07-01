@@ -225,6 +225,7 @@ export const builderRowSchema = z.object({
   ownerName: nameSchema.optional(),
   mobile: phoneSchema,
   projectType: z.string().max(100).transform((s) => sanitizeText(s)).optional(),
+  developmentStatus: z.string().max(100).transform((s) => sanitizeText(s)).optional(),
   state: z.string().max(100).transform((s) => sanitizeText(s)).optional(),
   district: z.string().max(100).transform((s) => sanitizeText(s)).optional(),
   city: citySchema,
