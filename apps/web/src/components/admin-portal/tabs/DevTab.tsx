@@ -55,7 +55,9 @@ function parseCsv(text: string): string[][] {
 
 function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows: BuilderRow[]; error?: string } {
   if (!matrix.length) return { rows: [], error: "The file is empty." };
-  const header = matrix[0].map((h) => String(h ?? "").trim().toLowerCase());
+  // Collapse any whitespace run (incl. non-breaking space U+00A0 and BOM,
+  // both matched by \s) to one space, so headers copied from Excel/PDF match.
+  const header = matrix[0].map((h) => String(h ?? "").replace(/\s+/g, " ").trim().toLowerCase());
   const idx: Partial<Record<keyof BuilderRow, number>> = {};
   header.forEach((h, i) => {
     const f = FIELD_BY_HEADER[h];
