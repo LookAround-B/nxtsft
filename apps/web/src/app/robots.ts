@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { PORTAL_ACCESS, LOGIN_ROUTES } from "@/lib/routes";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://nxtsft.com";
+import { SITE_URL } from "@/lib/site";
 
 export default function robots(): MetadataRoute.Robots {
   // Keep private, auth-gated, and transactional routes out of the index. Portal

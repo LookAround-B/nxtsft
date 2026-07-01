@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import prisma from "@nxtsft/db";
+import { SITE_URL } from "@/lib/site";
 import PropertyDetailClient from "./PropertyDetailClient";
 
 export const runtime = "nodejs";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://nxtsft.com";
 
 // Read-only fetch for metadata + JSON-LD. Deliberately NOT the tRPC `get`
 // procedure — that one increments the view counter, which must not fire for a

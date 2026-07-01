@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import prisma from "@nxtsft/db";
+import { SITE_URL } from "@/lib/site";
 import BuilderProfileClient from "./BuilderProfileClient";
 
 export const runtime = "nodejs";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://nxtsft.com";
 
 const getBuilder = cache(async (slug: string) => {
   return prisma.builder.findUnique({

@@ -1,12 +1,11 @@
 import type { MetadataRoute } from "next";
 import prisma from "@nxtsft/db";
+import { SITE_URL } from "@/lib/site";
 
 // Prisma (pg adapter) needs the Node runtime. Regenerate hourly via ISR so new
 // listings/builders/agents surface to crawlers without a redeploy.
 export const runtime = "nodejs";
 export const revalidate = 3600;
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://nxtsft.com";
 
 // A single sitemap is capped at 50,000 URLs by the protocol. Static + property +
 // agent + interior URLs stay well under; builders are bounded by a quality gate

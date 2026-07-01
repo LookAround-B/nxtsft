@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import prisma from "@nxtsft/db";
+import { SITE_URL } from "@/lib/site";
 import AgentProfileClient from "./AgentProfileClient";
 
 export const runtime = "nodejs";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://nxtsft.com";
 
 const getAgent = cache(async (slug: string) => {
   return prisma.user.findFirst({
