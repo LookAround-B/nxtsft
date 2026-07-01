@@ -252,12 +252,26 @@ export const buildersRouter = router({
         updates.push({ id: b.id, slug });
       }
 
-      const CHUNK = 500;
+      // One bulk UPDATE ... FROM (VALUES ...) per chunk — a single round-trip
+      // instead of 500 individual UPDATEs. The old per-row $transaction blew the
+      // 5s interactive-transaction cap over the VPS Postgres (pool max:1 + latency).
+      // No transaction needed: each row's slug is independent.
+      const CHUNK = 1000;
       for (let i = 0; i < updates.length; i += CHUNK) {
-        await prisma.$transaction(
-          updates.slice(i, i + CHUNK).map(({ id, slug }) =>
-            prisma.builder.update({ where: { id }, data: { slug } }),
-          ),
+        const chunk = updates.slice(i, i + CHUNK);
+        // Parameterised placeholders ($1,$2),($3,$4)... — cast the first row so
+        // Postgres resolves the VALUES column types to text.
+        const valuesSql = chunk
+          .map((_, j) =>
+            j === 0
+              ? `($${j * 2 + 1}::text, $${j * 2 + 2}::text)`
+              : `($${j * 2 + 1}, $${j * 2 + 2})`,
+          )
+          .join(", ");
+        const params = chunk.flatMap(({ id, slug }) => [id, slug]);
+        await prisma.$executeRawUnsafe(
+          `UPDATE "Builder" AS b SET slug = v.slug FROM (VALUES ${valuesSql}) AS v(id, slug) WHERE b.id = v.id`,
+          ...params,
         );
       }
 
