@@ -220,15 +220,27 @@ export const queryParamsSchema = z.object({
 });
 
 // Builder import row schema
+// Bulk-import row. Contract: only Project Name (companyName) is required —
+// matches the server `builderRow` schema and the "Only Project Name is required"
+// UI text. Mobile/city are optional; a mobile is normalised to digits (kept only
+// if it's a valid 10-digit Indian number, else dropped) rather than rejecting the row.
 export const builderRowSchema = z.object({
-  companyName: z.string().max(200).transform((s) => sanitizeText(s)),
-  ownerName: nameSchema.optional(),
-  mobile: phoneSchema,
+  companyName: z.string().max(200).transform((s) => sanitizeText(s)).refine((s) => s.length > 0, "Project Name is required"),
+  ownerName: z.string().max(200).transform((s) => sanitizeText(s)).optional(),
+  mobile: z
+    .string()
+    .max(40)
+    .transform((s) => {
+      const digits = s.replace(/\D/g, "");
+      return /^[6-9]\d{9}$/.test(digits) ? digits : "";
+    })
+    .optional()
+    .default(""),
   projectType: z.string().max(100).transform((s) => sanitizeText(s)).optional(),
   developmentStatus: z.string().max(100).transform((s) => sanitizeText(s)).optional(),
   state: z.string().max(100).transform((s) => sanitizeText(s)).optional(),
   district: z.string().max(100).transform((s) => sanitizeText(s)).optional(),
-  city: citySchema,
+  city: z.string().max(LIMITS.city.max).transform((s) => sanitizeText(s)).optional().default(""),
 });
 
 // Create listing schema
