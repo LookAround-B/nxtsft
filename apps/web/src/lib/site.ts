@@ -7,4 +7,10 @@
  * per-URL redirects in the sitemap and mixed canonical signals. Override via
  * NEXT_PUBLIC_SITE_URL if the canonical host ever changes.
  */
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.nxtsft.com";
+// Trailing slashes are stripped so callers can safely do `${SITE_URL}/path`
+// without producing `//` — the Vercel env value currently ends with a slash,
+// which otherwise leaks double slashes into sitemap/robots/canonical URLs.
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.nxtsft.com").replace(
+  /\/+$/,
+  "",
+);
