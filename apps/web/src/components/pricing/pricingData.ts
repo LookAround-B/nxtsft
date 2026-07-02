@@ -182,9 +182,9 @@ export const CHOOSER_FLOWS: Record<
         ],
       },
       {
-        q: "Would you like a Relationship Manager to assist you?",
+        q: "Would you like priority support & site-visit scheduling help?",
         options: [
-          { label: "Yes please", sub: "Handle visits, paperwork, negotiation", value: "yes" },
+          { label: "Yes please", sub: "Priority support, visit scheduling", value: "yes" },
           { label: "No, I'll self-serve", sub: "I just need contacts", value: "no" },
         ],
       },
@@ -197,41 +197,26 @@ export const CHOOSER_FLOWS: Record<
         ],
       },
     ],
-    recommend: ([count, rm, when]) => {
-      if (rm === "yes" && count === "12+")
+    // planId must match a real seeker Plan.id ("seeker-instant" / "seeker-basic" /
+    // "seeker-premium" when DB-seeded, or the bare "instant" / "basic" / "premium"
+    // fallback names) — pricing/page.tsx's scrollToPlan() matches either form.
+    recommend: ([count, support, when]) => {
+      if (support === "yes" || count === "12+" || count === "7-12")
         return {
-          planId: "executive",
-          name: "Executive Premium",
-          why: "50 unlocks, a dedicated RM, 10 managed site visits, and end-to-end closing support — best for buyers seeking a complete service.",
-        };
-      if (rm === "yes")
-        return {
-          planId: "pro",
-          name: "Pro Assisted",
-          why: "24 unlocks with a dedicated Relationship Manager and up to 5 walkthroughs — great if you want guided support during your search.",
-        };
-      if (count === "12+")
-        return {
-          planId: "hunter",
-          name: "Active Hunter",
-          why: "12 contact unlocks for 30 days — ideal for an aggressive multi-property search without needing a RM.",
-        };
-      if (count === "7-12")
-        return {
-          planId: "standard",
-          name: "Standard Pack",
-          why: "6 unlocks over 30 days — the best value option for a focused search across a few neighbourhoods.",
+          planId: "premium",
+          name: "Premium",
+          why: "15 owner contacts valid for 90 days, priority support and free site-visit scheduling — best for an active, multi-property search.",
         };
       if (count === "1-2" && when === "explore")
         return {
-          planId: "micro",
-          name: "Micro Match",
-          why: "1 unlock at ₹99 — perfect for testing one lead with zero commitment.",
+          planId: "instant",
+          name: "Instant",
+          why: "1 owner contact at ₹99 — perfect for testing a single lead with zero commitment.",
         };
       return {
-        planId: "trial",
-        name: "Trial Pack",
-        why: "3 unlocks over 15 days — enough to test a couple of options before committing to a bigger plan.",
+        planId: "basic",
+        name: "Basic",
+        why: "5 owner contacts valid for 60 days — our most popular plan for a focused, short search.",
       };
     },
   },

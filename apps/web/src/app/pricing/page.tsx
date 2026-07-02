@@ -185,7 +185,12 @@ export default function PricingPage() {
   const dbSeekerPlans = (plansQuery.data ?? []) as SeekerPlan[];
 
   const scrollToPlan = (planId: string) => {
-    const el = document.getElementById(`plan-${planId}`);
+    // Exact match first; fall back to a suffix match since DB-seeded seeker
+    // plans use ids like "seeker-basic" while some recommend() flows only
+    // know the bare tier name ("basic").
+    const el =
+      document.getElementById(`plan-${planId}`) ??
+      document.querySelector<HTMLElement>(`[id^="plan-"][id$="-${planId}"]`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     el?.animate(
       [
