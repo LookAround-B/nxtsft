@@ -32,15 +32,19 @@ const STATE_PATTERNS: Record<string, RegExp> = {
 
 const FALLBACK = /^[A-Za-z0-9\/\-]+$/;
 
-export function validateRera(rera: string, city: string): string | null {
+// The strict per-state pattern only applies to plain "RERA" — HMDA/DTCP/BDA/
+// CMDA/state-RERA-variant and "Others" registrations follow their own
+// authority-specific formats, so they only need the generic sanity check.
+export function validateRera(rera: string, city: string, authority?: string): string | null {
   const trimmed = rera.trim();
-  if (!trimmed) return "RERA registration number is required";
+  if (!trimmed) return "Registration number is required";
+  const isRera = !authority || authority === "RERA";
   const state = CITY_STATE[city] ?? "";
-  const pattern = STATE_PATTERNS[state] ?? FALLBACK;
+  const pattern = isRera ? (STATE_PATTERNS[state] ?? FALLBACK) : FALLBACK;
   if (!pattern.test(trimmed)) {
-    return state && STATE_PATTERNS[state]
+    return isRera && state && STATE_PATTERNS[state]
       ? `Invalid RERA format for ${state}. Check your state RERA portal for the correct format.`
-      : "Invalid RERA registration number format";
+      : "Invalid registration number format";
   }
   return null;
 }

@@ -232,7 +232,7 @@ export default function ListPropertyPage() {
     }
     if (s === 3) {
       if (!data.description.trim()) e.description = "Add a brief description";
-      const reraError = validateRera(data.rera, data.city);
+      const reraError = validateRera(data.rera, data.city, data.reraLabel);
       if (reraError) e.rera = reraError;
     }
     if (s === 4) {
@@ -939,6 +939,7 @@ export default function ListPropertyPage() {
                       <option value="DTCP">DTCP</option>
                       <option value="BDA">BDA</option>
                       <option value="CMDA">CMDA</option>
+                      <option value="Others">Others</option>
                     </select>
                     <input
                       type="text"

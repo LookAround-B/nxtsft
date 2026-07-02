@@ -75,7 +75,11 @@ function splitList(v: string | undefined): string[] {
 
 // Server-side state-specific RERA validation (mirrors apps/web/src/lib/rera.ts).
 // Shared by single create and bulk create. Throws BAD_REQUEST on mismatch.
-function assertReraValid(city: string, rera: string | undefined) {
+// The strict per-state pattern only applies when the authority is plain
+// "RERA" — HMDA/DTCP/BDA/CMDA/state-RERA-variant registrations follow their
+// own authority-specific formats, and "Others" covers approvals (or
+// RERA-exempt properties) that don't fit any of the above.
+function assertReraValid(city: string, rera: string | undefined, authority?: string) {
   if (!rera) return;
   const CITY_STATE: Record<string, string> = {
     Mumbai: "Maharashtra", Pune: "Maharashtra", Bengaluru: "Karnataka",
@@ -92,14 +96,15 @@ function assertReraValid(city: string, rera: string | undefined) {
     Rajasthan: /^RAJ\//i, Kerala: /^K-RERA\//i, Gujarat: /^PR\/GJ\//i,
     "Andhra Pradesh": /^AP\//i,
   };
+  const isRera = !authority || authority === "RERA";
   const stateName = CITY_STATE[city] ?? "";
-  const pattern = STATE_PATTERNS[stateName] ?? /^[A-Za-z0-9\/\-]+$/;
+  const pattern = isRera ? (STATE_PATTERNS[stateName] ?? /^[A-Za-z0-9\/\-]+$/) : /^[A-Za-z0-9\/\-]+$/;
   if (!pattern.test(rera.trim())) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: stateName && STATE_PATTERNS[stateName]
+      message: isRera && stateName && STATE_PATTERNS[stateName]
         ? `Invalid RERA format for ${stateName}. Check your state RERA portal.`
-        : "Invalid RERA registration number format",
+        : "Invalid registration number format",
     });
   }
 }
@@ -347,7 +352,7 @@ export const propertiesRouter = router({
       const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, ...rest } =
         input;
 
-      assertReraValid(city, input.rera);
+      assertReraValid(city, input.rera, input.reraLabel);
 
       const slug = generateSlug(input.title, city);
 
@@ -434,7 +439,7 @@ export const propertiesRouter = router({
         }
         const d = parsed.data;
         try {
-          assertReraValid(d.city, d.rera);
+          assertReraValid(d.city, d.rera, d.reraLabel);
           // Use uploaded image URLs if given, else the type's default cover.
           const images = splitList(d.images);
           const isPg = d.type === "PG";

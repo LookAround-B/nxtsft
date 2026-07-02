@@ -9,7 +9,7 @@ import { getPendingListings, updateListingStatus as persistListingStatus } from 
 import { PageHead } from "./PageHead";
 
 // Authority labels shown before the registration number (mirrors the /list form).
-const RERA_LABELS = ["RERA", "TS RERA", "KA RERA", "TN RERA", "MahaRERA", "GujRERA", "HMDA", "DTCP", "BDA", "CMDA"];
+const RERA_LABELS = ["RERA", "TS RERA", "KA RERA", "TN RERA", "MahaRERA", "GujRERA", "HMDA", "DTCP", "BDA", "CMDA", "Others"];
 
 type ListingItem = {
   id: string;
