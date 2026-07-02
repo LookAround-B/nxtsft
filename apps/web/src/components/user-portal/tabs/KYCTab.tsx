@@ -10,7 +10,7 @@ import { Head } from "./shared";
 const DOC_TYPES = [
   { key: "aadhaar" as const, label: "Aadhaar Card" },
   { key: "pan" as const, label: "PAN Card" },
-  { key: "income_proof" as const, label: "Income Proof" },
+  { key: "income_proof" as const, label: "Ownership Proof" },
 ];
 
 type DocType = "aadhaar" | "pan" | "income_proof" | "other";

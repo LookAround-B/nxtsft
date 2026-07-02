@@ -31,7 +31,7 @@ const DOC_STATUS_TONE: Record<string, "success" | "warm" | "cold" | "default"> =
 const DOC_TYPE_LABEL: Record<string, string> = {
   aadhaar: "Aadhaar Card",
   pan: "PAN Card",
-  income_proof: "Income Proof",
+  income_proof: "Ownership Proof",
   other: "Other",
 };
 

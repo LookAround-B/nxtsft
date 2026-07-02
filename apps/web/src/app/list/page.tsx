@@ -232,8 +232,13 @@ export default function ListPropertyPage() {
     }
     if (s === 3) {
       if (!data.description.trim()) e.description = "Add a brief description";
-      const reraError = validateRera(data.rera, data.city, data.reraLabel);
-      if (reraError) e.rera = reraError;
+      // RERA is optional — not every property (pre-RERA resales, small plots,
+      // pending approvals) has a number yet. Only check the format if the
+      // seller actually entered something.
+      if (data.rera.trim()) {
+        const reraError = validateRera(data.rera, data.city, data.reraLabel);
+        if (reraError) e.rera = reraError;
+      }
     }
     if (s === 4) {
       if (!data.listerName.trim()) e.listerName = "Enter your full name";
@@ -333,7 +338,8 @@ export default function ListPropertyPage() {
           description: data.description || undefined,
           amenities: data.amenities,
           images: hostedImages,
-          rera: data.rera,
+          rera: data.rera || undefined,
+          reraLabel: data.reraLabel || undefined,
           possession: data.possession || undefined,
           projectId: selectedProject?.id,
         });
@@ -922,7 +928,10 @@ export default function ListPropertyPage() {
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-foreground">RERA / Authority Number</label>
+                  <label className="block text-sm font-semibold text-foreground">
+                    RERA / Authority Number{" "}
+                    <span className="font-normal text-muted-foreground">(optional)</span>
+                  </label>
                   <div className="mt-1.5 flex gap-2">
                     <select
                       value={data.reraLabel}
