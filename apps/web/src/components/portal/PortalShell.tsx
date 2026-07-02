@@ -115,6 +115,10 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
             const showGroupHeader = !collapsed && n.group !== undefined && n.group !== prevGroup;
 
             const handleClick = (e: React.MouseEvent) => {
+              // Only intercept same-page hash tabs (e.g. /user-portal#saved). A
+              // nav item pointing at a different page (e.g. /list) must go
+              // through Link's real navigation, not have its click swallowed.
+              if (navPath !== pathname) return;
               e.preventDefault();
               setSidebarOpen(false);
               window.location.hash = navHash || "";
