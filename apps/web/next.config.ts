@@ -152,10 +152,17 @@ const nextConfig: NextConfig = {
   turbopack: {},
   // Used by `next build` (production still bundles with webpack). Maps `.js`
   // import specifiers (NodeNext-style, used by @nxtsft/trpc) to TS source.
-  webpack: (config) => {
+  webpack: (config, { dev }) => {
     config.resolve.extensionAlias = {
       ".js": [".ts", ".tsx", ".js", ".jsx"],
     };
+    // Disable the persistent filesystem cache for production builds. Its
+    // .next/cache/webpack/*.pack files (100s of MB) sit under the monorepo
+    // tracing root and get pulled into every serverless function's file trace,
+    // pushing them past Vercel's 250 MB limit (agents/[slug] hit 308 MB — all
+    // webpack cache). The cache only speeds up local incremental rebuilds;
+    // Vercel builds fresh, so there's nothing to gain there.
+    if (!dev) config.cache = false;
     return config;
   },
 };
