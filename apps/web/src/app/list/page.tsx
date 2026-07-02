@@ -68,6 +68,7 @@ type FormData = {
   locality: string;
   price: string;
   area: string;
+  areaUnit: "sqft" | "sqyd";
   builtUpArea: string;
   bhk: string;
   title: string;
@@ -89,6 +90,7 @@ const EMPTY: FormData = {
   locality: "",
   price: "",
   area: "",
+  areaUnit: "sqft",
   builtUpArea: "",
   bhk: "",
   title: "",
@@ -207,8 +209,10 @@ export default function ListPropertyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.bhk, data.propertyType, data.city, data.purpose]);
 
-  const set = <K extends keyof FormData>(k: K, v: FormData[K]) =>
+  const set = <K extends keyof FormData>(k: K, v: FormData[K]) => {
     setData((d) => ({ ...d, [k]: v }));
+    setErrors((e) => (e[k as string] ? { ...e, [k as string]: "" } : e));
+  };
 
   const toggleAmenity = (a: string) =>
     setData((d) => ({
@@ -283,6 +287,14 @@ export default function ListPropertyPage() {
     // Prefer real R2 URLs; fall back to data URLs for the local demo record.
     const listingImages = hostedImages.length ? hostedImages : previewImages;
 
+    // The app stores area in sqft everywhere (search, display, DB) — convert
+    // sq. yards input (common for plots) at the point of submission so both
+    // the local listing preview and the DB record agree with the rest of the app.
+    const areaSqft =
+      data.areaUnit === "sqyd"
+        ? Math.round((parseInt(data.area) || 0) * 9)
+        : parseInt(data.area) || 0;
+
     const result = submitListing({
       listerType: data.listerType as ListerType,
       propertyType: data.propertyType,
@@ -290,7 +302,7 @@ export default function ListPropertyPage() {
       city: data.city,
       locality: data.locality,
       price: data.price,
-      area: data.area,
+      area: String(areaSqft),
       bhk: data.bhk,
       title,
       description: data.description,
@@ -311,7 +323,7 @@ export default function ListPropertyPage() {
           type: dbType,
           purpose: data.purpose,
           price: parseInt(data.price) || 0,
-          area: parseInt(data.area) || 0,
+          area: areaSqft,
           builtUpArea: data.builtUpArea ? parseInt(data.builtUpArea) || undefined : undefined,
           bhk: data.bhk || undefined,
           bedrooms: parseBedrooms(data.bhk),
@@ -679,7 +691,15 @@ export default function ListPropertyPage() {
                   {PROPERTY_TYPES.map((t) => (
                     <button
                       key={t}
-                      onClick={() => set("propertyType", t)}
+                      onClick={() => {
+                        // Area was entered in whatever unit the previous type showed
+                        // (sq. yards is only offered for Plot) — clear it on type
+                        // change so a stale value/unit never gets silently reused.
+                        if (t !== data.propertyType) {
+                          setData((d) => ({ ...d, propertyType: t, area: "", areaUnit: "sqft" }));
+                          setErrors((e) => ({ ...e, propertyType: "", area: "" }));
+                        }
+                      }}
                       className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition
                         ${data.propertyType === t ? "border-accent bg-accent text-white" : "border-border bg-white text-foreground/70 hover:border-accent/40 hover:bg-accent/5"}`}
                     >
@@ -753,31 +773,62 @@ export default function ListPropertyPage() {
                   />
                   {errors.price && <p className="mt-1 text-xs text-rose-500">{errors.price}</p>}
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-foreground">
-                    Super Built-up Area (sqft)
-                  </label>
-                  <input
-                    type="number"
-                    value={data.area}
-                    onChange={(e) => set("area", e.target.value)}
-                    placeholder="e.g. 1200"
-                    className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.area ? "border-rose-400" : "border-input"}`}
-                  />
-                  {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-foreground">
-                    Built-up Area (sqft)
-                  </label>
-                  <input
-                    type="number"
-                    value={data.builtUpArea}
-                    onChange={(e) => set("builtUpArea", e.target.value)}
-                    placeholder="e.g. 1080"
-                    className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-                  />
-                </div>
+                {data.propertyType === "Plot" ? (
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-semibold text-foreground">Plot Area</label>
+                      <div className="flex rounded-lg border border-input bg-secondary p-0.5">
+                        {(["sqft", "sqyd"] as const).map((u) => (
+                          <button
+                            key={u}
+                            type="button"
+                            onClick={() => set("areaUnit", u)}
+                            className={`rounded-md px-2.5 py-1 text-xs font-semibold transition
+                              ${data.areaUnit === u ? "bg-white text-navy shadow-sm" : "text-muted-foreground"}`}
+                          >
+                            {u === "sqft" ? "Sq.Ft" : "Sq.Yards"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <input
+                      type="number"
+                      value={data.area}
+                      onChange={(e) => set("area", e.target.value)}
+                      placeholder={data.areaUnit === "sqft" ? "e.g. 2400" : "e.g. 267"}
+                      className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.area ? "border-rose-400" : "border-input"}`}
+                    />
+                    {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground">
+                        Super Built-up Area (sqft)
+                      </label>
+                      <input
+                        type="number"
+                        value={data.area}
+                        onChange={(e) => set("area", e.target.value)}
+                        placeholder="e.g. 1200"
+                        className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.area ? "border-rose-400" : "border-input"}`}
+                      />
+                      {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground">
+                        Built-up Area (sqft)
+                      </label>
+                      <input
+                        type="number"
+                        value={data.builtUpArea}
+                        onChange={(e) => set("builtUpArea", e.target.value)}
+                        placeholder="e.g. 1080"
+                        className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="mt-5">
