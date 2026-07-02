@@ -9,6 +9,39 @@ import {
   limitSchema,
 } from "../sanitize";
 
+// The bulk-imported city field is inconsistent: some rows store "<City> <Locality>"
+// (e.g. "Mumbai Ghatkopar", "Chennai Velachery" — city filter matches these fine),
+// but most store the bare locality only (e.g. "Gachibowli", "Salt Lake", "Sector 93")
+// with the real metro name living in `district` instead ("Hyderabad", "Kolkata",
+// "Gautam Buddha Nagar" for Noida, "Gurugram" for Gurgaon, "Ernakulam" for Kochi).
+// Map each public-facing city option to every district/city spelling it should
+// match so the filter works uniformly instead of only for Mumbai.
+const CITY_METRO_ALIASES: Record<string, string[]> = {
+  Mumbai:      ["Mumbai", "Thane", "Raigad"],
+  Bengaluru:   ["Bengaluru", "Bangalore"],
+  "Delhi NCR": ["Delhi", "Gurugram", "Gurgaon", "Gautam Buddha Nagar", "Noida", "Ghaziabad", "Faridabad"],
+  Hyderabad:   ["Hyderabad", "Rangareddy"],
+  Pune:        ["Pune"],
+  Chennai:     ["Chennai"],
+  Kolkata:     ["Kolkata", "24 Parganas", "Howrah", "Hooghly"],
+  Ahmedabad:   ["Ahmedabad"],
+  Jaipur:      ["Jaipur"],
+  Noida:       ["Noida", "Gautam Buddha Nagar"],
+  Gurgaon:     ["Gurgaon", "Gurugram"],
+  Kochi:       ["Kochi", "Ernakulam"],
+};
+
+// city OR district contains one of the city's known aliases.
+function cityAliasWhere(city: string) {
+  const terms = CITY_METRO_ALIASES[city] ?? [city];
+  return {
+    OR: terms.flatMap((t) => [
+      { city: { contains: t, mode: "insensitive" as const } },
+      { district: { contains: t, mode: "insensitive" as const } },
+    ]),
+  };
+}
+
 function makeSlug(text: string): string {
   return text
     .toLowerCase()
@@ -128,20 +161,27 @@ export const buildersRouter = router({
       const where: NonNullable<Parameters<typeof prisma.builder.findMany>[0]>["where"] = {
         slug: { not: null },
       };
-      if (city)  where.city  = { contains: city,  mode: "insensitive" };
+      // city and search both need their own OR-group, so accumulate them under
+      // AND instead of assigning `where.OR` twice (the second would clobber the
+      // first).
+      const and: NonNullable<typeof where.AND> = [];
+      if (city)  and.push(cityAliasWhere(city));
       if (state) where.state = { contains: state, mode: "insensitive" };
       // Category filter matches builders that have at least one project of that
       // type (the richer Project.type model, not the legacy builder.projectType).
       if (type)  where.projects = { some: { type: { equals: type } } };
       if (search) {
-        where.OR = [
-          { companyName: { contains: search, mode: "insensitive" } },
-          { city:        { contains: search, mode: "insensitive" } },
-          { state:       { contains: search, mode: "insensitive" } },
-          { district:    { contains: search, mode: "insensitive" } },
-          { projects: { some: { name: { contains: search, mode: "insensitive" } } } },
-        ];
+        and.push({
+          OR: [
+            { companyName: { contains: search, mode: "insensitive" } },
+            { city:        { contains: search, mode: "insensitive" } },
+            { state:       { contains: search, mode: "insensitive" } },
+            { district:    { contains: search, mode: "insensitive" } },
+            { projects: { some: { name: { contains: search, mode: "insensitive" } } } },
+          ],
+        });
       }
+      if (and.length) where.AND = and;
       const items = await prisma.builder.findMany({
         where,
         include: { _count: { select: { projects: true } } },
