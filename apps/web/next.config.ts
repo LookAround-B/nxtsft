@@ -74,17 +74,13 @@ const nextConfig: NextConfig = {
     "bcryptjs",
     "aws4fetch",
   ],
-  // Trim the bundle for every serverless function that imports Prisma. The new
-  // DB-backed SEO pages (server components with generateMetadata + JSON-LD) and
-  // sitemap route need the same trimming as /api, or they blow past the 250 MB
-  // function limit (agents/[slug] hit 308 MB from an untrimmed .next/cache).
+  // Trim the bundle for every serverless function. outputFileTracingExcludes
+  // keys are picomatch globs, not literal route paths — "[slug]" in a key is a
+  // character class ("one of s/l/u/g"), not the dynamic segment, so a key like
+  // "/agents/[slug]" silently matches nothing. "**" sidesteps that entirely by
+  // applying the same excludes to every function.
   outputFileTracingExcludes: {
-    "/api/**": FUNCTION_TRACING_EXCLUDES,
-    "/sitemap.xml": FUNCTION_TRACING_EXCLUDES,
-    "/properties/[slug]": FUNCTION_TRACING_EXCLUDES,
-    "/builders/[slug]": FUNCTION_TRACING_EXCLUDES,
-    "/agents/[slug]": FUNCTION_TRACING_EXCLUDES,
-    "/interiors/[slug]": FUNCTION_TRACING_EXCLUDES,
+    "**": FUNCTION_TRACING_EXCLUDES,
   },
   images: {
     // The dev server's egress to images.unsplash.com is slow (~7s), which trips

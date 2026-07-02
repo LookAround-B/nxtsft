@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "pnpm --filter @nxtsft/db run db:generate && next build",
+    "build": "pnpm --filter @nxtsft/db run db:generate && node -e \"require('fs').rmSync('.next/cache',{recursive:true,force:true})\" && next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit"
