@@ -116,6 +116,10 @@ interface Ctx {
   credits: number;
   token: string | null;
   loading: boolean;
+  // Flips true once the background server re-check (see AuthProvider's mount
+  // effect) resolves — lets pages tell "session hydrated from localStorage,
+  // not yet confirmed" apart from "confirmed still valid" before redirecting.
+  sessionChecked: boolean;
   signIn: (email: string, password: string) => Promise<Session>;
   signInStaff: (email: string, password: string) => Promise<Session>;
   signInWithGoogle: (credential: string) => Promise<Session>;
@@ -199,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [credits, setCredits] = useState(0);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
     const raw = readLS(SESSION_KEY, "null");
@@ -216,6 +221,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (t) setToken(t);
     setCredits(c);
     setLoading(false);
+
+    // Background re-validation against the server. The `nxtsft_session` cookie
+    // (read by Edge middleware to gate pages) is written by client JS only and
+    // never re-checked — if it silently disappears while localStorage survives
+    // (Safari caps JS-set cookies at 7 days; some in-app browsers clear cookies
+    // more aggressively than storage), middleware sees "no session" and bounces
+    // a still-validly-signed-in user back to /login. This also picks up role
+    // changes (e.g. an admin promoting the user to home-seller) that the cached
+    // localStorage session would otherwise never see until a fresh login.
+    if (t) {
+      makeTRPC(t)
+        .auth.me.query()
+        .then((freshUser) => {
+          if (!freshUser) {
+            // Token no longer valid server-side — clear the stale local session.
+            clearSessionCookie();
+            removeLS(SESSION_KEY);
+            removeLS(TOKEN_KEY);
+            removeLS(CREDITS_KEY);
+            setSession(null);
+            setToken(null);
+            setCredits(0);
+            return;
+          }
+          persist(toSession(freshUser), t, freshUser.credits);
+          setSessionCookie(t, freshUser.role);
+        })
+        .catch(() => {
+          // Network hiccup — keep the cached session; we'll re-check next load.
+        })
+        .finally(() => setSessionChecked(true));
+    } else {
+      setSessionChecked(true);
+    }
   }, []);
 
   function persist(s: Session, t: string, c: number) {
@@ -337,6 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         credits,
         token,
         loading,
+        sessionChecked,
         signIn,
         signInStaff,
         signInWithGoogle,

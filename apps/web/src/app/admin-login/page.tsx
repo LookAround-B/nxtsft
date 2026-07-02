@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Shield,
   Crown,
@@ -89,8 +89,28 @@ const ROLES: {
 ];
 
 export default function AdminLoginPage() {
-  const { signInStaff } = useAuth();
+  return (
+    <Suspense>
+      <AdminLoginPageContent />
+    </Suspense>
+  );
+}
+
+function AdminLoginPageContent() {
+  const { session, sessionChecked, signInStaff } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // See the matching effect in /login — middleware can bounce a still-valid
+  // staff session here if the nxtsft_session cookie silently expired/was
+  // cleared while localStorage survived. Send them straight back once the
+  // background re-check confirms the session is still good.
+  useEffect(() => {
+    if (sessionChecked && session) {
+      router.replace(searchParams.get("redirect") || ROLE_META[session.role].portal);
+    }
+  }, [sessionChecked, session, searchParams, router]);
+
   const [selected, setSelected] = useState<AdminRole | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

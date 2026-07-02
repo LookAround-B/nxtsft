@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 import { ROLE_META, useAuth } from "@/lib/auth";
@@ -10,8 +10,30 @@ import { toast } from "sonner";
 const GOOGLE_ENABLED = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
 export default function LoginPage() {
-  const { session, signIn, signInWithGoogle, signOut } = useAuth();
+  return (
+    <Suspense>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
+  const { session, sessionChecked, signIn, signInWithGoogle, signOut } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Middleware sometimes lands a still-signed-in user here because the
+  // nxtsft_session cookie silently expired/was cleared while their
+  // localStorage token was still valid (Safari's 7-day cap on JS-set cookies,
+  // aggressive in-app browser cookie clearing, etc). AuthProvider re-verifies
+  // the token in the background on mount and repairs the cookie — once that
+  // check confirms the session is still good, send them straight back instead
+  // of making them notice the banner below and click "Sign in" again.
+  useEffect(() => {
+    if (sessionChecked && session) {
+      router.replace(searchParams.get("redirect") || ROLE_META[session.role].portal);
+    }
+  }, [sessionChecked, session, searchParams, router]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
