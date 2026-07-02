@@ -8,7 +8,7 @@ import {
   priceSchema,
   roomCountSchema,
   searchSchema,
-  cursorSchema,
+  pageSchema,
   limitSchema,
   descriptionSchema,
   propertyTypeSchema,
@@ -105,7 +105,7 @@ function assertReraValid(city: string, rera: string | undefined) {
 }
 
 export const propertiesRouter = router({
-  // Browse properties — public, cursor-paginated
+  // Browse properties — public, page-paginated
   list: publicProcedure
     .input(
       z.object({
@@ -120,12 +120,12 @@ export const propertiesRouter = router({
         // PG-specific filters (only meaningful when type === "PG")
         pgGender: z.enum(["Boys", "Girls", "Co-living"]).optional(),
         pgOccupancy: safeString(30).optional(),
-        cursor: cursorSchema, // id of the last item
+        page: pageSchema,
         limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
-      const { cursor, limit, city, type, purpose, minPrice, maxPrice, bedrooms, search, featured, pgGender, pgOccupancy } = input;
+      const { page, limit, city, type, purpose, minPrice, maxPrice, bedrooms, search, featured, pgGender, pgOccupancy } = input;
 
       const where: NonNullable<Parameters<typeof prisma.property.findMany>[0]>["where"] = {
         deletedAt: null,
@@ -163,15 +163,12 @@ export const propertiesRouter = router({
         where,
         include: propertyInclude,
         orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
-        take: limit + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        take: limit,
+        skip: (page - 1) * limit,
       });
-
-      const hasMore = items.length > limit;
-      const page = hasMore ? items.slice(0, limit) : items;
       const total = await prisma.property.count({ where });
 
-      return serializeProperty({ items: page, nextCursor: page.at(-1)?.id ?? null, hasMore, total });
+      return serializeProperty({ items, page, totalPages: Math.max(1, Math.ceil(total / limit)), total });
     }),
 
   // Per-property engagement: interest (leads), wishlists, contact requests.

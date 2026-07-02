@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
+import { keepPreviousData } from "@tanstack/react-query";
 import { Download, Upload, Loader2, FileSpreadsheet, Search, Check, X as XIcon, FileCode2, RefreshCw } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
-import { LoadMore } from "@/components/ui/load-more";
+import { Pagination } from "@/components/ui/pagination";
 import { trpc } from "@/lib/trpc";
 import { validateBulkImportFile } from "@/lib/file-validation";
 import { builderRowSchema } from "@/lib/validation";
@@ -161,19 +162,22 @@ export function DevTab() {
   const [backfillDone,    setBackfillDone]    = useState(0);
   const [backfillRunning, setBackfillRunning] = useState(false);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const listQ = (trpc.builders.list as any).useInfiniteQuery(
-    { search: search || undefined, limit: 20 },
-    { initialCursor: undefined as string | undefined, getNextPageParam: (l: { nextCursor: string | null }) => l.nextCursor ?? undefined },
+  const [page, setPage] = useState(1);
+
+  const listQ = trpc.builders.list.useQuery(
+    { search: search || undefined, page, limit: 20 },
+    { placeholderData: keepPreviousData },
   );
   const statsQ      = trpc.builders.stats.useQuery();
   const importMut   = trpc.builders.bulkImport.useMutation();
   const xmlMut      = trpc.builders.xmlImport.useMutation();
   const backfillMut = trpc.builders.backfillSlugs.useMutation();
 
-  const builders = (listQ.data?.pages.flatMap((p: { items: BuilderRow[] }) => p.items) ?? []) as Array<BuilderRow & { id: string }>;
-  const total = (listQ.data?.pages[0] as { total?: number } | undefined)?.total ?? 0;
-  const hasMore = listQ.data?.pages.at(-1)?.hasMore ?? false;
+  const builders = (listQ.data?.items ?? []) as Array<BuilderRow & { id: string }>;
+  const total = listQ.data?.total ?? 0;
+  const totalPages = listQ.data?.totalPages ?? 1;
+
+  const goToPage = (p: number) => setPage(p);
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -492,7 +496,7 @@ export function DevTab() {
 
       <Section title={`${total.toLocaleString("en-IN")} builders`}>
         <form
-          onSubmit={(e) => { e.preventDefault(); setSearch(searchInput.trim()); }}
+          onSubmit={(e) => { e.preventDefault(); setSearch(searchInput.trim()); setPage(1); }}
           className="mb-4 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2"
         >
           <Search size={15} className="text-muted-foreground" />
@@ -503,7 +507,7 @@ export function DevTab() {
             className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           {searchInput && (
-            <button type="button" onClick={() => { setSearchInput(""); setSearch(""); }}>
+            <button type="button" onClick={() => { setSearchInput(""); setSearch(""); setPage(1); }}>
               <XIcon size={14} className="text-muted-foreground" />
             </button>
           )}
@@ -545,11 +549,10 @@ export function DevTab() {
                 </tbody>
               </table>
             </div>
-            <LoadMore
-              onClick={() => listQ.fetchNextPage()}
-              isLoading={listQ.isFetchingNextPage}
-              hasMore={hasMore}
-              shown={builders.length}
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={goToPage}
               total={total}
               noun="builders"
             />

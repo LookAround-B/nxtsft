@@ -31,12 +31,18 @@ export const ROLES: readonly Role[] = [
   "home-seller",
 ];
 
-/** Login pages — never gate these or the redirect loops. */
-export const LOGIN_ROUTES = ["/login", "/admin-login", "/register"] as const;
+/**
+ * Login pages — signed-in users are bounced away from these (avoids re-login
+ * confusion + redirect loops). NOTE: /register is intentionally NOT here: it's a
+ * signup page that must stay reachable while signed in, so a Home Buyer can
+ * register a separate Home Seller account ("Register as Home Seller").
+ */
+export const LOGIN_ROUTES = ["/login", "/admin-login"] as const;
 
 /** Reachable without a session. Marketing + public listings + auth pages. */
 export const PUBLIC_ROUTES: readonly string[] = [
   ...LOGIN_ROUTES,
+  "/register",
   "/",
   "/properties",
   "/builders",

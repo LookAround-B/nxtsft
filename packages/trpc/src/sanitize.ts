@@ -154,6 +154,9 @@ export const ipSchema = z.string().ip();
 /** Cursor for pagination — CUID or absent */
 export const cursorSchema = z.string().max(30).optional();
 
+/** Page number for offset pagination (1-indexed) */
+export const pageSchema = z.number().int().min(1).max(100_000).default(1);
+
 /** Pagination limit */
 export const limitSchema = z.number().int().min(1).max(100).default(20);
 

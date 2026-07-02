@@ -16,6 +16,7 @@ import {
   staffRoleSchema,
   propertyStatusSchema,
   cursorSchema,
+  pageSchema,
   limitSchema,
   ratingSchema,
   amenitiesSchema,
@@ -411,12 +412,12 @@ export const adminRouter = router({
     .input(
       z.object({
         search: searchSchema.optional(),
-        cursor: cursorSchema,
+        page: pageSchema,
         limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
-      const { cursor, limit, search } = input;
+      const { page, limit, search } = input;
 
       const userFilter: NonNullable<Parameters<typeof prisma.user.findMany>[0]>["where"] = {
         role: "user",
@@ -427,9 +428,13 @@ export const adminRouter = router({
           { email: { contains: search, mode: "insensitive" } },
         ];
       }
+      const where: NonNullable<Parameters<typeof prisma.propertyView.findMany>[0]>["where"] = {
+        userId: { not: null },
+        user: userFilter,
+      };
 
       const views = await prisma.propertyView.findMany({
-        where: { userId: { not: null }, user: userFilter },
+        where,
         include: {
           user: { select: { id: true, name: true, email: true } },
           property: {
@@ -442,15 +447,13 @@ export const adminRouter = router({
           },
         },
         orderBy: { createdAt: "desc" },
-        take: limit + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        take: limit,
+        skip: (page - 1) * limit,
       });
-
-      const hasMore = views.length > limit;
-      const page = hasMore ? views.slice(0, limit) : views;
+      const total = await prisma.propertyView.count({ where });
 
       return {
-        items: page.map((v) => ({
+        items: views.map((v) => ({
           id: v.id,
           createdAt: v.createdAt.toISOString(),
           durationSec: v.durationSec,
@@ -458,8 +461,9 @@ export const adminRouter = router({
           buyer: v.user,
           property: v.property ?? null,
         })),
-        nextCursor: page.at(-1)?.id ?? null,
-        hasMore,
+        page,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        total,
       };
     }),
 
@@ -468,12 +472,12 @@ export const adminRouter = router({
     .input(
       z.object({
         search: searchSchema.optional(),
-        cursor: cursorSchema,
+        page: pageSchema,
         limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
-      const { cursor, limit, search } = input;
+      const { page, limit, search } = input;
 
       const where: NonNullable<Parameters<typeof prisma.creditTransaction.findMany>[0]>["where"] = {
         reason: "contact_unlock",
@@ -497,16 +501,14 @@ export const adminRouter = router({
       const txns = await prisma.creditTransaction.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        take: limit + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        take: limit,
+        skip: (page - 1) * limit,
       });
+      const total = await prisma.creditTransaction.count({ where });
 
-      const hasMore = txns.length > limit;
-      const page = hasMore ? txns.slice(0, limit) : txns;
-
-      const userIds = [...new Set(page.map((t) => t.userId))];
+      const userIds = [...new Set(txns.map((t) => t.userId))];
       const propertyIds = [
-        ...new Set(page.map((t) => t.propertyId).filter((id): id is string => !!id)),
+        ...new Set(txns.map((t) => t.propertyId).filter((id): id is string => !!id)),
       ];
 
       const [users, properties] = await Promise.all([
@@ -524,14 +526,15 @@ export const adminRouter = router({
       const propertyById = new Map(properties.map((p) => [p.id, p]));
 
       return {
-        items: page.map((t) => ({
+        items: txns.map((t) => ({
           id: t.id,
           createdAt: t.createdAt.toISOString(),
           buyer: userById.get(t.userId) ?? null,
           property: t.propertyId ? (propertyById.get(t.propertyId) ?? null) : null,
         })),
-        nextCursor: page.at(-1)?.id ?? null,
-        hasMore,
+        page,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        total,
       };
     }),
 

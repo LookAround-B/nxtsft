@@ -6,7 +6,7 @@ import {
   safeString,
   searchSchema,
   geoTextSchema,
-  cursorSchema,
+  pageSchema,
   limitSchema,
   cuidSchema,
 } from "../sanitize";
@@ -37,12 +37,12 @@ export const interiorDesignersRouter = router({
         designStyle: safeString(60).optional(),
         maxBudget:   z.number().int().positive().max(999_999_999_999).optional(),
         sort:        z.enum(["featured", "latest", "popular", "budget_low"]).default("featured"),
-        cursor:      cursorSchema,
+        page:        pageSchema,
         limit:       limitSchema,
       }),
     )
     .query(async ({ input }) => {
-      const { search, city, designStyle, maxBudget, sort, cursor, limit } = input;
+      const { search, city, designStyle, maxBudget, sort, page, limit } = input;
       const where: NonNullable<Parameters<typeof prisma.interiorDesigner.findMany>[0]>["where"] = {
         status: "active",
       };
@@ -66,16 +66,14 @@ export const interiorDesignersRouter = router({
       const items = await prisma.interiorDesigner.findMany({
         where,
         orderBy,
-        take: limit + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        take: limit,
+        skip: (page - 1) * limit,
       });
-      const total = cursor ? null : await prisma.interiorDesigner.count({ where });
-      const hasMore = items.length > limit;
-      const page = hasMore ? items.slice(0, limit) : items;
+      const total = await prisma.interiorDesigner.count({ where });
       return {
-        items: page.map(serializeDesigner),
-        nextCursor: page.at(-1)?.id ?? null,
-        hasMore,
+        items: items.map(serializeDesigner),
+        page,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
         total,
       };
     }),

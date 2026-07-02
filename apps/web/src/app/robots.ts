@@ -11,7 +11,8 @@ export default function robots(): MetadataRoute.Robots {
     "/api/",
     "/_next/",
     ...Object.keys(PORTAL_ACCESS), // /sa-portal, /admin-portal, /supervisor-portal, /sales-portal, /support-portal, /user-portal
-    ...LOGIN_ROUTES, // /login, /admin-login, /register
+    ...LOGIN_ROUTES, // /login, /admin-login
+    "/register",
     "/profile",
     "/list", // listing wizard sits behind a home-seller login
     "/payment",

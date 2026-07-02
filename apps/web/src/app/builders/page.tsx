@@ -1,8 +1,11 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Search, Building2, MapPin, CheckCircle2, ChevronDown, X } from "lucide-react";
+import { keepPreviousData } from "@tanstack/react-query";
+import { Search, Building2, MapPin, CheckCircle2, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Pagination } from "@/components/ui/pagination";
 
 const CITIES = ["Mumbai", "Bengaluru", "Delhi NCR", "Hyderabad", "Pune", "Chennai", "Kolkata", "Ahmedabad", "Jaipur", "Noida", "Gurgaon", "Kochi"];
 const TYPES  = ["Apartment", "HighRise", "Villa", "Commercial", "Plot", "Studio", "PG", "Others"];
@@ -12,22 +15,32 @@ export default function BuildersPage() {
   const [searchInput,setSearchInput]= useState("");
   const [city,       setCity]       = useState("");
   const [type,       setType]       = useState("");
+  const [page,       setPage]       = useState(1);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const listQ = trpc.builders.publicList.useInfiniteQuery(
-    { search: search || undefined, city: city || undefined, type: type || undefined, limit: 24 },
-    { initialCursor: undefined as string | undefined, getNextPageParam: (p: { nextCursor: string | null }) => p.nextCursor ?? undefined },
+  const listQ = trpc.builders.publicList.useQuery(
+    { search: search || undefined, city: city || undefined, type: type || undefined, page, limit: 24 },
+    { placeholderData: keepPreviousData },
   );
 
-  const builders = listQ.data?.pages.flatMap((p: { items: unknown[] }) => p.items) ?? [];
-  const total    = (listQ.data?.pages[0] as { total?: number } | undefined)?.total ?? 0;
-  const hasMore  = (listQ.data?.pages.at(-1) as { hasMore?: boolean } | undefined)?.hasMore ?? false;
+  const builders   = listQ.data?.items ?? [];
+  const total      = listQ.data?.total ?? 0;
+  const totalPages = listQ.data?.totalPages ?? 1;
 
   useEffect(() => {
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => setSearch(searchInput), 350);
     return () => clearTimeout(searchTimer.current);
   }, [searchInput]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, city, type]);
+
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const clearFilters = () => { setSearchInput(""); setSearch(""); setCity(""); setType(""); };
   const hasFilters   = search || city || type;
@@ -56,8 +69,8 @@ export default function BuildersPage() {
                   className="w-full rounded-lg border border-border bg-white py-2 pl-8 pr-3 text-sm outline-none focus:border-accent"
                 />
               </div>
-              <Filter label="City" value={city} onChange={setCity} options={CITIES} />
-              <Filter label="Type" value={type} onChange={setType} options={TYPES} />
+              <Filter label="City" allLabel="All Cities" value={city} onChange={setCity} options={CITIES} />
+              <Filter label="Type" allLabel="All Types" value={type} onChange={setType} options={TYPES} />
               {hasFilters && (
                 <button onClick={clearFilters} className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-secondary">
                   <X size={12} /> Clear
@@ -86,17 +99,7 @@ export default function BuildersPage() {
                   <BuilderCard key={b.id} builder={b} />
                 ))}
               </div>
-              {hasMore && (
-                <div className="mt-8 text-center">
-                  <button
-                    onClick={() => listQ.fetchNextPage()}
-                    disabled={listQ.isFetchingNextPage}
-                    className="rounded-full border border-border px-6 py-2 text-sm font-semibold hover:bg-secondary disabled:opacity-50"
-                  >
-                    {listQ.isFetchingNextPage ? "Loading…" : "Load more"}
-                  </button>
-                </div>
-              )}
+              <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} total={total} noun="builders" />
             </>
           )}
         </div>
@@ -168,22 +171,20 @@ function BuilderCard({ builder: b }: { builder: BuilderItem }) {
   );
 }
 
-function Filter({ label, value, onChange, options }: {
-  label: string; value: string;
+function Filter({ label, allLabel, value, onChange, options }: {
+  label: string; allLabel: string; value: string;
   onChange: (v: string) => void; options: string[];
 }) {
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="appearance-none rounded-lg border border-border bg-white py-2 pl-3 pr-7 text-sm outline-none focus:border-accent"
-      >
-        <option value="">All {label}s</option>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-      <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-    </div>
+    <Select value={value || "all"} onValueChange={(v) => onChange(v === "all" ? "" : v)}>
+      <SelectTrigger className="w-auto min-w-[9rem]" aria-label={label}>
+        <SelectValue placeholder={allLabel} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">{allLabel}</SelectItem>
+        {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+      </SelectContent>
+    </Select>
   );
 }
 

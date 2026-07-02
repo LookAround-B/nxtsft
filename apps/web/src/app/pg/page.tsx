@@ -1,11 +1,13 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { keepPreviousData } from "@tanstack/react-query";
 import {
   Search, BedDouble, MapPin, CheckCircle2, ChevronDown, X, Users,
   Wifi, UtensilsCrossed, Wind, Car, WashingMachine, Home,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { Pagination } from "@/components/ui/pagination";
 
 const CITIES = ["Mumbai", "Bengaluru", "Delhi NCR", "Hyderabad", "Pune", "Chennai", "Kolkata", "Ahmedabad", "Jaipur", "Noida", "Gurgaon", "Kochi"];
 const GENDERS = ["Boys", "Girls", "Co-living"] as const;
@@ -37,9 +39,10 @@ export default function PgPage() {
   const [gender,      setGender]      = useState<"" | (typeof GENDERS)[number]>("");
   const [occupancy,   setOccupancy]   = useState("");
   const [maxRent,     setMaxRent]     = useState("");
+  const [page,        setPage]        = useState(1);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const listQ = trpc.properties.list.useInfiniteQuery(
+  const listQ = trpc.properties.list.useQuery(
     {
       type: "PG",
       search: search || undefined,
@@ -47,14 +50,15 @@ export default function PgPage() {
       pgGender: gender || undefined,
       pgOccupancy: occupancy || undefined,
       maxPrice: maxRent ? Number(maxRent) : undefined,
+      page,
       limit: 24,
     },
-    { initialCursor: undefined as string | undefined, getNextPageParam: (p: { nextCursor: string | null }) => p.nextCursor ?? undefined },
+    { placeholderData: keepPreviousData },
   );
 
-  const pgs   = listQ.data?.pages.flatMap((p: { items: unknown[] }) => p.items) ?? [];
-  const total = (listQ.data?.pages[0] as { total?: number } | undefined)?.total ?? 0;
-  const hasMore = (listQ.data?.pages.at(-1) as { hasMore?: boolean } | undefined)?.hasMore ?? false;
+  const pgs        = listQ.data?.items ?? [];
+  const total       = listQ.data?.total ?? 0;
+  const totalPages  = listQ.data?.totalPages ?? 1;
 
   // Prefill from ?q= (hero search hands off the query here).
   useEffect(() => {
@@ -67,6 +71,15 @@ export default function PgPage() {
     searchTimer.current = setTimeout(() => setSearch(searchInput), 350);
     return () => clearTimeout(searchTimer.current);
   }, [searchInput]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, city, gender, occupancy, maxRent]);
+
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const clearFilters = () => { setSearchInput(""); setSearch(""); setCity(""); setGender(""); setOccupancy(""); setMaxRent(""); };
   const hasFilters   = search || city || gender || occupancy || maxRent;
@@ -144,17 +157,7 @@ export default function PgPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {(pgs as PgItem[]).map((p) => <PgCard key={p.id} pg={p} />)}
             </div>
-            {hasMore && (
-              <div className="mt-8 text-center">
-                <button
-                  onClick={() => listQ.fetchNextPage()}
-                  disabled={listQ.isFetchingNextPage}
-                  className="rounded-full border border-border px-6 py-2 text-sm font-semibold hover:bg-secondary disabled:opacity-50"
-                >
-                  {listQ.isFetchingNextPage ? "Loading…" : "Load more"}
-                </button>
-              </div>
-            )}
+            <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} total={total} noun="PGs" />
           </>
         )}
       </div>

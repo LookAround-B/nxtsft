@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
+import { keepPreviousData } from "@tanstack/react-query";
 import { Coins, Search, Building2, ArrowDownCircle } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
+import { Pagination } from "@/components/ui/pagination";
 import { trpc } from "@/lib/trpc";
 import { PageHead } from "./PageHead";
 
@@ -26,15 +28,19 @@ function timeAgo(iso: string): string {
 
 function UsageSection() {
   const [usageSearch, setUsageSearch] = useState("");
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [page, setPage] = useState(1);
 
-  const usageQ = trpc.admin.creditUsage.useQuery({
-    search: usageSearch.trim() || undefined,
-    cursor,
-    limit: 20,
-  });
+  const usageQ = trpc.admin.creditUsage.useQuery(
+    {
+      search: usageSearch.trim() || undefined,
+      page,
+      limit: 20,
+    },
+    { placeholderData: keepPreviousData },
+  );
 
   const items = usageQ.data?.items ?? [];
+  const totalPages = usageQ.data?.totalPages ?? 1;
 
   return (
     <Section title="Credit Usage History">
@@ -47,7 +53,7 @@ function UsageSection() {
         <input
           type="text"
           value={usageSearch}
-          onChange={(e) => { setUsageSearch(e.target.value); setCursor(undefined); }}
+          onChange={(e) => { setUsageSearch(e.target.value); setPage(1); }}
           placeholder="Filter by buyer name or email…"
           className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-4 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
@@ -117,15 +123,7 @@ function UsageSection() {
         </div>
       )}
 
-      {usageQ.data?.hasMore && (
-        <button
-          onClick={() => setCursor(usageQ.data.nextCursor ?? undefined)}
-          disabled={usageQ.isLoading}
-          className="mt-3 w-full rounded-xl border border-border py-2.5 text-sm font-semibold text-muted-foreground transition hover:border-accent hover:text-accent disabled:opacity-50"
-        >
-          Load more
-        </button>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </Section>
   );
 }

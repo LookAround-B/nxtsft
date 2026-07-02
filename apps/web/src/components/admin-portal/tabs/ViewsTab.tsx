@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { keepPreviousData } from "@tanstack/react-query";
 import { Eye, Search, Clock, Unlock, Flame, RotateCcw, Pencil, Check } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
+import { Pagination } from "@/components/ui/pagination";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
 import { PageHead } from "./PageHead";
@@ -163,15 +165,19 @@ function ViewBoostSection() {
 
 function BuyerActivitySection() {
   const [search, setSearch] = useState("");
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [page, setPage] = useState(1);
 
-  const activityQ = trpc.admin.buyerActivity.useQuery({
-    search: search.trim() || undefined,
-    cursor,
-    limit: 25,
-  });
+  const activityQ = trpc.admin.buyerActivity.useQuery(
+    {
+      search: search.trim() || undefined,
+      page,
+      limit: 25,
+    },
+    { placeholderData: keepPreviousData },
+  );
 
   const items = activityQ.data?.items ?? [];
+  const totalPages = activityQ.data?.totalPages ?? 1;
 
   const fmtDur = (s: number) => {
     if (s === 0) return null;
@@ -189,7 +195,7 @@ function BuyerActivitySection() {
         <input
           type="text"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setCursor(undefined); }}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Filter by buyer name or email…"
           className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-4 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
@@ -259,15 +265,7 @@ function BuyerActivitySection() {
         </div>
       )}
 
-      {activityQ.data?.hasMore && (
-        <button
-          onClick={() => setCursor(activityQ.data.nextCursor ?? undefined)}
-          disabled={activityQ.isLoading}
-          className="mt-3 w-full rounded-xl border border-border py-2.5 text-sm font-semibold text-muted-foreground transition hover:border-accent hover:text-accent disabled:opacity-50"
-        >
-          Load more
-        </button>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </Section>
   );
 }

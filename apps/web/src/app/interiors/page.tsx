@@ -1,8 +1,10 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { keepPreviousData } from "@tanstack/react-query";
 import { Search, Sofa, MapPin, CheckCircle2, ChevronDown, X, Palette } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { Pagination } from "@/components/ui/pagination";
 
 const CITIES = ["Mumbai", "Bengaluru", "Delhi NCR", "Hyderabad", "Pune", "Chennai", "Kolkata", "Ahmedabad", "Jaipur", "Noida", "Gurgaon", "Kochi"];
 const DESIGN_STYLES = ["Modern", "Minimal", "Luxury", "Contemporary", "Traditional", "Industrial"];
@@ -26,23 +28,25 @@ export default function InteriorsPage() {
   const [designStyle, setDesignStyle] = useState("");
   const [maxBudget,   setMaxBudget]   = useState("");
   const [sort,        setSort]        = useState<"featured" | "latest" | "popular" | "budget_low">("featured");
+  const [page,        setPage]        = useState(1);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const listQ = trpc.interiorDesigners.publicList.useInfiniteQuery(
+  const listQ = trpc.interiorDesigners.publicList.useQuery(
     {
       search: search || undefined,
       city: city || undefined,
       designStyle: designStyle || undefined,
       maxBudget: maxBudget ? Number(maxBudget) : undefined,
       sort,
+      page,
       limit: 24,
     },
-    { initialCursor: undefined as string | undefined, getNextPageParam: (p: { nextCursor: string | null }) => p.nextCursor ?? undefined },
+    { placeholderData: keepPreviousData },
   );
 
-  const designers = listQ.data?.pages.flatMap((p: { items: unknown[] }) => p.items) ?? [];
-  const total    = (listQ.data?.pages[0] as { total?: number } | undefined)?.total ?? 0;
-  const hasMore  = (listQ.data?.pages.at(-1) as { hasMore?: boolean } | undefined)?.hasMore ?? false;
+  const designers = listQ.data?.items ?? [];
+  const total      = listQ.data?.total ?? 0;
+  const totalPages = listQ.data?.totalPages ?? 1;
 
   // Prefill from ?q= (hero search hands off the query here).
   useEffect(() => {
@@ -55,6 +59,15 @@ export default function InteriorsPage() {
     searchTimer.current = setTimeout(() => setSearch(searchInput), 350);
     return () => clearTimeout(searchTimer.current);
   }, [searchInput]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, city, designStyle, maxBudget, sort]);
+
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const clearFilters = () => { setSearchInput(""); setSearch(""); setCity(""); setDesignStyle(""); setMaxBudget(""); };
   const hasFilters   = search || city || designStyle || maxBudget;
@@ -115,17 +128,7 @@ export default function InteriorsPage() {
                   <DesignerCard key={d.id} designer={d} />
                 ))}
               </div>
-              {hasMore && (
-                <div className="mt-8 text-center">
-                  <button
-                    onClick={() => listQ.fetchNextPage()}
-                    disabled={listQ.isFetchingNextPage}
-                    className="rounded-full border border-border px-6 py-2 text-sm font-semibold hover:bg-secondary disabled:opacity-50"
-                  >
-                    {listQ.isFetchingNextPage ? "Loading…" : "Load more"}
-                  </button>
-                </div>
-              )}
+              <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} total={total} noun="designers" />
             </>
           )}
         </div>

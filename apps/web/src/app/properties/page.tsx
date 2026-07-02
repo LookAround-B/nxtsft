@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, Suspense } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { SafeImage } from "@/components/ui/SafeImage";
@@ -18,7 +19,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { CardGridSkeleton } from "@/components/ui/skeleton";
-import { LoadMore } from "@/components/ui/load-more";
+import { Pagination } from "@/components/ui/pagination";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Studio", "Office", "Bungalow", "Plot", "PG"] as const;
 const PURPOSES = ["Sale", "Rent"] as const;
@@ -285,31 +286,38 @@ function PropertiesInner() {
     searchParams.get("bedrooms") ? Number(searchParams.get("bedrooms")) : undefined
   );
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const query = (trpc.properties.list as any).useInfiniteQuery(
+  useEffect(() => {
+    setPage(1);
+  }, [search, city, type, purpose, bedrooms]);
+
+  const query = trpc.properties.list.useQuery(
     {
       search: search || undefined,
       city: city || undefined,
       type: type || undefined,
       purpose: purpose || undefined,
       bedrooms,
+      page,
       limit: 12,
     },
-    {
-      initialCursor: undefined as string | undefined,
-      getNextPageParam: (lastPage: { nextCursor: string | null; hasMore: boolean }) => lastPage.nextCursor ?? undefined,
-    }
+    { placeholderData: keepPreviousData },
   );
 
-  const properties = (query.data?.pages.flatMap((p: { items: unknown[] }) => p.items) ?? []) as PropertyItem[];
-  const hasMore = query.data?.pages.at(-1)?.hasMore ?? false;
-  const total = (query.data?.pages[0] as { total?: number } | undefined)?.total ?? properties.length;
+  const properties = (query.data?.items ?? []) as PropertyItem[];
+  const total = query.data?.total ?? 0;
+  const totalPages = query.data?.totalPages ?? 1;
   const activeCount = [city, type, purpose, bedrooms].filter(Boolean).length;
+
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const clearFilters = () => {
     setCity(""); setType(""); setPurpose(""); setBedrooms(undefined);
-    setSearch(""); setSearchInput("");
+    setSearch(""); setSearchInput(""); setPage(1);
   };
 
   return (
@@ -458,11 +466,10 @@ function PropertiesInner() {
               ))}
             </div>
 
-            <LoadMore
-              onClick={() => query.fetchNextPage()}
-              isLoading={query.isFetchingNextPage}
-              hasMore={hasMore}
-              shown={properties.length}
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={goToPage}
               total={total}
               noun="properties"
             />

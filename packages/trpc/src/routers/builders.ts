@@ -5,7 +5,7 @@ import {
   safeString,
   searchSchema,
   geoTextSchema,
-  cursorSchema,
+  pageSchema,
   limitSchema,
 } from "../sanitize";
 
@@ -38,12 +38,12 @@ export const buildersRouter = router({
         search: searchSchema.optional(),
         state: geoTextSchema.optional(),
         projectType: safeString(120).optional(),
-        cursor: cursorSchema,
+        page: pageSchema,
         limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
-      const { search, state, projectType, cursor, limit } = input;
+      const { search, state, projectType, page, limit } = input;
 
       const where: NonNullable<Parameters<typeof prisma.builder.findMany>[0]>["where"] = {};
       if (state) where.state = state;
@@ -60,18 +60,15 @@ export const buildersRouter = router({
 
       // Pool is max:1 (serverless) — run sequentially, not Promise.all, or the
       // second query waits on the connection and hits the connect timeout.
-      // total never changes mid-scroll, so only count on the first page.
       const items = await prisma.builder.findMany({
         where,
         orderBy: [{ companyName: "asc" }, { id: "asc" }],
-        take: limit + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        take: limit,
+        skip: (page - 1) * limit,
       });
-      const total = cursor ? null : await prisma.builder.count({ where });
+      const total = await prisma.builder.count({ where });
 
-      const hasMore = items.length > limit;
-      const page = hasMore ? items.slice(0, limit) : items;
-      return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore, total };
+      return { items, page, totalPages: Math.max(1, Math.ceil(total / limit)), total };
     }),
 
   stats: adminProcedure.query(async () => {
@@ -122,12 +119,12 @@ export const buildersRouter = router({
         city:      geoTextSchema.optional(),
         state:     geoTextSchema.optional(),
         type:      safeString(120).optional(),
-        cursor:    cursorSchema,
+        page:      pageSchema,
         limit:     limitSchema,
       }),
     )
     .query(async ({ input }) => {
-      const { search, city, state, type, cursor, limit } = input;
+      const { search, city, state, type, page, limit } = input;
       const where: NonNullable<Parameters<typeof prisma.builder.findMany>[0]>["where"] = {
         slug: { not: null },
       };
@@ -149,13 +146,11 @@ export const buildersRouter = router({
         where,
         include: { _count: { select: { projects: true } } },
         orderBy: [{ verified: "desc" }, { companyName: "asc" }, { id: "asc" }],
-        take: limit + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        take: limit,
+        skip: (page - 1) * limit,
       });
-      const total = cursor ? null : await prisma.builder.count({ where });
-      const hasMore = items.length > limit;
-      const page   = hasMore ? items.slice(0, limit) : items;
-      return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore, total };
+      const total = await prisma.builder.count({ where });
+      return { items, page, totalPages: Math.max(1, Math.ceil(total / limit)), total };
     }),
 
   publicGet: publicProcedure
