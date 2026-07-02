@@ -41,6 +41,22 @@ const r2Host = (() => {
 })();
 const r2ImgSrc = r2Host ? ` https://${r2Host}` : "";
 
+// Files that must never land in a serverless function bundle. Applied to every
+// route that pulls in Prisma (the tRPC API + the DB-backed SEO page/route
+// handlers), or the .next/cache alone bloats each function past Vercel's 250 MB
+// limit:
+//  - Non-Postgres Prisma query-engine WASM (we only use Postgres)
+//  - Webpack build cache — hundreds of MB, never needed at runtime
+//  - Client-side JS/CSS chunks — only the browser needs these
+const FUNCTION_TRACING_EXCLUDES = [
+  "**/@prisma/client/runtime/query_compiler_bg.mysql.*",
+  "**/@prisma/client/runtime/query_compiler_bg.cockroachdb.*",
+  "**/@prisma/client/runtime/query_compiler_bg.sqlite.*",
+  "**/@prisma/client/runtime/query_compiler_bg.sqlserver.*",
+  "**/.next/cache/**",
+  "**/.next/static/**",
+];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -58,20 +74,17 @@ const nextConfig: NextConfig = {
     "bcryptjs",
     "aws4fetch",
   ],
-  // Trim files that must not land in serverless function bundles:
-  // - Non-Postgres Prisma WASM compilers (we only use Postgres)
-  // - Webpack build cache and client-side static chunks (not needed at runtime)
+  // Trim the bundle for every serverless function that imports Prisma. The new
+  // DB-backed SEO pages (server components with generateMetadata + JSON-LD) and
+  // sitemap route need the same trimming as /api, or they blow past the 250 MB
+  // function limit (agents/[slug] hit 308 MB from an untrimmed .next/cache).
   outputFileTracingExcludes: {
-    "/api/**": [
-      "**/@prisma/client/runtime/query_compiler_bg.mysql.*",
-      "**/@prisma/client/runtime/query_compiler_bg.cockroachdb.*",
-      "**/@prisma/client/runtime/query_compiler_bg.sqlite.*",
-      "**/@prisma/client/runtime/query_compiler_bg.sqlserver.*",
-      // Webpack build cache — can be 100s of MB, never needed at runtime
-      "**/.next/cache/**",
-      // Client-side JS/CSS chunks — only the browser needs these
-      "**/.next/static/**",
-    ],
+    "/api/**": FUNCTION_TRACING_EXCLUDES,
+    "/sitemap.xml": FUNCTION_TRACING_EXCLUDES,
+    "/properties/[slug]": FUNCTION_TRACING_EXCLUDES,
+    "/builders/[slug]": FUNCTION_TRACING_EXCLUDES,
+    "/agents/[slug]": FUNCTION_TRACING_EXCLUDES,
+    "/interiors/[slug]": FUNCTION_TRACING_EXCLUDES,
   },
   images: {
     // The dev server's egress to images.unsplash.com is slow (~7s), which trips
