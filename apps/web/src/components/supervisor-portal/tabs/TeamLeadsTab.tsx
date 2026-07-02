@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import { Download, ChevronDown, ChevronUp } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
@@ -72,8 +72,8 @@ export function TeamLeadsTab() {
                   </td>
                 </tr>
               ) : items.map((l) => (
-                <>
-                  <tr key={l.id} className={`${rowBg[l.status] ?? "bg-white"} transition-colors`}>
+                <Fragment key={l.id}>
+                  <tr className={`${rowBg[l.status] ?? "bg-white"} transition-colors`}>
                     <td className="py-3">
                       <div className="font-semibold text-navy">{l.name}</div>
                       <div className="font-mono text-[10px] text-muted-foreground">{l.id.slice(0, 8)}…</div>
@@ -108,7 +108,7 @@ export function TeamLeadsTab() {
                     </td>
                   </tr>
                   {expandedRow === l.id && (
-                    <tr key={`${l.id}-note`} className="bg-slate-50">
+                    <tr className="bg-slate-50">
                       <td colSpan={8} className="px-4 pb-4 pt-2">
                         <div className="flex flex-col gap-2">
                           <textarea
@@ -141,7 +141,7 @@ export function TeamLeadsTab() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

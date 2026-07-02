@@ -47,7 +47,7 @@ function shapeTicket(
   assignedMap: Record<string, string>,
 ) {
   const row = deriveTicketRow(t, assignedMap);
-  return { ...row, id: row.id.slice(0, 6).toUpperCase() };
+  return { ...row, id: row.id.slice(-6).toUpperCase() };
 }
 
 export const reportsRouter = router({
@@ -197,7 +197,7 @@ export const reportsRouter = router({
       const users = dbUsers.map((u) => {
         const a = attrFor(u.id, u.role);
         return {
-          id: u.id.slice(0, 6).toUpperCase(),
+          id: u.id.slice(-6).toUpperCase(),
           name: u.name,
           email: u.email,
           phone: u.phone ?? "—",
@@ -220,7 +220,7 @@ export const reportsRouter = router({
         seenUsers[s.userId] = (seenUsers[s.userId] ?? 0) + 1;
         const a = attrFor(s.userId, s.user.role);
         return {
-          id: s.id.slice(0, 6).toUpperCase(),
+          id: s.id.slice(-6).toUpperCase(),
           userId: s.userId,
           userName: s.user.name,
           plan: s.planName,
@@ -317,7 +317,7 @@ export const reportsRouter = router({
         const buyer = buyerMap[v.userId];
         const rep = v.salesRepId ? repMap[v.salesRepId] : null;
         return {
-          id: v.id.slice(0, 6).toUpperCase(),
+          id: v.id.slice(-6).toUpperCase(),
           leadName: buyer?.name ?? "—",
           property: prop?.title ?? "—",
           city: prop?.location?.city ?? "—",
@@ -360,7 +360,7 @@ export const reportsRouter = router({
 
       // ── Shape commissions ─────────────────────────────────────
       const commissions = dbCommissions.map((c) => ({
-        id: c.id.slice(0, 6).toUpperCase(),
+        id: c.id.slice(-6).toUpperCase(),
         repName: c.salesRep.name,
         supervisor: c.salesRep.supervisorId
           ? staffById.get(c.salesRep.supervisorId)?.name ?? "—"
@@ -375,7 +375,10 @@ export const reportsRouter = router({
 
       // ── Shape campaigns ───────────────────────────────────────
       const campaigns = dbCampaigns.map((c) => ({
-        id: c.id.slice(0, 6).toUpperCase(),
+        // Last 6 chars, not first 6: cuids (and the seed ids like "seed-camp-01")
+        // share a common prefix, so slice(0,6) collapses distinct campaigns to the
+        // same code and collides the React key downstream.
+        id: c.id.slice(-6).toUpperCase(),
         name: c.name,
         type: c.type,
         audience: c.audience,
@@ -411,7 +414,7 @@ export const reportsRouter = router({
         });
 
         agentRegs = dbAgents.map((a) => ({
-          id: a.id.slice(0, 6).toUpperCase(),
+          id: a.id.slice(-6).toUpperCase(),
           name: a.name,
           email: a.email,
           city: a.city,

@@ -847,8 +847,8 @@ export function ReportsDashboard({
               </tr>
             </thead>
             <tbody>
-              {(snapData?.campaigns ?? []).map((c) => (
-                <tr key={c.id}>
+              {(snapData?.campaigns ?? []).map((c, i) => (
+                <tr key={`${c.id}-${i}`}>
                   <td className="font-mono text-xs">{c.id}</td>
                   <td className="font-semibold text-navy">{c.name}</td>
                   <td className="text-xs capitalize">{c.type}</td>
