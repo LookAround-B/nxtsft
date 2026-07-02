@@ -17,40 +17,77 @@ import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { validateBulkImportFile } from "@/lib/file-validation";
 
-// Order matters: this is both the template header row and the preview columns.
-const HEADERS = [
-  "Title", "Description", "Type", "Purpose", "Price (INR)", "Area (sqft)",
-  "BHK", "Bedrooms", "Bathrooms", "Furnishing", "RERA", "City", "State",
-  "Locality", "Address", "Pincode",
-] as const;
+// Single source of truth for the bulk template. List order = template column
+// order = preview order. Headers, required set, header-matching, the parser and
+// the example row all derive from this, so the template and parser can't drift.
+type FieldKey =
+  | "title" | "description" | "type" | "purpose" | "price" | "area" | "builtUpArea"
+  | "bhk" | "bedrooms" | "bathrooms" | "balconies" | "parking" | "furnishing"
+  | "facing" | "floors" | "age" | "possession" | "builder" | "reraLabel" | "rera"
+  | "city" | "state" | "locality" | "address" | "zipCode" | "latitude" | "longitude"
+  | "amenities" | "images" | "virtualTourUrl" | "walkthroughVideoUrl"
+  | "pgGender" | "pgOccupancy" | "pgAvailableBeds" | "pgDeposit" | "pgRoomTypes"
+  | "pgHouseRules" | "pgFood";
 
-type Row = {
-  title: string; description?: string; type: string; purpose: string;
-  price: string; area: string; bhk?: string; bedrooms?: string; bathrooms?: string;
-  furnishing?: string; rera: string; city: string; state: string;
-  locality: string; address?: string; zipCode?: string;
-};
+type Row = Partial<Record<FieldKey, string>>;
 
-const FIELD_BY_HEADER: Record<string, keyof Row> = {
-  title: "title", description: "description", type: "type", purpose: "purpose",
-  "price (inr)": "price", price: "price", "area (sqft)": "area", area: "area",
-  bhk: "bhk", bedrooms: "bedrooms", bathrooms: "bathrooms", furnishing: "furnishing",
-  rera: "rera", "rera number": "rera", city: "city", state: "state",
-  locality: "locality", address: "address", pincode: "zipCode", zipcode: "zipCode",
-  "zip code": "zipCode",
-};
+type FieldDef = { key: FieldKey; header: string; required?: boolean; aliases?: string[]; example: string };
 
-const REQUIRED: (keyof Row)[] = ["title", "type", "purpose", "price", "area", "rera", "city", "state", "locality"];
+const FIELDS: FieldDef[] = [
+  { key: "title", header: "Title", required: true, example: "Spacious 3 BHK Apartment in Whitefield" },
+  { key: "description", header: "Description", example: "Sun-facing, near metro, gated society" },
+  { key: "type", header: "Type", required: true, example: "Apartment" },
+  { key: "purpose", header: "Purpose", required: true, example: "Sale" },
+  { key: "price", header: "Price (INR)", required: true, aliases: ["price"], example: "9500000" },
+  { key: "area", header: "Area (sqft)", required: true, aliases: ["area", "super built-up area"], example: "1450" },
+  { key: "builtUpArea", header: "Built-up Area (sqft)", aliases: ["built-up area", "builtup area"], example: "1300" },
+  { key: "bhk", header: "BHK", example: "3 BHK" },
+  { key: "bedrooms", header: "Bedrooms", example: "3" },
+  { key: "bathrooms", header: "Bathrooms", example: "3" },
+  { key: "balconies", header: "Balconies", example: "2" },
+  { key: "parking", header: "Parking", example: "1" },
+  { key: "furnishing", header: "Furnishing", example: "Semi-Furnished" },
+  { key: "facing", header: "Facing", example: "East" },
+  { key: "floors", header: "Floors", example: "12" },
+  { key: "age", header: "Age", example: "2 years" },
+  { key: "possession", header: "Possession", example: "Ready to Move" },
+  { key: "builder", header: "Builder", example: "Prestige Group" },
+  { key: "reraLabel", header: "RERA Authority", aliases: ["rera authority", "rera label"], example: "KA RERA" },
+  { key: "rera", header: "RERA", required: true, aliases: ["rera number"], example: "PRM/KA/RERA/1251/446/PR/12345" },
+  { key: "city", header: "City", required: true, example: "Bengaluru" },
+  { key: "state", header: "State", required: true, example: "Karnataka" },
+  { key: "locality", header: "Locality", required: true, example: "Whitefield" },
+  { key: "address", header: "Address", example: "12th Main, Whitefield" },
+  { key: "zipCode", header: "Pincode", aliases: ["zipcode", "zip code", "pin code"], example: "560066" },
+  { key: "latitude", header: "Latitude", example: "12.9698" },
+  { key: "longitude", header: "Longitude", example: "77.7500" },
+  { key: "amenities", header: "Amenities", example: "Swimming Pool, Gym, 24/7 Security" },
+  { key: "images", header: "Image URLs", aliases: ["images", "image url"], example: "" },
+  { key: "virtualTourUrl", header: "Virtual Tour URL", aliases: ["virtual tour"], example: "" },
+  { key: "walkthroughVideoUrl", header: "Walkthrough Video URL", aliases: ["walkthrough video", "video url"], example: "" },
+  { key: "pgGender", header: "PG Gender", example: "" },
+  { key: "pgOccupancy", header: "PG Occupancy", example: "" },
+  { key: "pgAvailableBeds", header: "PG Available Beds", example: "" },
+  { key: "pgDeposit", header: "PG Deposit", example: "" },
+  { key: "pgRoomTypes", header: "PG Room Types", example: "" },
+  { key: "pgHouseRules", header: "PG House Rules", example: "" },
+  { key: "pgFood", header: "PG Food", example: "" },
+];
+
+const HEADERS = FIELDS.map((f) => f.header);
+const REQUIRED = FIELDS.filter((f) => f.required).map((f) => f.key);
+
+// Header text (lowercased) → field key, including aliases, so slightly-renamed
+// columns still map.
+const FIELD_BY_HEADER: Record<string, FieldKey> = {};
+for (const f of FIELDS) {
+  FIELD_BY_HEADER[f.header.toLowerCase()] = f.key;
+  for (const a of f.aliases ?? []) FIELD_BY_HEADER[a.toLowerCase()] = f.key;
+}
 
 function downloadTemplate() {
-  const example = [
-    "Spacious 3 BHK Apartment in Whitefield", "Sun-facing, near metro, gated society",
-    "Apartment", "Sale", "9500000", "1450", "3 BHK", "3", "3", "Semi-Furnished",
-    "PRM/KA/RERA/1251/446/PR/12345", "Bengaluru", "Karnataka", "Whitefield",
-    "12th Main, Whitefield", "560066",
-  ];
   const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  const csv = `${HEADERS.join(",")}\n${example.map(esc).join(",")}\n`;
+  const csv = `${HEADERS.map(esc).join(",")}\n${FIELDS.map((f) => esc(f.example)).join(",")}\n`;
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
   a.download = "property-bulk-template.csv";
@@ -85,25 +122,24 @@ function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows:
   });
   const missing = REQUIRED.filter((f) => idx[f] === undefined);
   if (missing.length) {
-    return { rows: [], error: `Missing required column(s): ${missing.join(", ")}. Download the template.` };
+    const labels = missing.map((k) => FIELDS.find((f) => f.key === k)!.header);
+    return { rows: [], error: `Missing required column(s): ${labels.join(", ")}. Download the template.` };
   }
-  const cellAt = (r: number, f: keyof Row) =>
+  const cellAt = (r: number, f: FieldKey) =>
     idx[f] !== undefined ? String(matrix[r]?.[idx[f]!] ?? "").trim() : "";
 
   const rows: Row[] = [];
   for (let r = 1; r < matrix.length; r++) {
     // Skip fully-empty rows; keep partial rows so the server reports their errors.
     if (REQUIRED.every((f) => !cellAt(r, f)) && !cellAt(r, "description")) continue;
-    rows.push({
-      title: cellAt(r, "title"), description: cellAt(r, "description") || undefined,
-      type: cellAt(r, "type"), purpose: cellAt(r, "purpose"),
-      price: cellAt(r, "price"), area: cellAt(r, "area"),
-      bhk: cellAt(r, "bhk") || undefined, bedrooms: cellAt(r, "bedrooms") || undefined,
-      bathrooms: cellAt(r, "bathrooms") || undefined, furnishing: cellAt(r, "furnishing") || undefined,
-      rera: cellAt(r, "rera"), city: cellAt(r, "city"), state: cellAt(r, "state"),
-      locality: cellAt(r, "locality"), address: cellAt(r, "address") || undefined,
-      zipCode: cellAt(r, "zipCode") || undefined,
-    });
+    // Only carry non-empty cells — empty optional fields stay undefined so the
+    // server's .optional() validators hold.
+    const row: Row = {};
+    for (const f of FIELDS) {
+      const v = cellAt(r, f.key);
+      if (v) row[f.key] = v;
+    }
+    rows.push(row);
   }
   return { rows };
 }
@@ -167,14 +203,14 @@ export default function BulkListPage() {
     return <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">Loading…</div>;
   }
 
-  if (!session || session.role !== "home-seller") {
+  if (!session || !["home-seller", "admin", "super-admin"].includes(session.role)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-5">
         <div className="mx-auto max-w-md rounded-3xl border border-border bg-white p-10 text-center shadow-sm">
           <Building2 className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
-          <h2 className="font-display text-xl font-black text-navy">Home Sellers only</h2>
+          <h2 className="font-display text-xl font-black text-navy">Home Sellers &amp; admins only</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Bulk property upload is for Home Seller accounts.
+            Bulk property upload is for Home Seller or admin accounts.
           </p>
           <Link href={session ? "/" : "/register"} className="mt-6 inline-block rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white transition hover:opacity-90">
             {session ? "Go home" : "Register as Home Seller"}
@@ -210,8 +246,11 @@ export default function BulkListPage() {
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
             Required: <strong>Title, Type, Purpose, Price, Area, RERA, City, State, Locality</strong>.
-            Type must be one of Apartment · Villa · Studio · Office · Bungalow · Plot · PG.
-            Purpose is Sale or Rent. Title needs at least 10 characters. RERA is validated per state.
+            Every other column is optional — leave blank cells empty. Type must be one of
+            Apartment · Villa · Studio · Office · Bungalow · Plot · PG. Purpose is Sale or Rent.
+            Title needs at least 10 characters. RERA is validated per state. Comma-separate
+            Amenities / Image URLs / PG lists. If you leave <strong>Image URLs</strong> blank, a
+            default cover for the property type is used automatically.
           </p>
         </div>
 

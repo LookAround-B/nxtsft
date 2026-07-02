@@ -56,6 +56,23 @@ function generateSlug(title: string, city: string) {
   return `${base}-${Date.now()}`;
 }
 
+// Default cover image per property type — used for bulk-imported listings that
+// arrive without their own photos. Files live in apps/web/public/categories/.
+const CATEGORY_IMAGE: Record<string, string> = {
+  Apartment: "/categories/apartment.png",
+  Studio: "/categories/studio.png",
+  Villa: "/categories/villa.png",
+  Bungalow: "/categories/villa.png",
+  Office: "/categories/commercial.png",
+  Plot: "/categories/plot.png",
+  PG: "/categories/pg.png",
+};
+
+// Split a comma-separated cell (amenities, PG occupancy, …) into a clean array.
+function splitList(v: string | undefined): string[] {
+  return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : [];
+}
+
 // Server-side state-specific RERA validation (mirrors apps/web/src/lib/rera.ts).
 // Shared by single create and bulk create. Throws BAD_REQUEST on mismatch.
 function assertReraValid(city: string, rera: string | undefined) {
@@ -364,7 +381,8 @@ export const propertiesRouter = router({
   bulkCreate: protectedProcedure
     .input(z.object({ rows: z.array(z.unknown()).min(1).max(500) }))
     .mutation(async ({ input, ctx }) => {
-      // Numbers may arrive as strings from CSV cells — coerce them.
+      // Numbers may arrive as strings from CSV cells — coerce them. Empty
+      // optional cells arrive as undefined from the client, so .optional() holds.
       const rowSchema = z.object({
         title: safeString(200, 10),
         description: descriptionSchema.optional(),
@@ -372,16 +390,39 @@ export const propertiesRouter = router({
         purpose: purposeSchema,
         price: z.coerce.number().int().positive().max(999_999_999_999),
         area: z.coerce.number().int().positive().max(9_999_999),
+        builtUpArea: z.coerce.number().int().positive().max(9_999_999).optional(),
         bhk: safeString(20).optional(),
         bedrooms: z.coerce.number().int().min(0).max(50).default(0),
         bathrooms: z.coerce.number().int().min(0).max(50).default(0),
+        balconies: z.coerce.number().int().min(0).max(50).optional(),
+        parking: z.coerce.number().int().min(0).max(50).optional(),
         furnishing: furnishingSchema.optional(),
+        facing: safeString(30).optional(),
+        floors: safeString(20).optional(),
+        age: safeString(20).optional(),
+        possession: safeString(30).optional(),
+        builder: safeString(100).optional(),
+        reraLabel: safeString(20).optional(),
         rera: reraSchema,
         city: geoTextSchema,
         state: geoTextSchema,
         locality: geoTextSchema,
         address: safeString(500).optional(),
         zipCode: safeString(6).optional(),
+        latitude: z.coerce.number().min(-90).max(90).optional(),
+        longitude: z.coerce.number().min(-180).max(180).optional(),
+        amenities: safeString(2000).optional(),
+        images: safeString(4000).optional(),
+        virtualTourUrl: safeString(500).optional(),
+        walkthroughVideoUrl: safeString(500).optional(),
+        // PG-specific (only meaningful when type === "PG")
+        pgGender: z.enum(["Boys", "Girls", "Co-living"]).optional(),
+        pgOccupancy: safeString(200).optional(),
+        pgAvailableBeds: z.coerce.number().int().min(0).max(9999).optional(),
+        pgDeposit: z.coerce.number().int().min(0).max(999_999_999_999).optional(),
+        pgRoomTypes: safeString(200).optional(),
+        pgHouseRules: safeString(2000).optional(),
+        pgFood: safeString(30).optional(),
       });
 
       const errors: { row: number; message: string }[] = [];
@@ -397,6 +438,9 @@ export const propertiesRouter = router({
         const d = parsed.data;
         try {
           assertReraValid(d.city, d.rera);
+          // Use uploaded image URLs if given, else the type's default cover.
+          const images = splitList(d.images);
+          const isPg = d.type === "PG";
           await prisma.property.create({
             data: {
               title: d.title,
@@ -406,14 +450,39 @@ export const propertiesRouter = router({
               bhk: d.bhk,
               bedrooms: d.bedrooms,
               bathrooms: d.bathrooms,
+              balconies: d.balconies,
+              parking: d.parking,
               furnishing: d.furnishing,
+              facing: d.facing,
+              floors: d.floors,
+              age: d.age,
+              possession: d.possession,
+              builder: d.builder,
+              reraLabel: d.reraLabel,
               rera: d.rera,
               slug: generateSlug(d.title, d.city),
               price: BigInt(d.price),
               pricePerSqft: Math.round(d.price / d.area),
               area: d.area,
+              builtUpArea: d.builtUpArea,
+              amenities: splitList(d.amenities),
+              images: images.length ? images : [CATEGORY_IMAGE[d.type] ?? CATEGORY_IMAGE.Apartment!],
+              virtualTourUrl: d.virtualTourUrl,
+              walkthroughVideoUrl: d.walkthroughVideoUrl,
               status: "Pending",
               ownerId: ctx.user.id,
+              // PG fields only when the listing is a PG.
+              ...(isPg
+                ? {
+                    pgGender: d.pgGender,
+                    pgOccupancy: splitList(d.pgOccupancy),
+                    pgAvailableBeds: d.pgAvailableBeds,
+                    pgDeposit: d.pgDeposit != null ? BigInt(d.pgDeposit) : undefined,
+                    pgRoomTypes: splitList(d.pgRoomTypes),
+                    pgHouseRules: splitList(d.pgHouseRules),
+                    pgFood: d.pgFood,
+                  }
+                : {}),
               location: {
                 create: {
                   city: d.city,
@@ -421,8 +490,8 @@ export const propertiesRouter = router({
                   locality: d.locality,
                   address: d.address,
                   zipCode: d.zipCode,
-                  latitude: 0,
-                  longitude: 0,
+                  latitude: d.latitude ?? 0,
+                  longitude: d.longitude ?? 0,
                 },
               },
             },
