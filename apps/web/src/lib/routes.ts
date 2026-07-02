@@ -39,6 +39,7 @@ export const PUBLIC_ROUTES: readonly string[] = [
   ...LOGIN_ROUTES,
   "/",
   "/properties",
+  "/builders",
   "/interiors",
   "/pg",
   "/agents",
