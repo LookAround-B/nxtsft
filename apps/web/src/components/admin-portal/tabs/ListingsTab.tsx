@@ -2,11 +2,14 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket } from "lucide-react";
+import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { getPendingListings, updateListingStatus as persistListingStatus } from "@/lib/listings";
 import { PageHead } from "./PageHead";
+
+// Authority labels shown before the registration number (mirrors the /list form).
+const RERA_LABELS = ["RERA", "TS RERA", "KA RERA", "TN RERA", "MahaRERA", "GujRERA", "HMDA", "DTCP", "BDA", "CMDA"];
 
 type ListingItem = {
   id: string;
@@ -20,6 +23,7 @@ type ListingItem = {
   isUserSubmission?: boolean;
   isDbProperty?: boolean;
   rera?: string | null;
+  reraLabel?: string | null;
   locality?: string;
   listerEmail?: string;
   listerPhone?: string;
@@ -43,6 +47,7 @@ type RawProp = {
   bhk: string | null;
   status: string;
   rera: string | null;
+  reraLabel: string | null;
   slug: string;
   featured: boolean;
   _count?: { leads: number; favoritedBy: number };
@@ -125,9 +130,30 @@ export function ListingsTab() {
     },
     onError: (err: { message: string }) => toast.error(err.message),
   });
+  const reraMutation = trpc.properties.update.useMutation({
+    onSuccess: () => {
+      void dbListingsQ.refetch();
+      setReraEditing(null);
+      toast.success("RERA details updated.");
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
 
   const [localItems, setLocalItems] = useState<ListingItem[]>([]);
   const [checklistOpen, setChecklistOpen] = useState<string | null>(null);
+  // Property id whose RERA is being edited, plus the working input values.
+  const [reraEditing, setReraEditing] = useState<string | null>(null);
+  const [reraValue, setReraValue] = useState("");
+  const [reraLabelValue, setReraLabelValue] = useState("RERA");
+
+  const openReraEditor = (it: ListingItem) => {
+    setReraEditing(it.id);
+    setReraValue(it.rera ?? "");
+    setReraLabelValue(it.reraLabel ?? "RERA");
+  };
+  const saveRera = (id: string) => {
+    reraMutation.mutate({ id, rera: reraValue.trim(), reraLabel: reraLabelValue });
+  };
 
   useEffect(() => {
     const userSubs: ListingItem[] = getPendingListings().map((l) => ({
@@ -172,6 +198,7 @@ export function ListingsTab() {
         : "Pending") as "Pending" | "Approved" | "Rejected",
     isDbProperty: true,
     rera: p.rera,
+    reraLabel: p.reraLabel,
     interested: p._count?.leads ?? 0,
     wishlisted: p._count?.favoritedBy ?? 0,
     featured: p.featured,
@@ -304,6 +331,65 @@ export function ListingsTab() {
                   </div>
                 </div>
               </div>
+
+              {it.isDbProperty && (
+                <div className="mt-3 border-t border-border pt-3">
+                  {reraEditing === it.id ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={reraLabelValue}
+                        onChange={(e) => setReraLabelValue(e.target.value)}
+                        className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      >
+                        {RERA_LABELS.map((l) => (
+                          <option key={l} value={l}>
+                            {l}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={reraValue}
+                        onChange={(e) => setReraValue(e.target.value)}
+                        placeholder="Registration number"
+                        className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 font-mono text-xs"
+                      />
+                      <button
+                        onClick={() => saveRera(it.id)}
+                        disabled={reraMutation.isPending}
+                        className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setReraEditing(null)}
+                        className="rounded-md border border-border px-3 py-1 text-xs font-semibold transition hover:bg-secondary"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs">
+                      <ShieldCheck
+                        size={13}
+                        className={it.rera ? "text-emerald-500" : "text-muted-foreground/40"}
+                      />
+                      {it.rera ? (
+                        <span className="font-medium text-navy">
+                          {it.reraLabel ?? "RERA"} · <span className="font-mono">{it.rera}</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">No RERA number</span>
+                      )}
+                      <button
+                        onClick={() => openReraEditor(it)}
+                        className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 font-semibold transition hover:bg-secondary"
+                      >
+                        <Pencil size={11} /> Edit RERA
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {it.isUserSubmission && (it.listerEmail || it.listerPhone) && (
                 <div className="mt-3 flex flex-wrap gap-3 border-t border-blue-100 pt-3 text-xs text-muted-foreground">
