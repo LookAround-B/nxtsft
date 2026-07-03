@@ -81,6 +81,14 @@ export const cuidSchema = z
   .max(30, "Invalid ID")
   .regex(/^c[a-z0-9]{8,28}$/, "Invalid ID format");
 
+/** Plan identifier — seed.ts assigns readable slugs (e.g. "owner-sell-basic")
+ * instead of relying on the cuid() default, so this accepts either form. */
+export const planIdSchema = z
+  .string()
+  .min(1, "ID is required")
+  .max(50, "Invalid ID")
+  .regex(/^[a-z0-9-]+$/, "Invalid ID format");
+
 /** Safe free-text string with HTML stripping, trim, and length cap. */
 export function safeString(maxLen: number, minLen = 0) {
   let s = z.string().max(maxLen, `Input exceeds ${maxLen} characters`);
