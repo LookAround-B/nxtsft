@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import prisma from "@nxtsft/db";
 import { SITE_URL } from "@/lib/site";
+import { jsonLdScript } from "@/lib/jsonLd";
 import PropertyDetailClient from "./PropertyDetailClient";
 
 export const runtime = "nodejs";
@@ -169,7 +170,7 @@ export default async function PropertyDetailPage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
       />
       <PropertyDetailClient slug={slug} />
     </>

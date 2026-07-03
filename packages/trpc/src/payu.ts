@@ -1,7 +1,32 @@
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
+/** Constant-time comparison of two hex-encoded digests. */
+function hexEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "hex");
+  const bb = Buffer.from(b, "hex");
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
+// In production the gateway URL must be set explicitly — never silently fall
+// back to the PayU test endpoint (payments there would never actually settle).
+// An empty string surfaces as an obvious failure at the point of use instead.
 export const PAYU_BASE_URL =
-  process.env.PAYU_BASE_URL ?? "https://test.payu.in/_payment";
+  process.env.PAYU_BASE_URL ??
+  (process.env.NODE_ENV === "production" ? "" : "https://test.payu.in/_payment");
+
+// Resolve the merchant credentials, throwing if either is absent. Prevents a
+// hash from ever being computed with a literal "undefined" salt/key (which
+// would be forgeable by anyone who knows the algorithm).
+function payuSecrets(): { key: string; salt: string } {
+  const key = process.env.PAYU_MERCHANT_KEY;
+  const salt = process.env.PAYU_MERCHANT_SALT;
+  if (!key || !salt) {
+    throw new Error(
+      "PayU is not configured: PAYU_MERCHANT_KEY and PAYU_MERCHANT_SALT are required.",
+    );
+  }
+  return { key, salt };
+}
 
 interface HashFields {
   txnid: string;
@@ -17,8 +42,7 @@ interface HashFields {
 }
 
 export function generatePayUHash(fields: HashFields): string {
-  const key = process.env.PAYU_MERCHANT_KEY!;
-  const salt = process.env.PAYU_MERCHANT_SALT!;
+  const { key, salt } = payuSecrets();
   const { txnid, amount, productinfo, firstname, email } = fields;
   const udf1 = fields.udf1 ?? "";
   const udf2 = fields.udf2 ?? "";
@@ -34,8 +58,7 @@ export function verifyPayUHash(
   status: string,
   receivedHash: string,
 ): boolean {
-  const key = process.env.PAYU_MERCHANT_KEY!;
-  const salt = process.env.PAYU_MERCHANT_SALT!;
+  const { key, salt } = payuSecrets();
   const { txnid, amount, productinfo, firstname, email } = fields;
   const udf1 = fields.udf1 ?? "";
   const udf2 = fields.udf2 ?? "";
@@ -45,5 +68,5 @@ export function verifyPayUHash(
   // PayU reverse hash: salt|status|udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key
   const str = `${salt}|${status}|${udf5}|${udf4}|${udf3}|${udf2}|${udf1}|${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
   const expected = createHash("sha512").update(str).digest("hex");
-  return expected === receivedHash;
+  return hexEqual(expected, receivedHash);
 }

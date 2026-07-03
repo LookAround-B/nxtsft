@@ -18,6 +18,22 @@ import { router, protectedProcedure, adminProcedure, publicProcedure } from "../
 const NOTIFICATION_PREF_KEYS = ["email", "whatsapp", "sms", "marketing"] as const;
 type NotificationPrefs = Record<(typeof NOTIFICATION_PREF_KEYS)[number], boolean>;
 
+// User.metadata is an open JSON blob (internal notes, flags, etc). Public agent
+// endpoints must expose only these display-oriented keys, never the raw object.
+const PUBLIC_AGENT_META_KEYS = [
+  "initials", "rating", "reviews", "deals", "since", "listings", "featured",
+  "color", "responseTime", "portfolioValue", "specialties", "languages", "cities",
+] as const;
+
+function publicAgentMeta(metadata: unknown): Record<string, unknown> {
+  const meta = (metadata ?? {}) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const k of PUBLIC_AGENT_META_KEYS) {
+    if (k in meta) out[k] = meta[k];
+  }
+  return out;
+}
+
 const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   email: true,
   whatsapp: true,
@@ -412,7 +428,8 @@ export const usersRouter = router({
       avatar: string | null; city: string; verified: boolean; metadata: unknown;
     } => ({
       id: a.id, name: a.name, slug: a.slug, email: a.email,
-      avatar: a.avatar, city: a.city, verified: a.verified, metadata: a.metadata,
+      avatar: a.avatar, city: a.city, verified: a.verified,
+      metadata: publicAgentMeta(a.metadata),
     }));
   }),
 

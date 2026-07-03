@@ -130,7 +130,19 @@ function createRateLimiter(points: number, windowMs: number) {
   const limiter = makeRatelimit(points, windowSeconds);
 
   return middleware(async ({ ctx, next, path }) => {
-    if (!limiter) return next(); // local dev without Redis — skip
+    if (!limiter) {
+      // No Redis configured. In development we skip so local work is never
+      // blocked. In production this means the control cannot be enforced, so
+      // fail closed on the rate-limited procedure rather than silently allowing
+      // unlimited attempts (brute force, spam).
+      if (process.env.NODE_ENV === "production") {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Rate limiting is temporarily unavailable. Please try again later.",
+        });
+      }
+      return next(); // local dev without Redis — skip
+    }
 
     const key = `${path}:${ctx.user?.id ?? ctx.ip ?? "anon"}`;
     const { success, reset } = await limiter.limit(key);

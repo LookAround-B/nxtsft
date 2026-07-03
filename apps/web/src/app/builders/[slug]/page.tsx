@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import prisma from "@nxtsft/db";
 import { SITE_URL } from "@/lib/site";
+import { jsonLdScript } from "@/lib/jsonLd";
 import BuilderProfileClient from "./BuilderProfileClient";
 
 export const runtime = "nodejs";
@@ -120,7 +121,7 @@ export default async function BuilderProfilePage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
       />
       <BuilderProfileClient slug={slug} />
     </>
