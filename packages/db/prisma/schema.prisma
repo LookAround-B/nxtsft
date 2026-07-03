@@ -45,6 +45,7 @@ model User {
 
   properties            Property[]
   listings              Listing[]
+  editRequests          PropertyEditRequest[]  @relation("UserEditRequests")
   leads                 Lead[]
   messages              Message[]
   favorites             Favorite[]
@@ -146,6 +147,7 @@ model Property {
   owner   User   @relation(fields: [ownerId], references: [id])
 
   listings      Listing[]
+  editRequests  PropertyEditRequest[]
   leads         Lead[]
   favoritedBy   Favorite[]
   reviews       Review[]
@@ -734,6 +736,27 @@ model Notification {
 
   @@index([userId])
   @@index([read])
+}
+
+// A seller's proposed edits to a live listing, held for admin review. The
+// Property keeps showing its current data until an admin approves the request,
+// at which point `changes` (a partial set of Property fields) is merged in.
+model PropertyEditRequest {
+  id           String    @id @default(cuid())
+  propertyId   String
+  property     Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  ownerId      String
+  owner        User      @relation("UserEditRequests", fields: [ownerId], references: [id], onDelete: Cascade)
+  changes      Json // partial Property fields proposed by the owner
+  status       String    @default("Pending") // Pending | Approved | Rejected
+  reviewNote   String?
+  reviewedById String?
+  createdAt    DateTime  @default(now())
+  reviewedAt   DateTime?
+
+  @@index([propertyId])
+  @@index([ownerId])
+  @@index([status])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

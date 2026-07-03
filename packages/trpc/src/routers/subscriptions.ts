@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
+import { notify } from "../notify";
 import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server";
 import {
   cuidSchema,
@@ -275,6 +276,13 @@ export const subscriptionsRouter = router({
       const updated = await prisma.user.findUniqueOrThrow({
         where: { id: ctx.user.id },
         select: { credits: true },
+      });
+
+      await notify({
+        userId: ctx.user.id,
+        type: "payment_success",
+        title: "Payment successful",
+        content: `${plan.name} — ${plan.credits} credits added to your wallet.`,
       });
 
       return { ok: true, credits: updated.credits, planName: plan.name };

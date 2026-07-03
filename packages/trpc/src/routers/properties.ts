@@ -23,6 +23,7 @@ import {
   propertyStatusSchema,
 } from "../sanitize";
 import prisma from "@nxtsft/db";
+import { notify, notifyCredit } from "../notify";
 import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server";
 
 // Serialize BigInt price fields to number for JSON transport
@@ -372,6 +373,14 @@ export const propertiesRouter = router({
         include: propertyInclude,
       });
 
+      await notify({
+        userId: ctx.user.id,
+        type: "listing_published",
+        title: "Listing published",
+        content: `"${property.title}" is now live.`,
+        actionUrl: `/properties/${property.slug}`,
+      });
+
       return serializeProperty(property);
     }),
 
@@ -504,6 +513,15 @@ export const propertiesRouter = router({
         }
       }
 
+      if (created > 0) {
+        await notify({
+          userId: ctx.user.id,
+          type: "listing_submitted",
+          title: `${created} listing${created > 1 ? "s" : ""} submitted`,
+          content: "Your uploaded listings are pending admin approval.",
+        });
+      }
+
       return { received: input.rows.length, created, failed: errors.length, errors: errors.slice(0, 100) };
     }),
 
@@ -576,7 +594,88 @@ export const propertiesRouter = router({
         include: propertyInclude,
       });
 
+      // Only tell the owner about edits they made themselves — admin edits
+      // shouldn't read as "you updated your listing".
+      if (isOwner) {
+        await notify({
+          userId: property.ownerId,
+          type: "listing_updated",
+          title: "Listing updated",
+          content: `Your changes to "${property.title}" were saved.`,
+          actionUrl: `/properties/${property.slug}`,
+        });
+      }
+
       return serializeProperty(updated);
+    }),
+
+  // Owner submits edits to a LIVE listing. Changes are NOT applied immediately —
+  // they're held as a PropertyEditRequest for admin review, so the listing keeps
+  // showing its current data until approved. Only one pending request per
+  // property: re-submitting supersedes any earlier pending edit.
+  submitEdit: protectedProcedure
+    .input(
+      z.object({
+        id: cuidSchema,
+        title: safeString(200, 10).optional(),
+        description: descriptionSchema.optional(),
+        price: priceSchema.optional(),
+        area: areaSchema.optional(),
+        builtUpArea: areaSchema.optional(),
+        bhk: safeString(20).optional(),
+        bedrooms: roomCountSchema.optional(),
+        bathrooms: roomCountSchema.optional(),
+        balconies: roomCountSchema.optional(),
+        parking: roomCountSchema.optional(),
+        furnishing: furnishingSchema.optional(),
+        facing: safeString(30).optional(),
+        possession: safeString(30).optional(),
+        rera: reraSchema.optional(),
+        reraLabel: safeString(20).optional(),
+        amenities: amenitiesSchema.optional(),
+        images: safeUrlArraySchema.optional(),
+        locality: geoTextSchema.optional(),
+        latitude: latitudeSchema.optional(),
+        longitude: longitudeSchema.optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { id, ...changes } = input;
+
+      const property = await prisma.property.findFirst({
+        where: { id, deletedAt: null },
+        include: { location: { select: { city: true } } },
+      });
+      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+      if (property.ownerId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+      // Validate RERA against the listing's (unchangeable) city.
+      if (changes.rera !== undefined) {
+        assertReraValid(property.location?.city ?? "", changes.rera, changes.reraLabel ?? property.reraLabel ?? undefined);
+      }
+
+      // Drop keys the seller didn't actually touch so the review diff stays clean.
+      const proposed = Object.fromEntries(
+        Object.entries(changes).filter(([, v]) => v !== undefined),
+      );
+      if (Object.keys(proposed).length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No changes to submit." });
+      }
+
+      // Supersede any earlier pending request for this property.
+      await prisma.propertyEditRequest.deleteMany({ where: { propertyId: id, status: "Pending" } });
+      await prisma.propertyEditRequest.create({
+        data: { propertyId: id, ownerId: ctx.user.id, changes: proposed },
+      });
+
+      await notify({
+        userId: ctx.user.id,
+        type: "listing_edit_submitted",
+        title: "Edit submitted for review",
+        content: `Your changes to "${property.title}" are pending admin approval.`,
+      });
+
+      return { ok: true };
     }),
 
   // Soft-delete (owner or admin)
@@ -634,6 +733,7 @@ export const propertiesRouter = router({
         }),
         prisma.property.update({ where: { id: input.id }, data: { contacts: { increment: 1 } } }),
       ]);
+      await notifyCredit({ userId: ctx.user.id, type: "debit", amount: 1, reason: "contact_unlock" });
 
       return { phone: property.owner.phone, name: property.owner.name };
     }),

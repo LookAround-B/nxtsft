@@ -12,6 +12,7 @@ import {
 } from "../sanitize";
 import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
+import { notifyCredit } from "../notify";
 import { router, protectedProcedure, adminProcedure, publicProcedure } from "../server";
 
 const NOTIFICATION_PREF_KEYS = ["email", "whatsapp", "sms", "marketing"] as const;
@@ -184,6 +185,7 @@ export const usersRouter = router({
           },
         }),
       ]);
+      await notifyCredit({ userId: input.userId, type: "credit", amount: input.amount, reason: input.reason });
 
       const updated = await prisma.user.findUniqueOrThrow({
         where: { id: input.userId },
@@ -327,13 +329,16 @@ export const usersRouter = router({
       include: {
         location: true,
         _count: { select: { leads: true, favoritedBy: true } },
+        // Latest pending edit awaiting admin review — drives the "under review" badge.
+        editRequests: { where: { status: "Pending" }, select: { id: true }, take: 1 },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    return properties.map((p) => ({
+    return properties.map(({ editRequests, ...p }) => ({
       ...p,
       price: Number(p.price),
+      hasPendingEdit: editRequests.length > 0,
     }));
   }),
 

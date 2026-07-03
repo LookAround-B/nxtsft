@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { validateBulkImportFile } from "@/lib/file-validation";
+import { parseLatLng } from "@/lib/map";
 
 // Single source of truth for the bulk template. List order = template column
 // order = preview order. Headers, required set, header-matching, the parser and
@@ -24,7 +25,7 @@ type FieldKey =
   | "title" | "description" | "type" | "purpose" | "price" | "area" | "builtUpArea"
   | "bhk" | "bedrooms" | "bathrooms" | "balconies" | "parking" | "furnishing"
   | "facing" | "floors" | "age" | "possession" | "builder" | "reraLabel" | "rera"
-  | "city" | "state" | "locality" | "address" | "zipCode" | "latitude" | "longitude"
+  | "city" | "state" | "locality" | "address" | "zipCode" | "mapsLink" | "latitude" | "longitude"
   | "amenities" | "images" | "virtualTourUrl" | "walkthroughVideoUrl"
   | "pgGender" | "pgOccupancy" | "pgAvailableBeds" | "pgDeposit" | "pgRoomTypes"
   | "pgHouseRules" | "pgFood";
@@ -59,6 +60,7 @@ const FIELDS: FieldDef[] = [
   { key: "locality", header: "Locality", required: true, example: "Whitefield" },
   { key: "address", header: "Address", example: "12th Main, Whitefield" },
   { key: "zipCode", header: "Pincode", aliases: ["zipcode", "zip code", "pin code"], example: "560066" },
+  { key: "mapsLink", header: "Google Maps Link", aliases: ["maps link", "google maps", "map link", "location link"], example: "https://www.google.com/maps/place/@12.9698,77.7500,17z" },
   { key: "latitude", header: "Latitude", example: "12.9698" },
   { key: "longitude", header: "Longitude", example: "77.7500" },
   { key: "amenities", header: "Amenities", example: "Swimming Pool, Gym, 24/7 Security" },
@@ -139,6 +141,18 @@ function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows:
       const v = cellAt(r, f.key);
       if (v) row[f.key] = v;
     }
+    // A pasted Google Maps link fills coordinates when the explicit Latitude /
+    // Longitude columns are blank — the same convenience the single-listing and
+    // edit forms give. Explicit coordinates always win. (Short goo.gl links
+    // can't be resolved without a redirect, so those are left for lat/long.)
+    if (row.mapsLink && (!row.latitude || !row.longitude)) {
+      const pin = parseLatLng(row.mapsLink);
+      if (pin) {
+        if (!row.latitude) row.latitude = String(pin.lat);
+        if (!row.longitude) row.longitude = String(pin.lng);
+      }
+    }
+    delete row.mapsLink; // server schema has no mapsLink field; it consumes lat/long
     rows.push(row);
   }
   return { rows };

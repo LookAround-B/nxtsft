@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
+import { notify, notifyCredit } from "../notify";
 import { router, adminProcedure, superAdminProcedure } from "../server";
 import {
   cuidSchema,
@@ -157,6 +158,7 @@ export const adminRouter = router({
             data: { userId: input.userId, type: "credit", amount: input.amount, reason: input.reason },
           }),
         ]);
+        await notifyCredit({ userId: input.userId, type: "credit", amount: input.amount, reason: input.reason });
         return prisma.user.findUniqueOrThrow({
           where: { id: input.userId },
           select: { id: true, name: true, credits: true },
@@ -342,8 +344,139 @@ export const adminRouter = router({
         if (!property.rera) {
           throw new TRPCError({ code: "PRECONDITION_FAILED", message: "RERA number required before approval." });
         }
-        return prisma.property.update({ where: { id: input.id }, data: { status: "Active" } });
+        const updated = await prisma.property.update({ where: { id: input.id }, data: { status: "Active" } });
+        await notify({
+          userId: property.ownerId,
+          type: "listing_approved",
+          title: "Your listing is approved 🎉",
+          content: `"${property.title}" is now live and visible to buyers.`,
+          actionUrl: `/properties/${property.slug}`,
+        });
+        return updated;
       }),
+
+    // Seller edit requests on live listings (PropertyEditRequest). Admins review
+    // the proposed field changes and either merge them into the property or reject.
+    editRequests: router({
+      list: adminProcedure
+        .input(z.object({ cursor: cursorSchema, limit: limitSchema }))
+        .query(async ({ input }) => {
+          const { cursor, limit } = input;
+          const items = await prisma.propertyEditRequest.findMany({
+            where: { status: "Pending" },
+            include: {
+              owner: { select: { id: true, name: true, email: true } },
+              property: {
+                include: { location: { select: { city: true, locality: true, latitude: true, longitude: true } } },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            take: limit + 1,
+            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          });
+
+          const hasMore = items.length > limit;
+          const page = hasMore ? items.slice(0, limit) : items;
+          return {
+            items: page.map((r) => ({
+              ...r,
+              property: { ...r.property, price: Number(r.property.price) },
+            })),
+            nextCursor: page.at(-1)?.id ?? null,
+            hasMore,
+          };
+        }),
+
+      approve: adminProcedure
+        .input(z.object({ id: cuidSchema }))
+        .mutation(async ({ input, ctx }) => {
+          const request = await prisma.propertyEditRequest.findUnique({
+            where: { id: input.id },
+            include: { property: true },
+          });
+          if (!request || request.status !== "Pending") {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Edit request not found or already handled." });
+          }
+
+          const c = request.changes as Record<string, unknown>;
+          const has = (k: string) => Object.prototype.hasOwnProperty.call(c, k);
+          const num = (v: unknown) => (typeof v === "number" ? v : undefined);
+          const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+          const arr = (v: unknown) => (Array.isArray(v) ? (v as string[]) : undefined);
+
+          // Scalar Property columns a seller can edit (mirrors properties.submitEdit).
+          const stringFields = ["title", "description", "bhk", "furnishing", "facing", "possession", "rera", "reraLabel"] as const;
+          const intFields = ["builtUpArea", "bedrooms", "bathrooms", "balconies", "parking"] as const;
+
+          const data: Parameters<typeof prisma.property.update>[0]["data"] = {};
+          for (const f of stringFields) if (has(f)) data[f] = str(c[f]);
+          for (const f of intFields) if (has(f)) data[f] = num(c[f]);
+          if (has("amenities")) data.amenities = arr(c.amenities);
+          if (has("images")) data.images = arr(c.images);
+          if (has("price")) data.price = BigInt(num(c.price)!);
+          if (has("area")) data.area = num(c.area);
+
+          // pricePerSqft is derived — recompute when either price or area changes,
+          // falling back to the property's current value for the untouched side.
+          if (has("price") || has("area")) {
+            const nextPrice = num(c.price) ?? Number(request.property.price);
+            const nextArea = num(c.area) ?? request.property.area;
+            data.pricePerSqft = Math.round(nextPrice / nextArea);
+          }
+
+          if (has("locality") || has("latitude") || has("longitude")) {
+            data.location = {
+              update: {
+                ...(has("locality") ? { locality: str(c.locality) } : {}),
+                ...(has("latitude") ? { latitude: num(c.latitude) } : {}),
+                ...(has("longitude") ? { longitude: num(c.longitude) } : {}),
+              },
+            };
+          }
+
+          await prisma.property.update({ where: { id: request.propertyId }, data });
+          await prisma.propertyEditRequest.update({
+            where: { id: request.id },
+            data: { status: "Approved", reviewedById: ctx.user.id, reviewedAt: new Date() },
+          });
+          await notify({
+            userId: request.ownerId,
+            type: "listing_edit_approved",
+            title: "Your listing changes have been approved!",
+            content: `The changes to "${request.property.title}" have been approved and are now live.`,
+            actionUrl: `/properties/${request.property.slug}`,
+          });
+
+          return { ok: true };
+        }),
+
+      reject: adminProcedure
+        .input(z.object({ id: cuidSchema, note: safeString(500).optional() }))
+        .mutation(async ({ input, ctx }) => {
+          const request = await prisma.propertyEditRequest.findUnique({
+            where: { id: input.id },
+            include: { property: { select: { title: true } } },
+          });
+          if (!request || request.status !== "Pending") {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Edit request not found or already handled." });
+          }
+
+          await prisma.propertyEditRequest.update({
+            where: { id: request.id },
+            data: { status: "Rejected", reviewNote: input.note, reviewedById: ctx.user.id, reviewedAt: new Date() },
+          });
+          await notify({
+            userId: request.ownerId,
+            type: "listing_edit_rejected",
+            title: "Your listing changes were not approved",
+            content:
+              input.note ??
+              `The changes to "${request.property.title}" were not approved. Please review and resubmit.`,
+          });
+
+          return { ok: true };
+        }),
+    }),
   }),
 
   // All leads across the platform

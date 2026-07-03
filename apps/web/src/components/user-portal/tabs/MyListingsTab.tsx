@@ -1,7 +1,9 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Building2, Eye } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Building2, Eye, Clock, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Badge, Section } from "@/components/portal/PortalShell";
 import { useAuth } from "@/lib/auth";
@@ -20,7 +22,54 @@ type ListingItem = {
   createdAt: string;
   location: { city: string; locality: string } | null;
   _count?: { leads: number; favoritedBy: number };
+  hasPendingEdit?: boolean;
 };
+
+// Confirmation shown before a seller edits a live listing — changes go through
+// admin review rather than publishing immediately.
+function ModifyConfirmDialog({ onConfirm, onClose }: { onConfirm: () => void; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-navy/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-border bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
+            <Clock size={18} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-navy">Changes need admin approval</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your changes will require admin approval before they go live.
+            </p>
+          </div>
+        </div>
+        <ul className="mt-4 space-y-2 rounded-xl border border-border bg-secondary/40 p-4 text-sm text-muted-foreground">
+          <li>• Approval may take up to 24 hours (TAT).</li>
+          <li>• Once approved, you will receive a notification.</li>
+        </ul>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-navy transition hover:bg-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition hover:opacity-90"
+          >
+            Continue to edit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const listingTone: Record<string, "success" | "warm" | "cold" | "new" | "default"> = {
   Active: "success",
@@ -32,6 +81,8 @@ const listingTone: Record<string, "success" | "warm" | "cold" | "new" | "default
 
 export function MyListingsTab() {
   const { session } = useAuth();
+  const router = useRouter();
+  const [modifyTarget, setModifyTarget] = useState<string | null>(null);
   const listingsQ = trpc.users.myListings.useQuery(undefined, { enabled: session?.role === "home-seller" });
 
   if (session?.role !== "home-seller") {
@@ -56,6 +107,12 @@ export function MyListingsTab() {
 
   return (
     <>
+      {modifyTarget && (
+        <ModifyConfirmDialog
+          onClose={() => setModifyTarget(null)}
+          onConfirm={() => router.push(`/list/edit/${modifyTarget}`)}
+        />
+      )}
       <Head t="My Listings" s="What you've put on the market." />
       <Section
         title={items.length ? `${items.length} listing${items.length > 1 ? "s" : ""}` : "Listings"}
@@ -120,6 +177,11 @@ export function MyListingsTab() {
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Badge tone={listingTone[p.status] ?? "default"}>{p.status}</Badge>
+                      {p.hasPendingEdit && (
+                        <Badge tone="warm">
+                          <span className="flex items-center gap-1"><Clock size={11} /> Changes under review</span>
+                        </Badge>
+                      )}
                       <Badge tone="new">
                         <span className="flex items-center gap-1"><Eye size={11} /> {p.views} views</span>
                       </Badge>
@@ -144,6 +206,14 @@ export function MyListingsTab() {
                       >
                         View
                       </Link>
+                      <button
+                        onClick={() => setModifyTarget(p.id)}
+                        disabled={p.hasPendingEdit}
+                        title={p.hasPendingEdit ? "Changes are already awaiting review" : undefined}
+                        className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent disabled:opacity-50"
+                      >
+                        <Pencil size={11} /> Modify
+                      </button>
                       {p.status === "Active" ? (
                         <button
                           onClick={() => setStatus(p.id, "Inactive", "Listing deactivated")}
