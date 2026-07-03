@@ -17,12 +17,14 @@ import {
   Search,
   X,
   Sparkles,
+  MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { submitListing, type ListerType, type PendingListing } from "@/lib/listings";
 import { trpc } from "@/lib/trpc";
 import { validateRera } from "@/lib/rera";
+import { parseLatLng } from "@/lib/map";
 import { AMENITIES } from "@/data/amenities";
 import {
   Select,
@@ -66,6 +68,8 @@ type FormData = {
   purpose: "Sale" | "Rent";
   city: string;
   locality: string;
+  latitude: string;
+  longitude: string;
   price: string;
   area: string;
   areaUnit: "sqft" | "sqyd";
@@ -88,6 +92,8 @@ const EMPTY: FormData = {
   purpose: "Sale",
   city: "",
   locality: "",
+  latitude: "",
+  longitude: "",
   price: "",
   area: "",
   areaUnit: "sqft",
@@ -146,6 +152,20 @@ export default function ListPropertyPage() {
   const [images, setImages] = useState<UploadImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [data, setData] = useState<FormData>(EMPTY);
+  // Raw text the lister pastes (a Google Maps link or "lat, lng") to auto-fill coords.
+  const [mapsLink, setMapsLink] = useState("");
+
+  // Parse a pasted Maps link / coordinate string into the lat & lng fields.
+  const pinFromLink = (value: string) => {
+    const parsed = parseLatLng(value);
+    if (parsed) {
+      set("latitude", String(parsed.lat));
+      set("longitude", String(parsed.lng));
+      toast.success("Location pinned from link.");
+    } else {
+      toast.error("Couldn't read coordinates — paste a full Google Maps URL or 'lat, lng'.");
+    }
+  };
 
   // ── Project picker (pre-fills the form from the builders directory) ──
   const [projectQuery, setProjectQuery] = useState("");
@@ -335,6 +355,8 @@ export default function ListPropertyPage() {
           city: data.city,
           state: "India",
           locality: data.locality || data.city,
+          latitude: parseFloat(data.latitude) || 0,
+          longitude: parseFloat(data.longitude) || 0,
           description: data.description || undefined,
           amenities: data.amenities,
           images: hostedImages,
@@ -764,6 +786,74 @@ export default function ListPropertyPage() {
                     placeholder="e.g. Koramangala, Sector 18…"
                     className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
                   />
+                </div>
+              </div>
+
+              {/* Exact location — paste a Google Maps link/coords to drop a precise pin. */}
+              <div className="mt-5 rounded-xl border border-border bg-secondary/30 p-4">
+                <div className="flex items-center gap-2">
+                  <MapPin size={15} className="text-accent" />
+                  <label className="text-sm font-semibold text-foreground">
+                    Pin exact location{" "}
+                    <span className="font-normal text-muted-foreground">(optional)</span>
+                  </label>
+                  {data.latitude && data.longitude && (
+                    <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                      <Check size={10} strokeWidth={3} /> Pinned
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Open the spot in Google Maps, copy the link (or right-click → coordinates), and
+                  paste it here — we&apos;ll place the map pin precisely.
+                </p>
+                <div className="mt-2.5 flex gap-2">
+                  <input
+                    type="text"
+                    value={mapsLink}
+                    onChange={(e) => setMapsLink(e.target.value)}
+                    onPaste={(e) => {
+                      const text = e.clipboardData.getData("text");
+                      if (text) {
+                        setMapsLink(text);
+                        pinFromLink(text);
+                        e.preventDefault();
+                      }
+                    }}
+                    placeholder="Paste Google Maps link or '19.017, 72.812'"
+                    className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => pinFromLink(mapsLink)}
+                    className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                  >
+                    Pin
+                  </button>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground">Latitude</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={data.latitude}
+                      onChange={(e) => set("latitude", e.target.value)}
+                      placeholder="e.g. 19.017"
+                      className="mt-1 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 font-mono text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground">Longitude</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={data.longitude}
+                      onChange={(e) => set("longitude", e.target.value)}
+                      placeholder="e.g. 72.812"
+                      className="mt-1 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 font-mono text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                    />
+                  </div>
                 </div>
               </div>
 

@@ -112,6 +112,39 @@ export function resolveCoords(opts: {
   return { coords: { lng: base.lng + j.lng, lat: base.lat + j.lat }, approximate: true };
 }
 
+/**
+ * Parse a lat/lng pair from either a raw "lat, lng" string or a Google Maps URL
+ * — the two ways a lister is likely to supply an exact pin. Returns null when
+ * nothing usable is found, notably Google short links (maps.app.goo.gl / goo.gl)
+ * which need a network redirect to resolve and can't be read client-side.
+ */
+export function parseLatLng(input: string): LngLat | null {
+  const raw = input.trim();
+  if (!raw) return null;
+
+  const N = "(-?\\d+(?:\\.\\d+)?)";
+  const check = (lat: number, lng: number): LngLat | null =>
+    isValidCoord(lat, 90) && isValidCoord(lng, 180) ? { lat, lng } : null;
+
+  // Google Maps place marker: !3d<lat>!4d<lng> — the most precise signal in a URL.
+  const marker = raw.match(new RegExp(`!3d${N}!4d${N}`));
+  if (marker) return check(parseFloat(marker[1]!), parseFloat(marker[2]!));
+
+  // q= / query= / ll= / center= / sll= parameters carrying "lat,lng".
+  const param = raw.match(new RegExp(`[?&](?:q|query|ll|center|sll)=${N},${N}`));
+  if (param) return check(parseFloat(param[1]!), parseFloat(param[2]!));
+
+  // @lat,lng viewport centre (…/maps/@19.01,72.81,15z).
+  const at = raw.match(new RegExp(`@${N},${N}`));
+  if (at) return check(parseFloat(at[1]!), parseFloat(at[2]!));
+
+  // Plain "lat, lng" (Google's right-click "copy coordinates" gives this).
+  const pair = raw.match(new RegExp(`^${N}\\s*[,\\s]\\s*${N}$`));
+  if (pair) return check(parseFloat(pair[1]!), parseFloat(pair[2]!));
+
+  return null;
+}
+
 /** Centre + a rough zoom that fits a set of points. */
 export function fitView(points: LngLat[]): { longitude: number; latitude: number; zoom: number } {
   if (points.length === 0) return { longitude: INDIA_CENTROID.lng, latitude: INDIA_CENTROID.lat, zoom: 4 };

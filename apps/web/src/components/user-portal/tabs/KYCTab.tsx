@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { FileText, Upload, CheckCircle2, XCircle, Clock, ExternalLink } from "lucide-react";
+import { FileText, Upload, CheckCircle2, XCircle, Clock, ExternalLink, ChevronDown, ShieldCheck } from "lucide-react";
 import { Badge, Section } from "@/components/portal/PortalShell";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
@@ -44,6 +44,8 @@ function DocStatusIcon({ status }: { status: string }) {
 export function KYCTab() {
   const { session } = useAuth();
   const [uploading, setUploading] = useState<DocType | null>(null);
+  const [consented, setConsented] = useState(false);
+  const [policyOpen, setPolicyOpen] = useState(false);
   const fileRefs = useRef<Record<DocType, HTMLInputElement | null>>({
     aadhaar: null,
     pan: null,
@@ -66,6 +68,10 @@ export function KYCTab() {
 
   const handleFileChange = async (type: DocType, file: File | undefined) => {
     if (!file) return;
+    if (!consented) {
+      toast.error("Please accept the KYC & Document Verification Policy first.");
+      return;
+    }
 
     const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
     if (!allowed.includes(file.type)) {
@@ -138,7 +144,98 @@ export function KYCTab() {
         </div>
       </Section>
 
+      <Section title="KYC & Document Verification Policy">
+        <div className="rounded-xl border border-border">
+          <button
+            type="button"
+            onClick={() => setPolicyOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium text-navy">
+              <ShieldCheck size={16} className="shrink-0 text-accent" />
+              How we handle your documents (DPDP Act 2023)
+            </span>
+            <ChevronDown
+              size={16}
+              className={`shrink-0 text-muted-foreground transition-transform ${policyOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+          {policyOpen && (
+            <div className="space-y-3 border-t border-border px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+              <div>
+                <p className="font-semibold text-navy">What We Collect</p>
+                <p>
+                  To verify your property listing, we collect Identity Proof (Aadhaar, PAN),
+                  Ownership Proof (Sale Deed, Title Deed, EC, Tax Receipts, Khata/Mutation), and
+                  Project Documents (RERA Certificate, OC/CC) if applicable.
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-navy">Why We Collect</p>
+                <p>
+                  Documents are used only to: (a) confirm you own the listed property, (b) prevent
+                  fake listings and fraud, (c) mark your listing as “NxtSft Verified”, and (d) comply
+                  with RERA and DPDP Act 2023. We never use docs for marketing or share them with
+                  buyers/brokers.
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-navy">Storage &amp; Security</p>
+                <p>
+                  All documents are encrypted (AES-256), stored on Indian servers, and accessible only
+                  to our verification team. Aadhaar numbers are masked after verification – only last 4
+                  digits retained.
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-navy">Retention</p>
+                <p>
+                  We keep documents while your listing is active + 90 days. After account closure, all
+                  KYC data is permanently deleted within 180 days.
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-navy">Your Rights</p>
+                <p>
+                  You can access, correct, or delete your documents anytime via privacy@nxtsft.com.
+                  Withdrawing consent will remove the “Verified” badge and may delist your property.
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-navy">Consent</p>
+                <p>
+                  By uploading, you give specific consent under DPDP Act for NxtSft to process your
+                  documents for verification only.
+                </p>
+              </div>
+              <p className="pt-1 text-muted-foreground/80">
+                Contact: Data Protection Officer – dpo@nxtsft.com, Hyderabad
+              </p>
+            </div>
+          )}
+        </div>
+
+        <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-border px-4 py-3">
+          <input
+            type="checkbox"
+            checked={consented}
+            onChange={(e) => setConsented(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
+          />
+          <span className="text-xs leading-relaxed text-muted-foreground">
+            I consent to NxtSft collecting my Aadhaar, PAN, and property documents to verify my
+            ownership and mark my listing as “Verified”. I understand docs are used only for KYC/RERA
+            compliance, stored encrypted, and not shared with buyers. I can delete my data anytime.
+          </span>
+        </label>
+      </Section>
+
       <Section title="Documents">
+        {!consented && (
+          <p className="mb-3 text-xs text-amber-600">
+            Accept the policy above to enable document upload.
+          </p>
+        )}
         <div className="divide-y divide-border rounded-xl border border-border">
           {DOC_TYPES.map(({ key, label }) => {
             const doc = docByType.get(key);
@@ -190,8 +287,9 @@ export function KYCTab() {
                   />
                   <button
                     onClick={() => fileRefs.current[key]?.click()}
-                    disabled={isUploading}
-                    className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground transition hover:opacity-90 disabled:opacity-60"
+                    disabled={isUploading || !consented}
+                    title={!consented ? "Accept the policy above first" : undefined}
+                    className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Upload size={12} />
                     {isUploading ? "Uploading…" : doc ? "Re-upload" : "Upload"}

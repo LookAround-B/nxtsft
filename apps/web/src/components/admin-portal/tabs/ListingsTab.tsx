@@ -2,9 +2,10 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil } from "lucide-react";
+import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { parseLatLng } from "@/lib/map";
 import { getPendingListings, updateListingStatus as persistListingStatus } from "@/lib/listings";
 import { PageHead } from "./PageHead";
 
@@ -24,6 +25,8 @@ type ListingItem = {
   isDbProperty?: boolean;
   rera?: string | null;
   reraLabel?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   locality?: string;
   listerEmail?: string;
   listerPhone?: string;
@@ -42,7 +45,7 @@ type RawProp = {
   description: string | null;
   amenities: string[];
   owner: { name: string } | null;
-  location: { city: string } | null;
+  location: { city: string; latitude: number; longitude: number } | null;
   price: number;
   bhk: string | null;
   status: string;
@@ -138,6 +141,14 @@ export function ListingsTab() {
     },
     onError: (err: { message: string }) => toast.error(err.message),
   });
+  const coordMutation = trpc.properties.update.useMutation({
+    onSuccess: () => {
+      void dbListingsQ.refetch();
+      setCoordEditing(null);
+      toast.success("Location coordinates updated.");
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
 
   const [localItems, setLocalItems] = useState<ListingItem[]>([]);
   const [checklistOpen, setChecklistOpen] = useState<string | null>(null);
@@ -153,6 +164,36 @@ export function ListingsTab() {
   };
   const saveRera = (id: string) => {
     reraMutation.mutate({ id, rera: reraValue.trim(), reraLabel: reraLabelValue });
+  };
+
+  // Property id whose coordinates are being edited, plus the working values.
+  const [coordEditing, setCoordEditing] = useState<string | null>(null);
+  const [latValue, setLatValue] = useState("");
+  const [lngValue, setLngValue] = useState("");
+
+  const openCoordEditor = (it: ListingItem) => {
+    setCoordEditing(it.id);
+    setLatValue(it.latitude != null && it.latitude !== 0 ? String(it.latitude) : "");
+    setLngValue(it.longitude != null && it.longitude !== 0 ? String(it.longitude) : "");
+  };
+  // Paste a Google Maps link / "lat, lng" → fill both fields.
+  const pinCoordFromLink = (value: string) => {
+    const parsed = parseLatLng(value);
+    if (parsed) {
+      setLatValue(String(parsed.lat));
+      setLngValue(String(parsed.lng));
+    } else {
+      toast.error("Couldn't read coordinates — paste a full Google Maps URL or 'lat, lng'.");
+    }
+  };
+  const saveCoords = (id: string) => {
+    const lat = parseFloat(latValue);
+    const lng = parseFloat(lngValue);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      toast.error("Enter a valid latitude and longitude.");
+      return;
+    }
+    coordMutation.mutate({ id, latitude: lat, longitude: lng });
   };
 
   useEffect(() => {
@@ -199,6 +240,8 @@ export function ListingsTab() {
     isDbProperty: true,
     rera: p.rera,
     reraLabel: p.reraLabel,
+    latitude: p.location?.latitude,
+    longitude: p.location?.longitude,
     interested: p._count?.leads ?? 0,
     wishlisted: p._count?.favoritedBy ?? 0,
     featured: p.featured,
@@ -385,6 +428,75 @@ export function ListingsTab() {
                         className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 font-semibold transition hover:bg-secondary"
                       >
                         <Pencil size={11} /> Edit RERA
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {it.isDbProperty && (
+                <div className="mt-3 border-t border-border pt-3">
+                  {coordEditing === it.id ? (
+                    <div className="space-y-2">
+                      <input
+                        onPaste={(e) => {
+                          const text = e.clipboardData.getData("text");
+                          if (text) {
+                            pinCoordFromLink(text);
+                            e.preventDefault();
+                          }
+                        }}
+                        placeholder="Paste Google Maps link or '19.017, 72.812'"
+                        className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          value={latValue}
+                          onChange={(e) => setLatValue(e.target.value)}
+                          inputMode="decimal"
+                          placeholder="Latitude"
+                          className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 font-mono text-xs"
+                        />
+                        <input
+                          value={lngValue}
+                          onChange={(e) => setLngValue(e.target.value)}
+                          inputMode="decimal"
+                          placeholder="Longitude"
+                          className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 font-mono text-xs"
+                        />
+                        <button
+                          onClick={() => saveCoords(it.id)}
+                          disabled={coordMutation.isPending}
+                          className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setCoordEditing(null)}
+                          className="rounded-md border border-border px-3 py-1 text-xs font-semibold transition hover:bg-secondary"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs">
+                      <MapPin
+                        size={13}
+                        className={it.latitude && it.longitude ? "text-emerald-500" : "text-muted-foreground/40"}
+                      />
+                      {it.latitude && it.longitude ? (
+                        <span className="font-mono text-navy">
+                          {it.latitude.toFixed(5)}, {it.longitude.toFixed(5)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">No exact coordinates</span>
+                      )}
+                      <button
+                        onClick={() => openCoordEditor(it)}
+                        className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 font-semibold transition hover:bg-secondary"
+                      >
+                        <Pencil size={11} /> Edit Location
                       </button>
                     </div>
                   )}
