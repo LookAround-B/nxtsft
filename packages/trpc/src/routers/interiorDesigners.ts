@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
+import { notifyCredit } from "../notify";
 import { router, publicProcedure, protectedProcedure, contactRateLimit } from "../server";
 import {
   safeString,
@@ -191,6 +192,7 @@ export const interiorDesignersRouter = router({
         }),
         prisma.interiorDesigner.update({ where: { id: input.id }, data: { contacts: { increment: 1 } } }),
       ]);
+      await notifyCredit({ userId: ctx.user.id, type: "debit", amount: 1, reason: "designer_contact_unlock" });
 
       return { phone: designer.phone, email: designer.email, companyName: designer.companyName };
     }),

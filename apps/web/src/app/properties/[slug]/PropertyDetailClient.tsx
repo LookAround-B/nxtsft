@@ -230,14 +230,14 @@ function ContactCard({
 
   const initials =
     property.owner?.name
-      .split(" ")
+      ?.split(" ")
       .map((s) => s[0] ?? "")
       .join("")
       .slice(0, 2)
       .toUpperCase() ?? "??";
 
   return (
-    <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-border bg-white p-5 sm:p-6 shadow-sm">
       <h3 className="font-display text-base font-bold text-navy">Contact Owner</h3>
 
       {/* Owner avatar */}
@@ -292,7 +292,7 @@ function ContactCard({
         <button
           onClick={handleUnlock}
           disabled={unlock.isPending}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 font-display text-sm font-bold text-white shadow-md shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-60"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 font-display text-xs sm:text-sm font-bold text-white shadow-md shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-60"
         >
           {unlock.isPending ? (
             <>
@@ -301,10 +301,12 @@ function ContactCard({
             </>
           ) : (
             <>
-              <Phone size={16} />
-              {session ? "Unlock Owner Contact" : "Sign in to Contact"}
+              <Phone size={16} className="shrink-0" />
+              <span className="truncate">
+                {session ? "Unlock Owner Contact" : "Sign in to Contact"}
+              </span>
               {session && credits > 0 && (
-                <span className="ml-auto flex items-center gap-0.5 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold">
+                <span className="sm:ml-auto ml-1.5 flex items-center gap-0.5 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold shrink-0">
                   <Coins size={10} />1
                 </span>
               )}
@@ -606,6 +608,10 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
 
             {/* Title + Price */}
             <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+              <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-secondary/60 px-2.5 py-1 font-mono text-xs font-semibold tracking-wide text-muted-foreground">
+                <span className="text-[10px] font-sans font-medium uppercase tracking-wider opacity-70">Property ID</span>
+                #{property.id.slice(-8).toUpperCase()}
+              </div>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h1 className="font-display text-2xl font-black text-navy break-words sm:text-3xl">
@@ -849,7 +855,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
           </div>
 
           {/* Right: Contact sidebar */}
-          <div className="min-w-0 space-y-5">
+          <div className="min-w-0 space-y-5 lg:max-w-none max-w-md mx-auto w-full">
             <ContactCard
               property={property}
               session={session}
@@ -948,7 +954,7 @@ function InquiryForm({
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-border bg-white p-5 sm:p-6 shadow-sm">
       <h3 className="font-display text-base font-bold text-navy">Interested in this property?</h3>
       {sent ? (
         <div className="mt-4 flex flex-col items-center gap-2 rounded-xl bg-emerald-50 px-4 py-8 text-center">

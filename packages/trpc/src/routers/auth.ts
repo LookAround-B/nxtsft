@@ -12,6 +12,7 @@ import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import prisma from "@nxtsft/db";
+import { notify, notifyCredit } from "../notify";
 import {
   router,
   publicProcedure,
@@ -109,6 +110,7 @@ async function grantCredits(userId: string, amount: number, reason: string) {
     prisma.user.update({ where: { id: userId }, data: { credits: { increment: amount } } }),
     prisma.creditTransaction.create({ data: { userId, type: "credit", amount, reason } }),
   ]);
+  await notifyCredit({ userId, type: "credit", amount, reason });
 }
 
 export const authRouter = router({
@@ -149,6 +151,12 @@ export const authRouter = router({
 
       // 1 welcome credit on registration
       await grantCredits(user.id, 1, "welcome");
+      await notify({
+        userId: user.id,
+        type: "welcome",
+        title: "Welcome to NxtSft 🎉",
+        content: "Your account is ready. Start exploring properties.",
+      });
 
       const token = generateToken();
       await prisma.session.create({
@@ -193,6 +201,15 @@ export const authRouter = router({
           passwordHash,
           verified: false,
         },
+      });
+
+      // Welcome the new seller — surfaces once their account is approved & they log in.
+      await notify({
+        userId: seller.id,
+        type: "welcome",
+        title: "Account created",
+        content:
+          "Your Home Seller account is pending admin approval. We'll notify you once it's approved.",
       });
 
       // Notify all admins and super-admins
@@ -331,6 +348,12 @@ export const authRouter = router({
 
       if (isNewUser) {
         await grantCredits(user.id, 1, "welcome");
+        await notify({
+          userId: user.id,
+          type: "welcome",
+          title: "Welcome to NxtSft 🎉",
+          content: "Your account is ready. Start exploring properties.",
+        });
       } else if (
         CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) &&
         user.credits === 0

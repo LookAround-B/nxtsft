@@ -117,6 +117,170 @@ function PromoteChecklist({
   );
 }
 
+// ─── Seller Edit Requests ─────────────────────────────────────────────────────
+// Fields a seller can propose changes to, with human labels + how to render them.
+const EDIT_FIELD_LABELS: Record<string, string> = {
+  title: "Title",
+  description: "Description",
+  price: "Price (₹)",
+  area: "Area (sqft)",
+  builtUpArea: "Built-up Area (sqft)",
+  bhk: "Configuration",
+  bedrooms: "Bedrooms",
+  bathrooms: "Bathrooms",
+  balconies: "Balconies",
+  parking: "Parking",
+  furnishing: "Furnishing",
+  facing: "Facing",
+  possession: "Possession",
+  rera: "RERA Number",
+  reraLabel: "RERA Authority",
+  amenities: "Amenities",
+  images: "Photos",
+  locality: "Locality",
+  latitude: "Latitude",
+  longitude: "Longitude",
+};
+
+type EditRequest = {
+  id: string;
+  changes: Record<string, unknown>;
+  createdAt: string;
+  owner: { name: string; email: string } | null;
+  property: {
+    id: string;
+    title: string;
+    price: number;
+    area: number;
+    builtUpArea: number | null;
+    bhk: string | null;
+    description: string | null;
+    furnishing: string | null;
+    facing: string | null;
+    possession: string | null;
+    rera: string | null;
+    reraLabel: string | null;
+    bedrooms: number;
+    bathrooms: number;
+    balconies: number;
+    parking: number;
+    amenities: string[];
+    images: string[];
+    location: { city: string; locality: string | null; latitude: number | null; longitude: number | null } | null;
+  };
+};
+
+// Show the listing's current value for a field so admins see a before → after diff.
+function currentValue(req: EditRequest, key: string): unknown {
+  const p = req.property;
+  switch (key) {
+    case "locality": return p.location?.locality;
+    case "latitude": return p.location?.latitude;
+    case "longitude": return p.location?.longitude;
+    default: return (p as unknown as Record<string, unknown>)[key];
+  }
+}
+
+function fmtVal(v: unknown): string {
+  if (v == null || v === "") return "—";
+  if (Array.isArray(v)) return v.length ? `${v.length} item(s): ${v.join(", ")}` : "none";
+  return String(v);
+}
+
+function EditRequestsSection() {
+  const requestsQ = trpc.admin.properties.editRequests.list.useQuery({ limit: 50 });
+  const approve = trpc.admin.properties.editRequests.approve.useMutation({
+    onSuccess: () => {
+      void requestsQ.refetch();
+      toast.success("Changes approved and applied to the listing.");
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+  const reject = trpc.admin.properties.editRequests.reject.useMutation({
+    onSuccess: () => {
+      void requestsQ.refetch();
+      toast.success("Edit request rejected.");
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+
+  const requests = (requestsQ.data?.items ?? []) as unknown as EditRequest[];
+  if (requestsQ.isLoading || requests.length === 0) {
+    return (
+      <Section title="Seller Edit Requests">
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          {requestsQ.isLoading ? "Loading…" : "No pending edit requests."}
+        </p>
+      </Section>
+    );
+  }
+
+  return (
+    <Section title={`Seller Edit Requests (${requests.length})`}>
+      <div className="space-y-4">
+        {requests.map((req) => {
+          const keys = Object.keys(req.changes).filter((k) => k in EDIT_FIELD_LABELS);
+          const busy = approve.isPending || reject.isPending;
+          return (
+            <div key={req.id} className="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-navy">{req.property.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {req.owner?.name ?? "Owner"} · {req.owner?.email ?? ""} ·{" "}
+                    {new Date(req.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  </div>
+                </div>
+                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                  {keys.length} field(s)
+                </span>
+              </div>
+
+              <div className="mt-3 overflow-hidden rounded-lg border border-border bg-white">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/40 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <th className="px-3 py-1.5 font-semibold">Field</th>
+                      <th className="px-3 py-1.5 font-semibold">Current</th>
+                      <th className="px-3 py-1.5 font-semibold">Proposed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {keys.map((k) => (
+                      <tr key={k} className="border-b border-border last:border-0 align-top">
+                        <td className="px-3 py-1.5 font-medium text-navy">{EDIT_FIELD_LABELS[k]}</td>
+                        <td className="px-3 py-1.5 text-muted-foreground">{fmtVal(currentValue(req, k))}</td>
+                        <td className="px-3 py-1.5 font-medium text-emerald-700">{fmtVal(req.changes[k])}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => approve.mutate({ id: req.id })}
+                  disabled={busy}
+                  className="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-40"
+                >
+                  Approve &amp; publish
+                </button>
+                <button
+                  onClick={() => reject.mutate({ id: req.id })}
+                  disabled={busy}
+                  className="rounded-md border border-border px-3 py-1 text-xs font-semibold transition hover:bg-secondary disabled:opacity-40"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Section>
+  );
+}
+
 export function ListingsTab() {
   const dbListingsQ = trpc.admin.properties.list.useQuery({ limit: 50 });
   const approveMutation = trpc.admin.properties.approve.useMutation({
@@ -301,6 +465,7 @@ export function ListingsTab() {
           accent="text-blue-600"
         />
       </div>
+      <EditRequestsSection />
       <Section title="All Submissions">
         <div className="grid gap-4 sm:grid-cols-2">
           {items.map((it) => (

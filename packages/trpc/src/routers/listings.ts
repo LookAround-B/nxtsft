@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
+import { notify } from "../notify";
 import { router, publicProcedure, protectedProcedure, staffProcedure } from "../server";
 import { cuidSchema, cursorSchema, limitSchema, safeString } from "../sanitize";
 
@@ -94,7 +95,7 @@ export const listingsRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "Cannot create listing for this property." });
       }
 
-      return prisma.listing.create({
+      const listing = await prisma.listing.create({
         data: {
           propertyId: input.propertyId,
           createdBy: ctx.user.id,
@@ -105,6 +106,15 @@ export const listingsRouter = router({
           property: { select: { id: true, title: true } },
         },
       });
+
+      await notify({
+        userId: ctx.user.id,
+        type: "listing_created",
+        title: "Listing created",
+        content: `Your listing for "${listing.property.title}" was created.`,
+      });
+
+      return listing;
     }),
 
   // Update listing
@@ -128,11 +138,23 @@ export const listingsRouter = router({
       }
 
       const { id, ...data } = input;
-      return prisma.listing.update({
+      const updated = await prisma.listing.update({
         where: { id },
         data,
         include: { property: { select: { id: true, title: true } } },
       });
+
+      // Only notify the listing owner about edits they made themselves.
+      if (listing.createdBy === ctx.user.id) {
+        await notify({
+          userId: listing.createdBy,
+          type: "listing_updated",
+          title: "Listing updated",
+          content: `Your listing for "${updated.property.title}" was updated.`,
+        });
+      }
+
+      return updated;
     }),
 
   // Delete listing
