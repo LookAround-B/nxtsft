@@ -21,6 +21,7 @@ import {
   Gift,
   Star,
   Sofa,
+  UploadCloud,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -47,6 +48,7 @@ import { SiteContentTab } from "@/components/admin-portal/tabs/SiteContentTab";
 import { ReferralsTab } from "@/components/admin-portal/tabs/ReferralsTab";
 import { ReviewsTab } from "@/components/admin-portal/tabs/ReviewsTab";
 import { InteriorsTab } from "@/components/admin-portal/tabs/InteriorsTab";
+import { BulkListingsTab } from "@/components/admin-portal/tabs/BulkListingsTab";
 
 // Grouped nav — groups surface in the sidebar as section headings.
 // Badge counts are static placeholders; wire to live queries once API endpoints expose them.
@@ -82,6 +84,7 @@ const nav = [
   { label: "Team Management",  to: "/admin-portal#team",         icon: <Users size={14} />,      group: "Admin" },
   { label: "Marketing",        to: "/admin-portal#marketing",    icon: <Megaphone size={14} /> },
   { label: "Home Page Content",to: "/admin-portal#site-content", icon: <ImageIcon size={14} /> },
+  { label: "Bulk Listings",    to: "/admin-portal#bulk-listings",icon: <UploadCloud size={14} /> },
   { label: "Dev Tools",        to: "/admin-portal#dev",          icon: <Building size={14} /> },
 ];
 
@@ -107,6 +110,7 @@ function renderTab(hash: string) {
     case "referrals":     return <ReferralsTab />;
     case "reviews":       return <ReviewsTab />;
     case "interiors":     return <InteriorsTab />;
+    case "bulk-listings": return <BulkListingsTab />;
     default:              return <OperationsTab />;
   }
 }

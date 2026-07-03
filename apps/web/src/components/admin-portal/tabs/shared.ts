@@ -18,6 +18,7 @@ export type TeamMember = {
   role: string;
   city: string;
   verified: boolean;
+  active: boolean;
   joined: string;
   supervisorId?: string | null;
   supervisor?: { id: string; name: string } | null;

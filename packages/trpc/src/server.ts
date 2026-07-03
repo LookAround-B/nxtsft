@@ -75,6 +75,7 @@ export const publicProcedure = t.procedure.use(loggingMiddleware);
 
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in to continue." });
+  if (!ctx.user.active) throw new TRPCError({ code: "FORBIDDEN", message: "This account has been deactivated." });
   return next({ ctx: { ...ctx, user: ctx.user } });
 });
 

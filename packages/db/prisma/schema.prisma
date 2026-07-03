@@ -24,6 +24,7 @@ model User {
   verified   Boolean   @default(false)
   verifiedAt DateTime?
   kycStatus  String    @default("none") // none | pending | verified | rejected
+  active     Boolean   @default(true) // false = deactivated by admin, blocked from signing in
 
   city       String
   state      String?

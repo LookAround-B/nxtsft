@@ -1,6 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { Pencil, Ban, CheckCircle2 } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -143,6 +144,105 @@ function InviteModal({
   );
 }
 
+function EditModal({
+  member,
+  onClose,
+  onSave,
+  pending,
+}: {
+  member: TeamMember;
+  onClose: () => void;
+  onSave: (data: { name: string; email: string; phone: string; city: string }) => void;
+  pending: boolean;
+}) {
+  const [name, setName] = useState(member.name);
+  const [email, setEmail] = useState(member.email);
+  const [phone, setPhone] = useState(member.phone);
+  const [city, setCity] = useState(member.city);
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (name.trim().length < 2) return toast.error("Enter the member's full name.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast.error("Enter a valid email.");
+    if (!/^[6-9]\d{9}$/.test(phone)) return toast.error("Enter a valid 10-digit Indian mobile number.");
+    onSave({ name: name.trim(), email: email.trim(), phone, city });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+      >
+        <h3 className="font-display text-xl font-bold text-navy">Edit team member</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Role changes are handled by a super-admin. This edits profile details only.
+        </p>
+        <div className="mt-5 space-y-3">
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Full name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Work email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Phone (10-digit)</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">City</label>
+              <Select value={city} onValueChange={setCity}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Mumbai", "Bengaluru", "Pune", "Delhi", "Hyderabad", "Chennai"].map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-border bg-white px-4 py-2 text-sm font-semibold text-navy hover:bg-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow hover:opacity-95 disabled:opacity-50"
+          >
+            {pending ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export function TeamTab() {
   const [roleFilter, setRoleFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -169,9 +269,27 @@ export function TeamTab() {
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
+  const updateMember = trpc.admin.updateTeamMember.useMutation({
+    onSuccess: () => {
+      teamQ.refetch();
+      setEditing(null);
+      toast.success("Team member updated");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const setActive = trpc.admin.setTeamMemberActive.useMutation({
+    onSuccess: (_res, vars) => {
+      teamQ.refetch();
+      toast.success(vars.active ? "Member activated" : "Member deactivated");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
   const supervisors = members.filter((m) => m.role === "supervisor");
 
   const [showInvite, setShowInvite] = useState(false);
+  const [editing, setEditing] = useState<TeamMember | null>(null);
 
   return (
     <>
@@ -223,6 +341,7 @@ export function TeamTab() {
                   <th>Supervisor</th>
                   <th>Joined</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -259,7 +378,33 @@ export function TeamTab() {
                       )}
                     </td>
                     <td className="text-xs text-muted-foreground">{new Date(m.joined).toLocaleDateString("en-IN")}</td>
-                    <td><Badge tone={m.verified ? "success" : "new"}>{m.verified ? "Active" : "Invited"}</Badge></td>
+                    <td><Badge tone={m.active ? "success" : "default"}>{m.active ? "Active" : "Inactive"}</Badge></td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setEditing(m)}
+                          title="Edit"
+                          className="rounded-md border border-border p-1.5 text-muted-foreground hover:border-accent hover:text-accent"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const verb = m.active ? "Deactivate" : "Activate";
+                            if (!confirm(`${verb} ${m.name}?`)) return;
+                            setActive.mutate({ userId: m.id, active: !m.active });
+                          }}
+                          title={m.active ? "Deactivate" : "Activate"}
+                          className={
+                            m.active
+                              ? "rounded-md border border-border p-1.5 text-muted-foreground hover:border-rose-300 hover:text-rose-600"
+                              : "rounded-md border border-border p-1.5 text-muted-foreground hover:border-emerald-300 hover:text-emerald-600"
+                          }
+                        >
+                          {m.active ? <Ban size={13} /> : <CheckCircle2 size={13} />}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -272,6 +417,14 @@ export function TeamTab() {
           pending={createMember.isPending}
           onClose={() => setShowInvite(false)}
           onCreate={(m) => createMember.mutate(m)}
+        />
+      )}
+      {editing && (
+        <EditModal
+          member={editing}
+          pending={updateMember.isPending}
+          onClose={() => setEditing(null)}
+          onSave={(data) => updateMember.mutate({ userId: editing.id, ...data })}
         />
       )}
     </>

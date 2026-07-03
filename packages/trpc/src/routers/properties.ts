@@ -47,7 +47,7 @@ const propertyInclude = {
   owner: { select: ownerPublicSelect },
 };
 
-function generateSlug(title: string, city: string) {
+export function generateSlug(title: string, city: string) {
   const base = `${title}-${city}`
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, "")
@@ -58,7 +58,7 @@ function generateSlug(title: string, city: string) {
 
 // Default cover image per property type — used for bulk-imported listings that
 // arrive without their own photos. Files live in apps/web/public/categories/.
-const CATEGORY_IMAGE: Record<string, string> = {
+export const CATEGORY_IMAGE: Record<string, string> = {
   Apartment: "/categories/apartment.png",
   Studio: "/categories/studio.png",
   Villa: "/categories/villa.png",
@@ -69,7 +69,7 @@ const CATEGORY_IMAGE: Record<string, string> = {
 };
 
 // Split a comma-separated cell (amenities, PG occupancy, …) into a clean array.
-function splitList(v: string | undefined): string[] {
+export function splitList(v: string | undefined): string[] {
   return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : [];
 }
 
@@ -79,7 +79,7 @@ function splitList(v: string | undefined): string[] {
 // "RERA" — HMDA/DTCP/BDA/CMDA/state-RERA-variant registrations follow their
 // own authority-specific formats, and "Others" covers approvals (or
 // RERA-exempt properties) that don't fit any of the above.
-function assertReraValid(city: string, rera: string | undefined, authority?: string) {
+export function assertReraValid(city: string, rera: string | undefined, authority?: string) {
   if (!rera) return;
   const CITY_STATE: Record<string, string> = {
     Mumbai: "Maharashtra", Pune: "Maharashtra", Bengaluru: "Karnataka",

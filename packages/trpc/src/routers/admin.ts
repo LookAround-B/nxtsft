@@ -15,6 +15,11 @@ import {
   roleSchema,
   staffRoleSchema,
   propertyStatusSchema,
+  propertyTypeSchema,
+  purposeSchema,
+  furnishingSchema,
+  reraSchema,
+  descriptionSchema,
   cursorSchema,
   pageSchema,
   limitSchema,
@@ -23,6 +28,7 @@ import {
   safeUrlArraySchema,
 } from "../sanitize";
 import { makeInteriorDesignerSlug } from "./interiorDesigners";
+import { generateSlug, assertReraValid, splitList, CATEGORY_IMAGE } from "./properties";
 
 const safeUserSelect = {
   id: true,
@@ -32,11 +38,14 @@ const safeUserSelect = {
   avatar: true,
   role: true,
   verified: true,
+  active: true,
   city: true,
   credits: true,
   joined: true,
   lastActive: true,
 };
+
+const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
 
 export const adminRouter = router({
   // Platform KPIs for the command dashboard
@@ -344,6 +353,159 @@ export const adminRouter = router({
         }
         return prisma.property.update({ where: { id: input.id }, data: { status: "Active" } });
       }),
+
+    // Admin-only bulk import: each row carries its own owner (name/phone/email).
+    // A matching phone reuses that user; otherwise a new dummy home-seller
+    // account is created so the listing has a real owner to attribute to.
+    bulkCreateListings: adminProcedure
+      .input(z.object({ rows: z.array(z.unknown()).min(1).max(500) }))
+      .mutation(async ({ input }) => {
+        const rowSchema = z.object({
+          ownerName: nameSchema,
+          ownerPhone: phoneSchema,
+          ownerEmail: emailSchema.optional(),
+
+          title: safeString(200, 10),
+          description: descriptionSchema.optional(),
+          type: propertyTypeSchema,
+          purpose: purposeSchema,
+          price: z.coerce.number().int().positive().max(999_999_999_999),
+          area: z.coerce.number().int().positive().max(9_999_999),
+          builtUpArea: z.coerce.number().int().positive().max(9_999_999).optional(),
+          bhk: safeString(20).optional(),
+          bedrooms: z.coerce.number().int().min(0).max(50).default(0),
+          bathrooms: z.coerce.number().int().min(0).max(50).default(0),
+          balconies: z.coerce.number().int().min(0).max(50).optional(),
+          parking: z.coerce.number().int().min(0).max(50).optional(),
+          furnishing: furnishingSchema.optional(),
+          facing: safeString(30).optional(),
+          floors: safeString(20).optional(),
+          age: safeString(20).optional(),
+          possession: safeString(30).optional(),
+          builder: safeString(100).optional(),
+          reraLabel: safeString(20).optional(),
+          rera: reraSchema.optional(),
+          city: geoTextSchema,
+          state: geoTextSchema,
+          locality: geoTextSchema,
+          address: safeString(500).optional(),
+          zipCode: safeString(6).optional(),
+          latitude: z.coerce.number().min(-90).max(90).optional(),
+          longitude: z.coerce.number().min(-180).max(180).optional(),
+          amenities: safeString(2000).optional(),
+          images: safeString(4000).optional(),
+          virtualTourUrl: safeString(500).optional(),
+          walkthroughVideoUrl: safeString(500).optional(),
+          pgGender: z.enum(["Boys", "Girls", "Co-living"]).optional(),
+          pgOccupancy: safeString(200).optional(),
+          pgAvailableBeds: z.coerce.number().int().min(0).max(9999).optional(),
+          pgDeposit: z.coerce.number().int().min(0).max(999_999_999_999).optional(),
+          pgRoomTypes: safeString(200).optional(),
+          pgHouseRules: safeString(2000).optional(),
+          pgFood: safeString(30).optional(),
+        });
+
+        const errors: { row: number; message: string }[] = [];
+        let created = 0;
+
+        for (let i = 0; i < input.rows.length; i++) {
+          const sheetRow = i + 2;
+          const parsed = rowSchema.safeParse(input.rows[i]);
+          if (!parsed.success) {
+            errors.push({ row: sheetRow, message: parsed.error.issues[0]?.message ?? "Invalid row" });
+            continue;
+          }
+          const d = parsed.data;
+          try {
+            assertReraValid(d.city, d.rera, d.reraLabel);
+
+            // Resolve the owner: reuse an existing account by phone, otherwise
+            // create a dummy home-seller record so the listing has a real owner.
+            let owner = await prisma.user.findUnique({ where: { phone: d.ownerPhone } });
+            if (!owner) {
+              const email = d.ownerEmail ?? `dummy.${d.ownerPhone}@nxtsft.internal`;
+              const emailTaken = await prisma.user.findUnique({ where: { email } });
+              if (emailTaken) {
+                throw new TRPCError({ code: "CONFLICT", message: "Owner email already registered to a different account." });
+              }
+              owner = await prisma.user.create({
+                data: {
+                  name: d.ownerName,
+                  phone: d.ownerPhone,
+                  email,
+                  role: "home-seller",
+                  city: d.city,
+                  verified: true,
+                  verifiedAt: new Date(),
+                  metadata: { source: "admin-bulk-upload" },
+                },
+              });
+            }
+
+            const images = splitList(d.images);
+            const isPg = d.type === "PG";
+            await prisma.property.create({
+              data: {
+                title: d.title,
+                description: d.description,
+                type: d.type,
+                purpose: d.purpose,
+                bhk: d.bhk,
+                bedrooms: d.bedrooms,
+                bathrooms: d.bathrooms,
+                balconies: d.balconies,
+                parking: d.parking,
+                furnishing: d.furnishing,
+                facing: d.facing,
+                floors: d.floors,
+                age: d.age,
+                possession: d.possession,
+                builder: d.builder,
+                reraLabel: d.reraLabel,
+                rera: d.rera,
+                slug: generateSlug(d.title, d.city),
+                price: BigInt(d.price),
+                pricePerSqft: Math.round(d.price / d.area),
+                area: d.area,
+                builtUpArea: d.builtUpArea,
+                amenities: splitList(d.amenities),
+                images: images.length ? images : [CATEGORY_IMAGE[d.type] ?? CATEGORY_IMAGE.Apartment!],
+                virtualTourUrl: d.virtualTourUrl,
+                walkthroughVideoUrl: d.walkthroughVideoUrl,
+                status: "Active",
+                ownerId: owner.id,
+                ...(isPg
+                  ? {
+                      pgGender: d.pgGender,
+                      pgOccupancy: splitList(d.pgOccupancy),
+                      pgAvailableBeds: d.pgAvailableBeds,
+                      pgDeposit: d.pgDeposit != null ? BigInt(d.pgDeposit) : undefined,
+                      pgRoomTypes: splitList(d.pgRoomTypes),
+                      pgHouseRules: splitList(d.pgHouseRules),
+                      pgFood: d.pgFood,
+                    }
+                  : {}),
+                location: {
+                  create: {
+                    city: d.city,
+                    state: d.state,
+                    locality: d.locality,
+                    address: d.address,
+                    zipCode: d.zipCode,
+                    latitude: d.latitude ?? 0,
+                    longitude: d.longitude ?? 0,
+                  },
+                },
+              },
+            });
+            created++;
+          } catch (e) {
+            errors.push({ row: sheetRow, message: e instanceof TRPCError ? e.message : "Failed to create listing" });
+          }
+        }
+
+        return { received: input.rows.length, created, failed: errors.length, errors: errors.slice(0, 100) };
+      }),
   }),
 
   // All leads across the platform
@@ -546,9 +708,8 @@ export const adminRouter = router({
       }),
     )
     .query(async ({ input }) => {
-      const staffRoles = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
       const where: any = {
-        role: { in: staffRoles },
+        role: { in: STAFF_ROLES },
       };
 
       if (input.role) {
@@ -634,6 +795,64 @@ export const adminRouter = router({
           verified: true,
           verifiedAt: new Date(),
         },
+        select: safeUserSelect,
+      });
+    }),
+
+  // Edit a staff member's profile fields. Role changes stay super-admin-only (updateRole above).
+  updateTeamMember: adminProcedure
+    .input(
+      z.object({
+        userId: cuidSchema,
+        name: nameSchema.optional(),
+        email: emailSchema.optional(),
+        phone: phoneSchema.optional(),
+        city: geoTextSchema.optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { userId, ...data } = input;
+      const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+      if (!STAFF_ROLES.includes(target.role)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only staff accounts can be edited here." });
+      }
+      if (target.role === "super-admin" && ctx.user.role !== "super-admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only a super-admin can edit a super-admin's profile." });
+      }
+
+      if (data.email) {
+        const existing = await prisma.user.findUnique({ where: { email: data.email } });
+        if (existing && existing.id !== userId) throw new TRPCError({ code: "CONFLICT", message: "Email already in use." });
+      }
+      if (data.phone) {
+        const existing = await prisma.user.findUnique({ where: { phone: data.phone } });
+        if (existing && existing.id !== userId) throw new TRPCError({ code: "CONFLICT", message: "Phone already in use." });
+      }
+
+      return prisma.user.update({ where: { id: userId }, data, select: safeUserSelect });
+    }),
+
+  // Activate / deactivate a staff account. Deactivated staff are blocked at login
+  // (auth.ts) and on every subsequent request (protectedProcedure in server.ts).
+  setTeamMemberActive: adminProcedure
+    .input(z.object({ userId: cuidSchema, active: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You can't deactivate your own account." });
+      }
+      const target = await prisma.user.findUnique({ where: { id: input.userId }, select: { role: true } });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+      if (!STAFF_ROLES.includes(target.role)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only staff accounts can be toggled here." });
+      }
+      if (target.role === "super-admin" && ctx.user.role !== "super-admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only a super-admin can deactivate a super-admin." });
+      }
+
+      return prisma.user.update({
+        where: { id: input.userId },
+        data: { active: input.active },
         select: safeUserSelect,
       });
     }),

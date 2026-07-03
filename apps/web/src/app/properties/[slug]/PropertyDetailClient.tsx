@@ -1135,7 +1135,7 @@ function PropertyReviews({
     <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h2 className="font-display text-lg font-bold text-navy">Reviews</h2>
+          <h2 className="font-display text-lg font-bold text-navy">NxtSft Reviews</h2>
           <div className="flex items-center gap-1.5">
             <StarRow value={Math.round(avg)} size={15} />
             <span className="text-sm font-bold text-navy">{avg.toFixed(1)}</span>

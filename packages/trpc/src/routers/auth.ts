@@ -231,6 +231,11 @@ export const authRouter = router({
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
       }
 
+      if (!user.active) {
+        void logFailedLogin(input.email, user.id);
+        throw new TRPCError({ code: "FORBIDDEN", message: "This account has been deactivated." });
+      }
+
       if (user.role === "home-seller" && !user.verified) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -279,6 +284,11 @@ export const authRouter = router({
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
       }
 
+      if (!user.active) {
+        void logFailedLogin(input.email, user.id);
+        throw new TRPCError({ code: "FORBIDDEN", message: "This account has been deactivated." });
+      }
+
       const token = generateToken();
       await prisma.session.create({
         data: { userId: user.id, token, expiresAt: sessionExpiry() },
@@ -313,6 +323,10 @@ export const authRouter = router({
             city: "India",
           },
         });
+      }
+
+      if (!user.active) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This account has been deactivated." });
       }
 
       if (isNewUser) {
