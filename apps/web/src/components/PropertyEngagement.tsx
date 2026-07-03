@@ -79,20 +79,23 @@ export function PropertyEngagement({
   createdAt,
   status,
   state,
+  city,
   className,
 }: {
   propertyId: string;
   createdAt: string;
   status: string;
   state?: string | null;
+  city?: string | null;
   className?: string;
 }) {
   const [data, setData] = useState<PropertyActivity | null>(null);
 
   useEffect(() => {
     if (status !== "Active") return;
-    setData(propertyActivity(propertyId, new Date(createdAt), state));
-  }, [propertyId, createdAt, status, state]);
+    // Returns null for the first 48h post-listing → the card renders nothing.
+    setData(propertyActivity(propertyId, new Date(createdAt), { state, city }));
+  }, [propertyId, createdAt, status, state, city]);
 
   if (status !== "Active" || !data) return null;
   const { counts, recent } = data;

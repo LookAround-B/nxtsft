@@ -123,11 +123,19 @@ function ViewerBadge({
   // consistent: total = unique viewers × a repeat-view factor (1.3–1.6×).
   // Computed after mount (date-dependent) to avoid SSR/CSR hydration mismatch.
   const [massViews, setMassViews] = useState<number | null>(null);
+  // Hidden during the first 48h post-listing (propertyActivity returns null),
+  // which also suppresses the "viewing right now" pill below.
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    const unique = propertyActivity(propertyId, new Date(createdAt)).counts.views;
+    const activity = propertyActivity(propertyId, new Date(createdAt));
+    if (!activity) {
+      setHidden(true);
+      return;
+    }
+    setHidden(false);
     const factor = 1.3 + (viewBase % 4) * 0.1; // 1.3–1.6, deterministic per listing
-    setMassViews(Math.round(unique * factor));
+    setMassViews(Math.round(activity.counts.views * factor));
   }, [propertyId, createdAt, viewBase]);
 
   useEffect(() => {
@@ -140,6 +148,9 @@ function ViewerBadge({
     const id = setInterval(tick, 38_000 + Math.random() * 14_000);
     return () => clearInterval(id);
   }, []);
+
+  // No dummy view/activity indicators for the first 48h after listing.
+  if (hidden) return null;
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">
@@ -636,6 +647,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
               createdAt={property.createdAt}
               status={property.status}
               state={property.location.state}
+              city={property.location.city}
             />
 
             {/* Report incorrect info */}

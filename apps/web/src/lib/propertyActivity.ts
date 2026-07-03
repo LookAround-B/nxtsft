@@ -15,6 +15,33 @@ import { NAMES_BY_STATE, DEFAULT_NAMES, type DummyName } from "@/data/dummyNames
 
 export type ActivityAction = "interested" | "wishlisted" | "contact";
 
+// No fabricated activity for the first 48 hours after a listing goes live — a
+// brand-new listing showing views/interests/contacts looks fake.
+const LISTING_GRACE_MS = 48 * 60 * 60 * 1000;
+
+// User-listed properties store state as "India" (the /list wizard hardcodes it),
+// so the region-name lookup has to fall back to the city. Maps each city the
+// listing form offers to the state whose name pool it should draw from.
+const CITY_TO_STATE: Record<string, string> = {
+  Mumbai: "Maharashtra", Pune: "Maharashtra", Bengaluru: "Karnataka",
+  Bangalore: "Karnataka", Hyderabad: "Telangana", Chennai: "Tamil Nadu",
+  "Delhi NCR": "Delhi", Delhi: "Delhi", Noida: "Uttar Pradesh",
+  Gurgaon: "Haryana", Gurugram: "Haryana", Ahmedabad: "Gujarat",
+  Surat: "Gujarat", Kolkata: "West Bengal", Kochi: "Kerala",
+  Jaipur: "Rajasthan", Lucknow: "Uttar Pradesh",
+};
+
+// Resolve the region-appropriate name pool. Prefer an exact state match; else
+// map the city (or a city-valued state field) to its state; else a blend.
+function namePool(state?: string | null, city?: string | null): DummyName[] {
+  if (state && NAMES_BY_STATE[state]) return NAMES_BY_STATE[state];
+  for (const v of [city, state]) {
+    const mapped = v ? CITY_TO_STATE[v.trim()] : undefined;
+    if (mapped && NAMES_BY_STATE[mapped]) return NAMES_BY_STATE[mapped];
+  }
+  return DEFAULT_NAMES;
+}
+
 export interface ActivityEvent {
   name: string;
   gender: "m" | "f";
@@ -63,11 +90,14 @@ function dayNumber(d: Date): number {
 export function propertyActivity(
   propertyId: string,
   createdAt: Date,
-  state?: string | null,
+  region?: { state?: string | null; city?: string | null } | null,
   now: Date = new Date(),
-): PropertyActivity {
-  // Region-appropriate buyer names: pick the listing state's pool, else a blend.
-  const names: DummyName[] = (state && NAMES_BY_STATE[state]) || DEFAULT_NAMES;
+): PropertyActivity | null {
+  // Suppress all fabricated activity for the first 48 hours after listing.
+  if (now.getTime() - createdAt.getTime() < LISTING_GRACE_MS) return null;
+
+  // Region-appropriate buyer names (Hyderabad listing → Telangana names, etc.).
+  const names: DummyName[] = namePool(region?.state, region?.city);
 
   const today = dayNumber(now);
   const born = dayNumber(createdAt);
