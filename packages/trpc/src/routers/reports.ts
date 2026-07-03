@@ -171,7 +171,9 @@ export const reportsRouter = router({
       }
 
       const leadPropIds = [
-        ...new Set([...leadByUser.values()].map((l) => l.propertyId).filter(Boolean)),
+        ...new Set(
+          [...leadByUser.values()].map((l) => l.propertyId).filter((id): id is string => !!id),
+        ),
       ];
       const leadProps = leadPropIds.length
         ? await prisma.property.findMany({

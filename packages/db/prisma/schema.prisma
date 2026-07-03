@@ -64,6 +64,7 @@ model User {
   commissions           Commission[]           @relation("SalesRepCommissions")
   salesActivities       SalesActivity[]        @relation("SalesRepActivities")
   escalationsAssigned   Escalation[]           @relation("EscalationAssignee")
+  referralSubmissions   ReferralSubmission[]   @relation("UserReferralSubmissions")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -234,8 +235,10 @@ model Listing {
 model Lead {
   id String @id @default(cuid())
 
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id])
+  // Optional: a referral-sourced lead (general "looking for a home", no
+  // specific listing picked yet) has no property to point at.
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
@@ -324,6 +327,34 @@ model KycDocument {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([status])
+}
+
+// Refer & Earn submissions — a user reports a buyer/tenant lead, a property
+// owner who might list, or a "For Sale/To Let" board they spotted. Admin
+// reviews and approves/rejects; approving credits the submitter's wallet
+// with the reward snapshotted at submission time (rates can change later
+// without affecting already-submitted rows).
+model ReferralSubmission {
+  id           String  @id @default(cuid())
+  submitterId  String
+  submitter    User    @relation("UserReferralSubmissions", fields: [submitterId], references: [id], onDelete: Cascade)
+  type         String // buyer_tenant | property_owner | board
+  customerName String
+  customerPhone String
+  location     String?
+  requirements String? @db.Text
+  imageUrl     String? // required for "board" at the form level, optional otherwise
+  rewardAmount Int // rupees, snapshotted from the type's rate at submission time
+  status       String  @default("Pending") // Pending | Approved | Rejected
+  leadId       String? // Lead created for buyer_tenant submissions (no FK — mirrors Commission/SalesActivity.leadId)
+  reviewedById String? // staff userId, no FK (mirrors KycDocument.reviewedById)
+  reviewedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([submitterId])
   @@index([status])
 }
 

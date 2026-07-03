@@ -18,12 +18,14 @@ import {
 } from "../sanitize";
 
 export const leadsRouter = router({
-  // Buyer submits an inquiry from a property detail page
+  // Buyer submits an inquiry from a property detail page. propertyId is
+  // omitted for general leads with no specific listing yet (e.g. a
+  // Refer & Earn buyer/tenant submission — see referrals.submit).
   create: protectedProcedure
     .use(generalRateLimit)
     .input(
       z.object({
-        propertyId: cuidSchema,
+        propertyId: cuidSchema.optional(),
         name: nameSchema,
         phone: phoneSchema,
         email: emailSchema.optional(),
@@ -34,8 +36,10 @@ export const leadsRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const property = await prisma.property.findFirst({ where: { id: input.propertyId, deletedAt: null } });
-      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+      if (input.propertyId) {
+        const property = await prisma.property.findFirst({ where: { id: input.propertyId, deletedAt: null } });
+        if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+      }
 
       const lead = await prisma.lead.create({
         data: {
@@ -245,6 +249,12 @@ export const leadsRouter = router({
 
       if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (!lead.propertyId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This lead isn't linked to a specific property yet — find out which listing they want before scheduling a visit.",
+        });
       }
 
       const visit = await prisma.siteVisit.create({

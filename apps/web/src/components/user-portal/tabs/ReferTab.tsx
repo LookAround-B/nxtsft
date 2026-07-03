@@ -2,26 +2,38 @@
 import { useState } from "react";
 import {
   Copy, Check, Share2, Gift, Users, Home, Camera,
-  Wallet, Smartphone, ArrowRight, Star, Trophy,
+  Wallet, Smartphone, ArrowRight, Star, Trophy, Upload, X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { trpc } from "@/lib/trpc";
 import { Section, Badge } from "@/components/portal/PortalShell";
-import { Head } from "./shared";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { compressImage } from "@/lib/image";
 
-/* ── Static demo data ──────────────────────────────────────────── */
-const TOP_REFERRERS = [
-  { rank: 1, name: "Priya Sharma",  city: "Bengaluru", refs: 28, earned: "₹12,400" },
-  { rank: 2, name: "Rahul Verma",   city: "Mumbai",    refs: 21, earned: "₹9,750"  },
-  { rank: 3, name: "Anjali Singh",  city: "Hyderabad", refs: 16, earned: "₹7,200"  },
-  { rank: 4, name: "Karthik M.",    city: "Chennai",   refs: 12, earned: "₹5,500"  },
-  { rank: 5, name: "Meera Pillai",  city: "Kochi",     refs: 9,  earned: "₹4,050"  },
+type ReferralType = "buyer_tenant" | "property_owner" | "board";
+
+const EARN_PATHS: {
+  type: ReferralType;
+  Icon: typeof Users;
+  tag: string;
+  reward: string;
+  note: string;
+  color: string;
+  border: string;
+  cta: string;
+  imageRequired: boolean;
+}[] = [
+  { type: "buyer_tenant",   Icon: Users,  tag: "Refer a Buyer / Tenant", reward: "₹500", note: "per deal closed",       color: "bg-accent/10 text-accent",       border: "border-accent/25",   cta: "Refer someone", imageRequired: false },
+  { type: "property_owner", Icon: Home,   tag: "Refer a Property Owner", reward: "₹120", note: "per published listing", color: "bg-orange-50 text-orange-600",   border: "border-orange-200",  cta: "Refer an owner", imageRequired: false },
+  { type: "board",          Icon: Camera, tag: "Spot & Submit a Board",  reward: "₹100", note: "per verified board",    color: "bg-emerald-50 text-emerald-700", border: "border-emerald-200", cta: "Submit a board", imageRequired: true },
 ];
 
-const EARN_PATHS = [
-  { Icon: Users,  tag: "Refer a Buyer / Tenant", reward: "₹500",  note: "per deal closed",      color: "bg-accent/10 text-accent",   border: "border-accent/25" },
-  { Icon: Home,   tag: "Refer a Property Owner", reward: "₹120",  note: "per published listing", color: "bg-orange-50 text-orange-600", border: "border-orange-200" },
-  { Icon: Camera, tag: "Spot & Submit a Board",  reward: "₹50",   note: "per verified board",    color: "bg-emerald-50 text-emerald-700", border: "border-emerald-200" },
-];
+const STATUS_TONE: Record<string, "warm" | "success" | "cold"> = {
+  Pending: "warm",
+  Approved: "success",
+  Rejected: "cold",
+};
 
 /* ── Copy link helper ──────────────────────────────────────────── */
 function CopyLinkBox({ code }: { code: string }) {
@@ -82,14 +94,215 @@ function CopyLinkBox({ code }: { code: string }) {
   );
 }
 
+/* ── Submission dialog ─────────────────────────────────────────── */
+function ReferralSubmitDialog({
+  path,
+  open,
+  onOpenChange,
+  onSubmitted,
+}: {
+  path: (typeof EARN_PATHS)[number];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmitted: () => void;
+}) {
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [location, setLocation] = useState("");
+  const [requirements, setRequirements] = useState("");
+  const [image, setImage] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const uploadImage = trpc.media.uploadImage.useMutation();
+  const submit = trpc.referrals.submit.useMutation();
+
+  const reset = () => {
+    setCustomerName(""); setCustomerPhone(""); setLocation(""); setRequirements("");
+    if (image) URL.revokeObjectURL(image.previewUrl);
+    setImage(null);
+    setErrors({});
+  };
+
+  const close = (next: boolean) => {
+    if (!next) reset();
+    onOpenChange(next);
+  };
+
+  const onPickImage = (file: File | undefined) => {
+    if (!file) return;
+    if (image) URL.revokeObjectURL(image.previewUrl);
+    setImage({ file, previewUrl: URL.createObjectURL(file) });
+    setErrors((e) => ({ ...e, image: "" }));
+  };
+
+  const submitting = uploadImage.isPending || submit.isPending;
+
+  const handleSubmit = async () => {
+    const e: Record<string, string> = {};
+    if (!customerName.trim()) e.customerName = "Enter the customer's name";
+    if (!/^\d{10}$/.test(customerPhone.replace(/\D/g, ""))) e.customerPhone = "Enter a valid 10-digit mobile number";
+    if (path.imageRequired && !image) e.image = "A photo of the board is required";
+    if (Object.keys(e).length) { setErrors(e); return; }
+
+    try {
+      let imageUrl: string | undefined;
+      if (image) {
+        const dataUrl = await compressImage(image.file);
+        const { url } = await uploadImage.mutateAsync({
+          contentType: "image/jpeg",
+          data: dataUrl.split(",")[1] ?? "",
+          folder: "referrals",
+        });
+        imageUrl = url;
+      }
+
+      await submit.mutateAsync({
+        type: path.type,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.replace(/\D/g, ""),
+        location: location.trim() || undefined,
+        requirements: requirements.trim() || undefined,
+        imageUrl,
+      });
+
+      toast.success(`Submitted! You'll earn ${path.reward} once it's verified.`);
+      close(false);
+      onSubmitted();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't submit. Please try again.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={close}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{path.tag}</DialogTitle>
+          <DialogDescription>
+            Fill in the details below — {path.reward} {path.note} once verified.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-foreground">Customer Name</label>
+            <input
+              value={customerName}
+              onChange={(e) => { setCustomerName(e.target.value); setErrors((er) => ({ ...er, customerName: "" })); }}
+              placeholder="Full name"
+              className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.customerName ? "border-rose-400" : "border-input"}`}
+            />
+            {errors.customerName && <p className="mt-1 text-xs text-rose-500">{errors.customerName}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-foreground">
+              Customer Number <span className="text-rose-500">*</span>
+            </label>
+            <div className="mt-1.5 flex">
+              <span className="flex items-center rounded-l-xl border border-r-0 border-input bg-secondary px-3 text-sm font-medium text-foreground/60">
+                +91
+              </span>
+              <input
+                value={customerPhone}
+                onChange={(e) => { setCustomerPhone(e.target.value); setErrors((er) => ({ ...er, customerPhone: "" })); }}
+                placeholder="10-digit mobile"
+                maxLength={10}
+                className={`min-w-0 flex-1 rounded-r-xl border bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.customerPhone ? "border-rose-400" : "border-input"}`}
+              />
+            </div>
+            {errors.customerPhone && <p className="mt-1 text-xs text-rose-500">{errors.customerPhone}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-foreground">
+              Location / Area <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Gachibowli, Hyderabad"
+              className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-foreground">
+              Requirements <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <textarea
+              value={requirements}
+              onChange={(e) => setRequirements(e.target.value)}
+              rows={3}
+              placeholder="What are they looking for? Any other details that help our team follow up."
+              className="mt-1.5 w-full resize-none rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-foreground">
+              Photo{path.imageRequired ? <span className="text-rose-500"> *</span> : (
+                <span className="font-normal text-muted-foreground"> (optional)</span>
+              )}
+            </label>
+            {image ? (
+              <div className="mt-1.5 flex items-center gap-3 rounded-xl border border-border bg-secondary/30 p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={image.previewUrl} alt="Preview" className="h-14 w-14 rounded-lg object-cover" />
+                <span className="flex-1 truncate text-xs text-muted-foreground">{image.file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => { URL.revokeObjectURL(image.previewUrl); setImage(null); }}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white text-rose-500 shadow transition hover:bg-rose-500 hover:text-white"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <label
+                className={`mt-1.5 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-4 text-sm transition hover:border-accent/40 hover:bg-accent/5 ${errors.image ? "border-rose-400" : "border-border bg-secondary/30"}`}
+              >
+                <Upload size={16} className="text-accent" />
+                <span className="font-semibold text-navy">Click to upload a photo</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => onPickImage(e.target.files?.[0])}
+                />
+              </label>
+            )}
+            {errors.image && <p className="mt-1 text-xs text-rose-500">{errors.image}</p>}
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full rounded-xl bg-accent py-3 text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:opacity-95 disabled:opacity-60"
+          >
+            {submitting ? "Submitting…" : "Submit"}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function ReferTab() {
   const { session } = useAuth();
   const name = session?.name ?? "User";
   const email = session?.email ?? "";
+  const [openType, setOpenType] = useState<ReferralType | null>(null);
 
   const referralCode = `${name.replace(/\s+/g, "").toLowerCase().slice(0, 8)}${Math.abs(
     email.charCodeAt(0) * 7,
   ).toString().slice(0, 4)}`;
+
+  const overviewQ = trpc.referrals.myOverview.useQuery();
+  const leaderboardQ = trpc.referrals.topReferrers.useQuery({ limit: 5 });
+  const overview = overviewQ.data;
+
+  const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
   return (
     <div className="space-y-6">
@@ -129,10 +342,10 @@ export function ReferTab() {
       {/* ── Personal stats ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Total Referrals", value: "—",  sub: "updated on deal close" },
-          { label: "Wallet Balance",  value: "₹0", sub: "available to redeem" },
-          { label: "Pending Rewards", value: "₹0", sub: "under verification" },
-          { label: "Paid Out",        value: "₹0", sub: "all time" },
+          { label: "Total Referrals", value: overview ? String(overview.totalReferrals) : "—", sub: "all-time submissions" },
+          { label: "Wallet Balance",  value: overview ? fmt(overview.walletBalance) : "₹0",    sub: "available to redeem" },
+          { label: "Pending Rewards", value: overview ? fmt(overview.pendingRewards) : "₹0",   sub: "under verification" },
+          { label: "Paid Out",        value: overview ? fmt(overview.paidOut) : "₹0",          sub: "all time" },
         ].map(({ label, value, sub }) => (
           <div key={label} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
             <div className="font-display text-2xl font-black text-navy">{value}</div>
@@ -146,40 +359,62 @@ export function ReferTab() {
       <Section title="3 Ways to Earn">
         <div className="grid gap-3 sm:grid-cols-3">
           {EARN_PATHS.map((ep) => (
-            <div key={ep.tag} className={`rounded-2xl border-2 p-4 ${ep.border}`}>
-              <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${ep.color}`}>
+            <div key={ep.type} className={`flex flex-col rounded-2xl border-2 p-4 ${ep.border}`}>
+              <div className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${ep.color}`}>
                 <ep.Icon size={11} />
                 {ep.tag}
               </div>
               <div className="mt-3 font-display text-2xl font-black text-navy">{ep.reward}</div>
               <div className="text-xs text-muted-foreground">{ep.note}</div>
+              <button
+                onClick={() => setOpenType(ep.type)}
+                className="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-accent/30 bg-accent/8 py-2 text-xs font-bold text-accent transition hover:bg-accent/15"
+              >
+                {ep.cta} <ArrowRight size={12} />
+              </button>
             </div>
           ))}
         </div>
       </Section>
 
+      {EARN_PATHS.map((ep) => (
+        <ReferralSubmitDialog
+          key={ep.type}
+          path={ep}
+          open={openType === ep.type}
+          onOpenChange={(o) => setOpenType(o ? ep.type : null)}
+          onSubmitted={() => { void overviewQ.refetch(); }}
+        />
+      ))}
+
       {/* ── Top referrers leaderboard ─────────────────────────────── */}
       <Section title="Top Referrers This Month">
         <div className="space-y-2">
-          {TOP_REFERRERS.map((u) => (
-            <div
-              key={u.rank}
-              className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition hover:border-accent/30 hover:shadow-sm ${
-                u.rank === 1 ? "border-amber-200 bg-amber-50" : "border-border bg-secondary/20"
-              }`}
-            >
-              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-display text-sm font-black ${
-                u.rank === 1 ? "bg-amber-400 text-white" : "bg-secondary text-navy/60"
-              }`}>
-                {u.rank === 1 ? <Trophy size={16} /> : u.rank}
+          {(leaderboardQ.data ?? []).length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No approved referrals yet — be the first on the leaderboard!
+            </p>
+          ) : (
+            leaderboardQ.data!.map((u) => (
+              <div
+                key={u.rank}
+                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition hover:border-accent/30 hover:shadow-sm ${
+                  u.rank === 1 ? "border-amber-200 bg-amber-50" : "border-border bg-secondary/20"
+                }`}
+              >
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-display text-sm font-black ${
+                  u.rank === 1 ? "bg-amber-400 text-white" : "bg-secondary text-navy/60"
+                }`}>
+                  {u.rank === 1 ? <Trophy size={16} /> : u.rank}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate font-semibold text-sm text-navy">{u.name}</div>
+                  <div className="text-[11px] text-muted-foreground">{u.city} · {u.refs} referrals</div>
+                </div>
+                <div className="font-display text-base font-bold text-emerald-600">{fmt(u.earned)}</div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="truncate font-semibold text-sm text-navy">{u.name}</div>
-                <div className="text-[11px] text-muted-foreground">{u.city} · {u.refs} referrals</div>
-              </div>
-              <div className="font-display text-base font-bold text-emerald-600">{u.earned}</div>
-            </div>
-          ))}
+            ))
+          )}
           <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
             <Star size={14} className="text-amber-500 fill-amber-500 shrink-0" />
             <span className="text-xs text-amber-800">
@@ -191,13 +426,30 @@ export function ReferTab() {
 
       {/* ── Recent activity ───────────────────────────────────────── */}
       <Section title="My Recent Activity">
-        <div className="rounded-2xl border border-dashed border-border bg-secondary/20 py-10 text-center">
-          <Gift size={30} className="mx-auto mb-3 text-muted-foreground/30" />
-          <p className="text-sm font-semibold text-navy">No activity yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Share your referral link to start earning rewards.
-          </p>
-        </div>
+        {overview && overview.recent.length > 0 ? (
+          <div className="space-y-2">
+            {overview.recent.map((r) => (
+              <div key={r.id} className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="truncate text-sm font-semibold text-navy">{r.customerName}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {EARN_PATHS.find((p) => p.type === r.type)?.tag ?? r.type} · {new Date(r.createdAt).toLocaleDateString("en-IN")}
+                  </div>
+                </div>
+                <div className="text-sm font-bold text-navy">{fmt(r.rewardAmount)}</div>
+                <Badge tone={STATUS_TONE[r.status] ?? "default"}>{r.status}</Badge>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-border bg-secondary/20 py-10 text-center">
+            <Gift size={30} className="mx-auto mb-3 text-muted-foreground/30" />
+            <p className="text-sm font-semibold text-navy">No activity yet</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Share your referral link to start earning rewards.
+            </p>
+          </div>
+        )}
       </Section>
 
       {/* ── Payout methods ────────────────────────────────────────── */}
@@ -223,7 +475,7 @@ export function ReferTab() {
           ))}
         </div>
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Minimum redemption ₹100. Go to <strong>Wallet</strong> tab to request a payout.
+          Minimum redemption ₹100. Wallet balance updates once your submission is verified.
         </p>
       </Section>
     </div>

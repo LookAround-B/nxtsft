@@ -23,7 +23,7 @@ export const mediaRouter = router({
       z.object({
         contentType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]),
         data: z.string().min(1).max(8_000_000), // base64-encoded bytes
-        folder: z.enum(["properties", "avatars", "kyc", "site"]).default("properties"),
+        folder: z.enum(["properties", "avatars", "kyc", "site", "referrals"]).default("properties"),
       }),
     )
     .mutation(async ({ input, ctx }) => {
