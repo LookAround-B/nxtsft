@@ -6,6 +6,7 @@ import { notify } from "../notify";
 import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server";
 import {
   cuidSchema,
+  planIdSchema,
   safeString,
   priceSchema,
   highlightsSchema,
@@ -52,7 +53,7 @@ export const subscriptionsRouter = router({
 
   // Get single plan
   plan: publicProcedure
-    .input(z.object({ id: cuidSchema }))
+    .input(z.object({ id: planIdSchema }))
     .query(async ({ input }) => {
       const plan = await prisma.plan.findUnique({ where: { id: input.id } });
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
@@ -532,7 +533,7 @@ export const subscriptionsRouter = router({
   updatePlan: adminProcedure
     .input(
       z.object({
-        id: cuidSchema,
+        id: planIdSchema,
         name: safeString(100, 1).optional(),
         price: priceSchema.optional(),
         priceLabel: safeString(20, 1).optional(),
@@ -550,7 +551,7 @@ export const subscriptionsRouter = router({
     }),
 
   deletePlan: adminProcedure
-    .input(z.object({ id: cuidSchema }))
+    .input(z.object({ id: planIdSchema }))
     .mutation(async ({ input }) => {
       return prisma.plan.update({ where: { id: input.id }, data: { active: false } });
     }),
