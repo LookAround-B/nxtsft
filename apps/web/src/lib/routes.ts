@@ -19,7 +19,8 @@ export type Role =
   | "sales"
   | "support-admin"
   | "user"
-  | "home-seller";
+  | "home-seller"
+  | "agent";
 
 export const ROLES: readonly Role[] = [
   "super-admin",
@@ -29,6 +30,7 @@ export const ROLES: readonly Role[] = [
   "support-admin",
   "user",
   "home-seller",
+  "agent",
 ];
 
 /**
@@ -72,7 +74,7 @@ export const PORTAL_ACCESS: Record<string, readonly Role[]> = {
   "/supervisor-portal": ["super-admin", "supervisor"],
   "/sales-portal": ["super-admin", "sales"],
   "/support-portal": ["super-admin", "support-admin"],
-  "/user-portal": ["user", "home-seller"],
+  "/user-portal": ["user", "home-seller", "agent"],
 };
 
 /** Where each role lands after login / when bounced off a forbidden portal. */
@@ -84,6 +86,7 @@ export const HOME_FOR_ROLE: Record<Role, string> = {
   "support-admin": "/support-portal",
   user: "/user-portal",
   "home-seller": "/user-portal",
+  agent: "/user-portal",
 };
 
 /** Staff roles use /admin-login; consumer roles use /login. */

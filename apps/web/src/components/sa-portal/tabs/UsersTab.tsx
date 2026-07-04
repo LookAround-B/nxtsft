@@ -20,7 +20,7 @@ type AdminUser = {
   lastActive: string;
 };
 
-const SA_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin", "user", "home-seller"] as const;
+const SA_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin", "user", "home-seller", "agent"] as const;
 const SA_ROLE_LABEL: Record<string, string> = {
   "super-admin": "Super Admin",
   admin: "Admin",
@@ -29,6 +29,7 @@ const SA_ROLE_LABEL: Record<string, string> = {
   "support-admin": "Support Admin",
   user: "Home Buyer",
   "home-seller": "Home Seller",
+  agent: "Agent / Partner",
 };
 
 export function UsersTab() {

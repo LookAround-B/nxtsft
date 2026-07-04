@@ -180,6 +180,7 @@ export const roleSchema = z.enum([
   "support-admin",
   "user",
   "home-seller",
+  "agent",
 ]);
 
 /** Staff role subset (excludes consumer roles) */

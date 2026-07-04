@@ -901,17 +901,23 @@ async function main() {
     { email: "suresh.iyer@nxtsft.com", name: "Suresh Iyer", slug: "suresh-iyer", initials: "SI", rating: 5.0, reviews: 4, deals: 1, since: 2024, listings: 1, featured: false, color: "bg-slate-600", responseTime: "< 4 hrs", portfolioValue: "₹2 Cr+", specialties: ["Apartments"], languages: ["English", "Tamil"], cities: ["Chennai"] },
   ];
 
-  for (const agent of agents) {
+  for (let i = 0; i < agents.length; i++) {
+    const agent = agents[i];
     const { slug, initials, rating, reviews, deals, since, listings, featured, color, responseTime, portfolioValue, specialties, languages, cities, ...userFields } = agent;
+    // Deterministic 10-digit contact number so the profile's Call / WhatsApp
+    // buttons have a real number to dial.
+    const phone = `98${String(20000000 + i).padStart(8, "0")}`;
     await prisma.user.upsert({
       where: { email: agent.email },
       update: {
         slug,
+        phone,
         metadata: { initials, rating, reviews, deals, since, listings, featured, color, responseTime, portfolioValue, specialties, languages, cities },
       },
       create: {
         ...userFields,
         slug,
+        phone,
         city: cities[0] ?? "Mumbai",
         role: "agent",
         verified: true,
@@ -921,6 +927,36 @@ async function main() {
     });
   }
   console.log(`✓ Seeded ${agents.length} agents with slugs`);
+
+  // ── Assign a marketing agent to each property (idempotent, city-matched) ────
+  // Gives agent profiles real listings. Matches on the property's city vs the
+  // agent's covered cities; falls back to round-robin so nothing is left blank.
+  const agentRows = await prisma.user.findMany({
+    where: { role: "agent" },
+    select: { id: true, city: true, metadata: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (agentRows.length > 0) {
+    const propsForAgents = await prisma.property.findMany({
+      select: { id: true, agentId: true, location: { select: { city: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    let assigned = 0;
+    for (let i = 0; i < propsForAgents.length; i++) {
+      const p = propsForAgents[i];
+      const city = p.location?.city;
+      const match =
+        agentRows.find((a) => {
+          const cities = (a.metadata as { cities?: string[] } | null)?.cities ?? [a.city];
+          return city ? cities.includes(city) : false;
+        }) ?? agentRows[i % agentRows.length];
+      if (match && p.agentId !== match.id) {
+        await prisma.property.update({ where: { id: p.id }, data: { agentId: match.id } });
+        assigned++;
+      }
+    }
+    console.log(`✓ Assigned marketing agents to ${assigned} properties`);
+  }
 
   // ── Reviews for Properties ──────────────────────────────────────────────
   const allProperties = await prisma.property.findMany({ take: 20 });

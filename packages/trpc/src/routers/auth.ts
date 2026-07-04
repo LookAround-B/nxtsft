@@ -13,6 +13,7 @@ import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import prisma from "@nxtsft/db";
 import { notify, notifyCredit } from "../notify";
+import { uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 import {
   router,
   publicProcedure,
@@ -167,7 +168,11 @@ export const authRouter = router({
       return { token, user: safeUser(freshUser) };
     }),
 
-  // Public registration for home sellers (role: home-seller) — no session granted
+  // Public registration for home sellers (role: home-seller) and RERA agents
+  // (role: agent) — both onboard through the same admin approval queue and are
+  // created unverified (blocked from login until an admin approves). No session
+  // is granted. `applyAs: "agent"` also seeds a default directory profile so an
+  // approved agent shows on /agents immediately.
   registerSeller: publicProcedure
     .use(registerRateLimit)
     .input(
@@ -177,6 +182,7 @@ export const authRouter = router({
         phone: phoneSchema,
         password: passwordSchema,
         city: geoTextSchema,
+        applyAs: z.enum(["seller", "agent"]).optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -190,26 +196,32 @@ export const authRouter = router({
       if (existingPhone)
         throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
 
+      const isAgent = input.applyAs === "agent";
       const passwordHash = await bcrypt.hash(input.password, 12);
-      const seller = await prisma.user.create({
+      const applicant = await prisma.user.create({
         data: {
           name: input.name,
           email: input.email,
           phone: input.phone,
           city: input.city,
-          role: "home-seller",
+          role: isAgent ? "agent" : "home-seller",
           passwordHash,
           verified: false,
+          ...(isAgent && {
+            slug: await uniqueAgentSlug(input.name),
+            metadata: defaultAgentMetadata(input.name, input.city),
+          }),
         },
       });
 
-      // Welcome the new seller — surfaces once their account is approved & they log in.
+      // Welcome the applicant — surfaces once their account is approved & they log in.
       await notify({
-        userId: seller.id,
+        userId: applicant.id,
         type: "welcome",
         title: "Account created",
-        content:
-          "Your Home Seller account is pending admin approval. We'll notify you once it's approved.",
+        content: isAgent
+          ? "Your Agent / Partner account is pending admin approval. We'll notify you once it's approved."
+          : "Your Home Seller account is pending admin approval. We'll notify you once it's approved.",
       });
 
       // Notify all admins and super-admins
@@ -222,8 +234,10 @@ export const authRouter = router({
           data: admins.map((a) => ({
             userId: a.id,
             type: "seller_approval",
-            title: "New Home Seller pending approval",
-            content: `${seller.name} (${seller.email}) registered and is awaiting account approval.`,
+            title: isAgent
+              ? "New Agent / Partner pending approval"
+              : "New Home Seller pending approval",
+            content: `${applicant.name} (${applicant.email}) registered and is awaiting account approval.`,
           })),
         });
       }
@@ -253,7 +267,9 @@ export const authRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "This account has been deactivated." });
       }
 
-      if (user.role === "home-seller" && !user.verified) {
+      // Home sellers and agents both onboard through the admin approval queue
+      // and stay blocked from login until an admin verifies their account.
+      if ((user.role === "home-seller" || user.role === "agent") && !user.verified) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Your account is pending approval. You'll be notified once an admin approves it.",

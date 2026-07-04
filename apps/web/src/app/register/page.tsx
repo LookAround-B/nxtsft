@@ -19,9 +19,10 @@ export default function RegisterPage() {
   const { session, signOut, register, registerSeller } = useAuth();
 
   const [regType, setRegType] = useState<RegistrationType>("buyer");
-  // RERA agents/partners onboard through the home-seller pipeline (same record,
-  // same admin approval queue) — `?type=agent` just preselects it and reframes
-  // the copy. `?type=seller` preselects the seller tab without agent framing.
+  // RERA agents/partners share the seller registration form + admin approval
+  // queue, but register as role "agent" (see `applyAs` below) so an approved
+  // agent lands on the /agents directory. `?type=agent` preselects the seller
+  // tab and reframes the copy; `?type=seller` preselects it without agent framing.
   const [isAgent, setIsAgent] = useState(false);
 
   useEffect(() => {
@@ -70,7 +71,7 @@ export default function RegisterPage() {
         toast.success(`Welcome to NxtSft, ${s.name.split(" ")[0]}! You have 1 free credit.`);
         router.push(ROLE_META[s.role].portal);
       } else {
-        await registerSeller(form.name.trim(), form.email.trim(), form.phone.replace(/\s/g, ""), form.password, form.city);
+        await registerSeller(form.name.trim(), form.email.trim(), form.phone.replace(/\s/g, ""), form.password, form.city, isAgent ? "agent" : "seller");
         setSellerPending(true);
       }
     } catch (err) {

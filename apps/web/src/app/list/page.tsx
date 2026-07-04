@@ -55,6 +55,11 @@ const CITIES = [
 ];
 const BHK_OPTIONS = ["1 BHK", "2 BHK", "3 BHK", "4+ BHK", "Open Plot", "Studio"];
 
+// Property types that aren't sold by BHK / super-built-up area — a PG is priced
+// per bed and a Studio is a single open unit — so we hide that whole field group
+// for them and don't require it.
+const NO_AREA_BHK_TYPES = ["PG / Co-living", "Studio"];
+
 const STEPS = [
   { num: 1, label: "Role", Icon: User },
   { num: 2, label: "Property", Icon: Building2 },
@@ -240,6 +245,10 @@ export default function ListPropertyPage() {
       amenities: d.amenities.includes(a) ? d.amenities.filter((x) => x !== a) : [...d.amenities, a],
     }));
 
+  // Whether the current property type uses the area + BHK field group (hidden for
+  // PG / Co-living and Studio — see NO_AREA_BHK_TYPES).
+  const usesAreaBhk = !NO_AREA_BHK_TYPES.includes(data.propertyType);
+
   const validate = (s: number): Record<string, string> => {
     const e: Record<string, string> = {};
     if (s === 1 && !data.listerType) e.listerType = "Please select your role";
@@ -247,8 +256,8 @@ export default function ListPropertyPage() {
       if (!data.propertyType) e.propertyType = "Select a property type";
       if (!data.city) e.city = "Select a city";
       if (!data.price) e.price = "Enter a price";
-      if (!data.area) e.area = "Enter property area";
-      if (!data.bhk) e.bhk = "Select a configuration";
+      if (usesAreaBhk && !data.area) e.area = "Enter property area";
+      if (usesAreaBhk && !data.bhk) e.bhk = "Select a configuration";
     }
     if (s === 3) {
       if (!data.description.trim()) e.description = "Add a brief description";
@@ -281,7 +290,9 @@ export default function ListPropertyPage() {
       setStep((s) => s + 1);
       return;
     }
-    const title = data.title || `${data.bhk} ${data.propertyType} in ${data.city}`;
+    const title =
+      data.title.trim() ||
+      `${[data.bhk, data.propertyType].filter(Boolean).join(" ")} in ${data.city}`;
 
     // Compress each photo (in submitted order — first is the cover) and upload it
     // to Cloudflare R2, keeping the returned public URL for the DB. If storage is
@@ -724,8 +735,15 @@ export default function ListPropertyPage() {
                         // (sq. yards is only offered for Plot) — clear it on type
                         // change so a stale value/unit never gets silently reused.
                         if (t !== data.propertyType) {
-                          setData((d) => ({ ...d, propertyType: t, area: "", areaUnit: "sqft" }));
-                          setErrors((e) => ({ ...e, propertyType: "", area: "" }));
+                          const noAreaBhk = NO_AREA_BHK_TYPES.includes(t);
+                          setData((d) => ({
+                            ...d,
+                            propertyType: t,
+                            area: "",
+                            areaUnit: "sqft",
+                            bhk: noAreaBhk ? "" : d.bhk,
+                          }));
+                          setErrors((e) => ({ ...e, propertyType: "", area: "", bhk: "" }));
                         }
                       }}
                       className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition
@@ -896,7 +914,7 @@ export default function ListPropertyPage() {
                     />
                     {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
                   </div>
-                ) : (
+                ) : usesAreaBhk ? (
                   <>
                     <div>
                       <label className="block text-sm font-semibold text-foreground">
@@ -924,27 +942,29 @@ export default function ListPropertyPage() {
                       />
                     </div>
                   </>
-                )}
+                ) : null}
               </div>
 
-              <div className="mt-5">
-                <label className="block text-sm font-semibold text-foreground">
-                  Configuration / BHK
-                </label>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {BHK_OPTIONS.map((b) => (
-                    <button
-                      key={b}
-                      onClick={() => set("bhk", b)}
-                      className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition
-                        ${data.bhk === b ? "border-accent bg-accent text-white" : "border-border bg-white text-foreground/70 hover:border-accent/40 hover:bg-accent/5"}`}
-                    >
-                      {b}
-                    </button>
-                  ))}
+              {usesAreaBhk && (
+                <div className="mt-5">
+                  <label className="block text-sm font-semibold text-foreground">
+                    Configuration / BHK
+                  </label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {BHK_OPTIONS.map((b) => (
+                      <button
+                        key={b}
+                        onClick={() => set("bhk", b)}
+                        className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition
+                          ${data.bhk === b ? "border-accent bg-accent text-white" : "border-border bg-white text-foreground/70 hover:border-accent/40 hover:bg-accent/5"}`}
+                      >
+                        {b}
+                      </button>
+                    ))}
+                  </div>
+                  {errors.bhk && <p className="mt-1 text-xs text-rose-500">{errors.bhk}</p>}
                 </div>
-                {errors.bhk && <p className="mt-1 text-xs text-rose-500">{errors.bhk}</p>}
-              </div>
+              )}
             </>
           )}
 

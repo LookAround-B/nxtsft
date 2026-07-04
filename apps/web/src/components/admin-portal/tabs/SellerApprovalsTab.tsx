@@ -22,12 +22,19 @@ export function SellerApprovalsTab() {
     { role: "home-seller", search: search.trim() || undefined, limit: 100, cursor: undefined },
     { staleTime: 0 },
   );
+  // Agents onboard through the same approval queue (registered as role "agent",
+  // unverified) — pull them in alongside sellers and label each row by role.
+  const agentsQ = trpc.admin.users.list.useQuery(
+    { role: "agent", search: search.trim() || undefined, limit: 100, cursor: undefined },
+    { staleTime: 0 },
+  );
 
   const approveMutation = trpc.admin.users.verify.useMutation({
     onSuccess: (user) => {
       toast.success(`${user.name} has been approved and notified.`);
       setApprovingId(null);
       sellersQ.refetch();
+      agentsQ.refetch();
     },
     onError: (err: { message: string }) => {
       toast.error(err.message);
@@ -35,14 +42,17 @@ export function SellerApprovalsTab() {
     },
   });
 
-  const pending = (sellersQ.data?.items ?? []).filter((u) => !u.verified);
-  const approved = (sellersQ.data?.items ?? []).filter((u) => u.verified);
+  const isLoading = sellersQ.isLoading || agentsQ.isLoading;
+  const allItems = [...(sellersQ.data?.items ?? []), ...(agentsQ.data?.items ?? [])];
+  const roleLabel = (role: string) => (role === "agent" ? "Agent / Partner" : "Home Seller");
+  const pending = allItems.filter((u) => !u.verified);
+  const approved = allItems.filter((u) => u.verified);
 
   return (
     <>
       <PageHead
-        title="Seller Approvals"
-        subtitle="Review and approve Home Seller accounts before they can list properties."
+        title="Seller & Agent Approvals"
+        subtitle="Review and approve Home Seller and Agent / Partner accounts before they go live."
       />
 
       <div className="relative mb-6 max-w-md">
@@ -57,15 +67,15 @@ export function SellerApprovalsTab() {
       </div>
 
       <Section title={`Pending Approval${pending.length > 0 ? ` (${pending.length})` : ""}`}>
-        {sellersQ.isLoading && (
+        {isLoading && (
           <p className="text-sm text-muted-foreground">Loading…</p>
         )}
 
-        {!sellersQ.isLoading && pending.length === 0 && (
+        {!isLoading && pending.length === 0 && (
           <div className="rounded-xl border border-dashed border-border py-12 text-center">
             <CheckCircle2 size={28} className="mx-auto mb-3 text-emerald-400" />
             <p className="text-sm font-semibold text-navy">All caught up!</p>
-            <p className="mt-1 text-xs text-muted-foreground">No pending seller registrations.</p>
+            <p className="mt-1 text-xs text-muted-foreground">No pending seller or agent registrations.</p>
           </div>
         )}
 
@@ -77,6 +87,7 @@ export function SellerApprovalsTab() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-navy">{u.name}</span>
+                      <Badge tone={u.role === "agent" ? "new" : "cold"}>{roleLabel(u.role)}</Badge>
                       <Badge tone="warm">Pending</Badge>
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -125,6 +136,7 @@ export function SellerApprovalsTab() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-navy">{u.name}</span>
+                    <Badge tone={u.role === "agent" ? "new" : "cold"}>{roleLabel(u.role)}</Badge>
                     <Badge tone="success">Approved</Badge>
                   </div>
                   <div className="mt-0.5 text-xs text-muted-foreground">{u.email}</div>

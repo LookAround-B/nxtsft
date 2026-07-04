@@ -27,9 +27,11 @@ import {
   ratingSchema,
   amenitiesSchema,
   safeUrlArraySchema,
+  safeUrlSchema,
 } from "../sanitize";
 import { makeInteriorDesignerSlug } from "./interiorDesigners";
 import { generateSlug, assertReraValid, splitList, CATEGORY_IMAGE } from "./properties";
+import { agentInitials, uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 
 const safeUserSelect = {
   id: true,
@@ -131,9 +133,20 @@ export const adminRouter = router({
         const user = await prisma.user.findUnique({ where: { id: input.userId } });
         if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
 
+        // Promoting to agent: seed the public directory profile (slug + metadata)
+        // if missing, so a re-roled user shows correctly on /agents — mirrors the
+        // self-service agent registration path in auth.registerSeller.
+        const agentSeed =
+          input.role === "agent" && !user.slug
+            ? {
+                slug: await uniqueAgentSlug(user.name),
+                metadata: defaultAgentMetadata(user.name, user.city),
+              }
+            : {};
+
         return prisma.user.update({
           where: { id: input.userId },
-          data: { role: input.role },
+          data: { role: input.role, ...agentSeed },
           select: safeUserSelect,
         });
       }),
@@ -296,6 +309,16 @@ export const adminRouter = router({
               type: "account_approved",
               title: "Your account has been approved!",
               content: "You can now log in to NxtSft and list your property.",
+            },
+          });
+        } else if (user.role === "agent") {
+          await prisma.notification.create({
+            data: {
+              userId: input.userId,
+              type: "account_approved",
+              title: "Your agent account has been approved!",
+              content:
+                "Your agent profile is now live on NxtSft. Log in to manage your listings and details.",
             },
           });
         }
@@ -987,6 +1010,206 @@ export const adminRouter = router({
         where: { id: input.userId },
         data: { active: input.active },
         select: safeUserSelect,
+      });
+    }),
+
+  // ── Agent directory management ──────────────────────────────────────────
+  // Agents are role:"agent" users whose public directory fields live in
+  // `metadata` (mirrors the seed). They surface on /agents automatically.
+  adminAgents: adminProcedure
+    .input(z.object({ search: searchSchema.optional() }).optional())
+    .query(async ({ input }) => {
+      const search = input?.search;
+      return prisma.user.findMany({
+        where: {
+          role: "agent",
+          ...(search
+            ? {
+                OR: [
+                  { name: { contains: search, mode: "insensitive" } },
+                  { email: { contains: search, mode: "insensitive" } },
+                  { phone: { contains: search, mode: "insensitive" } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          city: true,
+          avatar: true,
+          slug: true,
+          verified: true,
+          active: true,
+          joined: true,
+          metadata: true,
+        },
+        orderBy: { joined: "desc" },
+      });
+    }),
+
+  createAgent: adminProcedure
+    .input(
+      z.object({
+        name: nameSchema,
+        email: emailSchema,
+        phone: phoneSchema,
+        password: passwordSchema,
+        city: geoTextSchema,
+        avatar: safeUrlSchema.optional(),
+        rating: z.number().min(0).max(5).optional(),
+        deals: z.number().int().min(0).max(100000).optional(),
+        since: z.number().int().min(1950).max(new Date().getFullYear()).optional(),
+        responseTime: safeString(40).optional(),
+        portfolioValue: safeString(40).optional(),
+        color: safeString(40).optional(),
+        featured: z.boolean().optional(),
+        specialties: z.array(safeString(60)).max(12).optional(),
+        languages: z.array(safeString(40)).max(12).optional(),
+        cities: z.array(safeString(60)).max(12).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const [existingEmail, existingPhone] = await Promise.all([
+        prisma.user.findUnique({ where: { email: input.email } }),
+        prisma.user.findUnique({ where: { phone: input.phone } }),
+      ]);
+      if (existingEmail) throw new TRPCError({ code: "CONFLICT", message: "Email already registered." });
+      if (existingPhone) throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
+
+      const passwordHash = await bcrypt.hash(input.password, 12);
+      const slug = await uniqueAgentSlug(input.name);
+
+      const metadata = {
+        initials: agentInitials(input.name),
+        rating: input.rating ?? 5,
+        reviews: 0,
+        deals: input.deals ?? 0,
+        since: input.since ?? new Date().getFullYear(),
+        listings: 0,
+        featured: input.featured ?? false,
+        color: input.color || "bg-accent",
+        responseTime: input.responseTime || "< 24 hrs",
+        portfolioValue: input.portfolioValue || "—",
+        specialties: input.specialties ?? [],
+        languages: input.languages ?? [],
+        cities: input.cities?.length ? input.cities : [input.city],
+      };
+
+      return prisma.user.create({
+        data: {
+          name: input.name,
+          email: input.email,
+          phone: input.phone,
+          role: "agent",
+          city: input.city,
+          avatar: input.avatar || null,
+          slug,
+          passwordHash,
+          verified: true,
+          verifiedAt: new Date(),
+          metadata,
+        },
+        select: { id: true, name: true, slug: true },
+      });
+    }),
+
+  updateAgent: adminProcedure
+    .input(
+      z.object({
+        userId: cuidSchema,
+        name: nameSchema.optional(),
+        email: emailSchema.optional(),
+        phone: phoneSchema.optional(),
+        city: geoTextSchema.optional(),
+        avatar: safeUrlSchema.optional(),
+        rating: z.number().min(0).max(5).optional(),
+        deals: z.number().int().min(0).max(100000).optional(),
+        since: z.number().int().min(1950).max(new Date().getFullYear()).optional(),
+        responseTime: safeString(40).optional(),
+        portfolioValue: safeString(40).optional(),
+        color: safeString(40).optional(),
+        featured: z.boolean().optional(),
+        specialties: z.array(safeString(60)).max(12).optional(),
+        languages: z.array(safeString(40)).max(12).optional(),
+        cities: z.array(safeString(60)).max(12).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const target = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { role: true, metadata: true, name: true },
+      });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Agent not found." });
+      if (target.role !== "agent") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This account is not an agent." });
+      }
+
+      if (input.email) {
+        const existing = await prisma.user.findUnique({ where: { email: input.email } });
+        if (existing && existing.id !== input.userId)
+          throw new TRPCError({ code: "CONFLICT", message: "Email already in use." });
+      }
+      if (input.phone) {
+        const existing = await prisma.user.findUnique({ where: { phone: input.phone } });
+        if (existing && existing.id !== input.userId)
+          throw new TRPCError({ code: "CONFLICT", message: "Phone already in use." });
+      }
+
+      // Merge only the profile fields that were provided into the existing
+      // metadata, so partial edits don't wipe untouched directory fields.
+      const meta = (target.metadata ?? {}) as Record<string, unknown>;
+      const profileKeys = [
+        "rating",
+        "deals",
+        "since",
+        "responseTime",
+        "portfolioValue",
+        "color",
+        "featured",
+        "specialties",
+        "languages",
+        "cities",
+      ] as const;
+      const nextMeta: Record<string, unknown> = { ...meta };
+      for (const k of profileKeys) {
+        if (input[k] !== undefined) nextMeta[k] = input[k];
+      }
+      if (input.name) nextMeta.initials = agentInitials(input.name);
+
+      return prisma.user.update({
+        where: { id: input.userId },
+        data: {
+          ...(input.name !== undefined && { name: input.name }),
+          ...(input.email !== undefined && { email: input.email }),
+          ...(input.phone !== undefined && { phone: input.phone }),
+          ...(input.city !== undefined && { city: input.city }),
+          ...(input.avatar !== undefined && { avatar: input.avatar || null }),
+          // Cast the merged bag to a concrete JSON-value shape — Prisma's input
+          // type rejects a plain Record<string, unknown>. Agent metadata is flat.
+          metadata: nextMeta as Record<string, string | number | boolean | string[]>,
+        },
+        select: { id: true, name: true, slug: true },
+      });
+    }),
+
+  setAgentActive: adminProcedure
+    .input(z.object({ userId: cuidSchema, active: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const target = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { role: true },
+      });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Agent not found." });
+      if (target.role !== "agent") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This account is not an agent." });
+      }
+      return prisma.user.update({
+        where: { id: input.userId },
+        data: { active: input.active },
+        select: { id: true, active: true },
       });
     }),
 

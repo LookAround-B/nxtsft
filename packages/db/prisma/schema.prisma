@@ -20,7 +20,7 @@ model User {
   phone      String?   @unique // optional — OAuth (Google) users have no phone until KYC
   name       String
   avatar     String?
-  role       String    @default("user") // super-admin | admin | supervisor | sales | support-admin | user | home-seller
+  role       String    @default("user") // super-admin | admin | supervisor | sales | support-admin | user | home-seller | agent
   verified   Boolean   @default(false)
   verifiedAt DateTime?
   kycStatus  String    @default("none") // none | pending | verified | rejected
@@ -44,7 +44,8 @@ model User {
   supervisor   User?   @relation("Supervises", fields: [supervisorId], references: [id], onDelete: SetNull)
   supervisees  User[]  @relation("Supervises")
 
-  properties            Property[]
+  properties            Property[]             @relation("OwnedProperties")
+  agentListings         Property[]             @relation("AgentListings")
   listings              Listing[]
   editRequests          PropertyEditRequest[]  @relation("UserEditRequests")
   leads                 Lead[]
@@ -145,7 +146,13 @@ model Property {
   features  Json?
 
   ownerId String
-  owner   User   @relation(fields: [ownerId], references: [id])
+  owner   User   @relation("OwnedProperties", fields: [ownerId], references: [id])
+
+  // Optional marketing agent for this listing — a directory agent (role "agent")
+  // who represents the property. Distinct from ownerId (the seller). Nullable:
+  // most seller-listed properties have no agent.
+  agentId String?
+  agent   User?   @relation("AgentListings", fields: [agentId], references: [id], onDelete: SetNull)
 
   listings      Listing[]
   editRequests  PropertyEditRequest[]
@@ -165,6 +172,7 @@ model Property {
   deletedAt DateTime?
 
   @@index([ownerId])
+  @@index([agentId])
   @@index([type])
   @@index([purpose])
   @@index([status])

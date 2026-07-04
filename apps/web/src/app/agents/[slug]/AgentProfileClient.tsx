@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import {
   Star, Phone, MessageCircle, Lock, ShieldCheck, MapPin, Globe,
@@ -8,14 +9,23 @@ import {
 } from "lucide-react";
 import { trpcClient } from "@/lib/trpcClient";
 import { useAuth } from "@/lib/auth";
-import { toast } from "sonner";
 
 type AgentRow = {
   id: string; name: string; slug: string | null; city: string; verified: boolean;
+  phone?: string | null;
   initials?: string; rating?: number; reviews?: number; deals?: number; since?: number;
   listings?: number; featured?: boolean; color?: string; responseTime?: string;
   portfolioValue?: string; specialties?: string[]; languages?: string[]; cities?: string[];
 };
+
+type AgentListing = {
+  id: string; slug: string; title: string; type: string; purpose: string;
+  price: number; bhk: string | null; area: number; images: string[];
+  location: { city: string; locality: string } | null;
+};
+
+const fmtPrice = (p: number) =>
+  p >= 1e7 ? `₹${(p / 1e7).toFixed(2)} Cr` : p >= 1e5 ? `₹${(p / 1e5).toFixed(1)} L` : `₹${p.toLocaleString("en-IN")}`;
 
 function Stars({ n, size = 14 }: { n: number; size?: number }) {
   return (
@@ -41,11 +51,15 @@ export default function AgentProfileClient() {
   const { slug } = useParams<{ slug: string }>();
   const { session } = useAuth();
   const [agent, setAgent] = useState<AgentRow | null | undefined>(undefined);
+  const [listings, setListings] = useState<AgentListing[]>([]);
 
   useEffect(() => {
     trpcClient.users.getAgent.query({ slug })
       .then(setAgent)
       .catch(() => setAgent(null));
+    trpcClient.users.agentListings.query({ slug })
+      .then(setListings)
+      .catch(() => setListings([]));
   }, [slug]);
 
   if (agent === undefined) {
@@ -73,15 +87,12 @@ export default function AgentProfileClient() {
   const specialties = agent.specialties ?? [];
   const languages = agent.languages ?? [];
 
-  const handleContact = (channel: "phone" | "whatsapp") => {
-    if (!session) {
-      toast.error("Sign in required", { description: `Sign in to contact ${agent.name}.` });
-      return;
-    }
-    toast.success(channel === "phone" ? "Connecting…" : "Opening WhatsApp…", {
-      description: channel === "phone" ? `Calling ${agent.name}.` : `Connecting you with ${agent.name}.`,
-    });
-  };
+  // Normalise the agent's phone to a 10-digit local number, then build real
+  // dial / WhatsApp links (null when no usable number is on file).
+  const local10 = (agent.phone ?? "").replace(/\D/g, "").slice(-10);
+  const hasPhone = local10.length === 10;
+  const telHref = hasPhone ? `tel:+91${local10}` : null;
+  const waHref = hasPhone ? `https://wa.me/91${local10}` : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -148,19 +159,21 @@ export default function AgentProfileClient() {
                 )}
               </div>
               <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-                {session ? (
-                  <>
-                    <button onClick={() => handleContact("phone")} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90 sm:w-auto">
-                      <Phone size={15} /> Call Agent
-                    </button>
-                    <button onClick={() => handleContact("whatsapp")} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-emerald-500/25 transition hover:opacity-90 sm:w-auto">
-                      <MessageCircle size={15} /> WhatsApp
-                    </button>
-                  </>
-                ) : (
+                {!session ? (
                   <Link href="/login" className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90">
                     <Lock size={14} /> Sign in to contact
                   </Link>
+                ) : hasPhone ? (
+                  <>
+                    <a href={telHref!} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90 sm:w-auto">
+                      <Phone size={15} /> Call Agent
+                    </a>
+                    <a href={waHref!} target="_blank" rel="noopener noreferrer" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-emerald-500/25 transition hover:opacity-90 sm:w-auto">
+                      <MessageCircle size={15} /> WhatsApp
+                    </a>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Contact details unavailable</span>
                 )}
               </div>
             </div>
@@ -176,16 +189,62 @@ export default function AgentProfileClient() {
         <div className="mx-auto max-w-5xl px-5 py-10 sm:px-6 sm:py-12">
           <div className="grid gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <div className="rounded-2xl border border-dashed border-border bg-white p-8 text-center">
-                <Building2 size={32} className="mx-auto mb-3 text-muted-foreground/40" strokeWidth={1.5} />
-                <p className="text-sm font-semibold text-navy">Browse live listings</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {agent.name.split(" ")[0]} has closed {agent.deals ?? 0} deals. View available properties.
-                </p>
-                <Link href="/properties" className="mt-4 inline-block rounded-xl bg-accent px-5 py-2 text-sm font-bold text-white transition hover:opacity-90">
-                  Browse Properties →
-                </Link>
-              </div>
+              <h2 className="mb-4 font-display text-lg font-bold text-navy">
+                Listings by {agent.name.split(" ")[0]}
+                {listings.length > 0 && (
+                  <span className="ml-2 text-sm font-semibold text-muted-foreground">
+                    ({listings.length})
+                  </span>
+                )}
+              </h2>
+              {listings.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {listings.map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/properties/${p.slug}`}
+                      className="group overflow-hidden rounded-2xl border border-border bg-white transition hover:border-accent/40 hover:shadow-md"
+                    >
+                      <div className="relative h-40 w-full bg-secondary">
+                        <Image
+                          src={p.images?.[0] ?? "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=70"}
+                          alt={p.title}
+                          fill
+                          className="object-cover transition group-hover:scale-[1.02]"
+                        />
+                        <span className="absolute left-2 top-2 rounded-full bg-navy/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                          For {p.purpose}
+                        </span>
+                      </div>
+                      <div className="p-4">
+                        <div className="truncate text-sm font-semibold text-navy">{p.title}</div>
+                        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin size={11} className="shrink-0" />
+                          {[p.location?.locality, p.location?.city].filter(Boolean).join(", ")}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="font-display text-base font-bold text-accent">{fmtPrice(p.price)}</span>
+                          <div className="flex flex-wrap items-center justify-end gap-1.5 text-[11px] font-semibold text-foreground/70">
+                            {p.bhk && <span className="rounded bg-secondary px-1.5 py-0.5">{p.bhk}</span>}
+                            <span className="rounded bg-secondary px-1.5 py-0.5">{p.area} sqft</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-border bg-white p-8 text-center">
+                  <Building2 size={32} className="mx-auto mb-3 text-muted-foreground/40" strokeWidth={1.5} />
+                  <p className="text-sm font-semibold text-navy">No live listings right now</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {agent.name.split(" ")[0]} has closed {agent.deals ?? 0} deals. Browse other available properties.
+                  </p>
+                  <Link href="/properties" className="mt-4 inline-block rounded-xl bg-accent px-5 py-2 text-sm font-bold text-white transition hover:opacity-90">
+                    Browse Properties →
+                  </Link>
+                </div>
+              )}
             </div>
             <div className="space-y-5">
               {specialties.length > 0 && (
@@ -242,14 +301,16 @@ export default function AgentProfileClient() {
                   <span className="text-xs font-bold uppercase tracking-widest text-gold">Get in Touch</span>
                 </div>
                 <p className="mt-2 text-sm text-white/75">Ready to buy, sell or rent? {agent.name.split(" ")[0]} is available to help.</p>
-                {session ? (
-                  <button onClick={() => handleContact("whatsapp")} className="mt-4 w-full rounded-xl bg-accent py-2.5 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90">
-                    Contact Now
-                  </button>
-                ) : (
+                {!session ? (
                   <Link href="/login" className="mt-4 block w-full rounded-xl bg-accent py-2.5 text-center text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90">
                     Sign in to contact
                   </Link>
+                ) : waHref ? (
+                  <a href={waHref} target="_blank" rel="noopener noreferrer" className="mt-4 block w-full rounded-xl bg-accent py-2.5 text-center text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90">
+                    Contact Now
+                  </a>
+                ) : (
+                  <p className="mt-4 text-sm text-white/60">Contact details unavailable right now.</p>
                 )}
               </div>
             </div>

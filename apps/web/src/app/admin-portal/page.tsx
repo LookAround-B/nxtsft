@@ -22,6 +22,7 @@ import {
   Star,
   Sofa,
   UploadCloud,
+  Contact,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -49,6 +50,7 @@ import { ReferralsTab } from "@/components/admin-portal/tabs/ReferralsTab";
 import { ReviewsTab } from "@/components/admin-portal/tabs/ReviewsTab";
 import { InteriorsTab } from "@/components/admin-portal/tabs/InteriorsTab";
 import { BulkListingsTab } from "@/components/admin-portal/tabs/BulkListingsTab";
+import { AgentsTab } from "@/components/admin-portal/tabs/AgentsTab";
 
 // Grouped nav — groups surface in the sidebar as section headings.
 // Badge counts are static placeholders; wire to live queries once API endpoints expose them.
@@ -69,6 +71,7 @@ const nav = [
 
   // ── Platform ─────────────────────────────────────────────────────────
   { label: "Listings",       to: "/admin-portal#listings",     icon: <Building2 size={14} />,  group: "Platform", badge: 2 },
+  { label: "Agents",         to: "/admin-portal#agents",       icon: <Contact size={14} /> },
   { label: "Reviews",        to: "/admin-portal#reviews",      icon: <Star size={14} /> },
   { label: "Home Interiors", to: "/admin-portal#interiors",    icon: <Sofa size={14} /> },
   { label: "Property Views", to: "/admin-portal#views",        icon: <Eye size={14} /> },
@@ -93,6 +96,7 @@ function renderTab(hash: string) {
     case "enquiries":     return <EnquiriesTab />;
     case "team":          return <TeamTab />;
     case "listings":      return <ListingsTab />;
+    case "agents":        return <AgentsTab />;
     case "leads":         return <LeadsTab />;
     case "crm":           return <CRMTab />;
     case "subscriptions": return <SubscriptionsTab />;

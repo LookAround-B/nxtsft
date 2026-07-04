@@ -67,9 +67,17 @@ const roleActions: Record<Role, Array<{ label: string; to: string; Icon: LucideI
     { label: "Talk to us", to: "/contact", Icon: MessageCircle },
   ],
   "home-seller": [
-    { label: "My Listings", to: "/user-portal", Icon: Sparkles },
-    { label: "My Visits", to: "/user-portal#visits", Icon: Calendar },
+    { label: "My Listings", to: "/user-portal#mylist", Icon: Sparkles },
+    { label: "My Leads", to: "/user-portal#leads", Icon: Target },
+    { label: "My Visits", to: "/user-portal#propvisits", Icon: Calendar },
     { label: "Talk to advisor", to: "/contact", Icon: MessageCircle },
+  ],
+  // Agents manage listings & leads like a Home Seller.
+  agent: [
+    { label: "My Listings", to: "/user-portal#mylist", Icon: Sparkles },
+    { label: "My Leads", to: "/user-portal#leads", Icon: Target },
+    { label: "My Visits", to: "/user-portal#propvisits", Icon: Calendar },
+    { label: "My Public Profile", to: "/agents", Icon: Users },
   ],
   "support-admin": [
     { label: "Support Portal", to: "/support-portal", Icon: MessageCircle },
@@ -111,6 +119,12 @@ const roleStats: Record<Role, Array<{ label: string; value: string; sub?: string
     { label: "KYC", value: "Verified", sub: "All docs OK" },
   ],
   "home-seller": [
+    { label: "Active Listings", value: "2", sub: "1 pending review" },
+    { label: "Visits Booked", value: "2", sub: "1 upcoming" },
+    { label: "Leads Received", value: "9", sub: "4 new this week" },
+    { label: "KYC", value: "Verified", sub: "All docs OK" },
+  ],
+  agent: [
     { label: "Active Listings", value: "2", sub: "1 pending review" },
     { label: "Visits Booked", value: "2", sub: "1 upcoming" },
     { label: "Leads Received", value: "9", sub: "4 new this week" },
@@ -180,6 +194,10 @@ export default function ProfilePage() {
   const updateProfileMutation = trpc.users.updateProfile.useMutation();
   const activityQ = trpc.users.recentActivity.useQuery(undefined, { enabled: !!session });
   const prefsQ = trpc.users.notificationPrefs.useQuery(undefined, { enabled: !!session });
+  // Real counts for the seller stat cards (buyers only fall back to static stats).
+  const sellerStatsQ = trpc.users.sellerStats.useQuery(undefined, {
+    enabled: session?.role === "home-seller",
+  });
   const updatePrefs = trpc.users.updateNotificationPrefs.useMutation({
     onError: (e: { message: string }) => toast.error(e.message),
   });
@@ -238,8 +256,35 @@ export default function ProfilePage() {
   }
 
   const meta = ROLE_META[session.role];
-  const stats = roleStats[session.role];
   const actions = roleActions[session.role];
+
+  // Home-sellers get live counts wired to their listings, with each card linking
+  // to the matching portal page. Every other role keeps its static demo stats.
+  const s = sellerStatsQ.data;
+  const stats: Array<{ label: string; value: string; sub?: string; to?: string }> =
+    session.role === "home-seller"
+      ? [
+          {
+            label: "Active Listings",
+            value: String(s?.activeListings ?? 0),
+            sub: s?.pendingListings ? `${s.pendingListings} pending review` : "Live now",
+            to: "/user-portal#mylist",
+          },
+          {
+            label: "Visits Booked",
+            value: String(s?.visitsBooked ?? 0),
+            sub: s?.upcomingVisits ? `${s.upcomingVisits} upcoming` : "None upcoming",
+            to: "/user-portal#propvisits",
+          },
+          {
+            label: "Leads Received",
+            value: String(s?.leadsReceived ?? 0),
+            sub: s?.newLeadsThisWeek ? `${s.newLeadsThisWeek} new this week` : "No new this week",
+            to: "/user-portal#leads",
+          },
+          { label: "KYC", value: "Verified", sub: "All docs OK" },
+        ]
+      : roleStats[session.role];
 
   const saveProfile = async () => {
     const newName = name.trim() || session!.name;
@@ -340,20 +385,30 @@ export default function ProfilePage() {
 
             {/* Stats as glass tiles */}
             <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-              {stats.map(({ label, value, sub }) => (
-                <div
-                  key={label}
-                  className="rounded-2xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-md transition hover:border-white/25 hover:bg-white/12"
-                >
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/50">
-                    {label}
+              {stats.map(({ label, value, sub, to }) => {
+                const cardClass =
+                  "rounded-2xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-md transition hover:border-white/25 hover:bg-white/12";
+                const inner = (
+                  <>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-white/50">
+                      {label}
+                    </div>
+                    <div className="mt-1.5 font-display text-xl font-black text-white sm:text-2xl md:text-3xl">
+                      {value}
+                    </div>
+                    {sub && <div className="mt-1 text-[11px] text-white/45">{sub}</div>}
+                  </>
+                );
+                return to ? (
+                  <Link key={label} href={to} className={`${cardClass} block`}>
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={label} className={cardClass}>
+                    {inner}
                   </div>
-                  <div className="mt-1.5 font-display text-xl font-black text-white sm:text-2xl md:text-3xl">
-                    {value}
-                  </div>
-                  {sub && <div className="mt-1 text-[11px] text-white/45">{sub}</div>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

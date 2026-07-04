@@ -358,6 +358,111 @@ export const usersRouter = router({
     }));
   }),
 
+  // Leads a home-seller has received — i.e. buyers who enquired on a property
+  // this user owns. Lead has no owner column, so we scope by the seller's own
+  // property ids. Read-only; returns [] for users who own nothing.
+  sellerLeads: protectedProcedure.query(async ({ ctx }) => {
+    const myProps = await prisma.property.findMany({
+      where: { ownerId: ctx.user.id, deletedAt: null },
+      select: { id: true, title: true, slug: true },
+    });
+    if (myProps.length === 0) return [];
+    const byId = new Map(myProps.map((p) => [p.id, p]));
+
+    const leads = await prisma.lead.findMany({
+      where: { propertyId: { in: myProps.map((p) => p.id) } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        city: true,
+        interest: true,
+        source: true,
+        status: true,
+        value: true,
+        createdAt: true,
+        propertyId: true,
+      },
+    });
+
+    return leads.map((l) => ({
+      ...l,
+      property: l.propertyId ? (byId.get(l.propertyId) ?? null) : null,
+    }));
+  }),
+
+  // Site visits booked *to* the seller's listings (buyer's perspective lives in
+  // `siteVisits` above). SiteVisit has no Prisma relation to Property or the
+  // buyer User, so we join both manually by id.
+  sellerVisits: protectedProcedure.query(async ({ ctx }) => {
+    const myProps = await prisma.property.findMany({
+      where: { ownerId: ctx.user.id, deletedAt: null },
+      select: { id: true, title: true, slug: true, location: { select: { city: true } } },
+    });
+    if (myProps.length === 0) return [];
+    const propById = new Map(myProps.map((p) => [p.id, p]));
+
+    const visits = await prisma.siteVisit.findMany({
+      where: { propertyId: { in: myProps.map((p) => p.id) } },
+      orderBy: { scheduledAt: "desc" },
+    });
+
+    const buyerIds = [...new Set(visits.map((v) => v.userId))];
+    const buyers = await prisma.user.findMany({
+      where: { id: { in: buyerIds } },
+      select: { id: true, name: true, phone: true },
+    });
+    const buyerById = new Map(buyers.map((b) => [b.id, b]));
+
+    return visits.map((v) => ({
+      id: v.id,
+      scheduledAt: v.scheduledAt,
+      status: v.status,
+      notes: v.notes,
+      property: propById.get(v.propertyId) ?? null,
+      buyer: buyerById.get(v.userId) ?? null,
+    }));
+  }),
+
+  // Headline counts for the seller's profile stat cards.
+  sellerStats: protectedProcedure.query(async ({ ctx }) => {
+    const myProps = await prisma.property.findMany({
+      where: { ownerId: ctx.user.id, deletedAt: null },
+      select: { id: true, status: true },
+    });
+    const propIds = myProps.map((p) => p.id);
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+
+    const [leadsReceived, newLeadsThisWeek, visitsBooked, upcomingVisits] = propIds.length
+      ? await Promise.all([
+          prisma.lead.count({ where: { propertyId: { in: propIds } } }),
+          prisma.lead.count({
+            where: { propertyId: { in: propIds }, createdAt: { gte: weekAgo } },
+          }),
+          prisma.siteVisit.count({ where: { propertyId: { in: propIds } } }),
+          prisma.siteVisit.count({
+            where: {
+              propertyId: { in: propIds },
+              scheduledAt: { gte: now },
+              status: { in: ["Scheduled", "Rescheduled"] },
+            },
+          }),
+        ])
+      : [0, 0, 0, 0];
+
+    return {
+      activeListings: myProps.filter((p) => p.status === "Active").length,
+      pendingListings: myProps.filter((p) => p.status === "Pending").length,
+      leadsReceived,
+      newLeadsThisWeek,
+      visitsBooked,
+      upcomingVisits,
+    };
+  }),
+
   sessions: protectedProcedure.query(async ({ ctx }) => {
     return prisma.session.findMany({
       where: { userId: ctx.user.id },
@@ -409,7 +514,9 @@ export const usersRouter = router({
 
   getAgents: publicProcedure.query(async () => {
     const agents = await prisma.user.findMany({
-      where: { role: "agent" },
+      // Only approved (verified) + active agents are public. Pending self-service
+      // agent registrations stay hidden until an admin approves them.
+      where: { role: "agent", active: true, verified: true },
       select: {
         id: true,
         name: true,
@@ -437,12 +544,13 @@ export const usersRouter = router({
     .input(z.object({ slug: z.string().min(1).max(120).regex(/^[a-z0-9-]+$/, "Invalid slug") }))
     .query(async ({ input }) => {
       const agent = await prisma.user.findFirst({
-        where: { slug: input.slug, role: "agent" },
+        where: { slug: input.slug, role: "agent", active: true, verified: true },
         select: {
           id: true,
           name: true,
           slug: true,
           email: true,
+          phone: true,
           avatar: true,
           city: true,
           verified: true,
@@ -451,15 +559,23 @@ export const usersRouter = router({
       });
       if (!agent) return null;
       const meta = (agent.metadata ?? {}) as Record<string, unknown>;
+      // Real count of listings this agent markets. Falls back to the static
+      // metadata figure only when none are assigned yet (e.g. pre-backfill).
+      const activeListings = await prisma.property.count({
+        where: { agentId: agent.id, status: "Active", deletedAt: null },
+      });
       return {
         id: agent.id, name: agent.name, slug: agent.slug, email: agent.email,
+        // Agents are public directory professionals — their business phone is
+        // meant to be reachable (unlike private owners, gated by credits).
+        phone: agent.phone,
         avatar: agent.avatar, city: agent.city, verified: agent.verified,
         initials: meta.initials as string | undefined,
         rating: meta.rating as number | undefined,
         reviews: meta.reviews as number | undefined,
         deals: meta.deals as number | undefined,
         since: meta.since as number | undefined,
-        listings: meta.listings as number | undefined,
+        listings: activeListings || (meta.listings as number | undefined),
         featured: meta.featured as boolean | undefined,
         color: meta.color as string | undefined,
         responseTime: meta.responseTime as string | undefined,
@@ -468,6 +584,35 @@ export const usersRouter = router({
         languages: meta.languages as string[] | undefined,
         cities: meta.cities as string[] | undefined,
       };
+    }),
+
+  // Active listings a given agent markets, for their public profile page.
+  agentListings: publicProcedure
+    .input(z.object({ slug: z.string().min(1).max(120).regex(/^[a-z0-9-]+$/, "Invalid slug") }))
+    .query(async ({ input }) => {
+      const agent = await prisma.user.findFirst({
+        where: { slug: input.slug, role: "agent" },
+        select: { id: true },
+      });
+      if (!agent) return [];
+      const properties = await prisma.property.findMany({
+        where: { agentId: agent.id, status: "Active", deletedAt: null },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          type: true,
+          purpose: true,
+          price: true,
+          bhk: true,
+          area: true,
+          images: true,
+          location: { select: { city: true, locality: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 12,
+      });
+      return properties.map((p) => ({ ...p, price: Number(p.price) }));
     }),
 
   getTeamMembers: adminProcedure.query(async () => {

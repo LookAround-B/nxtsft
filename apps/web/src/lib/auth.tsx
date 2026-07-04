@@ -10,7 +10,8 @@ export type Role =
   | "sales"
   | "support-admin"
   | "user"
-  | "home-seller";
+  | "home-seller"
+  | "agent";
 
 export interface Session {
   id: string;
@@ -90,6 +91,17 @@ export const ROLE_META: Record<
     city: "Delhi",
     phone: "+91 9800011001",
   },
+  // Agents onboard through the seller approval queue but land on the same
+  // consumer portal (they manage listings + leads there, like a Home Seller).
+  agent: {
+    label: "Agent / Partner",
+    portal: "/user-portal",
+    portalName: "NxtSft.com Agent",
+    demoEmail: "agent@nxtsft.com",
+    demoName: "Agent Partner",
+    city: "Mumbai",
+    phone: "+91 9800011002",
+  },
 };
 
 const SESSION_KEY = "nxtsft.session";
@@ -125,7 +137,7 @@ interface Ctx {
   signInWithGoogle: (credential: string) => Promise<Session>;
   signOut: () => Promise<void>;
   register: (name: string, email: string, phone: string, password: string, city?: string) => Promise<Session>;
-  registerSeller: (name: string, email: string, phone: string, password: string, city: string) => Promise<void>;
+  registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent") => Promise<void>;
   updateProfile: (name: string, phone: string) => Promise<void>;
   addCredits: (n: number) => void;
   useCredit: () => boolean;
@@ -331,9 +343,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     phone: string,
     password: string,
     city: string,
+    applyAs: "seller" | "agent" = "seller",
   ): Promise<void> {
-    await makeTRPC().auth.registerSeller.mutate({ name, email, phone, password, city });
-    // No session — seller must wait for admin approval
+    await makeTRPC().auth.registerSeller.mutate({ name, email, phone, password, city, applyAs });
+    // No session — applicant must wait for admin approval
   }
 
   async function updateProfile(name: string, phone: string): Promise<void> {
