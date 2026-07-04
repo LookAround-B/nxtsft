@@ -4,6 +4,7 @@ import { cache } from "react";
 import prisma from "@nxtsft/db";
 import { SITE_URL } from "@/lib/site";
 import { jsonLdScript } from "@/lib/jsonLd";
+import { getNonce } from "@/lib/nonce";
 import InteriorDesignerClient from "./InteriorDesignerClient";
 
 export const runtime = "nodejs";
@@ -132,6 +133,7 @@ export default async function InteriorDesignerPage({
     <>
       <script
         type="application/ld+json"
+        nonce={await getNonce()}
         dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
       />
       <InteriorDesignerClient slug={slug} />

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { verifySessionCookie, SESSION_COOKIE_NAME } from "@nxtsft/shared";
 import {
@@ -10,7 +11,8 @@ import {
 } from "@/lib/routes";
 
 /**
- * Site-wide auth + role gate. Access rules live in `src/lib/routes.ts`.
+ * Site-wide auth + role gate, plus per-request CSP nonce. Access rules live
+ * in `src/lib/routes.ts`.
  *
  *  - PUBLIC routes        → always allowed.
  *  - No session           → redirect to the right login (staff → /admin-login).
@@ -29,14 +31,66 @@ import {
  * never trusts this cookie. GOL-268 M1.
  */
 
-// node:crypto (HMAC) needs the Node runtime — Next.js middleware supports
-// this since 15.2 (previously Edge-only).
+// node:crypto (HMAC, randomBytes) needs the Node runtime — Next.js middleware
+// supports this since 15.2 (previously Edge-only).
 export const runtime = "nodejs";
 
 function roleFromCookie(value: string | undefined) {
   const parsed = verifySessionCookie(value);
   if (!parsed) return null;
   return isRole(parsed.role) ? parsed.role : null;
+}
+
+// Hostname of the configured R2 public bucket, so img-src allows listing
+// photos — mirrors the same lookup in next.config.ts (kept separate: that one
+// runs at build time, this one runs per-request).
+const r2Host = (() => {
+  try {
+    return process.env.CLOUDFLARE_R2_PUBLIC_URL
+      ? new URL(process.env.CLOUDFLARE_R2_PUBLIC_URL).hostname
+      : null;
+  } catch {
+    return null;
+  }
+})();
+const r2ImgSrc = r2Host ? ` https://${r2Host}` : "";
+
+// Builds the Content-Security-Policy value for this request. script-src uses
+// a per-request nonce instead of 'unsafe-inline' (GOL-268 H3) — the only
+// inline scripts in the app are the JSON-LD <script> tags on detail pages
+// (properties/builders/agents/interiors/decor), which read this same nonce
+// via src/lib/nonce.ts. style-src keeps 'unsafe-inline' (Tailwind/inline
+// style attributes throughout the app; out of scope for this fix — the
+// finding is specifically about script-src).
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' blob: https://accounts.google.com https://checkout.razorpay.com`,
+    // Mapbox GL renders tiles in a blob web worker.
+    "worker-src 'self' blob:",
+    "child-src 'self' blob:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https://images.unsplash.com https://*.r2.cloudflarecontent.com https://*.r2.dev https://api.mapbox.com https://*.razorpay.com" +
+      r2ImgSrc,
+    "connect-src 'self' https://accounts.google.com https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https://*.razorpay.com https://lumberjack.razorpay.com",
+    // Razorpay checkout renders its payment UI (cards, UPI, 3DS/OTP) in an iframe.
+    "frame-src https://accounts.google.com https://api.razorpay.com https://checkout.razorpay.com",
+    "frame-ancestors 'none'",
+  ].join("; ");
+}
+
+function nextWithCsp(request: NextRequest): NextResponse {
+  const nonce = randomBytes(16).toString("base64");
+  const csp = buildCsp(nonce);
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
 }
 
 export function middleware(request: NextRequest) {
@@ -51,7 +105,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (isPublic(pathname)) return NextResponse.next();
+  if (isPublic(pathname)) return nextWithCsp(request);
 
   // Protected route, no valid session → bounce to the appropriate login.
   if (!role) {
@@ -69,7 +123,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return nextWithCsp(request);
 }
 
 export const config = {
