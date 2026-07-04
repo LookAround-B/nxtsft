@@ -216,7 +216,7 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
       {/* Main */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm sm:px-6 transition-shadow duration-200">
+        <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-white/95 px-4 py-3 shadow-sm sm:px-6 transition-shadow duration-200">
           <div className="flex items-center gap-3">
             {/* Mobile toggle */}
             <button

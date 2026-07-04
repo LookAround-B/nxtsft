@@ -55,10 +55,10 @@ const CITIES = [
 ];
 const BHK_OPTIONS = ["1 BHK", "2 BHK", "3 BHK", "4+ BHK", "Open Plot", "Studio"];
 
-// Property types that aren't sold by BHK / super-built-up area — a PG is priced
-// per bed and a Studio is a single open unit — so we hide that whole field group
-// for them and don't require it.
-const NO_AREA_BHK_TYPES = ["PG / Co-living", "Studio"];
+// Property types that aren't sold by BHK config — a PG is priced per bed and a
+// Studio is a single open unit, so neither has a "2 BHK"-style configuration.
+// They still have a physical area, so the area field stays required for them.
+const NO_BHK_TYPES = ["PG / Co-living", "Studio"];
 
 const STEPS = [
   { num: 1, label: "Role", Icon: User },
@@ -245,9 +245,9 @@ export default function ListPropertyPage() {
       amenities: d.amenities.includes(a) ? d.amenities.filter((x) => x !== a) : [...d.amenities, a],
     }));
 
-  // Whether the current property type uses the area + BHK field group (hidden for
-  // PG / Co-living and Studio — see NO_AREA_BHK_TYPES).
-  const usesAreaBhk = !NO_AREA_BHK_TYPES.includes(data.propertyType);
+  // Whether the current property type has a BHK-style configuration (hidden for
+  // PG / Co-living and Studio — see NO_BHK_TYPES). Area applies to every type.
+  const showBhk = !NO_BHK_TYPES.includes(data.propertyType);
 
   const validate = (s: number): Record<string, string> => {
     const e: Record<string, string> = {};
@@ -256,8 +256,8 @@ export default function ListPropertyPage() {
       if (!data.propertyType) e.propertyType = "Select a property type";
       if (!data.city) e.city = "Select a city";
       if (!data.price) e.price = "Enter a price";
-      if (usesAreaBhk && !data.area) e.area = "Enter property area";
-      if (usesAreaBhk && !data.bhk) e.bhk = "Select a configuration";
+      if (!data.area) e.area = "Enter property area";
+      if (showBhk && !data.bhk) e.bhk = "Select a configuration";
     }
     if (s === 3) {
       if (!data.description.trim()) e.description = "Add a brief description";
@@ -376,8 +376,12 @@ export default function ListPropertyPage() {
           possession: data.possession || undefined,
           projectId: selectedProject?.id,
         });
-      } catch {
-        // DB save failed; local listing still saved above
+      } catch (err) {
+        // The DB save failed — don't show the success screen for a listing that
+        // doesn't actually exist. Surface the real error so the seller can fix
+        // the input and retry instead of believing it was published.
+        toast.error(err instanceof Error ? err.message : "Couldn't save your listing — please try again.");
+        return;
       }
     }
     setSubmitted(result);
@@ -735,13 +739,13 @@ export default function ListPropertyPage() {
                         // (sq. yards is only offered for Plot) — clear it on type
                         // change so a stale value/unit never gets silently reused.
                         if (t !== data.propertyType) {
-                          const noAreaBhk = NO_AREA_BHK_TYPES.includes(t);
+                          const noBhk = NO_BHK_TYPES.includes(t);
                           setData((d) => ({
                             ...d,
                             propertyType: t,
                             area: "",
                             areaUnit: "sqft",
-                            bhk: noAreaBhk ? "" : d.bhk,
+                            bhk: noBhk ? "" : d.bhk,
                           }));
                           setErrors((e) => ({ ...e, propertyType: "", area: "", bhk: "" }));
                         }
@@ -914,7 +918,7 @@ export default function ListPropertyPage() {
                     />
                     {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
                   </div>
-                ) : usesAreaBhk ? (
+                ) : showBhk ? (
                   <>
                     <div>
                       <label className="block text-sm font-semibold text-foreground">
@@ -942,10 +946,22 @@ export default function ListPropertyPage() {
                       />
                     </div>
                   </>
-                ) : null}
+                ) : (
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground">Area (sqft)</label>
+                    <input
+                      type="number"
+                      value={data.area}
+                      onChange={(e) => set("area", e.target.value)}
+                      placeholder="e.g. 350"
+                      className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.area ? "border-rose-400" : "border-input"}`}
+                    />
+                    {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
+                  </div>
+                )}
               </div>
 
-              {usesAreaBhk && (
+              {showBhk && (
                 <div className="mt-5">
                   <label className="block text-sm font-semibold text-foreground">
                     Configuration / BHK

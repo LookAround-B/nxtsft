@@ -12,6 +12,7 @@ import {
   Phone,
   MessageCircle,
   Heart,
+  Calendar,
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
@@ -868,6 +869,8 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
 
             <InquiryForm property={property} session={session} />
 
+            <ScheduleVisitCard property={property} session={session} />
+
             {/* Price info card */}
             <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -998,6 +1001,80 @@ function InquiryForm({
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-navy py-3 font-display text-sm font-bold text-white transition hover:opacity-95 disabled:opacity-60"
             >
               {createLead.isPending ? "Sending…" : session ? "Send Enquiry" : "Sign in to enquire"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─── "Schedule a Visit" — books a physical tour directly (siteVisits.create),
+   independent of the enquiry form above. Shows up immediately under the
+   buyer's own Scheduled Tours tab. ─────────────────────────────────────────── */
+function ScheduleVisitCard({
+  property,
+  session,
+}: {
+  property: FullProperty;
+  session: ReturnType<typeof useAuth>["session"];
+}) {
+  const router = useRouter();
+  const [booked, setBooked] = useState(false);
+  const [when, setWhen] = useState("");
+
+  const createVisit = trpc.siteVisits.create.useMutation({
+    onSuccess: () => {
+      setBooked(true);
+      toast.success("Visit requested! Track it under Scheduled Tours.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const submit = () => {
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+    if (!when) return toast.error("Pick a date and time for your visit.");
+    if (new Date(when).getTime() <= Date.now())
+      return toast.error("Pick a time in the future.");
+    createVisit.mutate({ propertyId: property.id, scheduledAt: new Date(when).toISOString() });
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-white p-5 sm:p-6 shadow-sm">
+      <h3 className="flex items-center gap-2 font-display text-base font-bold text-navy">
+        <Calendar size={16} className="text-accent" />
+        Schedule a Visit
+      </h3>
+      {booked ? (
+        <div className="mt-4 flex flex-col items-center gap-2 rounded-xl bg-emerald-50 px-4 py-8 text-center">
+          <ShieldCheck size={28} className="text-emerald-500" />
+          <p className="text-sm font-semibold text-navy">Visit requested!</p>
+          <p className="text-xs text-muted-foreground">
+            Find it under Scheduled Tours in your portal.
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Pick a time to tour this {property.type.toLowerCase()} in person.
+          </p>
+          <div className="mt-4 space-y-2.5">
+            <input
+              type="datetime-local"
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+              min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)}
+              className="w-full rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+            />
+            <button
+              onClick={submit}
+              disabled={createVisit.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-mid-blue py-3 font-display text-sm font-bold text-white transition hover:opacity-95 disabled:opacity-60"
+            >
+              {createVisit.isPending ? "Booking…" : session ? "Request Visit" : "Sign in to schedule"}
             </button>
           </div>
         </>
