@@ -12,6 +12,7 @@ import {
   Gift,
   PlusCircle,
   Users,
+  LifeBuoy,
 } from "lucide-react";
 import { Home as HomeIcon } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
@@ -31,6 +32,7 @@ import { KYCTab } from "@/components/user-portal/tabs/KYCTab";
 import { ReferTab } from "@/components/user-portal/tabs/ReferTab";
 import { SellerLeadsTab } from "@/components/user-portal/tabs/SellerLeadsTab";
 import { SellerVisitsTab } from "@/components/user-portal/tabs/SellerVisitsTab";
+import { SupportTicketsTab } from "@/components/user-portal/tabs/SupportTicketsTab";
 
 export default function UserPortal() {
   const { session } = useAuth();
@@ -61,6 +63,7 @@ export default function UserPortal() {
     { label: "Scheduled Tours",  to: "/user-portal#visits",   icon: <Calendar size={14} /> },
     { label: "EMI Calculator",   to: "/user-portal#emi",      icon: <Calculator size={14} /> },
     { label: "Documents (KYC)", to: "/user-portal#kyc",      icon: <FileCheck size={14} /> },
+    { label: "Support Tickets", to: "/user-portal#support",  icon: <LifeBuoy size={14} /> },
     { label: "Refer & Earn",     to: "/user-portal#refer",    icon: <Gift size={14} /> },
   ];
 
@@ -90,6 +93,7 @@ function renderTab(h: string, userEmail: string) {
     case "visits":  return <SiteVisitsTab />;
     case "emi":     return <EMICalcTab />;
     case "kyc":     return <KYCTab />;
+    case "support": return <SupportTicketsTab />;
     case "profile": return <ProfileTab />;
     case "alerts":  return <SearchAlertsTab />;
     case "refer":   return <ReferTab />;
