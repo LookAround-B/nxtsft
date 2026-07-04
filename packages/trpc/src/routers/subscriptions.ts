@@ -243,8 +243,24 @@ export const subscriptionsRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "Payment already processed." });
       }
 
-      const dbPlan = await prisma.plan.findUnique({ where: { id: input.planId } });
-      const staticPlan = SEEKER_PLANS.find((p) => p.id === input.planId);
+      // Bind the plan to the pending order created by createOrder — never trust
+      // the client-supplied planId. Otherwise a user could pay for the cheapest
+      // plan and replay the valid signature with an expensive planId to mint a
+      // larger credit grant. The signature only covers orderId|paymentId, so the
+      // plan/amount must come from our own recorded order row.
+      const pendingOrder = await prisma.payment.findFirst({
+        where: { razorpayOrderId: input.razorpayOrderId, userId: ctx.user.id, gateway: "razorpay" },
+      });
+      if (!pendingOrder) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Order not found." });
+      }
+      const boundPlanId = (pendingOrder.metadata as { planId?: string } | null)?.planId;
+      if (!boundPlanId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Order is missing plan information." });
+      }
+
+      const dbPlan = await prisma.plan.findUnique({ where: { id: boundPlanId } });
+      const staticPlan = SEEKER_PLANS.find((p) => p.id === boundPlanId);
       const plan = dbPlan ?? staticPlan;
 
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
@@ -442,7 +458,21 @@ export const subscriptionsRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "Payment already processed." });
       }
 
-      const plan = OWNER_PLANS.find((p) => p.id === input.planId);
+      // Bind the plan to the pending order — never trust the client planId (see
+      // verifyPayment). Prevents paying for a cheap tier then activating a higher
+      // one via a replayed-but-valid signature.
+      const pendingOrder = await prisma.payment.findFirst({
+        where: { razorpayOrderId: input.razorpayOrderId, userId: ctx.user.id, gateway: "razorpay" },
+      });
+      if (!pendingOrder) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Order not found." });
+      }
+      const boundPlanId = (pendingOrder.metadata as { planId?: string } | null)?.planId;
+      if (!boundPlanId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Order is missing plan information." });
+      }
+
+      const plan = OWNER_PLANS.find((p) => p.id === boundPlanId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       const now = new Date();
@@ -453,7 +483,7 @@ export const subscriptionsRouter = router({
         prisma.subscription.create({
           data: {
             userId: ctx.user.id,
-            planId: input.planId,
+            planId: boundPlanId,
             planName: plan.name,
             amount: BigInt(plan.price * 100),
             status: "Active",

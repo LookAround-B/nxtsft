@@ -38,6 +38,11 @@ export async function buildApp() {
   await app.register(rateLimit, {
     max: 100,
     timeWindow: "1 minute",
+    // Behind the reverse proxy, request.ip is the proxy address, so keying on it
+    // would share one budget across all clients. Key per real client IP from the
+    // trusted X-Forwarded-For header (same resolver the audit hook uses).
+    keyGenerator: (req: any) =>
+      trustedClientIp(req.headers["x-forwarded-for"] as string, req.ip) ?? req.ip,
     errorResponseBuilder: (_req: any, context: any) => ({
       statusCode: 429,
       error: "Too Many Requests",

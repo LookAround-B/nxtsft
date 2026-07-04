@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { verifySessionCookie, SESSION_COOKIE_NAME } from "@nxtsft/shared";
 import {
@@ -55,17 +54,18 @@ const r2Host = (() => {
 })();
 const r2ImgSrc = r2Host ? ` https://${r2Host}` : "";
 
-// Builds the Content-Security-Policy value for this request. script-src uses
-// a per-request nonce instead of 'unsafe-inline' (GOL-268 H3) — the only
-// inline scripts in the app are the JSON-LD <script> tags on detail pages
-// (properties/builders/agents/interiors/decor), which read this same nonce
-// via src/lib/nonce.ts. style-src keeps 'unsafe-inline' (Tailwind/inline
-// style attributes throughout the app; out of scope for this fix — the
-// finding is specifically about script-src).
-function buildCsp(nonce: string): string {
+// Builds the site Content-Security-Policy. script-src keeps 'unsafe-inline':
+// a per-request nonce is incompatible with static prerendering — Next only
+// injects the nonce into its bootstrap scripts on dynamically-rendered pages,
+// so a global nonce CSP blocks the inline scripts on every static page
+// (homepage, listings, marketing). The one app-authored inline-script vector,
+// the JSON-LD <script> tags on detail pages, is XSS-safe regardless of CSP
+// because jsonLdScript() escapes the payload (see src/lib/jsonLd.ts). GOL-268
+// H3 is accepted as a Low residual in exchange for keeping static generation.
+function buildCsp(): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' blob: https://accounts.google.com https://checkout.razorpay.com`,
+    "script-src 'self' 'unsafe-inline' blob: https://accounts.google.com https://checkout.razorpay.com",
     // Mapbox GL renders tiles in a blob web worker.
     "worker-src 'self' blob:",
     "child-src 'self' blob:",
@@ -80,16 +80,9 @@ function buildCsp(nonce: string): string {
   ].join("; ");
 }
 
-function nextWithCsp(request: NextRequest): NextResponse {
-  const nonce = randomBytes(16).toString("base64");
-  const csp = buildCsp(nonce);
-
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
-  requestHeaders.set("Content-Security-Policy", csp);
-
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.headers.set("Content-Security-Policy", csp);
+function nextWithCsp(_request: NextRequest): NextResponse {
+  const response = NextResponse.next();
+  response.headers.set("Content-Security-Policy", buildCsp());
   return response;
 }
 

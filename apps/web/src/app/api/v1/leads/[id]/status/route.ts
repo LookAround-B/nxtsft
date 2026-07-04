@@ -26,6 +26,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const result = schema.safeParse(body);
     if (!result.success) return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
 
+    // A sales rep may only touch leads assigned to them (mirrors the tRPC
+    // leads.updateStatus guard); other staff roles may update any lead.
+    const existing = await prisma.lead.findUnique({ where: { id } });
+    if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (user.role === "sales" && existing.assignedToId !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const lead = await prisma.lead.update({ where: { id }, data: { status: result.data.status } });
     return NextResponse.json(lead);
   } catch {
