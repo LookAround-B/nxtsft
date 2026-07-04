@@ -69,7 +69,10 @@ function buildCsp(): string {
     // Mapbox GL renders tiles in a blob web worker.
     "worker-src 'self' blob:",
     "child-src 'self' blob:",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    // accounts.google.com: the GSI client injects its stylesheet
+    // (https://accounts.google.com/gsi/style) into the page for the Google
+    // sign-in button/popup UX.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https://images.unsplash.com https://*.r2.cloudflarecontent.com https://*.r2.dev https://api.mapbox.com https://*.razorpay.com" +
       r2ImgSrc,
@@ -128,6 +131,6 @@ export const config = {
      *  - /_next/image    (image optimizer)
      *  - common static files (favicon, robots, sitemap, images, fonts)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.json|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf)$).*)",
   ],
 };
