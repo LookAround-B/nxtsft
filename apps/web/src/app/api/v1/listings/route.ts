@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@nxtsft/db";
 import { createListingSchema } from "@/lib/validation";
-import { getAuthUser, serializeBigInt } from "../helper";
+import { getAuthUser, serializeBigInt, rateLimitOrResponse } from "../helper";
 
 export const dynamic = "force-dynamic";
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
 
 export async function GET(req: NextRequest) {
+  const limited = await rateLimitOrResponse(req);
+  if (limited) return limited;
   try {
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -40,6 +42,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = await rateLimitOrResponse(req);
+  if (limited) return limited;
   try {
     const user = await getAuthUser(req);
     if (!user) {

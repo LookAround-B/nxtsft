@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@nxtsft/db";
 import { z } from "zod";
-import { getAuthUser } from "../../../helper";
+import { getAuthUser, rateLimitOrResponse } from "../../../helper";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const limited = await rateLimitOrResponse(req);
+  if (limited) return limited;
   try {
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@nxtsft/db";
-import { serializeBigInt } from "../../helper";
+import { serializeBigInt, rateLimitOrResponse } from "../../helper";
 export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const limited = await rateLimitOrResponse(req);
+  if (limited) return limited;
   try {
     const { id } = await params;
     const property = await prisma.property.findFirst({

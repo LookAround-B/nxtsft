@@ -5,6 +5,7 @@ import rateLimit from "@fastify/rate-limit";
 import compress from "@fastify/compress";
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from "@trpc/server/adapters/fastify";
 import { appRouter, type AppRouter } from "@nxtsft/trpc";
+import { trustedClientIp } from "@nxtsft/shared";
 import { createContext } from "./context.js";
 import { config, isDev } from "./config.js";
 
@@ -67,7 +68,7 @@ export async function buildApp() {
         method: request.method,
         url: request.url,
         statusCode: reply.statusCode,
-        ip: request.headers["x-forwarded-for"] || request.ip,
+        ip: trustedClientIp(request.headers["x-forwarded-for"] as string, request.ip),
         responseTimeMs: Math.round(reply.elapsedTime),
       }, "request completed");
     }

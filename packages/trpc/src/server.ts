@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import prisma from "@nxtsft/db";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { verifySessionCookie, SESSION_COOKIE_NAME, hashToken } from "@nxtsft/shared";
+import { verifySessionCookie, SESSION_COOKIE_NAME, hashToken, trustedClientIp } from "@nxtsft/shared";
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"] as const;
 const ADMIN_ROLES = ["admin", "super-admin"] as const;
@@ -52,7 +52,8 @@ export const createTRPCContext = async (opts: { req: Request }) => {
     token = verifySessionCookie(cookie)?.token ?? null;
   }
 
-  const ip = opts.req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  // Not just the first hop — see trustedClientIp (GOL-268 L5).
+  const ip = trustedClientIp(opts.req.headers.get("x-forwarded-for"));
   return createContextFromToken(token, ip);
 };
 
@@ -155,29 +156,36 @@ function makeRatelimit(points: number, windowSeconds: number): Ratelimit | null 
   });
 }
 
+// Framework-agnostic rate-limit check, shared by the tRPC middleware below
+// and the REST v1 route handlers (apps/web/src/app/api/v1/helper.ts —
+// GOL-268 L6, that surface previously had no rate limiting at all). Same
+// fail-closed-in-production / skip-in-dev-without-Redis policy as M2.
+export async function checkRateLimit(
+  key: string,
+  points: number,
+  windowSeconds: number,
+): Promise<{ ok: true } | { ok: false; retryIn: number }> {
+  const limiter = makeRatelimit(points, windowSeconds);
+  if (!limiter) {
+    if (process.env.NODE_ENV === "production") return { ok: false, retryIn: windowSeconds };
+    return { ok: true }; // local dev without Redis — skip
+  }
+  const { success, reset } = await limiter.limit(key);
+  if (!success) return { ok: false, retryIn: Math.ceil((reset - Date.now()) / 1000) };
+  return { ok: true };
+}
+
 function createRateLimiter(points: number, windowMs: number) {
   const windowSeconds = Math.ceil(windowMs / 1000);
-  const limiter = makeRatelimit(points, windowSeconds);
 
   return middleware(async ({ ctx, next, path }) => {
-    if (!limiter) {
-      // No Redis configured. In development we skip so local work is never
-      // blocked. In production this means the control cannot be enforced, so
-      // fail closed on the rate-limited procedure rather than silently allowing
-      // unlimited attempts (brute force, spam).
-      if (process.env.NODE_ENV === "production") {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Rate limiting is temporarily unavailable. Please try again later.",
-        });
-      }
-      return next(); // local dev without Redis — skip
-    }
-
     const key = `${path}:${ctx.user?.id ?? ctx.ip ?? "anon"}`;
-    const { success, reset } = await limiter.limit(key);
-    if (!success) {
-      const retryIn = Math.ceil((reset - Date.now()) / 1000);
+    const result = await checkRateLimit(key, points, windowSeconds);
+    if (!result.ok) {
+      // No Redis configured in production surfaces as ok:false too (fail
+      // closed rather than silently allowing unlimited attempts), same
+      // message either way so callers can't distinguish the two cases.
+      const retryIn = result.retryIn;
       throw new TRPCError({
         code: "TOO_MANY_REQUESTS",
         message: `Rate limit exceeded. Try again in ${retryIn} seconds.`,

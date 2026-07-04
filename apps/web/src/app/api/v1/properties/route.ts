@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@nxtsft/db";
 import { queryParamsSchema, createPropertySchema } from "@/lib/validation";
-import { getAuthUser, serializeBigInt } from "../helper";
+import { getAuthUser, serializeBigInt, rateLimitOrResponse } from "../helper";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const limited = await rateLimitOrResponse(req);
+  if (limited) return limited;
   try {
     const { searchParams } = new URL(req.url);
 
@@ -80,6 +82,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = await rateLimitOrResponse(req);
+  if (limited) return limited;
   try {
     const user = await getAuthUser(req);
     if (!user) {
