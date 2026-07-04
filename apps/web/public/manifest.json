@@ -7,22 +7,34 @@
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
-  "theme_color": "#E3261E",
+  "theme_color": "#12244f",
   "lang": "en-IN",
   "dir": "ltr",
   "categories": ["real estate", "business", "lifestyle"],
   "icons": [
     {
-      "src": "/logo.png",
-      "sizes": "any",
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/logo.png",
-      "sizes": "any",
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "maskable"
     },
     {
       "src": "/favicon.ico",
@@ -36,28 +48,28 @@
       "short_name": "Portal",
       "url": "/user-portal",
       "description": "Your NxtSft account, bookmarks and wallet",
-      "icons": [{ "src": "/logo.png", "sizes": "any" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Search Properties",
       "short_name": "Search",
       "url": "/properties",
       "description": "Browse verified listings",
-      "icons": [{ "src": "/logo.png", "sizes": "any" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Admin Panel",
       "short_name": "Admin",
       "url": "/admin-portal",
       "description": "NxtSft control panel",
-      "icons": [{ "src": "/logo.png", "sizes": "any" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Refer & Earn",
       "short_name": "Refer",
       "url": "/refer",
       "description": "Earn rewards by referring",
-      "icons": [{ "src": "/logo.png", "sizes": "any" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ],
   "screenshots": [],
