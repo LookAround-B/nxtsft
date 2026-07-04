@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { verifySessionCookie, SESSION_COOKIE_NAME } from "@nxtsft/shared";
 import {
   HOME_FOR_ROLE,
   canAccess,
@@ -18,20 +19,29 @@ import {
  *
  * Static assets and /api are excluded via `config.matcher`; API route handlers
  * enforce their own auth.
+ *
+ * The `nxtsft_session` cookie is httpOnly and signed server-side (set by
+ * /api/auth/session right after login) — client JS can neither read nor forge
+ * it, and a tampered value fails signature verification below and is treated
+ * as "no session". This is a page-routing convenience gate only; the actual
+ * authorization boundary is each protected/staff/admin tRPC procedure, which
+ * always re-derives the role fresh from the DB by token (see server.ts) and
+ * never trusts this cookie. GOL-268 M1.
  */
 
-/** Cookie format: "token|role". Returns the role segment, validated. */
+// node:crypto (HMAC) needs the Node runtime — Next.js middleware supports
+// this since 15.2 (previously Edge-only).
+export const runtime = "nodejs";
+
 function roleFromCookie(value: string | undefined) {
-  if (!value) return null;
-  const sep = value.lastIndexOf("|");
-  if (sep === -1) return null;
-  const role = value.slice(sep + 1);
-  return isRole(role) ? role : null;
+  const parsed = verifySessionCookie(value);
+  if (!parsed) return null;
+  return isRole(parsed.role) ? parsed.role : null;
 }
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const role = roleFromCookie(request.cookies.get("nxtsft_session")?.value);
+  const role = roleFromCookie(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
   // Already signed in? Keep them out of the login/register pages.
   if (role && isLoginRoute(pathname)) {

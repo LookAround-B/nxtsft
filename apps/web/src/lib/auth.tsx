@@ -106,27 +106,33 @@ export const ROLE_META: Record<
 
 const SESSION_KEY = "nxtsft.session";
 const CREDITS_KEY = "nxtsft.credits";
-const TOKEN_KEY = "nxtsft.token";
 
-/* ---- Cookie helpers (mirror for Edge Middleware) ---- */
+/* ---- Session cookie sync (server-set httpOnly cookie, GOL-268 H2/M1) ----
+ * The actual session token now lives only in a server-set httpOnly cookie —
+ * it's never persisted to localStorage or written by client JS, so an XSS
+ * payload can no longer read or exfiltrate it. The token still passes through
+ * a JS variable once, synchronously, right after login (unavoidable — the
+ * server has to communicate it somehow); it's handed straight to this route
+ * and discarded, never stored. */
 
-function setSessionCookie(token: string, role: string): void {
-  // SameSite=Lax (not Strict): a session cookie must travel on top-level
-  // navigations that originate off-site (WhatsApp/email/search links, bookmarks,
-  // new tabs). With Strict the browser withholds the cookie on those first
-  // requests, so the Edge middleware sees "no session" and bounces the user to
-  // /login even though they're signed in. Lax still blocks CSRF on unsafe methods.
-  document.cookie = `nxtsft_session=${token}|${role}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
+async function syncSessionCookie(token: string): Promise<void> {
+  await fetch("/api/auth/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ token }),
+  });
 }
 
-function clearSessionCookie(): void {
-  document.cookie = 'nxtsft_session=; path=/; max-age=0';
+async function clearSessionCookieServer(): Promise<void> {
+  try {
+    await fetch("/api/auth/session", { method: "DELETE", credentials: "include" });
+  } catch {}
 }
 
 interface Ctx {
   session: Session | null;
   credits: number;
-  token: string | null;
   loading: boolean;
   // Flips true once the background server re-check (see AuthProvider's mount
   // effect) resolves — lets pages tell "session hydrated from localStorage,
@@ -146,13 +152,17 @@ interface Ctx {
 
 const AuthContext = createContext<Ctx | null>(null);
 
-// Vanilla tRPC client for imperative calls (AuthProvider can't use hooks)
-function makeTRPC(token?: string | null) {
+// Vanilla tRPC client for imperative calls (AuthProvider can't use hooks).
+// Auth now travels via the httpOnly session cookie (credentials: "include"),
+// not a JS-held token — see the syncSessionCookie comment above.
+function makeTRPC() {
   return createTRPCClient<AppRouter>({
     links: [
       httpBatchLink({
         url: "/api/trpc",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        fetch(url, options) {
+          return fetch(url, { ...options, credentials: "include" });
+        },
       }),
     ],
   });
@@ -213,52 +223,41 @@ function removeLS(key: string): void {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [credits, setCredits] = useState(0);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
     const raw = readLS(SESSION_KEY, "null");
-    const t = readLS(TOKEN_KEY, "");
     const c = Math.max(0, parseInt(readLS(CREDITS_KEY, "0"), 10) || 0);
+    let hadCachedSession = false;
     try {
       const parsed: unknown = JSON.parse(raw);
       if (parsed && typeof parsed === "object") {
         setSession(parsed as Session);
-        if (t && parsed) {
-          setSessionCookie(t, (parsed as Session).role);
-        }
+        hadCachedSession = true;
       }
     } catch {}
-    if (t) setToken(t);
     setCredits(c);
     setLoading(false);
 
-    // Background re-validation against the server. The `nxtsft_session` cookie
-    // (read by Edge middleware to gate pages) is written by client JS only and
-    // never re-checked — if it silently disappears while localStorage survives
-    // (Safari caps JS-set cookies at 7 days; some in-app browsers clear cookies
-    // more aggressively than storage), middleware sees "no session" and bounces
-    // a still-validly-signed-in user back to /login. This also picks up role
-    // changes (e.g. an admin promoting the user to home-seller) that the cached
-    // localStorage session would otherwise never see until a fresh login.
-    if (t) {
-      makeTRPC(t)
+    // Background re-validation against the server via the httpOnly session
+    // cookie — that cookie (not this cached localStorage copy) is what
+    // actually grants access, so this also catches: the cookie expired or
+    // was cleared, or the user's role changed (e.g. an admin promoting them
+    // to home-seller) since the cached copy was written.
+    if (hadCachedSession) {
+      makeTRPC()
         .auth.me.query()
         .then((freshUser) => {
           if (!freshUser) {
-            // Token no longer valid server-side — clear the stale local session.
-            clearSessionCookie();
+            // No valid session server-side — clear the stale local cache.
             removeLS(SESSION_KEY);
-            removeLS(TOKEN_KEY);
             removeLS(CREDITS_KEY);
             setSession(null);
-            setToken(null);
             setCredits(0);
             return;
           }
-          persist(toSession(freshUser), t, freshUser.credits);
-          setSessionCookie(t, freshUser.role);
+          persist(toSession(freshUser), freshUser.credits);
         })
         .catch(() => {
           // Network hiccup — keep the cached session; we'll re-check next load.
@@ -269,50 +268,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  function persist(s: Session, t: string, c: number) {
+  // Caches only display info (name/role/city/etc.) for a flash-free first
+  // paint — never the token. Access is gated purely by the httpOnly cookie.
+  function persist(s: Session, c: number) {
     writeLS(SESSION_KEY, JSON.stringify(s));
-    writeLS(TOKEN_KEY, t);
     writeLS(CREDITS_KEY, String(c));
     setSession(s);
-    setToken(t);
     setCredits(c);
   }
 
   async function signIn(email: string, password: string): Promise<Session> {
-    const { token: t, user } = await makeTRPC().auth.login.mutate({ email, password });
+    const { token, user } = await makeTRPC().auth.login.mutate({ email, password });
+    await syncSessionCookie(token);
     const s = toSession(user);
-    persist(s, t, user.credits);
-    setSessionCookie(t, user.role);
+    persist(s, user.credits);
     return s;
   }
 
   async function signInStaff(email: string, password: string): Promise<Session> {
-    const { token: t, user } = await makeTRPC().auth.loginStaff.mutate({ email, password });
+    const { token, user } = await makeTRPC().auth.loginStaff.mutate({ email, password });
+    await syncSessionCookie(token);
     const s = toSession(user);
-    persist(s, t, user.credits);
-    setSessionCookie(t, user.role);
+    persist(s, user.credits);
     return s;
   }
 
   async function signInWithGoogle(credential: string): Promise<Session> {
-    const { token: t, user } = await makeTRPC().auth.googleSignIn.mutate({ credential });
+    const { token, user } = await makeTRPC().auth.googleSignIn.mutate({ credential });
+    await syncSessionCookie(token);
     const s = toSession(user);
-    persist(s, t, user.credits);
-    setSessionCookie(t, user.role);
+    persist(s, user.credits);
     return s;
   }
 
   async function signOut(): Promise<void> {
-    if (token) {
+    if (session) {
       try {
-        await makeTRPC(token).auth.logout.mutate();
+        await makeTRPC().auth.logout.mutate();
       } catch {}
     }
-    clearSessionCookie();
+    await clearSessionCookieServer();
     removeLS(SESSION_KEY);
-    removeLS(TOKEN_KEY);
     setSession(null);
-    setToken(null);
     // credits are intentionally preserved across sign-out
     setCredits(Math.max(0, parseInt(readLS(CREDITS_KEY, "0"), 10) || 0));
   }
@@ -324,16 +321,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     city = "India"
   ): Promise<Session> {
-    const { token: t, user } = await makeTRPC().auth.register.mutate({
+    const { token, user } = await makeTRPC().auth.register.mutate({
       name,
       email,
       phone,
       password,
       city,
     });
+    await syncSessionCookie(token);
     const s = toSession(user);
-    persist(s, t, user.credits);
-    setSessionCookie(t, user.role);
+    persist(s, user.credits);
     return s;
   }
 
@@ -350,8 +347,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function updateProfile(name: string, phone: string): Promise<void> {
-    if (!session || !token) return;
-    await makeTRPC(token).users.updateProfile.mutate({ name, phone });
+    if (!session) return;
+    await makeTRPC().users.updateProfile.mutate({ name, phone });
     const updated: Session = { ...session, name, phone: `+91 ${phone}`, initials: toInitials(name) };
     writeLS(SESSION_KEY, JSON.stringify(updated));
     setSession(updated);
@@ -372,9 +369,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function refreshCredits(): Promise<void> {
-    if (!token) return;
+    if (!session) return;
     try {
-      const user = await makeTRPC(token).auth.me.query();
+      const user = await makeTRPC().auth.me.query();
       if (user) {
         writeLS(CREDITS_KEY, String(user.credits));
         setCredits(user.credits);
@@ -387,7 +384,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         session,
         credits,
-        token,
         loading,
         sessionChecked,
         signIn,

@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import prisma from "@nxtsft/db";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { verifySessionCookie, SESSION_COOKIE_NAME } from "@nxtsft/shared";
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"] as const;
 const ADMIN_ROLES = ["admin", "super-admin"] as const;
@@ -18,10 +19,36 @@ export async function createContextFromToken(token: string | null, ip: string | 
   return { prisma, user, token, ip };
 }
 
-// For Next.js App Router (Web Request API)
+// Extracts a single cookie value from a raw `Cookie` header string.
+function getCookie(cookieHeader: string | null, name: string): string | undefined {
+  if (!cookieHeader) return undefined;
+  for (const part of cookieHeader.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() !== name) continue;
+    try {
+      return decodeURIComponent(part.slice(eq + 1).trim());
+    } catch {
+      return part.slice(eq + 1).trim();
+    }
+  }
+  return undefined;
+}
+
+// For Next.js App Router (Web Request API). Browser (cookie) callers and
+// external/API consumers (Bearer header — REST v1, the Fastify surface, any
+// non-browser client) both resolve to the same createContextFromToken path;
+// the cookie's role is never trusted here — only its token, which gets
+// re-verified against the DB same as the Bearer flow. GOL-268 H2.
 export const createTRPCContext = async (opts: { req: Request }) => {
   const raw = opts.req.headers.get("authorization") ?? "";
-  const token = raw.startsWith("Bearer ") ? raw.slice(7) : null;
+  let token = raw.startsWith("Bearer ") ? raw.slice(7) : null;
+
+  if (!token) {
+    const cookie = getCookie(opts.req.headers.get("cookie"), SESSION_COOKIE_NAME);
+    token = verifySessionCookie(cookie)?.token ?? null;
+  }
+
   const ip = opts.req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   return createContextFromToken(token, ip);
 };

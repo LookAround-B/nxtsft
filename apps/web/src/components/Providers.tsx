@@ -9,14 +9,7 @@ import { AppDataProvider } from "@/lib/dataProvider";
 import { getErrorMessage } from "@/lib/errors";
 import type { AppRouter } from "@nxtsft/trpc";
 
-const TOKEN_KEY = "nxtsft.token";
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
-
-function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem(TOKEN_KEY);
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 function makeQueryClient() {
   return new QueryClient({
@@ -44,7 +37,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(makeQueryClient);
   const [trpcClient] = useState(() =>
     createTRPCClient<AppRouter>({
-      links: [httpBatchLink({ url: "/api/trpc", headers: getAuthHeaders })],
+      links: [
+        httpBatchLink({
+          url: "/api/trpc",
+          // Auth travels via the httpOnly session cookie, not a JS-readable
+          // token (GOL-268 H2) — include it on every request.
+          fetch(url, options) {
+            return fetch(url, { ...options, credentials: "include" });
+          },
+        }),
+      ],
     })
   );
 
