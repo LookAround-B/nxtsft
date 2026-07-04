@@ -12,6 +12,7 @@ import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import prisma from "@nxtsft/db";
+import { hashToken } from "@nxtsft/shared";
 import { notify, notifyCredit } from "../notify";
 import { uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 import {
@@ -23,6 +24,9 @@ import {
 } from "../server";
 
 const SESSION_TTL_DAYS = 30;
+// Oldest sessions beyond this many per user are dropped on new login (GOL-268
+// L2) — bounds how many devices/browsers can hold a live session at once.
+const MAX_SESSIONS_PER_USER = 5;
 const CONSUMER_ROLES = ["user", "home-seller"] as const;
 
 const googleClient = new OAuth2Client();
@@ -77,6 +81,28 @@ function sessionExpiry() {
   const d = new Date();
   d.setDate(d.getDate() + SESSION_TTL_DAYS);
   return d;
+}
+
+// Creates a session row (token stored as sha256(rawToken), never plaintext —
+// GOL-268 L2) and returns the raw token for the client. Also caps how many
+// live sessions a user can hold at once, dropping the oldest beyond the cap.
+async function createSession(userId: string): Promise<string> {
+  const rawToken = generateToken();
+  await prisma.session.create({
+    data: { userId, token: hashToken(rawToken), expiresAt: sessionExpiry() },
+  });
+
+  const sessions = await prisma.session.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+    skip: MAX_SESSIONS_PER_USER,
+  });
+  if (sessions.length > 0) {
+    await prisma.session.deleteMany({ where: { id: { in: sessions.map((s) => s.id) } } });
+  }
+
+  return rawToken;
 }
 
 // Fields safe to return to the client — never include passwordHash
@@ -159,10 +185,7 @@ export const authRouter = router({
         content: "Your account is ready. Start exploring properties.",
       });
 
-      const token = generateToken();
-      await prisma.session.create({
-        data: { userId: user.id, token, expiresAt: sessionExpiry() },
-      });
+      const token = await createSession(user.id);
 
       const freshUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
       return { token, user: safeUser(freshUser) };
@@ -284,10 +307,7 @@ export const authRouter = router({
         await grantCredits(user.id, 3, "demo");
       }
 
-      const token = generateToken();
-      await prisma.session.create({
-        data: { userId: user.id, token, expiresAt: sessionExpiry() },
-      });
+      const token = await createSession(user.id);
 
       await logSignIn(user.id);
       const freshUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
@@ -322,10 +342,7 @@ export const authRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "This account has been deactivated." });
       }
 
-      const token = generateToken();
-      await prisma.session.create({
-        data: { userId: user.id, token, expiresAt: sessionExpiry() },
-      });
+      const token = await createSession(user.id);
 
       await logSignIn(user.id);
       return { token, user: safeUser(user) };
@@ -377,10 +394,7 @@ export const authRouter = router({
         await grantCredits(user.id, 3, "demo");
       }
 
-      const token = generateToken();
-      await prisma.session.create({
-        data: { userId: user.id, token, expiresAt: sessionExpiry() },
-      });
+      const token = await createSession(user.id);
 
       await logSignIn(user.id);
       const freshUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
@@ -389,7 +403,7 @@ export const authRouter = router({
 
   logout: protectedProcedure.mutation(async ({ ctx }) => {
     if (ctx.token) {
-      await prisma.session.deleteMany({ where: { token: ctx.token } });
+      await prisma.session.deleteMany({ where: { token: hashToken(ctx.token) } });
     }
     return { ok: true };
   }),

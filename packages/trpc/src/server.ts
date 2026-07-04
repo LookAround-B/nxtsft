@@ -3,16 +3,19 @@ import { ZodError } from "zod";
 import prisma from "@nxtsft/db";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { verifySessionCookie, SESSION_COOKIE_NAME } from "@nxtsft/shared";
+import { verifySessionCookie, SESSION_COOKIE_NAME, hashToken } from "@nxtsft/shared";
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"] as const;
 const ADMIN_ROLES = ["admin", "super-admin"] as const;
 
-// Shared token → user resolution used by both Next.js and Fastify adapters
+// Shared token → user resolution used by both Next.js and Fastify adapters.
+// `token` here is always the raw (unhashed) value — Session.token is stored
+// as sha256(rawToken) (GOL-268 L2), so lookups hash it first. ctx.token stays
+// the raw value so callers (e.g. auth.logout) can hash it again themselves.
 export async function createContextFromToken(token: string | null, ip: string | null = null) {
   if (!token) return { prisma, user: null, token: null, ip };
 
-  const session = await prisma.session.findUnique({ where: { token } });
+  const session = await prisma.session.findUnique({ where: { token: hashToken(token) } });
   if (!session || session.expiresAt <= new Date()) return { prisma, user: null, token: null, ip };
 
   const user = await prisma.user.findUnique({ where: { id: session.userId } });

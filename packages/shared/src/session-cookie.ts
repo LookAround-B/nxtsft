@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 // Signs the `nxtsft_session` cookie value (token|role) so the Edge/Node
 // middleware page-gate can trust the role without a DB round-trip on every
@@ -58,3 +58,16 @@ export function verifySessionCookie(
 }
 
 export const SESSION_COOKIE_NAME = "nxtsft_session";
+
+/**
+ * Session.token is stored as sha256(rawToken), never the raw value (GOL-268
+ * L2) — a DB compromise or backup leak no longer hands out live, directly
+ * usable session tokens. The raw token (generated once at login, returned to
+ * the client) is hashed on write (auth.ts's session creates) and on every
+ * read (server.ts's token→session lookup, auth.ts's logout delete). sha256
+ * is fine here (not a password — it's already a 256-bit random token with no
+ * guessable structure to brute-force).
+ */
+export function hashToken(rawToken: string): string {
+  return createHash("sha256").update(rawToken).digest("hex");
+}

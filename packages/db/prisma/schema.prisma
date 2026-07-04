@@ -83,7 +83,7 @@ model User {
 model Session {
   id        String   @id @default(cuid())
   userId    String
-  token     String   @unique
+  token     String   @unique // sha256(rawToken) — the raw value only ever exists client-side (GOL-268 L2)
   expiresAt DateTime
   ipAddress String?
   userAgent String?
