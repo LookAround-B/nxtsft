@@ -22,6 +22,7 @@ import { siteContentRouter } from "./routers/siteContent";
 import { reportsRouter } from "./routers/reports";
 import { projectsRouter } from "./routers/projects";
 import { interiorDesignersRouter } from "./routers/interiorDesigners";
+import { decorStoresRouter } from "./routers/decorStores";
 import { referralsRouter } from "./routers/referrals";
 
 export const appRouter = router({
@@ -48,6 +49,7 @@ export const appRouter = router({
   reports: reportsRouter,
   projects: projectsRouter,
   interiorDesigners: interiorDesignersRouter,
+  decorStores: decorStoresRouter,
   referrals: referralsRouter,
 });
 

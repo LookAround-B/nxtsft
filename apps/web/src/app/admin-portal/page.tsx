@@ -21,6 +21,7 @@ import {
   Gift,
   Star,
   Sofa,
+  Lamp,
   UploadCloud,
   Contact,
 } from "lucide-react";
@@ -49,6 +50,7 @@ import { SiteContentTab } from "@/components/admin-portal/tabs/SiteContentTab";
 import { ReferralsTab } from "@/components/admin-portal/tabs/ReferralsTab";
 import { ReviewsTab } from "@/components/admin-portal/tabs/ReviewsTab";
 import { InteriorsTab } from "@/components/admin-portal/tabs/InteriorsTab";
+import { DecorTab } from "@/components/admin-portal/tabs/DecorTab";
 import { BulkListingsTab } from "@/components/admin-portal/tabs/BulkListingsTab";
 import { AgentsTab } from "@/components/admin-portal/tabs/AgentsTab";
 
@@ -74,6 +76,7 @@ const nav = [
   { label: "Agents",         to: "/admin-portal#agents",       icon: <Contact size={14} /> },
   { label: "Reviews",        to: "/admin-portal#reviews",      icon: <Star size={14} /> },
   { label: "Home Interiors", to: "/admin-portal#interiors",    icon: <Sofa size={14} /> },
+  { label: "Decors",         to: "/admin-portal#decor",        icon: <Lamp size={14} /> },
   { label: "Property Views", to: "/admin-portal#views",        icon: <Eye size={14} /> },
   { label: "Subscriptions",  to: "/admin-portal#subscriptions",icon: <ReceiptText size={14} /> },
   { label: "Buyer Wallets",  to: "/admin-portal#credits",      icon: <Coins size={14} /> },
@@ -114,6 +117,7 @@ function renderTab(hash: string) {
     case "referrals":     return <ReferralsTab />;
     case "reviews":       return <ReviewsTab />;
     case "interiors":     return <InteriorsTab />;
+    case "decor":         return <DecorTab />;
     case "bulk-listings": return <BulkListingsTab />;
     default:              return <OperationsTab />;
   }

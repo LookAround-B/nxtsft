@@ -10,6 +10,7 @@ const FOOTER_LINKS = {
     { href: "/properties?type=Office", label: "Commercial" },
     { href: "/pg", label: "PG / Co-living" },
     { href: "/interiors", label: "Home Interiors" },
+    { href: "/decor", label: "Decors" },
   ],
   company: [
     { href: "/about", label: "About Us" },

@@ -60,6 +60,8 @@ model User {
   propertyViews         PropertyView[]         @relation("UserPropertyViews")
   interiorDesignerViews InteriorDesignerView[] @relation("UserInteriorDesignerViews")
   designerFavorites     DesignerFavorite[]
+  decorStoreViews       DecorStoreView[]       @relation("UserDecorStoreViews")
+  decorFavorites        DecorFavorite[]
   campaigns             Campaign[]
   cmsPages              CmsPage[]
   kycDocuments          KycDocument[]          @relation("UserKycDocuments")
@@ -347,20 +349,20 @@ model KycDocument {
 // with the reward snapshotted at submission time (rates can change later
 // without affecting already-submitted rows).
 model ReferralSubmission {
-  id           String  @id @default(cuid())
-  submitterId  String
-  submitter    User    @relation("UserReferralSubmissions", fields: [submitterId], references: [id], onDelete: Cascade)
-  type         String // buyer_tenant | property_owner | board
-  customerName String
+  id            String    @id @default(cuid())
+  submitterId   String
+  submitter     User      @relation("UserReferralSubmissions", fields: [submitterId], references: [id], onDelete: Cascade)
+  type          String // buyer_tenant | property_owner | board
+  customerName  String
   customerPhone String
-  location     String?
-  requirements String? @db.Text
-  imageUrl     String? // required for "board" at the form level, optional otherwise
-  rewardAmount Int // rupees, snapshotted from the type's rate at submission time
-  status       String  @default("Pending") // Pending | Approved | Rejected
-  leadId       String? // Lead created for buyer_tenant submissions (no FK — mirrors Commission/SalesActivity.leadId)
-  reviewedById String? // staff userId, no FK (mirrors KycDocument.reviewedById)
-  reviewedAt   DateTime?
+  location      String?
+  requirements  String?   @db.Text
+  imageUrl      String? // required for "board" at the form level, optional otherwise
+  rewardAmount  Int // rupees, snapshotted from the type's rate at submission time
+  status        String    @default("Pending") // Pending | Approved | Rejected
+  leadId        String? // Lead created for buyer_tenant submissions (no FK — mirrors Commission/SalesActivity.leadId)
+  reviewedById  String? // staff userId, no FK (mirrors KycDocument.reviewedById)
+  reviewedAt    DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -410,15 +412,15 @@ model Favorite {
 
 // Builders / developers directory — bulk-uploadable (CSV or XML).
 model Builder {
-  id          String  @id @default(cuid())
-  companyName String
-  ownerName   String?
-  mobile      String?
-  projectType String? // legacy single-type field; projects relation is the richer model
+  id                String  @id @default(cuid())
+  companyName       String
+  ownerName         String?
+  mobile            String?
+  projectType       String? // legacy single-type field; projects relation is the richer model
   developmentStatus String? // present status of the project, e.g. Ongoing | Completed | Upcoming
-  state       String?
-  district    String?
-  city        String?
+  state             String?
+  district          String?
+  city              String?
 
   // Extended fields for public-facing directory (populated via XML import)
   slug        String? @unique
@@ -563,6 +565,89 @@ model InteriorDesignerView {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// DECORS — home decor / furnishing store directory (mirrors InteriorDesigner:
+// service providers with a portfolio + credit-unlock contact, not a listing
+// with price/sqft/bedrooms).
+// ═══════════════════════════════════════════════════════════════════════════
+
+model DecorStore {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  companyName String
+  logo        String?
+  coverImage  String?
+  description String? @db.Text
+
+  city        String
+  state       String?
+  areasServed String[] @default([])
+
+  yearsExperience   Int?
+  projectsCompleted Int     @default(0)
+  startingBudget    BigInt? // rupees
+
+  decorCategories String[] @default([]) // Furniture | Lighting | Wall Decor | Curtains | ...
+  servicesOffered String[] @default([])
+
+  portfolioImages String[] @default([])
+  portfolioVideos String[] @default([])
+
+  workingHours String?
+  website      String?
+  socialLinks  Json?
+
+  phone String
+  email String?
+
+  verified Boolean @default(false)
+  status   String  @default("pending") // pending | active | inactive — admin publish gate
+
+  views    Int @default(0)
+  contacts Int @default(0)
+
+  views_      DecorStoreView[]
+  favoritedBy DecorFavorite[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city])
+  @@index([verified])
+  @@index([status])
+}
+
+// Wishlist join for decor stores — mirrors DesignerFavorite.
+model DecorFavorite {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId   String
+  store     DecorStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@unique([userId, storeId])
+  @@index([userId])
+  @@index([storeId])
+}
+
+model DecorStoreView {
+  id      String     @id @default(cuid())
+  storeId String
+  store   DecorStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  userId  String?
+  user    User?      @relation("UserDecorStoreViews", fields: [userId], references: [id])
+
+  durationSec     Int     @default(0)
+  contactUnlocked Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([storeId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // REVIEW & RATING
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -615,9 +700,10 @@ model CreditTransaction {
   userId             String
   type               String // credit | debit
   amount             Int
-  reason             String // purchase | welcome | demo | contact_unlock | designer_contact_unlock
+  reason             String // purchase | welcome | demo | contact_unlock | designer_contact_unlock | decor_contact_unlock
   propertyId         String? // for contact_unlock debits
   interiorDesignerId String? // for designer_contact_unlock debits
+  decorStoreId       String? // for decor_contact_unlock debits
   metadata           Json?
   createdAt          DateTime @default(now())
 

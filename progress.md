@@ -220,6 +220,18 @@ Canonical host is **`https://www.nxtsft.com`** (apex 308-redirects to www). Base
 - [x] Step 3 now requires a RERA number and validates its format before submit (CLAUDE.md §12 compliance)
 - [x] `properties.create` sends `rera` as a required field
 
+### Linear Fixes + Decors Vertical *(07-04)*
+- [x] **GOL-238** — PG/Co-living & Studio listings always failed silently (client sent `area: 0`, server requires positive). Area is now required/visible for those types (BHK selector still hidden, since only that genuinely doesn't apply); a failed `properties.create` now surfaces a real toast instead of showing a fake success screen.
+- [x] **GOL-270** — Notification dropdown rendered merged with page content on the user-portal mobile header. Root cause: `backdrop-blur-sm` on `PortalShell`'s header creates a new CSS containing block for the `fixed`-position `NotificationBell` dropdown (spec behavior), trapping it inside the header's own box/stacking context. Removed the (functionally unused, since the header isn't sticky) blur. **Note:** the same root cause exists on the main `SiteHeader` (blur is load-bearing there — sticky header) — flagged as a follow-up, not yet fixed.
+- [x] **GOL-269** — Buyers had no way to request a physical site visit (only sales reps could create one via the CRM). Added a "Schedule a Visit" card on `/properties/[slug]` that calls `siteVisits.create` directly.
+- [x] **GOL-271 / GOL-274 — New "Decors" business vertical**, mirroring the existing Home Interiors directory end-to-end:
+  - New Prisma models `DecorStore`, `DecorFavorite`, `DecorStoreView` (+ `decorStoreId` on `CreditTransaction`); pushed to the shared VPS DB.
+  - New `decorStores` public tRPC router (list/get/similar/submit/reportIssue/unlockContact/recordView) + `admin.decorStores` CRUD + `users.{decorFavorites,addDecorFavorite,removeDecorFavorite}` + `"decor"` media upload folder.
+  - New pages: `/decor` (browse + filters), `/decor/[slug]` (SEO server-rendered detail + JSON-LD), `/decor/list` (self-serve submission, lands as `status: "pending"` for admin review).
+  - New admin `DecorTab.tsx` (approve/reject/delete + leads), homepage category tile, header/footer nav links, `sitemap.ts` entries.
+  - Also added a public self-serve `interiorDesigners.submit` mutation + `/interiors/list` page (Home Interiors previously had no self-serve path — admin-only).
+  - Verified: `tsc --noEmit` clean across `web`/`trpc`, `next lint` clean, `pnpm --filter web build` succeeds (all new routes present, static + dynamic as expected).
+
 ---
 
 ## E2E Test Checklist (run before every commit/push)

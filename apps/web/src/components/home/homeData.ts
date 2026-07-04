@@ -22,6 +22,7 @@ import {
   Lock,
   CheckCircle2,
   Sofa,
+  Lamp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -99,6 +100,7 @@ export const CATEGORIES: { label: string; Icon: LucideIcon; type: string; image?
   { label: "PG / Co-living", Icon: Users, type: "PG", image: `${R2}/site/categories/pg.png`, href: "/pg" },
   { label: "New Projects", Icon: TrendingUp, type: "New" },
   { label: "Home Interiors", Icon: Sofa, type: "Home Interiors", href: "/interiors" },
+  { label: "Decors", Icon: Lamp, type: "Decors", href: "/decor" },
 ];
 
 export const CITIES: { label: string; Icon: LucideIcon; tagline: string }[] = [

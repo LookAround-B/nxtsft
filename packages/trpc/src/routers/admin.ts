@@ -30,6 +30,7 @@ import {
   safeUrlSchema,
 } from "../sanitize";
 import { makeInteriorDesignerSlug } from "./interiorDesigners";
+import { makeDecorStoreSlug } from "./decorStores";
 import { generateSlug, assertReraValid, splitList, CATEGORY_IMAGE } from "./properties";
 import { agentInitials, uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 
@@ -1531,6 +1532,167 @@ export const adminRouter = router({
           id: r.id,
           createdAt: r.createdAt,
           designer: r.designer,
+          lead: r.user ? { name: r.user.name, email: r.user.email, phone: r.user.phone } : null,
+        }));
+      }),
+  }),
+
+  // Decors — home decor / furnishing store directory, admin-managed like Home Interiors.
+  decorStores: router({
+    list: adminProcedure
+      .input(
+        z.object({
+          search: searchSchema.optional(),
+          status: z.enum(["pending", "active", "inactive"]).optional(),
+          cursor: cursorSchema,
+          limit: limitSchema,
+        }),
+      )
+      .query(async ({ input }): Promise<unknown> => {
+        const { search, status, cursor, limit } = input;
+        const where: NonNullable<Parameters<typeof prisma.decorStore.findMany>[0]>["where"] = {};
+        if (status) where.status = status;
+        if (search) {
+          where.OR = [
+            { companyName: { contains: search, mode: "insensitive" } },
+            { city:        { contains: search, mode: "insensitive" } },
+            { phone:       { contains: search } },
+          ];
+        }
+        const items = await prisma.decorStore.findMany({
+          where,
+          orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+          take: limit + 1,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        });
+        const total = cursor ? null : await prisma.decorStore.count({ where });
+        const hasMore = items.length > limit;
+        const page = hasMore ? items.slice(0, limit) : items;
+        return {
+          items: page.map((d) => ({ ...d, startingBudget: d.startingBudget != null ? Number(d.startingBudget) : null })),
+          nextCursor: page.at(-1)?.id ?? null,
+          hasMore,
+          total,
+        };
+      }),
+
+    create: adminProcedure
+      .input(
+        z.object({
+          companyName: safeString(200, 1),
+          city: geoTextSchema,
+          state: geoTextSchema.optional(),
+          description: safeString(5000).optional(),
+          logo: safeString(500).optional(),
+          coverImage: safeString(500).optional(),
+          areasServed: amenitiesSchema.optional(),
+          yearsExperience: z.number().int().min(0).max(100).optional(),
+          projectsCompleted: z.number().int().min(0).max(100_000).optional(),
+          startingBudget: z.number().int().positive().max(999_999_999_999).optional(),
+          decorCategories: amenitiesSchema.optional(),
+          servicesOffered: amenitiesSchema.optional(),
+          portfolioImages: safeUrlArraySchema.optional(),
+          portfolioVideos: safeUrlArraySchema.optional(),
+          workingHours: safeString(120).optional(),
+          website: safeString(300).optional(),
+          phone: phoneSchema,
+          email: emailSchema.optional(),
+        }),
+      )
+      .mutation(async ({ input }): Promise<unknown> => {
+        const base = makeDecorStoreSlug(`${input.companyName}-${input.city}`);
+        let slug = base;
+        let n = 2;
+        while (await prisma.decorStore.findUnique({ where: { slug } })) slug = `${base}-${n++}`;
+
+        const { startingBudget, ...rest } = input;
+        return prisma.decorStore.create({
+          data: {
+            ...rest,
+            slug,
+            startingBudget: startingBudget != null ? BigInt(startingBudget) : null,
+          },
+        });
+      }),
+
+    update: adminProcedure
+      .input(
+        z.object({
+          id: cuidSchema,
+          companyName: safeString(200, 1).optional(),
+          city: geoTextSchema.optional(),
+          state: geoTextSchema.optional(),
+          description: safeString(5000).optional(),
+          logo: safeString(500).optional(),
+          coverImage: safeString(500).optional(),
+          areasServed: amenitiesSchema.optional(),
+          yearsExperience: z.number().int().min(0).max(100).optional(),
+          projectsCompleted: z.number().int().min(0).max(100_000).optional(),
+          startingBudget: z.number().int().positive().max(999_999_999_999).optional(),
+          decorCategories: amenitiesSchema.optional(),
+          servicesOffered: amenitiesSchema.optional(),
+          portfolioImages: safeUrlArraySchema.optional(),
+          portfolioVideos: safeUrlArraySchema.optional(),
+          workingHours: safeString(120).optional(),
+          website: safeString(300).optional(),
+          phone: phoneSchema.optional(),
+          email: emailSchema.optional(),
+        }),
+      )
+      .mutation(async ({ input }): Promise<unknown> => {
+        const { id, startingBudget, ...rest } = input;
+        const store = await prisma.decorStore.findUnique({ where: { id } });
+        if (!store) throw new TRPCError({ code: "NOT_FOUND", message: "Store not found." });
+        return prisma.decorStore.update({
+          where: { id },
+          data: {
+            ...rest,
+            ...(startingBudget !== undefined && { startingBudget: BigInt(startingBudget) }),
+          },
+        });
+      }),
+
+    // Approve & publish (verified badge + goes live) or send back to pending/inactive.
+    setStatus: adminProcedure
+      .input(z.object({ id: cuidSchema, status: z.enum(["pending", "active", "inactive"]) }))
+      .mutation(async ({ input }): Promise<unknown> => {
+        const store = await prisma.decorStore.findUnique({ where: { id: input.id } });
+        if (!store) throw new TRPCError({ code: "NOT_FOUND", message: "Store not found." });
+        return prisma.decorStore.update({
+          where: { id: input.id },
+          data: {
+            status: input.status,
+            ...(input.status === "active" && { verified: true }),
+          },
+        });
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: cuidSchema }))
+      .mutation(async ({ input }) => {
+        const store = await prisma.decorStore.findUnique({ where: { id: input.id } });
+        if (!store) throw new TRPCError({ code: "NOT_FOUND", message: "Store not found." });
+        await prisma.decorStore.delete({ where: { id: input.id } });
+        return { ok: true };
+      }),
+
+    // Contact-unlock events — the store's "lead" dashboard (mirrors interiorDesigners.leads).
+    leads: adminProcedure
+      .input(z.object({ storeId: cuidSchema.optional(), limit: z.number().int().min(1).max(200).default(50) }))
+      .query(async ({ input }) => {
+        const rows = await prisma.decorStoreView.findMany({
+          where: { contactUnlocked: true, ...(input.storeId && { storeId: input.storeId }) },
+          include: {
+            store: { select: { id: true, companyName: true, city: true } },
+            user: { select: { id: true, name: true, email: true, phone: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: input.limit,
+        });
+        return rows.map((r) => ({
+          id: r.id,
+          createdAt: r.createdAt,
+          store: r.store,
           lead: r.user ? { name: r.user.name, email: r.user.email, phone: r.user.phone } : null,
         }));
       }),

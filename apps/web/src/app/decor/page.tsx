@@ -2,12 +2,12 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { keepPreviousData } from "@tanstack/react-query";
-import { Search, Sofa, MapPin, CheckCircle2, ChevronDown, X, Palette } from "lucide-react";
+import { Search, Lamp, MapPin, CheckCircle2, ChevronDown, X, PaintBucket } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Pagination } from "@/components/ui/pagination";
 
 const CITIES = ["Mumbai", "Bengaluru", "Delhi NCR", "Hyderabad", "Pune", "Chennai", "Kolkata", "Ahmedabad", "Jaipur", "Noida", "Gurgaon", "Kochi"];
-const DESIGN_STYLES = ["Modern", "Minimal", "Luxury", "Contemporary", "Traditional", "Industrial"];
+const DECOR_CATEGORIES = ["Furniture", "Lighting", "Wall Decor", "Curtains & Blinds", "Rugs & Carpets", "Home Accents"];
 const BUDGETS: { label: string; value: number }[] = [
   { label: "Under ₹2 L", value: 200_000 },
   { label: "Under ₹5 L", value: 500_000 },
@@ -21,21 +21,21 @@ const SORTS: { label: string; value: "featured" | "latest" | "popular" | "budget
   { label: "Budget: Low to High", value: "budget_low" },
 ];
 
-export default function InteriorsPage() {
-  const [search,      setSearch]      = useState("");
-  const [searchInput, setSearchInput] = useState("");
-  const [city,        setCity]        = useState("");
-  const [designStyle, setDesignStyle] = useState("");
-  const [maxBudget,   setMaxBudget]   = useState("");
-  const [sort,        setSort]        = useState<"featured" | "latest" | "popular" | "budget_low">("featured");
-  const [page,        setPage]        = useState(1);
+export default function DecorPage() {
+  const [search,        setSearch]        = useState("");
+  const [searchInput,   setSearchInput]   = useState("");
+  const [city,          setCity]          = useState("");
+  const [decorCategory, setDecorCategory] = useState("");
+  const [maxBudget,     setMaxBudget]     = useState("");
+  const [sort,          setSort]          = useState<"featured" | "latest" | "popular" | "budget_low">("featured");
+  const [page,          setPage]          = useState(1);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const listQ = trpc.interiorDesigners.publicList.useQuery(
+  const listQ = trpc.decorStores.publicList.useQuery(
     {
       search: search || undefined,
       city: city || undefined,
-      designStyle: designStyle || undefined,
+      decorCategory: decorCategory || undefined,
       maxBudget: maxBudget ? Number(maxBudget) : undefined,
       sort,
       page,
@@ -44,7 +44,7 @@ export default function InteriorsPage() {
     { placeholderData: keepPreviousData },
   );
 
-  const designers = listQ.data?.items ?? [];
+  const stores = listQ.data?.items ?? [];
   const total      = listQ.data?.total ?? 0;
   const totalPages = listQ.data?.totalPages ?? 1;
 
@@ -62,15 +62,15 @@ export default function InteriorsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, city, designStyle, maxBudget, sort]);
+  }, [search, city, decorCategory, maxBudget, sort]);
 
   const goToPage = (p: number) => {
     setPage(p);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const clearFilters = () => { setSearchInput(""); setSearch(""); setCity(""); setDesignStyle(""); setMaxBudget(""); };
-  const hasFilters   = search || city || designStyle || maxBudget;
+  const clearFilters = () => { setSearchInput(""); setSearch(""); setCity(""); setDecorCategory(""); setMaxBudget(""); };
+  const hasFilters   = search || city || decorCategory || maxBudget;
 
   return (
     <>
@@ -81,17 +81,17 @@ export default function InteriorsPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h1 className="font-display text-2xl font-black text-navy sm:text-3xl">
-                  Home Interiors — Designer Directory
+                  Decors — Home Decor Store Directory
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Discover trusted interior design companies and their portfolios near you
+                  Discover trusted furniture, lighting and decor stores near you
                 </p>
               </div>
               <Link
-                href="/interiors/list"
+                href="/decor/list"
                 className="flex shrink-0 items-center gap-1.5 rounded-xl bg-navy px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
               >
-                <Sofa size={15} />
+                <Lamp size={15} />
                 List Your Business
               </Link>
             </div>
@@ -103,12 +103,12 @@ export default function InteriorsPage() {
                 <input
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Search designer or locality…"
+                  placeholder="Search store or locality…"
                   className="w-full rounded-lg border border-border bg-white py-2 pl-8 pr-3 text-sm outline-none focus:border-accent"
                 />
               </div>
               <Filter label="City" value={city} onChange={setCity} options={CITIES} />
-              <Filter label="Style" value={designStyle} onChange={setDesignStyle} options={DESIGN_STYLES} />
+              <Filter label="Category" value={decorCategory} onChange={setDecorCategory} options={DECOR_CATEGORIES} />
               <BudgetFilter value={maxBudget} onChange={setMaxBudget} />
               <SortFilter value={sort} onChange={setSort} />
               {hasFilters && (
@@ -127,19 +127,19 @@ export default function InteriorsPage() {
                 <div key={i} className="h-40 animate-pulse rounded-2xl border border-border bg-white" />
               ))}
             </div>
-          ) : designers.length === 0 ? (
+          ) : stores.length === 0 ? (
             <EmptyState hasFilters={!!hasFilters} onClear={clearFilters} />
           ) : (
             <>
               <p className="mb-4 text-xs text-muted-foreground">
-                {total.toLocaleString()} designer{total !== 1 ? "s" : ""} found
+                {total.toLocaleString()} store{total !== 1 ? "s" : ""} found
               </p>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {(designers as DesignerItem[]).map((d) => (
-                  <DesignerCard key={d.id} designer={d} />
+                {(stores as StoreItem[]).map((s) => (
+                  <StoreCard key={s.id} store={s} />
                 ))}
               </div>
-              <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} total={total} noun="designers" />
+              <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} total={total} noun="stores" />
             </>
           )}
         </div>
@@ -150,20 +150,20 @@ export default function InteriorsPage() {
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type DesignerItem = {
+type StoreItem = {
   id: string; slug: string; companyName: string; city: string;
   state: string | null; verified: boolean; logo: string | null;
   coverImage: string | null; description: string | null;
   yearsExperience: number | null; projectsCompleted: number;
-  designStyles: string[];
+  decorCategories: string[];
 };
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function DesignerCard({ designer: d }: { designer: DesignerItem }) {
+function StoreCard({ store: d }: { store: StoreItem }) {
   return (
     <Link
-      href={`/interiors/${d.slug}`}
+      href={`/decor/${d.slug}`}
       className="group flex flex-col gap-3 rounded-2xl border border-border bg-white p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-lg"
     >
       <div className="flex items-start justify-between gap-2">
@@ -172,7 +172,7 @@ function DesignerCard({ designer: d }: { designer: DesignerItem }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={d.logo} alt={d.companyName} className="h-10 w-10 rounded-lg object-contain" />
           ) : (
-            <Sofa size={22} strokeWidth={1.75} />
+            <Lamp size={22} strokeWidth={1.75} />
           )}
         </div>
         {d.verified && (
@@ -202,9 +202,9 @@ function DesignerCard({ designer: d }: { designer: DesignerItem }) {
           {d.projectsCompleted} project{d.projectsCompleted !== 1 ? "s" : ""}
           {d.yearsExperience != null ? ` · ${d.yearsExperience}y exp` : ""}
         </span>
-        {d.designStyles[0] && (
+        {d.decorCategories[0] && (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-navy">
-            {d.designStyles[0]}
+            {d.decorCategories[0]}
           </span>
         )}
       </div>
@@ -265,17 +265,17 @@ function SortFilter({ value, onChange }: { value: string; onChange: (v: "feature
 function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <Palette size={48} className="mb-4 text-muted-foreground/30" />
+      <PaintBucket size={48} className="mb-4 text-muted-foreground/30" />
       {hasFilters ? (
         <>
-          <p className="font-semibold text-navy">No designers match your filters</p>
+          <p className="font-semibold text-navy">No stores match your filters</p>
           <button onClick={onClear} className="mt-3 text-sm text-accent hover:underline">Clear filters</button>
         </>
       ) : (
         <>
-          <p className="font-display text-lg font-bold text-navy">Designer directory coming soon</p>
+          <p className="font-display text-lg font-bold text-navy">Decor directory coming soon</p>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-            We're onboarding verified interior design companies. Check back soon to explore portfolios near you.
+            We're onboarding verified decor stores. Check back soon to explore portfolios near you.
           </p>
         </>
       )}
