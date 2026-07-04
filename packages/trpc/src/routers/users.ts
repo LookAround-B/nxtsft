@@ -538,16 +538,6 @@ export const usersRouter = router({
       return { ok: true };
     }),
 
-  toggleTwoFactor: protectedProcedure
-    .input(z.object({ enabled: z.boolean() }))
-    .mutation(async ({ input, ctx }) => {
-      return prisma.user.update({
-        where: { id: ctx.user.id },
-        data: { twoFactorEnabled: input.enabled },
-        select: { id: true, twoFactorEnabled: true },
-      });
-    }),
-
   getAgents: publicProcedure.query(async () => {
     const agents = await prisma.user.findMany({
       // Only approved (verified) + active agents are public. Pending self-service

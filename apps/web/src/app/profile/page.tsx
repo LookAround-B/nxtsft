@@ -652,7 +652,6 @@ type SessionRow = {
 };
 
 function SecurityPanel() {
-  const meQ = trpc.users.me.useQuery();
   const sessionsQ = trpc.users.sessions.useQuery();
 
   const changePassword = trpc.users.changePassword.useMutation({
@@ -670,18 +669,10 @@ function SecurityPanel() {
     },
     onError: (e: { message: string }) => toast.error(e.message),
   });
-  const toggle2FA = trpc.users.toggleTwoFactor.useMutation({
-    onSuccess: () => {
-      meQ.refetch();
-    },
-    onError: (e: { message: string }) => toast.error(e.message),
-  });
-
   const [showPw, setShowPw] = useState(false);
   const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
   const [showSessions, setShowSessions] = useState(false);
 
-  const twoFA = meQ.data?.twoFactorEnabled ?? false;
   const sessions = (sessionsQ.data ?? []) as unknown as SessionRow[];
 
   const submitPw = () => {
@@ -744,31 +735,6 @@ function SecurityPanel() {
               </button>
             </div>
           )}
-        </div>
-
-        {/* Two-factor */}
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/30 px-3 py-3 sm:gap-3 sm:px-4">
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white shadow-sm">
-            <Smartphone size={14} className="text-accent" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold text-navy">Two-factor authentication</div>
-            <div className="truncate text-xs text-muted-foreground">
-              {twoFA
-                ? "Enabled · OTP required at login"
-                : "Disabled · add an extra layer of security"}
-            </div>
-          </div>
-          <button
-            onClick={() => toggle2FA.mutate({ enabled: !twoFA })}
-            disabled={toggle2FA.isPending || meQ.isLoading}
-            className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition disabled:opacity-50 sm:px-3 ${twoFA
-              ? "border-border bg-white text-rose-600 hover:bg-rose-50"
-              : "border-accent bg-accent text-white hover:opacity-90"
-              }`}
-          >
-            {twoFA ? "Disable" : "Enable"}
-          </button>
         </div>
 
         {/* Active sessions */}
