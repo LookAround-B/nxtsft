@@ -6,6 +6,7 @@ import { Download, Upload, Loader2, FileSpreadsheet, Search, Check, X as XIcon, 
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { validateBulkImportFile } from "@/lib/file-validation";
 import { builderRowSchema } from "@/lib/validation";
 import { PageHead } from "./PageHead";
@@ -514,7 +515,7 @@ export function DevTab() {
         </form>
 
         {listQ.isLoading ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">Loading builders…</div>
+          <div className="py-2"><TableSkeleton rows={6} cols={5} /></div>
         ) : builders.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
             No builders found. Upload a file above to get started.

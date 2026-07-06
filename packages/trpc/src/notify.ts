@@ -1,5 +1,16 @@
 import prisma from "@nxtsft/db";
 
+// Staff-role → portal base path, for building role-aware actionUrls on
+// fan-out notifications (each recipient lands in their own portal).
+const PORTAL_BASE: Record<string, string> = {
+  "super-admin": "/sa-portal",
+  admin: "/admin-portal",
+  supervisor: "/supervisor-portal",
+  sales: "/sales-portal",
+  "support-admin": "/support-portal",
+};
+export const portalBase = (role: string): string => PORTAL_BASE[role] ?? "/user-portal";
+
 export type NotifyArgs = {
   userId: string;
   type: string;
@@ -60,5 +71,6 @@ export async function notifyCredit(args: {
     type: type === "credit" ? "credit_added" : "credit_spent",
     title,
     content: `${sign}${amount} ${unit} · wallet updated`,
+    actionUrl: "/user-portal#credits",
   });
 }

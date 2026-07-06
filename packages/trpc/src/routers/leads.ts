@@ -165,6 +165,7 @@ export const leadsRouter = router({
               type: "lead_update",
               title: "Commission earned!",
               content: `${fmtAmount} commission pending for converting ${lead.name}.`,
+              actionUrl: "/sales-portal#commission",
             },
           });
         }
@@ -215,6 +216,7 @@ export const leadsRouter = router({
           type: "lead_update",
           title: "New lead assigned to you",
           content: `${lead.name} (${lead.phone}) has been assigned to you.`,
+          actionUrl: "/sales-portal",
         },
       });
 
@@ -381,6 +383,7 @@ export const leadsRouter = router({
           type: "lead_update",
           title: `${input.leadIds.length} lead${input.leadIds.length === 1 ? "" : "s"} assigned to you`,
           content: `You have been assigned ${input.leadIds.length} new lead${input.leadIds.length === 1 ? "" : "s"}.`,
+          actionUrl: "/sales-portal",
         },
       });
 

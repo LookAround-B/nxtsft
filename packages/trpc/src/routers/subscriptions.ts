@@ -299,6 +299,7 @@ export const subscriptionsRouter = router({
         userId: ctx.user.id,
         type: "payment_success",
         title: "Payment successful",
+        actionUrl: "/user-portal#credits",
         content: `${plan.name} — ${plan.credits} credits added to your wallet.`,
       });
 

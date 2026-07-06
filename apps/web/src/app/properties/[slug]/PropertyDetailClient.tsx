@@ -35,6 +35,7 @@ import { PropertyEngagement } from "@/components/PropertyEngagement";
 import { PropertyReport } from "@/components/PropertyReport";
 import { PropertyMapWrapper as PropertyMap } from "@/components/map/PropertyMapWrapper";
 import { GalleryLightbox } from "@/components/ui/GalleryLightbox";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { trpc } from "@/lib/trpc";
 import { formatArea } from "@/lib/area";
 import { propertyActivity } from "@/lib/propertyActivity";
@@ -1044,7 +1045,11 @@ function ScheduleVisitCard({
 }) {
   const router = useRouter();
   const [booked, setBooked] = useState(false);
-  const [when, setWhen] = useState("");
+  // Default: two hours from now, rounded up to the next 5 minutes.
+  const [when, setWhen] = useState<Date>(() => {
+    const step = 5 * 60 * 1000;
+    return new Date(Math.ceil((Date.now() + 2 * 60 * 60 * 1000) / step) * step);
+  });
 
   const createVisit = trpc.siteVisits.create.useMutation({
     onSuccess: () => {
@@ -1059,10 +1064,8 @@ function ScheduleVisitCard({
       router.push("/login");
       return;
     }
-    if (!when) return toast.error("Pick a date and time for your visit.");
-    if (new Date(when).getTime() <= Date.now())
-      return toast.error("Pick a time in the future.");
-    createVisit.mutate({ propertyId: property.id, scheduledAt: new Date(when).toISOString() });
+    if (when.getTime() <= Date.now()) return toast.error("Pick a time in the future.");
+    createVisit.mutate({ propertyId: property.id, scheduledAt: when.toISOString() });
   };
 
   return (
@@ -1085,13 +1088,7 @@ function ScheduleVisitCard({
             Pick a time to tour this {property.type.toLowerCase()} in person.
           </p>
           <div className="mt-4 space-y-2.5">
-            <input
-              type="datetime-local"
-              value={when}
-              onChange={(e) => setWhen(e.target.value)}
-              min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)}
-              className="w-full rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
-            />
+            <DateTimePicker value={when} onChange={setWhen} />
             <button
               onClick={submit}
               disabled={createVisit.isPending}

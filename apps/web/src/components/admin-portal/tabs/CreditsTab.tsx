@@ -6,6 +6,7 @@ import { Coins, Search, Building2, ArrowDownCircle } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
 import { trpc } from "@/lib/trpc";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { PageHead } from "./PageHead";
 
 const REASON_OPTIONS = [
@@ -59,9 +60,7 @@ function UsageSection() {
         />
       </div>
 
-      {usageQ.isLoading && (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      )}
+      {usageQ.isLoading && <ListSkeleton rows={5} />}
 
       {!usageQ.isLoading && items.length === 0 && (
         <div className="rounded-xl border border-dashed border-border py-10 text-center">

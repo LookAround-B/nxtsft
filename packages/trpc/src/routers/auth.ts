@@ -13,7 +13,7 @@ import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import prisma from "@nxtsft/db";
 import { hashToken } from "@nxtsft/shared";
-import { notify, notifyCredit } from "../notify";
+import { notify, notifyCredit, portalBase } from "../notify";
 import { uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 import {
   router,
@@ -183,6 +183,7 @@ export const authRouter = router({
         type: "welcome",
         title: "Welcome to NxtSft 🎉",
         content: "Your account is ready. Start exploring properties.",
+        actionUrl: "/properties",
       });
 
       const token = await createSession(user.id);
@@ -250,7 +251,7 @@ export const authRouter = router({
       // Notify all admins and super-admins
       const admins = await prisma.user.findMany({
         where: { role: { in: ["admin", "super-admin"] } },
-        select: { id: true },
+        select: { id: true, role: true },
       });
       if (admins.length > 0) {
         await prisma.notification.createMany({
@@ -261,6 +262,7 @@ export const authRouter = router({
               ? "New Agent / Partner pending approval"
               : "New Home Seller pending approval",
             content: `${applicant.name} (${applicant.email}) registered and is awaiting account approval.`,
+            actionUrl: `${portalBase(a.role)}#seller-approvals`,
           })),
         });
       }
@@ -386,6 +388,7 @@ export const authRouter = router({
           type: "welcome",
           title: "Welcome to NxtSft 🎉",
           content: "Your account is ready. Start exploring properties.",
+          actionUrl: "/properties",
         });
       } else if (
         CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) &&

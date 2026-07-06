@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton } from "@/components/ui/skeleton";
 
 type StatusKey = "all" | "Pending" | "Approved" | "Rejected";
 
@@ -159,7 +160,7 @@ export function ReferralsTab() {
         }
       >
         {listQ.isLoading ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
+          <TableSkeleton rows={6} cols={6} />
         ) : submissions.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">No submissions match this filter.</p>
         ) : (

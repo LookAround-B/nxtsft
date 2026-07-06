@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { notifyCredit } from "../notify";
+import { notifyCredit, portalBase } from "../notify";
 import { router, publicProcedure, protectedProcedure, contactRateLimit } from "../server";
 import {
   safeString,
@@ -157,6 +157,25 @@ export const interiorDesignersRouter = router({
           startingBudget: startingBudget != null ? BigInt(startingBudget) : null,
         },
       });
+
+      // Surface the new pending listing in every admin's notification bell,
+      // linking straight to their portal's review queue.
+      const admins = await prisma.user.findMany({
+        where: { role: { in: ["admin", "super-admin"] } },
+        select: { id: true, role: true },
+      });
+      if (admins.length > 0) {
+        await prisma.notification.createMany({
+          data: admins.map((a) => ({
+            userId: a.id,
+            type: "interior_submission",
+            title: "New Home Interiors listing pending review",
+            content: `"${input.companyName}" (${input.city}) was submitted and awaits approval.`,
+            actionUrl: `${portalBase(a.role)}#interiors`,
+          })),
+        });
+      }
+
       return { id: designer.id, slug: designer.slug };
     }),
 

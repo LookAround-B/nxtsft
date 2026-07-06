@@ -523,6 +523,7 @@ export const propertiesRouter = router({
           type: "listing_submitted",
           title: `${created} listing${created > 1 ? "s" : ""} submitted`,
           content: "Your uploaded listings are pending admin approval.",
+          actionUrl: "/user-portal#mylist",
         });
       }
 
@@ -679,6 +680,7 @@ export const propertiesRouter = router({
         type: "listing_edit_submitted",
         title: "Edit submitted for review",
         content: `Your changes to "${property.title}" are pending admin approval.`,
+        actionUrl: "/user-portal#mylist",
       });
 
       return { ok: true };

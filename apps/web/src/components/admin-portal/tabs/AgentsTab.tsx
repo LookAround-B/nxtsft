@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Pencil, Ban, CheckCircle2, Star, Award } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { PageHead } from "./PageHead";
 
 type AgentMeta = {
@@ -333,7 +334,7 @@ export function AgentsTab() {
         }
       >
         {agentsQ.isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading agents…</p>
+          <TableSkeleton rows={6} cols={6} />
         ) : agents.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">No agents match this search.</p>
         ) : (

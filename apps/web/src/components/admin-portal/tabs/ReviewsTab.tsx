@@ -4,6 +4,7 @@ import { Star, Trash2, PlusCircle, X, Search, CheckCircle, XCircle } from "lucid
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { PageHead } from "./PageHead";
 
 type ReviewRow = {
@@ -169,8 +170,9 @@ export function ReviewsTab() {
   const [statusFilter, setStatusFilter] = useState<"Pending" | "Approved" | "Declined" | undefined>("Pending");
   const [showPostForm, setShowPostForm] = useState(false);
 
-  const reviewsQ = trpc.admin.reviews.list.useQuery({ limit: 200, rating: ratingFilter, status: statusFilter });
-  const allQ = trpc.admin.reviews.list.useQuery({ limit: 500 });
+  // limitSchema caps list inputs at 100 — anything higher fails validation with a 400.
+  const reviewsQ = trpc.admin.reviews.list.useQuery({ limit: 100, rating: ratingFilter, status: statusFilter });
+  const allQ = trpc.admin.reviews.list.useQuery({ limit: 100 });
   const items = (reviewsQ.data?.items ?? []) as unknown as ReviewRow[];
   const allItems = (allQ.data?.items ?? []) as unknown as ReviewRow[];
 
@@ -253,7 +255,7 @@ export function ReviewsTab() {
       {/* Reviews table */}
       <Section title={`${statusFilter ?? "All"} Reviews ${items.length > 0 ? `(${items.length})` : ""}`}>
         {reviewsQ.isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+          <ListSkeleton rows={5} />
         ) : items.length === 0 ? (
           <div className="py-12 text-center">
             <Star size={28} className="mx-auto mb-2 text-muted-foreground/30" />

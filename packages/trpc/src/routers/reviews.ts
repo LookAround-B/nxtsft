@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, publicProcedure, protectedProcedure } from "../server";
+import { portalBase } from "../notify";
 import {
   safeString,
   cuidSchema,
@@ -77,7 +78,7 @@ export const reviewsRouter = router({
       // Notify all admins and super-admins
       const admins = await prisma.user.findMany({
         where: { role: { in: ["admin", "super-admin"] } },
-        select: { id: true },
+        select: { id: true, role: true },
       });
       if (admins.length > 0) {
         await prisma.notification.createMany({
@@ -86,6 +87,7 @@ export const reviewsRouter = router({
             type: "review",
             title: "New review pending approval",
             content: `${ctx.user.name} left a ${input.rating}★ review on "${property.title}" — needs your approval.`,
+            actionUrl: `${portalBase(a.role)}#reviews`,
           })),
         });
       }

@@ -6,6 +6,13 @@ import { safeString, searchSchema, geoTextSchema, cursorSchema, limitSchema } fr
 const PROJECT_TYPES = ["Apartment", "HighRise", "Villa", "Commercial", "Plot", "Studio", "PG", "Others"] as const;
 const PROJECT_STATUSES = ["Ongoing", "Completed", "Upcoming"] as const;
 
+// BigInt price fields can't be JSON-serialized — convert before returning.
+const serializeProject = <T extends { priceMin: bigint | null; priceMax: bigint | null }>(p: T) => ({
+  ...p,
+  priceMin: p.priceMin != null ? Number(p.priceMin) : null,
+  priceMax: p.priceMax != null ? Number(p.priceMax) : null,
+});
+
 export const projectsRouter = router({
   list: publicProcedure
     .input(
@@ -49,7 +56,7 @@ export const projectsRouter = router({
       ]);
       const hasMore = items.length > limit;
       const page   = hasMore ? items.slice(0, limit) : items;
-      return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore, total };
+      return { items: page.map(serializeProject), nextCursor: page.at(-1)?.id ?? null, hasMore, total };
     }),
 
   get: publicProcedure
@@ -59,7 +66,7 @@ export const projectsRouter = router({
         where: { slug: input.slug },
         include: { builder: true },
       });
-      return project;
+      return project ? serializeProject(project) : null;
     }),
 
   upsert: adminProcedure
@@ -108,10 +115,10 @@ export const projectsRouter = router({
         launchDate:     input.launchDate    ? new Date(input.launchDate)     : null,
         possessionDate: input.possessionDate ? new Date(input.possessionDate) : null,
       };
-      if (input.id) {
-        return prisma.project.update({ where: { id: input.id }, data });
-      }
-      return prisma.project.create({ data: { ...data, slug: slug! } });
+      const row = input.id
+        ? await prisma.project.update({ where: { id: input.id }, data })
+        : await prisma.project.create({ data: { ...data, slug: slug! } });
+      return serializeProject(row);
     }),
 
   delete: adminProcedure

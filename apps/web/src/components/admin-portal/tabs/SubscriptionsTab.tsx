@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { CheckCircle, XCircle } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { unlockedContacts, disputes as disputeData } from "@/data/static";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PageHead } from "./PageHead";
@@ -89,7 +90,7 @@ export function SubscriptionsTab() {
         }
       >
         {subQ.isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading subscriptions…</p>
+          <TableSkeleton rows={5} cols={6} />
         ) : subs.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">No subscriptions yet.</p>
         ) : (

@@ -26,7 +26,9 @@ import {
   Contact,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
+import { trpc } from "@/lib/trpc";
 import { useActiveHash } from "@/lib/use-active-hash";
+import type { BadgeCounts } from "@/components/admin-portal/tabs/shared";
 import { useAuth } from "@/lib/auth";
 import { usePortalGuard } from "@/lib/use-portal-guard";
 import { OperationsTab } from "@/components/admin-portal/tabs/OperationsTab";
@@ -55,8 +57,8 @@ import { BulkListingsTab } from "@/components/admin-portal/tabs/BulkListingsTab"
 import { AgentsTab } from "@/components/admin-portal/tabs/AgentsTab";
 
 // Grouped nav — groups surface in the sidebar as section headings.
-// Badge counts are static placeholders; wire to live queries once API endpoints expose them.
-const nav = [
+// Badges come from admin.badgeCounts (hidden while loading or when 0).
+const makeNav = (b?: BadgeCounts) => [
   // ── Overview ─────────────────────────────────────────────────────────
   { label: "Command Center", to: "/admin-portal",           icon: <LayoutDashboard size={14} />, group: "Overview" },
 
@@ -66,17 +68,17 @@ const nav = [
   { label: "Commissions",    to: "/admin-portal#commissions",icon: <Wallet size={14} /> },
 
   // ── Customer Service ─────────────────────────────────────────────────
-  { label: "Contact Enquiries",  to: "/admin-portal#enquiries",      icon: <Inbox size={14} />,      group: "Customer Service", badge: 4 },
-  { label: "KYC Review",         to: "/admin-portal#kyc",            icon: <ShieldCheck size={14} />, badge: 3 },
-  { label: "Seller Approvals",   to: "/admin-portal#seller-approvals",icon: <UserCheck size={14} />,  badge: 1 },
+  { label: "Contact Enquiries",  to: "/admin-portal#enquiries",      icon: <Inbox size={14} />,      group: "Customer Service", badge: b?.enquiries },
+  { label: "KYC Review",         to: "/admin-portal#kyc",            icon: <ShieldCheck size={14} />, badge: b?.kyc },
+  { label: "Seller Approvals",   to: "/admin-portal#seller-approvals",icon: <UserCheck size={14} />,  badge: b?.sellerApprovals },
   { label: "Click Alerts",       to: "/admin-portal#alerts",         icon: <BellRing size={14} /> },
 
   // ── Platform ─────────────────────────────────────────────────────────
-  { label: "Listings",       to: "/admin-portal#listings",     icon: <Building2 size={14} />,  group: "Platform", badge: 2 },
+  { label: "Listings",       to: "/admin-portal#listings",     icon: <Building2 size={14} />,  group: "Platform", badge: b?.listings },
   { label: "Agents",         to: "/admin-portal#agents",       icon: <Contact size={14} /> },
-  { label: "Reviews",        to: "/admin-portal#reviews",      icon: <Star size={14} /> },
-  { label: "Home Interiors", to: "/admin-portal#interiors",    icon: <Sofa size={14} /> },
-  { label: "Decors",         to: "/admin-portal#decor",        icon: <Lamp size={14} /> },
+  { label: "Reviews",        to: "/admin-portal#reviews",      icon: <Star size={14} />, badge: b?.reviews },
+  { label: "Home Interiors", to: "/admin-portal#interiors",    icon: <Sofa size={14} />, badge: b?.interiors },
+  { label: "Decors",         to: "/admin-portal#decor",        icon: <Lamp size={14} />, badge: b?.decor },
   { label: "Property Views", to: "/admin-portal#views",        icon: <Eye size={14} /> },
   { label: "Subscriptions",  to: "/admin-portal#subscriptions",icon: <ReceiptText size={14} /> },
   { label: "Buyer Wallets",  to: "/admin-portal#credits",      icon: <Coins size={14} /> },
@@ -128,6 +130,11 @@ export default function AdminPortal() {
   const hash = useActiveHash();
   const ready = usePortalGuard();
 
+  const badgesQ = trpc.admin.badgeCounts.useQuery(undefined, {
+    enabled: ready && !!session,
+    refetchInterval: 60_000,
+  });
+
   if (!ready || !session) return null;
 
   const user = { name: session.name, initials: session.initials };
@@ -138,7 +145,7 @@ export default function AdminPortal() {
       role="Admin"
       accent="red"
       user={user}
-      nav={nav}
+      nav={makeNav(badgesQ.data)}
       basePath="/admin-portal"
     >
       {renderTab(hash)}

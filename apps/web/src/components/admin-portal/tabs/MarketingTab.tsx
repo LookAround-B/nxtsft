@@ -1,16 +1,44 @@
 "use client";
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Download, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { PageHead } from "./PageHead";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton, ListSkeleton } from "@/components/ui/skeleton";
+import { SITE_URL } from "@/lib/site";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 const TYPE_LABELS: Record<string, string> = { email: "Email", sms: "SMS", whatsapp: "WhatsApp" };
 const AUDIENCE_LABELS: Record<string, string> = { all: "All Users", user: "Buyers", sales: "Sales Reps", admin: "Admins" };
 
 const EMPTY_FORM = { name: "", type: "email", audience: "all", subject: "", body: "", budget: "", scheduledAt: "" };
+
+// WhatsApp marketing carousels max out at 10 cards per message.
+const MAX_CAROUSEL_CARDS = 10;
+
+const DEFAULT_INTRO =
+  "Looking for your dream home? 🏡 Explore top properties on NxtSft.com — sign up today and get FREE credits to unlock owner contacts! 🎁";
+
+type CarouselProperty = {
+  id: string;
+  slug: string;
+  title: string;
+  price: number;
+  purpose: string;
+  images: string[];
+  location: { city: string; locality: string };
+};
+
+function fmtPrice(price: number): string {
+  if (price >= 1_00_00_000) return `₹${(price / 1_00_00_000).toFixed(2)} Cr`;
+  if (price >= 1_00_000) return `₹${(price / 1_00_000).toFixed(1)} L`;
+  return `₹${price.toLocaleString("en-IN")}`;
+}
+
+function csvCell(v: string): string {
+  return `"${v.replace(/"/g, '""')}"`;
+}
 
 function fmtBudget(n: number | null) {
   if (!n) return "—";
@@ -20,6 +48,173 @@ function fmtBudget(n: number | null) {
 function fmtCpl(budget: number | null, leads: number) {
   if (!budget || !leads) return "—";
   return `₹${Math.round(budget / leads).toLocaleString("en-IN")}`;
+}
+
+// LA-301: builds a Housing.com-style WhatsApp property carousel for bulk
+// marketing. There is no WhatsApp Business API integration yet, so this
+// produces the vendor-ready assets (CSV / JSON payload with card image, title,
+// price and a UTM-tagged link per property) that ops upload to the bulk-send
+// vendor, and records the blast as a "whatsapp" campaign for attribution.
+function CarouselBuilder({ onSaved }: { onSaved: () => void }) {
+  const propsQ = trpc.properties.list.useQuery({ page: 1, limit: 30 });
+  const createMutation = trpc.campaigns.create.useMutation({
+    onSuccess: () => {
+      toast.success("Saved as WhatsApp campaign");
+      onSaved();
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const [name, setName] = useState("");
+  const [intro, setIntro] = useState(DEFAULT_INTRO);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
+
+  const all = (propsQ.data?.items ?? []) as CarouselProperty[];
+  const chosen = all.filter((p) => selected.includes(p.id));
+
+  const toggle = (id: string) => {
+    setSelected((ids) => {
+      if (ids.includes(id)) return ids.filter((x) => x !== id);
+      if (ids.length >= MAX_CAROUSEL_CARDS) {
+        toast.error(`WhatsApp carousels support at most ${MAX_CAROUSEL_CARDS} cards.`);
+        return ids;
+      }
+      return [...ids, id];
+    });
+  };
+
+  const campaignSlug = (name.trim() || "whatsapp-carousel")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  const cards = chosen.map((p) => ({
+    title: p.title,
+    image: new URL(p.images[0] ?? "/categories/apartment.png", SITE_URL).toString(),
+    price: `${fmtPrice(p.price)}${p.purpose === "Rent" ? "/mo" : ""}`,
+    location: `${p.location.locality}, ${p.location.city}`,
+    link: `${SITE_URL}/properties/${p.slug}?utm_source=whatsapp&utm_medium=carousel&utm_campaign=${campaignSlug}`,
+  }));
+
+  const downloadCsv = () => {
+    const rows = [
+      ["title", "image_url", "price", "location", "button_text", "button_url"],
+      ...cards.map((c) => [c.title, c.image, c.price, c.location, "View Property", c.link]),
+    ];
+    const csv = rows.map((r) => r.map(csvCell).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${campaignSlug}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyJson = async () => {
+    const payload = { campaign: name.trim() || "WhatsApp carousel", intro, cards };
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast.success("Carousel JSON copied");
+  };
+
+  const saveCampaign = () => {
+    if (!name.trim()) { toast.error("Campaign name is required"); return; }
+    if (cards.length === 0) { toast.error("Select at least one property"); return; }
+    const body = [intro, "", ...cards.map((c) => `${c.title} — ${c.price} — ${c.link}`)]
+      .join("\n")
+      .slice(0, 5000);
+    createMutation.mutate({ name: name.trim(), type: "whatsapp", audience: "all", body });
+  };
+
+  return (
+    <Section title="WhatsApp Property Carousel">
+      <p className="mb-4 text-xs text-muted-foreground">
+        Pick up to {MAX_CAROUSEL_CARDS} properties, then export the card deck for the bulk-WhatsApp
+        vendor. Links are UTM-tagged so signups attribute back to this campaign.
+      </p>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-navy">Campaign Name *</label>
+          <input value={name} onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Hyderabad Featured — July"
+            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-navy">Intro Message</label>
+          <textarea value={intro} onChange={(e) => setIntro(e.target.value)} rows={2}
+            className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25" />
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <p className="mb-2 text-xs font-semibold text-navy">
+          Properties <span className="font-normal text-muted-foreground">({selected.length}/{MAX_CAROUSEL_CARDS} selected)</span>
+        </p>
+        {propsQ.isLoading ? (
+          <ListSkeleton rows={4} />
+        ) : (
+          <div className="grid max-h-72 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3">
+            {all.map((p) => {
+              const active = selected.includes(p.id);
+              return (
+                <button key={p.id} type="button" onClick={() => toggle(p.id)}
+                  className={`flex items-center gap-3 rounded-xl border p-2 text-left transition ${active ? "border-accent bg-accent/5" : "border-border hover:border-accent/40"}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.images[0] ?? "/categories/apartment.png"} alt=""
+                    className="h-12 w-16 shrink-0 rounded-lg object-cover" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-semibold text-navy">{p.title}</span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      {fmtPrice(p.price)}{p.purpose === "Rent" ? "/mo" : ""} · {p.location.city}
+                    </span>
+                  </span>
+                  {active && <Check size={14} className="ml-auto shrink-0 text-accent" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {cards.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-semibold text-navy">Preview</p>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {cards.map((c) => (
+              <div key={c.link} className="w-44 shrink-0 overflow-hidden rounded-xl border border-border bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={c.image} alt="" className="h-24 w-full object-cover" />
+                <div className="p-2">
+                  <p className="truncate text-[11px] font-semibold text-navy">{c.title}</p>
+                  <p className="text-[11px] text-muted-foreground">{c.location}</p>
+                  <p className="mt-1 text-xs font-bold text-accent">{c.price}</p>
+                  <p className="mt-1.5 rounded-md bg-secondary py-1 text-center text-[10px] font-semibold text-navy">View Property</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" onClick={downloadCsv} disabled={cards.length === 0}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-semibold text-navy transition hover:bg-secondary disabled:opacity-50">
+          <Download size={13} /> Vendor CSV
+        </button>
+        <button type="button" onClick={copyJson} disabled={cards.length === 0}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-semibold text-navy transition hover:bg-secondary disabled:opacity-50">
+          {copied ? <Check size={13} /> : <Copy size={13} />} Copy JSON
+        </button>
+        <button type="button" onClick={saveCampaign} disabled={createMutation.isPending}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-50">
+          {createMutation.isPending ? "Saving…" : "Save as Campaign"}
+        </button>
+      </div>
+    </Section>
+  );
 }
 
 export function MarketingTab() {
@@ -83,7 +278,7 @@ export function MarketingTab() {
         }
       >
         {campaignsQ.isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+          <TableSkeleton rows={4} cols={7} />
         ) : campaigns.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">No campaigns yet. Create your first one.</p>
         ) : (
@@ -129,6 +324,8 @@ export function MarketingTab() {
           </div>
         )}
       </Section>
+
+      <CarouselBuilder onSaved={() => campaignsQ.refetch()} />
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">

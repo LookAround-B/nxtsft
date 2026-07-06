@@ -45,9 +45,9 @@ function roleFromCookie(value: string | undefined) {
 // runs at build time, this one runs per-request).
 const r2Host = (() => {
   try {
-    return process.env.CLOUDFLARE_R2_PUBLIC_URL
-      ? new URL(process.env.CLOUDFLARE_R2_PUBLIC_URL).hostname
-      : null;
+    // Same dual-name lookup as next.config.ts — uploads use R2_PUBLIC_URL.
+    const url = process.env.R2_PUBLIC_URL || process.env.CLOUDFLARE_R2_PUBLIC_URL;
+    return url ? new URL(url).hostname : null;
   } catch {
     return null;
   }
@@ -63,9 +63,14 @@ const r2ImgSrc = r2Host ? ` https://${r2Host}` : "";
 // because jsonLdScript() escapes the payload (see src/lib/jsonLd.ts). GOL-268
 // H3 is accepted as a Low residual in exchange for keeping static generation.
 function buildCsp(): string {
+  // Vercel Analytics / Speed Insights load debug scripts from va.vercel-scripts.com
+  // in dev only; in prod they load same-origin from /_vercel/* (covered by 'self').
+  const devScriptSrc =
+    process.env.NODE_ENV === "development" ? " https://va.vercel-scripts.com" : "";
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' blob: https://accounts.google.com https://checkout.razorpay.com",
+    "script-src 'self' 'unsafe-inline' blob: https://accounts.google.com https://checkout.razorpay.com" +
+      devScriptSrc,
     // Mapbox GL renders tiles in a blob web worker.
     "worker-src 'self' blob:",
     "child-src 'self' blob:",

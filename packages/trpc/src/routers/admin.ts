@@ -51,6 +51,13 @@ const safeUserSelect = {
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
 
+// BigInt columns can't be JSON-serialized — convert before returning rows
+// to the client (interiorDesigner / decorStore both carry startingBudget).
+const serializeBudget = <T extends { startingBudget: bigint | null }>(row: T) => ({
+  ...row,
+  startingBudget: row.startingBudget != null ? Number(row.startingBudget) : null,
+});
+
 export const adminRouter = router({
   // Platform KPIs for the command dashboard
   stats: adminProcedure.query(async () => {
@@ -78,6 +85,21 @@ export const adminRouter = router({
       hotLeads,
       totalRevenue: Number(totalRevenue._sum.amount ?? 0) / 100, // convert paise to rupees
     };
+  }),
+
+  // Live sidebar badge counts — one number per "needs action" queue.
+  badgeCounts: adminProcedure.query(async () => {
+    const [enquiries, kyc, sellerApprovals, listings, reviews, interiors, decor] =
+      await Promise.all([
+        prisma.enquiry.count({ where: { status: "New" } }),
+        prisma.user.count({ where: { kycStatus: "pending" } }),
+        prisma.user.count({ where: { role: { in: ["home-seller", "agent"] }, verified: false } }),
+        prisma.propertyEditRequest.count({ where: { status: "Pending" } }),
+        prisma.review.count({ where: { status: "Pending" } }),
+        prisma.interiorDesigner.count({ where: { status: "pending" } }),
+        prisma.decorStore.count({ where: { status: "pending" } }),
+      ]);
+    return { enquiries, kyc, sellerApprovals, listings, reviews, interiors, decor };
   }),
 
   // User management
@@ -288,6 +310,7 @@ export const adminRouter = router({
             content:
               input.note ??
               `Your KYC verification status has been updated to ${label}.`,
+            actionUrl: "/user-portal#kyc",
           },
         });
 
@@ -310,6 +333,7 @@ export const adminRouter = router({
               type: "account_approved",
               title: "Your account has been approved!",
               content: "You can now log in to NxtSft and list your property.",
+              actionUrl: "/list",
             },
           });
         } else if (user.role === "agent") {
@@ -320,6 +344,7 @@ export const adminRouter = router({
               title: "Your agent account has been approved!",
               content:
                 "Your agent profile is now live on NxtSft. Log in to manage your listings and details.",
+              actionUrl: "/user-portal#mylist",
             },
           });
         }
@@ -363,7 +388,11 @@ export const adminRouter = router({
         const hasMore = items.length > limit;
         const page = hasMore ? items.slice(0, limit) : items;
         return {
-          items: page.map((p) => ({ ...p, price: Number(p.price) })),
+          items: page.map((p) => ({
+            ...p,
+            price: Number(p.price),
+            pgDeposit: p.pgDeposit != null ? Number(p.pgDeposit) : null,
+          })),
           nextCursor: page.at(-1)?.id ?? null,
           hasMore,
         };
@@ -385,7 +414,11 @@ export const adminRouter = router({
           content: `"${property.title}" is now live and visible to buyers.`,
           actionUrl: `/properties/${property.slug}`,
         });
-        return updated;
+        return {
+          ...updated,
+          price: Number(updated.price),
+          pgDeposit: updated.pgDeposit != null ? Number(updated.pgDeposit) : null,
+        };
       }),
 
     // Admin-only bulk import: each row carries its own owner (name/phone/email).
@@ -566,7 +599,11 @@ export const adminRouter = router({
           return {
             items: page.map((r) => ({
               ...r,
-              property: { ...r.property, price: Number(r.property.price) },
+              property: {
+                ...r.property,
+                price: Number(r.property.price),
+                pgDeposit: r.property.pgDeposit != null ? Number(r.property.pgDeposit) : null,
+              },
             })),
             nextCursor: page.at(-1)?.id ?? null,
             hasMore,
@@ -658,6 +695,7 @@ export const adminRouter = router({
             content:
               input.note ??
               `The changes to "${request.property.title}" were not approved. Please review and resubmit.`,
+            actionUrl: "/user-portal#mylist",
           });
 
           return { ok: true };
@@ -1443,13 +1481,14 @@ export const adminRouter = router({
         while (await prisma.interiorDesigner.findUnique({ where: { slug } })) slug = `${base}-${n++}`;
 
         const { startingBudget, ...rest } = input;
-        return prisma.interiorDesigner.create({
+        const created = await prisma.interiorDesigner.create({
           data: {
             ...rest,
             slug,
             startingBudget: startingBudget != null ? BigInt(startingBudget) : null,
           },
         });
+        return serializeBudget(created);
       }),
 
     update: adminProcedure
@@ -1482,13 +1521,14 @@ export const adminRouter = router({
         const { id, startingBudget, ...rest } = input;
         const designer = await prisma.interiorDesigner.findUnique({ where: { id } });
         if (!designer) throw new TRPCError({ code: "NOT_FOUND", message: "Designer not found." });
-        return prisma.interiorDesigner.update({
+        const updated = await prisma.interiorDesigner.update({
           where: { id },
           data: {
             ...rest,
             ...(startingBudget !== undefined && { startingBudget: BigInt(startingBudget) }),
           },
         });
+        return serializeBudget(updated);
       }),
 
     // Approve & publish (verified badge + goes live) or send back to pending/inactive.
@@ -1497,13 +1537,14 @@ export const adminRouter = router({
       .mutation(async ({ input }): Promise<unknown> => {
         const designer = await prisma.interiorDesigner.findUnique({ where: { id: input.id } });
         if (!designer) throw new TRPCError({ code: "NOT_FOUND", message: "Designer not found." });
-        return prisma.interiorDesigner.update({
+        const updated = await prisma.interiorDesigner.update({
           where: { id: input.id },
           data: {
             status: input.status,
             ...(input.status === "active" && { verified: true }),
           },
         });
+        return serializeBudget(updated);
       }),
 
     delete: adminProcedure
@@ -1606,13 +1647,14 @@ export const adminRouter = router({
         while (await prisma.decorStore.findUnique({ where: { slug } })) slug = `${base}-${n++}`;
 
         const { startingBudget, ...rest } = input;
-        return prisma.decorStore.create({
+        const created = await prisma.decorStore.create({
           data: {
             ...rest,
             slug,
             startingBudget: startingBudget != null ? BigInt(startingBudget) : null,
           },
         });
+        return serializeBudget(created);
       }),
 
     update: adminProcedure
@@ -1643,13 +1685,14 @@ export const adminRouter = router({
         const { id, startingBudget, ...rest } = input;
         const store = await prisma.decorStore.findUnique({ where: { id } });
         if (!store) throw new TRPCError({ code: "NOT_FOUND", message: "Store not found." });
-        return prisma.decorStore.update({
+        const updated = await prisma.decorStore.update({
           where: { id },
           data: {
             ...rest,
             ...(startingBudget !== undefined && { startingBudget: BigInt(startingBudget) }),
           },
         });
+        return serializeBudget(updated);
       }),
 
     // Approve & publish (verified badge + goes live) or send back to pending/inactive.
@@ -1658,13 +1701,14 @@ export const adminRouter = router({
       .mutation(async ({ input }): Promise<unknown> => {
         const store = await prisma.decorStore.findUnique({ where: { id: input.id } });
         if (!store) throw new TRPCError({ code: "NOT_FOUND", message: "Store not found." });
-        return prisma.decorStore.update({
+        const updated = await prisma.decorStore.update({
           where: { id: input.id },
           data: {
             status: input.status,
             ...(input.status === "active" && { verified: true }),
           },
         });
+        return serializeBudget(updated);
       }),
 
     delete: adminProcedure
