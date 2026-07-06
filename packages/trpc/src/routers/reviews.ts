@@ -93,15 +93,49 @@ export const reviewsRouter = router({
       return review;
     }),
 
+  // Toggle: one "helpful" vote per user per review, enforced by the unique
+  // (reviewId, userId) constraint on ReviewHelpful. Voting again removes the
+  // vote. Review.helpful is the denormalized display count, updated in the
+  // same batch transaction as the vote row so the two can't drift. LA-294.
   markHelpful: protectedProcedure
     .input(z.object({ id: cuidSchema }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const review = await prisma.review.findUnique({ where: { id: input.id } });
       if (!review) throw new TRPCError({ code: "NOT_FOUND", message: "Review not found." });
 
-      return prisma.review.update({
-        where: { id: input.id },
-        data: { helpful: { increment: 1 } },
+      const existing = await prisma.reviewHelpful.findUnique({
+        where: { reviewId_userId: { reviewId: input.id, userId: ctx.user.id } },
       });
+
+      if (existing) {
+        const [, updated] = await prisma.$transaction([
+          prisma.reviewHelpful.delete({ where: { id: existing.id } }),
+          prisma.review.update({
+            where: { id: input.id },
+            data: { helpful: { decrement: 1 } },
+          }),
+        ]);
+        return { ...updated, votedByMe: false };
+      }
+
+      try {
+        const [, updated] = await prisma.$transaction([
+          prisma.reviewHelpful.create({
+            data: { reviewId: input.id, userId: ctx.user.id },
+          }),
+          prisma.review.update({
+            where: { id: input.id },
+            data: { helpful: { increment: 1 } },
+          }),
+        ]);
+        return { ...updated, votedByMe: true };
+      } catch (err) {
+        // P2002 = a concurrent double-submit hit the unique constraint; the
+        // vote already exists, so treat it as a no-op rather than an error.
+        if ((err as { code?: string })?.code === "P2002") {
+          return { ...review, votedByMe: true };
+        }
+        throw err;
+      }
     }),
 });

@@ -52,6 +52,7 @@ model User {
   messages              Message[]
   favorites             Favorite[]
   reviews               Review[]
+  reviewHelpfulVotes    ReviewHelpful[]
   subscriptions         Subscription[]         @relation("UserSubscriptions")
   payments              Payment[]              @relation("UserPayments")
   searchAlerts          SearchAlert[]
@@ -665,9 +666,27 @@ model Review {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  helpfulVotes ReviewHelpful[]
+
   @@index([propertyId])
   @@index([authorId])
   @@index([status])
+}
+
+// One "helpful" vote per user per review — the unique constraint is the
+// integrity guard (LA-294: markHelpful was previously an unbounded counter).
+// Review.helpful stays as the denormalized display count, kept in sync
+// transactionally by reviews.markHelpful.
+model ReviewHelpful {
+  id        String   @id @default(cuid())
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([reviewId, userId])
+  @@index([userId])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

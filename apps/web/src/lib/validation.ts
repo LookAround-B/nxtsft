@@ -186,9 +186,15 @@ export const createPropertySchema = z.object({
   rera: reraSchema,
 });
 
+// Entity IDs are Prisma cuid()s, not UUIDs (LA-294). Mirrors the cuid regex
+// used server-side in @nxtsft/trpc sanitize.ts and the REST v1 route guards.
+const cuidIdSchema = z
+  .string()
+  .regex(/^c[a-z0-9]{8,28}$/, "Invalid property ID");
+
 // Create lead schema
 export const createLeadSchema = z.object({
-  propertyId: z.string().uuid("Invalid property ID"),
+  propertyId: cuidIdSchema,
   name: nameSchema,
   phone: phoneSchema,
   email: emailSchema.optional(),
@@ -245,7 +251,7 @@ export const builderRowSchema = z.object({
 
 // Create listing schema
 export const createListingSchema = z.object({
-  propertyId: z.string().uuid("Invalid property ID"),
+  propertyId: cuidIdSchema,
   description: descriptionSchema.optional(),
   highlights: z.array(z.string().max(500)).max(10).default([]),
   active: z.boolean().default(true),
