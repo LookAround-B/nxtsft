@@ -2,6 +2,7 @@
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { activities, teamMembers } from "@/data/static";
+import type { BadgeCounts } from "./shared";
 import {
   ShieldCheck,
   Building2,
@@ -124,59 +125,61 @@ function CommandHeader({ revenue, leads, users, hotLeads, activeListings }: {
   );
 }
 
-/* Action queue cards (pending items by category) */
-const ACTION_ITEMS = [
-  {
-    icon: ShieldCheck,
-    count: 3,
-    label: "KYC Pending",
-    sublabel: "Documents awaiting review",
-    border: "border-amber-200",
-    iconBg: "bg-amber-50",
-    iconClr: "text-amber-600",
-    numClr: "text-amber-700",
-    hoverBorder: "hover:border-amber-400",
-    hash: "kyc",
-  },
-  {
-    icon: Building2,
-    count: 2,
-    label: "Listings to Approve",
-    sublabel: "Awaiting RERA check",
-    border: "border-blue-200",
-    iconBg: "bg-blue-50",
-    iconClr: "text-blue-600",
-    numClr: "text-blue-700",
-    hoverBorder: "hover:border-blue-400",
-    hash: "listings",
-  },
-  {
-    icon: UserCheck,
-    count: 1,
-    label: "Seller Verifications",
-    sublabel: "New seller accounts",
-    border: "border-violet-200",
-    iconBg: "bg-violet-50",
-    iconClr: "text-violet-600",
-    numClr: "text-violet-700",
-    hoverBorder: "hover:border-violet-400",
-    hash: "seller-approvals",
-  },
-  {
-    icon: Inbox,
-    count: 4,
-    label: "Unread Enquiries",
-    sublabel: "Contact form submissions",
-    border: "border-emerald-200",
-    iconBg: "bg-emerald-50",
-    iconClr: "text-emerald-600",
-    numClr: "text-emerald-700",
-    hoverBorder: "hover:border-emerald-400",
-    hash: "enquiries",
-  },
-] as const;
+/* Action queue cards (pending items by category) — counts come from
+   admin.badgeCounts (same source as the sidebar badges), null while loading. */
+const makeActionItems = (b?: BadgeCounts) =>
+  [
+    {
+      icon: ShieldCheck,
+      count: b?.kyc,
+      label: "KYC Pending",
+      sublabel: "Documents awaiting review",
+      border: "border-amber-200",
+      iconBg: "bg-amber-50",
+      iconClr: "text-amber-600",
+      numClr: "text-amber-700",
+      hoverBorder: "hover:border-amber-400",
+      hash: "kyc",
+    },
+    {
+      icon: Building2,
+      count: b?.listings,
+      label: "Listings to Approve",
+      sublabel: "Awaiting RERA check",
+      border: "border-blue-200",
+      iconBg: "bg-blue-50",
+      iconClr: "text-blue-600",
+      numClr: "text-blue-700",
+      hoverBorder: "hover:border-blue-400",
+      hash: "listings",
+    },
+    {
+      icon: UserCheck,
+      count: b?.sellerApprovals,
+      label: "Seller Verifications",
+      sublabel: "New seller accounts",
+      border: "border-violet-200",
+      iconBg: "bg-violet-50",
+      iconClr: "text-violet-600",
+      numClr: "text-violet-700",
+      hoverBorder: "hover:border-violet-400",
+      hash: "seller-approvals",
+    },
+    {
+      icon: Inbox,
+      count: b?.enquiries,
+      label: "Unread Enquiries",
+      sublabel: "Contact form submissions",
+      border: "border-emerald-200",
+      iconBg: "bg-emerald-50",
+      iconClr: "text-emerald-600",
+      numClr: "text-emerald-700",
+      hoverBorder: "hover:border-emerald-400",
+      hash: "enquiries",
+    },
+  ] as const;
 
-function ActionQueueCard({ item }: { item: typeof ACTION_ITEMS[number] }) {
+function ActionQueueCard({ item }: { item: ReturnType<typeof makeActionItems>[number] }) {
   const { icon: Icon, count, label, sublabel, border, iconBg, iconClr, numClr, hoverBorder, hash } = item;
   return (
     <button
@@ -192,7 +195,7 @@ function ActionQueueCard({ item }: { item: typeof ACTION_ITEMS[number] }) {
           className="text-muted-foreground transition-transform group-hover:translate-x-0.5"
         />
       </div>
-      <span className={`font-display text-3xl font-black ${numClr}`}>{count}</span>
+      <span className={`font-display text-3xl font-black ${numClr}`}>{count ?? "—"}</span>
       <span className="mt-1 text-sm font-semibold text-navy">{label}</span>
       <span className="mt-0.5 text-xs text-muted-foreground">{sublabel}</span>
     </button>
@@ -354,6 +357,8 @@ function Card({ title, action, children }: { title: string; action?: ReactNode; 
 export function OperationsTab() {
   const statsQ = trpc.admin.stats.useQuery();
   const s = statsQ.data;
+  const badgesQ = trpc.admin.badgeCounts.useQuery(undefined, { refetchInterval: 60_000 });
+  const actionItems = makeActionItems(badgesQ.data);
 
   // Sort leaderboard by closedMTD desc
   const leaderboard = [...teamMembers].sort((a, b) => b.closedMTD - a.closedMTD);
@@ -379,7 +384,7 @@ export function OperationsTab() {
           </span>
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {ACTION_ITEMS.map((item) => (
+          {actionItems.map((item) => (
             <ActionQueueCard key={item.hash} item={item} />
           ))}
         </div>
