@@ -591,7 +591,7 @@ export const adminRouter = router({
           const arr = (v: unknown) => (Array.isArray(v) ? (v as string[]) : undefined);
 
           // Scalar Property columns a seller can edit (mirrors properties.submitEdit).
-          const stringFields = ["title", "description", "bhk", "furnishing", "facing", "possession", "rera", "reraLabel"] as const;
+          const stringFields = ["title", "description", "bhk", "furnishing", "facing", "possession", "rera", "reraLabel", "areaUnit"] as const;
           const intFields = ["builtUpArea", "bedrooms", "bathrooms", "balconies", "parking"] as const;
 
           const data: Parameters<typeof prisma.property.update>[0]["data"] = {};

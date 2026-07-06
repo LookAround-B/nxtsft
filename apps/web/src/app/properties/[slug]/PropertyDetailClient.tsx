@@ -36,6 +36,7 @@ import { PropertyReport } from "@/components/PropertyReport";
 import { PropertyMapWrapper as PropertyMap } from "@/components/map/PropertyMapWrapper";
 import { GalleryLightbox } from "@/components/ui/GalleryLightbox";
 import { trpc } from "@/lib/trpc";
+import { formatArea } from "@/lib/area";
 import { propertyActivity } from "@/lib/propertyActivity";
 import { amenityIcon } from "@/data/amenities";
 import { useAuth } from "@/lib/auth";
@@ -671,11 +672,33 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                     value={property.bhk ?? `${property.bedrooms} BHK`}
                   />
                 )}
-                <SpecItem
-                  icon={<SquareStack size={18} />}
-                  label="Super Built-up Area"
-                  value={`${property.area.toLocaleString()} sq.ft`}
-                />
+                {property.type === "Plot" ? (
+                  // Plots trade in multiple units — show the same area in all
+                  // three (LA-296) instead of a single sq.ft box.
+                  <>
+                    <SpecItem
+                      icon={<SquareStack size={18} />}
+                      label="Plot Area (Sq.Ft)"
+                      value={formatArea(property.area, "sqft")}
+                    />
+                    <SpecItem
+                      icon={<SquareStack size={18} />}
+                      label="Plot Area (Sq.Yards)"
+                      value={formatArea(property.area, "sqyd")}
+                    />
+                    <SpecItem
+                      icon={<SquareStack size={18} />}
+                      label="Plot Area (Acres)"
+                      value={formatArea(property.area, "acre")}
+                    />
+                  </>
+                ) : (
+                  <SpecItem
+                    icon={<SquareStack size={18} />}
+                    label="Super Built-up Area"
+                    value={`${property.area.toLocaleString()} sq.ft`}
+                  />
+                )}
                 {property.builtUpArea != null && property.builtUpArea > 0 && (
                   <SpecItem
                     icon={<SquareStack size={18} />}

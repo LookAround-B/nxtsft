@@ -110,7 +110,8 @@ model Property {
 
   price        BigInt // in rupees
   pricePerSqft Int?
-  area         Int // super built-up area, sqft
+  area         Int // super built-up area, sqft (canonical unit — always stored as sqft)
+  areaUnit     String  @default("sqft") // unit the seller entered: sqft | sqyd | acre
   builtUpArea  Int? // built-up area, sqft
   bhk          String? // "2 BHK", "3 BHK", etc.
   bedrooms     Int     @default(0)

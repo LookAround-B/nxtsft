@@ -57,7 +57,6 @@ export default function PgPage() {
   );
 
   const pgs        = listQ.data?.items ?? [];
-  const total       = listQ.data?.total ?? 0;
   const totalPages  = listQ.data?.totalPages ?? 1;
 
   // Prefill from ?q= (hero search hands off the query here).
@@ -151,13 +150,10 @@ export default function PgPage() {
           <EmptyState hasFilters={!!hasFilters} onClear={clearFilters} />
         ) : (
           <>
-            <p className="mb-4 text-xs text-muted-foreground">
-              {total.toLocaleString()} PG{total !== 1 ? "s" : ""} found
-            </p>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {(pgs as PgItem[]).map((p) => <PgCard key={p.id} pg={p} />)}
             </div>
-            <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} total={total} noun="PGs" />
+            <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} />
           </>
         )}
       </div>

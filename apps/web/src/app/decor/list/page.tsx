@@ -117,7 +117,7 @@ export default function ListDecorBusinessPage() {
     setUploading(true);
     const hostedImages: string[] = [];
     for (const img of images) {
-      const dataUrl = await compressImage(img.file);
+      const dataUrl = await compressImage(img.file, undefined, undefined, { watermark: true });
       try {
         const { url } = await uploadImage.mutateAsync({
           contentType: "image/jpeg",

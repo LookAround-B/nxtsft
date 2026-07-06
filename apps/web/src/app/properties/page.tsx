@@ -316,7 +316,6 @@ function PropertiesInner() {
   );
 
   const properties = (query.data?.items ?? []) as PropertyItem[];
-  const total = query.data?.total ?? 0;
   const totalPages = query.data?.totalPages ?? 1;
   const activeCount = [city, type, purpose, bedrooms, furnishing].filter(Boolean).length;
 
@@ -434,11 +433,6 @@ function PropertiesInner() {
             {purpose ? `Properties for ${purpose}` : "All Properties"}
             {city ? ` in ${city}` : ""}
           </h1>
-          {!query.isLoading && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {total} listing{total !== 1 ? "s" : ""} found
-            </p>
-          )}
         </div>
 
         {/* Loading skeleton */}
@@ -485,13 +479,7 @@ function PropertiesInner() {
               ))}
             </div>
 
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              onPageChange={goToPage}
-              total={total}
-              noun="properties"
-            />
+            <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} />
           </>
         )}
       </main>
