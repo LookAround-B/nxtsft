@@ -54,7 +54,7 @@ export function DailyVisitorsCount() {
   const digits = String(count ?? 0).padStart(6, "0").split("");
 
   return (
-    <div className="inline-flex flex-col items-center gap-1.5 rounded-lg bg-[var(--gold)]/90 px-4 py-2.5">
+    <div className="inline-flex flex-col items-center gap-1.5 rounded-lg bg-primary/90 px-4 py-2.5">
       <span className="text-[11px] font-bold uppercase tracking-wide text-navy">
         Daily Visitors Count
       </span>
