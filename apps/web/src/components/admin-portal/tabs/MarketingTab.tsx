@@ -89,13 +89,23 @@ function CarouselBuilder({ onSaved }: { onSaved: () => void }) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-  const cards = chosen.map((p) => ({
-    title: p.title,
-    image: new URL(p.images[0] ?? "/categories/apartment.png", SITE_URL).toString(),
-    price: `${fmtPrice(p.price)}${p.purpose === "Rent" ? "/mo" : ""}`,
-    location: `${p.location.locality}, ${p.location.city}`,
-    link: `${SITE_URL}/properties/${p.slug}?utm_source=whatsapp&utm_medium=carousel&utm_campaign=${campaignSlug}`,
-  }));
+  const cards = chosen.map((p) => {
+    // /categories/* is a local static fallback (public/categories/*.png);
+    // property photos are already absolute R2 URLs. previewSrc stays relative
+    // for the on-page <img> so it resolves against whatever origin actually
+    // served this page — image (absolute, resolved against the canonical
+    // SITE_URL) is only for the exported CSV/JSON, read by an external vendor
+    // with no origin of their own to resolve a relative path against.
+    const previewSrc = p.images[0] ?? "/categories/apartment.png";
+    return {
+      title: p.title,
+      previewSrc,
+      image: new URL(previewSrc, SITE_URL).toString(),
+      price: `${fmtPrice(p.price)}${p.purpose === "Rent" ? "/mo" : ""}`,
+      location: `${p.location.locality}, ${p.location.city}`,
+      link: `${SITE_URL}/properties/${p.slug}?utm_source=whatsapp&utm_medium=carousel&utm_campaign=${campaignSlug}`,
+    };
+  });
 
   const downloadCsv = () => {
     const rows = [
@@ -186,7 +196,7 @@ function CarouselBuilder({ onSaved }: { onSaved: () => void }) {
             {cards.map((c) => (
               <div key={c.link} className="w-44 shrink-0 overflow-hidden rounded-xl border border-border bg-white">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={c.image} alt="" className="h-24 w-full object-cover" />
+                <img src={c.previewSrc} alt="" className="h-24 w-full object-cover" />
                 <div className="p-2">
                   <p className="truncate text-[11px] font-semibold text-navy">{c.title}</p>
                   <p className="text-[11px] text-muted-foreground">{c.location}</p>
