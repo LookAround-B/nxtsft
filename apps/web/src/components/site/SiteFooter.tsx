@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MapPin, ExternalLink, Instagram, Youtube, Facebook, Twitter } from "lucide-react";
+import { DailyVisitorsCount } from "./DailyVisitorsCount";
 
 const FOOTER_LINKS = {
   discover: [
@@ -9,8 +10,7 @@ const FOOTER_LINKS = {
     { href: "/properties?type=Plot", label: "Plots & Land" },
     { href: "/properties?type=Office", label: "Commercial" },
     { href: "/pg", label: "PG / Co-living" },
-    { href: "/interiors", label: "Home Interiors" },
-    { href: "/decor", label: "Decors" },
+    { href: "/interiors", label: "Interior Designers" },
   ],
   company: [
     { href: "/about", label: "About Us" },
@@ -25,6 +25,7 @@ const FOOTER_LINKS = {
     { href: "/login", label: "Sign In" },
     { href: "/register", label: "Create Account" },
     { href: "/refer", label: "Refer & Earn" },
+    { href: "/unsubscribe", label: "Unsubscribe" },
   ],
   cities: [
     { href: "/properties?city=Mumbai", label: "Mumbai" },
@@ -133,6 +134,11 @@ export function SiteFooter() {
           <div className="md:col-span-2">
             <LinkColumn title="Top Cities" links={FOOTER_LINKS.cities} />
           </div>
+        </div>
+
+        {/* Daily visitors ticker (GOL-292) */}
+        <div className="mt-10 flex justify-center">
+          <DailyVisitorsCount />
         </div>
       </div>
 

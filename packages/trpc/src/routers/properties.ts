@@ -121,6 +121,7 @@ export const propertiesRouter = router({
         minPrice: priceSchema.optional(),
         maxPrice: priceSchema.optional(),
         bedrooms: roomCountSchema.optional(),
+        furnishing: furnishingSchema.optional(),
         search: searchSchema.optional(),
         featured: z.boolean().optional(),
         // PG-specific filters (only meaningful when type === "PG")
@@ -131,7 +132,7 @@ export const propertiesRouter = router({
       }),
     )
     .query(async ({ input }) => {
-      const { page, limit, city, type, purpose, minPrice, maxPrice, bedrooms, search, featured, pgGender, pgOccupancy } = input;
+      const { page, limit, city, type, purpose, minPrice, maxPrice, bedrooms, furnishing, search, featured, pgGender, pgOccupancy } = input;
 
       const where: NonNullable<Parameters<typeof prisma.property.findMany>[0]>["where"] = {
         deletedAt: null,
@@ -142,6 +143,7 @@ export const propertiesRouter = router({
       if (type) where.type = type;
       if (purpose) where.purpose = purpose;
       if (bedrooms) where.bedrooms = bedrooms;
+      if (furnishing) where.furnishing = furnishing;
       if (featured !== undefined) where.featured = featured;
       if (pgGender) where.pgGender = pgGender;
       if (pgOccupancy) where.pgOccupancy = { has: pgOccupancy };

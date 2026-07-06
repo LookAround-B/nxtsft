@@ -81,7 +81,7 @@ export default function InteriorsPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h1 className="font-display text-2xl font-black text-navy sm:text-3xl">
-                  Home Interiors — Designer Directory
+                  Interior Designers
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Discover trusted interior design companies and their portfolios near you

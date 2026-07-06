@@ -103,6 +103,15 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
+  // GOL-288: /decor duplicated /interiors — one public directory now, named
+  // "Interior Designers". Decor store data + admin tab remain; only the public
+  // route folds into /interiors.
+  async redirects() {
+    return [
+      { source: "/decor", destination: "/interiors", permanent: true },
+      { source: "/decor/:path*", destination: "/interiors", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

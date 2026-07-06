@@ -904,6 +904,18 @@ model Campaign {
   @@index([createdById])
 }
 
+// Communication opt-outs (GOL-291). One row per (email, channel) — campaigns
+// must exclude these addresses before sending. Reasons kept for the CRM.
+model UnsubscribeRequest {
+  id        String   @id @default(cuid())
+  email     String
+  channel   String // email | sms_whatsapp
+  reasons   String[]
+  createdAt DateTime @default(now())
+
+  @@unique([email, channel])
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // AI MODEL VERSIONS
 // ═══════════════════════════════════════════════════════════════════════════

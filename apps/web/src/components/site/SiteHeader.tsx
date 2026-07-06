@@ -15,7 +15,6 @@ import {
   Users,
   TrendingUp,
   Sofa,
-  Lamp,
   LogOut,
   User as UserIcon,
 } from "lucide-react";
@@ -29,8 +28,7 @@ const PROPERTY_TYPES = [
   { label: "Commercial", Icon: Briefcase, type: "Office" },
   { label: "PG / Co-living", Icon: Users, type: "PG", href: "/pg" },
   { label: "Studios", Icon: TrendingUp, type: "Studio" },
-  { label: "Home Interiors", Icon: Sofa, type: "Home Interiors", href: "/interiors" },
-  { label: "Decors", Icon: Lamp, type: "Decors", href: "/decor" },
+  { label: "Interior Designers", Icon: Sofa, type: "Interior Designers", href: "/interiors" },
 ];
 
 const PROPERTY_CITIES = [

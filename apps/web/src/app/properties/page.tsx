@@ -24,6 +24,12 @@ import { Pagination } from "@/components/ui/pagination";
 const PROPERTY_TYPES = ["Apartment", "Villa", "Studio", "Office", "Bungalow", "Plot", "PG"] as const;
 const PURPOSES = ["Sale", "Rent"] as const;
 const BHKS = [1, 2, 3, 4, 5];
+const FURNISHINGS = [
+  { value: "Furnished", label: "Fully Furnished" },
+  { value: "Semi-Furnished", label: "Semi Furnished" },
+  { value: "Unfurnished", label: "Unfurnished" },
+] as const;
+type Furnishing = (typeof FURNISHINGS)[number]["value"];
 const CITIES = [
   "Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Pune", "Chennai",
   "Ahmedabad", "Kolkata", "Jaipur", "Noida", "Gurgaon", "Surat",
@@ -285,12 +291,15 @@ function PropertiesInner() {
   const [bedrooms, setBedrooms] = useState<number | undefined>(
     searchParams.get("bedrooms") ? Number(searchParams.get("bedrooms")) : undefined
   );
+  const [furnishing, setFurnishing] = useState<Furnishing | "">(
+    FURNISHINGS.find((f) => f.value === searchParams.get("furnishing"))?.value ?? ""
+  );
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     setPage(1);
-  }, [search, city, type, purpose, bedrooms]);
+  }, [search, city, type, purpose, bedrooms, furnishing]);
 
   const query = trpc.properties.list.useQuery(
     {
@@ -299,6 +308,7 @@ function PropertiesInner() {
       type: type || undefined,
       purpose: purpose || undefined,
       bedrooms,
+      furnishing: furnishing || undefined,
       page,
       limit: 12,
     },
@@ -308,7 +318,7 @@ function PropertiesInner() {
   const properties = (query.data?.items ?? []) as PropertyItem[];
   const total = query.data?.total ?? 0;
   const totalPages = query.data?.totalPages ?? 1;
-  const activeCount = [city, type, purpose, bedrooms].filter(Boolean).length;
+  const activeCount = [city, type, purpose, bedrooms, furnishing].filter(Boolean).length;
 
   const goToPage = (p: number) => {
     setPage(p);
@@ -316,7 +326,7 @@ function PropertiesInner() {
   };
 
   const clearFilters = () => {
-    setCity(""); setType(""); setPurpose(""); setBedrooms(undefined);
+    setCity(""); setType(""); setPurpose(""); setBedrooms(undefined); setFurnishing("");
     setSearch(""); setSearchInput(""); setPage(1);
   };
 
@@ -391,6 +401,15 @@ function PropertiesInner() {
                   label={`${b}${b === 5 ? "+" : ""} BHK`}
                   active={bedrooms === b}
                   onClick={() => setBedrooms(bedrooms === b ? undefined : b)}
+                />
+              ))}
+
+              {FURNISHINGS.map((f) => (
+                <FilterChip
+                  key={f.value}
+                  label={f.label}
+                  active={furnishing === f.value}
+                  onClick={() => setFurnishing(furnishing === f.value ? "" : f.value)}
                 />
               ))}
 
