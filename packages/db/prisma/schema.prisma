@@ -52,6 +52,7 @@ model User {
   messages              Message[]
   favorites             Favorite[]
   reviews               Review[]
+  reviewHelpfulVotes    ReviewHelpful[]
   subscriptions         Subscription[]         @relation("UserSubscriptions")
   payments              Payment[]              @relation("UserPayments")
   searchAlerts          SearchAlert[]
@@ -111,7 +112,8 @@ model Property {
 
   price        BigInt // in rupees
   pricePerSqft Int?
-  area         Int // super built-up area, sqft
+  area         Int // super built-up area, sqft (canonical unit — always stored as sqft)
+  areaUnit     String  @default("sqft") // unit the seller entered: sqft | sqyd | acre
   builtUpArea  Int? // built-up area, sqft
   bhk          String? // "2 BHK", "3 BHK", etc.
   bedrooms     Int     @default(0)
@@ -681,9 +683,27 @@ model Review {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  helpfulVotes ReviewHelpful[]
+
   @@index([propertyId])
   @@index([authorId])
   @@index([status])
+}
+
+// One "helpful" vote per user per review — the unique constraint is the
+// integrity guard (LA-294: markHelpful was previously an unbounded counter).
+// Review.helpful stays as the denormalized display count, kept in sync
+// transactionally by reviews.markHelpful.
+model ReviewHelpful {
+  id        String   @id @default(cuid())
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([reviewId, userId])
+  @@index([userId])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -918,6 +938,18 @@ model Campaign {
 
   @@index([status])
   @@index([createdById])
+}
+
+// Communication opt-outs (GOL-291). One row per (email, channel) — campaigns
+// must exclude these addresses before sending. Reasons kept for the CRM.
+model UnsubscribeRequest {
+  id        String   @id @default(cuid())
+  email     String
+  channel   String // email | sms_whatsapp
+  reasons   String[]
+  createdAt DateTime @default(now())
+
+  @@unique([email, channel])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

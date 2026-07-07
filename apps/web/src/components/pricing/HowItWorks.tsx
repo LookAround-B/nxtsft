@@ -1,25 +1,6 @@
 type Step = { step: string; title: string; body: string };
 
-function getSteps(forSeeker: boolean, forReseller: boolean): Step[] {
-  if (forReseller) {
-    return [
-      {
-        step: "01",
-        title: "Choose your lead pack",
-        body: "Pick a plan based on how many verified buyer leads you need. Your dedicated Relationship Manager is assigned within 2 hours of purchase.",
-      },
-      {
-        step: "02",
-        title: "Receive curated leads",
-        body: "Your RM matches your property to intent-verified buyers on NxtSft.com and delivers their details — name, number, budget, requirements — directly to your WhatsApp.",
-      },
-      {
-        step: "03",
-        title: "Close with full support",
-        body: "Your RM coordinates site visits, handles price negotiations, and assists with documentation so you close every deal stress-free.",
-      },
-    ];
-  }
+function getSteps(forSeeker: boolean): Step[] {
   if (forSeeker) {
     return [
       {
@@ -58,14 +39,8 @@ function getSteps(forSeeker: boolean, forReseller: boolean): Step[] {
   ];
 }
 
-export function HowItWorks({
-  forSeeker,
-  forReseller,
-}: {
-  forSeeker: boolean;
-  forReseller?: boolean;
-}) {
-  const steps = getSteps(forSeeker, forReseller ?? false);
+export function HowItWorks({ forSeeker }: { forSeeker: boolean }) {
+  const steps = getSteps(forSeeker);
 
   return (
     <section className="bg-secondary/50 py-16">

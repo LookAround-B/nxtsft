@@ -207,6 +207,7 @@ export const referralsRouter = router({
             input.decision === "Approved"
               ? `Your referral for ${submission.customerName} was approved — ₹${submission.rewardAmount} added to your wallet.`
               : `Your referral for ${submission.customerName} wasn't approved this time.`,
+          actionUrl: "/user-portal#refer",
         },
       });
 

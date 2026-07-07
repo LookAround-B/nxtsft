@@ -4,11 +4,23 @@ import { useState } from "react";
 import { Check, ArrowRight, Sparkles } from "lucide-react";
 import { CHOOSER_FLOWS, type ChooserVariant } from "@/components/pricing/pricingData";
 
+// Minimal shape of a DB plan row (prisma.plan) used to render the live
+// name/price of the recommended plan instead of static copy.
+type DbPlan = {
+  id: string;
+  name: string;
+  priceLabel: string;
+  credits: number;
+  validity: number;
+};
+
 export function PlanChooser({
   variant,
+  plans,
   onScrollToPlans,
 }: {
   variant: ChooserVariant;
+  plans?: DbPlan[];
   onScrollToPlans: (id: string) => void;
 }) {
   const flow = CHOOSER_FLOWS[variant];
@@ -90,8 +102,35 @@ export function PlanChooser({
                 <div className="text-[11px] font-bold uppercase tracking-widest text-accent mb-1">
                   We recommend
                 </div>
-                <div className="font-display text-2xl font-black text-navy">{result.name}</div>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{result.why}</p>
+                {(() => {
+                  // Prefer live DB plan data (name/price/credits) over the
+                  // static recommendation copy so prices can never drift.
+                  const dbPlan =
+                    plans?.find((p) => p.id === result.planId) ??
+                    plans?.find((p) => p.id.endsWith(`-${result.planId}`));
+                  return (
+                    <>
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span className="font-display text-2xl font-black text-navy">
+                          {dbPlan?.name ?? result.name}
+                        </span>
+                        {dbPlan && (
+                          <span className="font-display text-lg font-bold text-accent">
+                            {dbPlan.priceLabel}
+                          </span>
+                        )}
+                        {dbPlan && (
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            {dbPlan.credits > 0
+                              ? `${dbPlan.credits} credit${dbPlan.credits !== 1 ? "s" : ""} · valid ${dbPlan.validity} days`
+                              : `valid ${dbPlan.validity} days`}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{result.why}</p>
+                    </>
+                  );
+                })()}
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button
                     onClick={() => onScrollToPlans(result.planId)}

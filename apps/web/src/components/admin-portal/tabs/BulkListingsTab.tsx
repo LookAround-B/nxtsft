@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Download, Upload, Loader2, FileSpreadsheet, Check, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Download, Upload, Loader2, FileSpreadsheet, Check, CheckCircle2, AlertTriangle, Pencil, ExternalLink } from "lucide-react";
 import { Section } from "@/components/portal/PortalShell";
+import { normalizeBulkImportMatrix, type BulkImportMatrix } from "@/lib/bulk-import";
 import { trpc } from "@/lib/trpc";
 import { validateBulkImportFile } from "@/lib/file-validation";
 import { PageHead } from "./PageHead";
+import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 
 // Admin-only variant of the seller bulk-upload template (apps/web/src/app/list/bulk/page.tsx),
 // extended with owner columns so admins can seed dummy listings + dummy owner
@@ -27,7 +29,7 @@ type FieldDef = { key: FieldKey; header: string; required?: boolean; aliases?: s
 const FIELDS: FieldDef[] = [
   { key: "ownerName", header: "Owner Name", required: true, example: "Ramesh Kumar" },
   { key: "ownerPhone", header: "Owner Mobile Number", required: true, aliases: ["owner phone", "owner mobile"], example: "9876500000" },
-  { key: "ownerEmail", header: "Owner Email", aliases: ["email"], example: "" },
+  { key: "ownerEmail", header: "Owner Email", aliases: ["email", "owner email id"], example: "" },
 
   { key: "title", header: "Title", required: true, example: "Spacious 3 BHK Apartment in Whitefield" },
   { key: "description", header: "Description", example: "Sun-facing, near metro, gated society" },
@@ -41,14 +43,14 @@ const FIELDS: FieldDef[] = [
   { key: "bathrooms", header: "Bathrooms", example: "3" },
   { key: "balconies", header: "Balconies", example: "2" },
   { key: "parking", header: "Parking", example: "1" },
-  { key: "furnishing", header: "Furnishing", example: "Semi-Furnished" },
+  { key: "furnishing", header: "Furnishing", aliases: ["furnish", "furnish semi firnish"], example: "Semi-Furnished" },
   { key: "facing", header: "Facing", example: "East" },
   { key: "floors", header: "Floors", example: "12" },
   { key: "age", header: "Age", example: "2 years" },
   { key: "possession", header: "Possession", example: "Ready to Move" },
-  { key: "builder", header: "Builder", example: "Prestige Group" },
+  { key: "builder", header: "Builder", aliases: ["builder name"], example: "Prestige Group" },
   { key: "reraLabel", header: "RERA Authority", aliases: ["rera authority", "rera label"], example: "KA RERA" },
-  { key: "rera", header: "RERA", aliases: ["rera number"], example: "PRM/KA/RERA/1251/446/PR/12345" },
+  { key: "rera", header: "RERA", aliases: ["rera number", "rera id"], example: "PRM/KA/RERA/1251/446/PR/12345" },
   { key: "city", header: "City", required: true, example: "Bengaluru" },
   { key: "state", header: "State", required: true, example: "Karnataka" },
   { key: "locality", header: "Locality", required: true, example: "Whitefield" },
@@ -134,12 +136,95 @@ function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows:
   return { rows };
 }
 
+// Lets an admin add photos/description to a listing right after a bulk upload,
+// since the CSV template has no photo upload step of its own.
+function CreatedListingRow({ listing }: { listing: { id: string; slug: string; title: string } }) {
+  const [open, setOpen] = useState(false);
+  const [description, setDescription] = useState("");
+  const [imagesText, setImagesText] = useState("");
+
+  const updateMut = trpc.properties.update.useMutation({
+    onSuccess: () => {
+      toast.success("Listing updated.");
+      setOpen(false);
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+
+  const save = () => {
+    const images = imagesText
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    updateMut.mutate({
+      id: listing.id,
+      description: description.trim() || undefined,
+      images: images.length ? images : undefined,
+    });
+  };
+
+  return (
+    <div className="border-t border-border py-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-sm font-medium text-navy">{listing.title}</span>
+        <div className="flex shrink-0 items-center gap-3">
+          <a
+            href={`/properties/${listing.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+          >
+            <ExternalLink size={12} /> View
+          </a>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-navy hover:text-accent"
+          >
+            <Pencil size={12} /> {open ? "Close" : "Modify"}
+          </button>
+        </div>
+      </div>
+      {open && (
+        <div className="mt-2.5 space-y-2 rounded-lg bg-secondary/30 p-3">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            placeholder="Description (optional)"
+            className="w-full resize-none rounded-md border border-border bg-white px-2.5 py-2 text-xs outline-none focus:border-accent"
+          />
+          <textarea
+            value={imagesText}
+            onChange={(e) => setImagesText(e.target.value)}
+            rows={3}
+            placeholder="Image URLs, one per line"
+            className="w-full resize-none rounded-md border border-border bg-white px-2.5 py-2 text-xs outline-none focus:border-accent"
+          />
+          <button
+            onClick={save}
+            disabled={updateMut.isPending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-bold text-accent-foreground disabled:opacity-60"
+          >
+            {updateMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+            Save
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function BulkListingsTab() {
   const [parsed, setParsed] = useState<Row[] | null>(null);
   const [parseErr, setParseErr] = useState("");
   const [fileName, setFileName] = useState("");
   const [parsing, setParsing] = useState(false);
-  const [result, setResult] = useState<{ created: number; failed: number; errors: { row: number; message: string }[] } | null>(null);
+  const [result, setResult] = useState<{
+    created: number;
+    failed: number;
+    errors: { row: number; message: string }[];
+    createdListings: { id: string; slug: string; title: string }[];
+  } | null>(null);
 
   const bulkMut = trpc.admin.properties.bulkCreateListings.useMutation();
 
@@ -152,17 +237,17 @@ export function BulkListingsTab() {
 
     setParseErr(""); setParsed(null); setResult(null); setFileName(file.name); setParsing(true);
     try {
-      let matrix: (string | number | null | boolean)[][];
+      let matrix: BulkImportMatrix;
       if (file.name.toLowerCase().endsWith(".csv")) {
         matrix = parseCsv(await file.text());
       } else {
         const readXlsxFile = (await import("read-excel-file/browser")).default;
-        matrix = (await readXlsxFile(file)) as (string | number | null | boolean)[][];
+        matrix = normalizeBulkImportMatrix(await readXlsxFile(file));
       }
       const { rows, error } = rowsFromMatrix(matrix);
       if (error) setParseErr(error);
       else if (!rows.length) setParseErr("No listing rows found in the file.");
-      else if (rows.length > 500) setParseErr("Too many rows — upload up to 500 listings at a time.");
+      else if (rows.length > BULK_IMPORT_MAX_ROWS) setParseErr(`Too many rows — upload up to ${BULK_IMPORT_MAX_ROWS} listings at a time.`);
       else setParsed(rows);
     } catch {
       setParseErr("Couldn't read this file. Make sure it's a valid .xlsx or .csv matching the template.");
@@ -305,6 +390,16 @@ export function BulkListingsTab() {
               {result.failed > 0 && ` · ${result.failed} failed`}
             </h3>
           </div>
+          {result.createdListings.length > 0 && (
+            <div className="mt-4 rounded-lg border border-border bg-white px-3">
+              <p className="pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Add photos or details
+              </p>
+              {result.createdListings.map((l) => (
+                <CreatedListingRow key={l.id} listing={l} />
+              ))}
+            </div>
+          )}
           {result.errors.length > 0 && (
             <div className="mt-4 overflow-hidden rounded-lg border border-rose-100">
               <table className="w-full text-left text-xs">

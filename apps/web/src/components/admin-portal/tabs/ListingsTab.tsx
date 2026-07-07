@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { parseLatLng } from "@/lib/map";
 import { getPendingListings, updateListingStatus as persistListingStatus } from "@/lib/listings";
 import { PageHead } from "./PageHead";
@@ -208,9 +209,11 @@ function EditRequestsSection() {
   if (requestsQ.isLoading || requests.length === 0) {
     return (
       <Section title="Seller Edit Requests">
-        <p className="py-6 text-center text-sm text-muted-foreground">
-          {requestsQ.isLoading ? "Loading…" : "No pending edit requests."}
-        </p>
+        {requestsQ.isLoading ? (
+          <TableSkeleton rows={4} cols={5} />
+        ) : (
+          <p className="py-6 text-center text-sm text-muted-foreground">No pending edit requests.</p>
+        )}
       </Section>
     );
   }

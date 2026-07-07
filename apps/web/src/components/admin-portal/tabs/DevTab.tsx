@@ -5,7 +5,9 @@ import { keepPreviousData } from "@tanstack/react-query";
 import { Download, Upload, Loader2, FileSpreadsheet, Search, Check, X as XIcon, FileCode2, RefreshCw } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
+import { normalizeBulkImportMatrix, type BulkImportMatrix } from "@/lib/bulk-import";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { validateBulkImportFile } from "@/lib/file-validation";
 import { builderRowSchema } from "@/lib/validation";
 import { PageHead } from "./PageHead";
@@ -193,12 +195,12 @@ export function DevTab() {
 
     setParseErr(""); setParsed(null); setFileName(file.name); setParsing(true);
     try {
-      let matrix: (string | number | null | boolean)[][];
+      let matrix: BulkImportMatrix;
       if (file.name.toLowerCase().endsWith(".csv")) {
         matrix = parseCsv(await file.text());
       } else {
         const readXlsxFile = (await import("read-excel-file/browser")).default;
-        matrix = (await readXlsxFile(file)) as (string | number | null | boolean)[][];
+        matrix = normalizeBulkImportMatrix(await readXlsxFile(file));
       }
       const { rows, error } = rowsFromMatrix(matrix);
       if (error) setParseErr(error);
@@ -514,7 +516,7 @@ export function DevTab() {
         </form>
 
         {listQ.isLoading ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">Loading builders…</div>
+          <div className="py-2"><TableSkeleton rows={6} cols={5} /></div>
         ) : builders.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
             No builders found. Upload a file above to get started.

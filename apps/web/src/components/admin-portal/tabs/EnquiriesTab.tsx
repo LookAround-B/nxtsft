@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Eye, X, Mail, Phone, MapPin, Calendar } from "lucide-react";
 import { Section, Badge, StatCard } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { PageHead } from "./PageHead";
 
 const STATUSES = ["New", "In Progress", "Resolved", "Closed"] as const;
@@ -177,7 +178,7 @@ export function EnquiriesTab() {
           ))}
         </div>
 
-        {listQ.isLoading && <div className="mt-4 text-sm text-muted-foreground">Loading enquiries…</div>}
+        {listQ.isLoading && <div className="mt-4"><TableSkeleton rows={5} cols={5} /></div>}
 
         {!listQ.isLoading && items.length === 0 && (
           <div className="mt-6 rounded-xl border border-dashed border-border bg-secondary/30 py-12 text-center text-sm text-muted-foreground">

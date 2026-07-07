@@ -397,6 +397,23 @@ export const usersRouter = router({
   // Leads a home-seller has received — i.e. buyers who enquired on a property
   // this user owns. Lead has no owner column, so we scope by the seller's own
   // property ids. Read-only; returns [] for users who own nothing.
+  // Live sidebar badge counts for the user portal — all scoped to the
+  // signed-in user. sellerNewLeads only matters for home-seller/agent navs.
+  badgeCounts: protectedProcedure.query(async ({ ctx }) => {
+    const [saved, tours, openTickets, myListings, sellerNewLeads] = await Promise.all([
+      prisma.favorite.count({ where: { userId: ctx.user.id } }),
+      prisma.siteVisit.count({ where: { userId: ctx.user.id, status: "Scheduled" } }),
+      prisma.ticket.count({
+        where: { userId: ctx.user.id, status: { in: ["open", "in_progress"] } },
+      }),
+      prisma.property.count({ where: { ownerId: ctx.user.id, deletedAt: null } }),
+      prisma.lead.count({
+        where: { status: "New", property: { is: { ownerId: ctx.user.id, deletedAt: null } } },
+      }),
+    ]);
+    return { saved, tours, openTickets, myListings, sellerNewLeads };
+  }),
+
   sellerLeads: protectedProcedure.query(async ({ ctx }) => {
     const myProps = await prisma.property.findMany({
       where: { ownerId: ctx.user.id, deletedAt: null },

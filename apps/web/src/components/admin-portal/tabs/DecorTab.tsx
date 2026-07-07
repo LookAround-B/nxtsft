@@ -4,6 +4,7 @@ import { Lamp, PlusCircle, X, CheckCircle, XCircle, Trash2, Users } from "lucide
 import { toast } from "sonner";
 import { StatCard, Section } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { PageHead } from "./PageHead";
 
 type StoreRow = {
@@ -108,7 +109,7 @@ function LeadsPanel() {
   return (
     <Section title={`Recent Contact Unlocks ${leads.length > 0 ? `(${leads.length})` : ""}`}>
       {leadsQ.isLoading ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton rows={4} />
       ) : leads.length === 0 ? (
         <div className="py-10 text-center">
           <Users size={26} className="mx-auto mb-2 text-muted-foreground/30" />
@@ -140,8 +141,9 @@ export function DecorTab() {
   const [statusFilter, setStatusFilter] = useState<"pending" | "active" | "inactive" | undefined>("pending");
   const [showCreate, setShowCreate] = useState(false);
 
-  const listQ = trpc.admin.decorStores.list.useQuery({ limit: 200, status: statusFilter });
-  const allQ = trpc.admin.decorStores.list.useQuery({ limit: 500 });
+  // limitSchema caps list inputs at 100 — anything higher fails validation with a 400.
+  const listQ = trpc.admin.decorStores.list.useQuery({ limit: 100, status: statusFilter });
+  const allQ = trpc.admin.decorStores.list.useQuery({ limit: 100 });
   const items = ((listQ.data as { items?: StoreRow[] } | undefined)?.items ?? []);
   const allItems = ((allQ.data as { items?: StoreRow[] } | undefined)?.items ?? []);
 
@@ -201,7 +203,7 @@ export function DecorTab() {
 
       <Section title={`${statusFilter ?? "All"} Listings ${items.length > 0 ? `(${items.length})` : ""}`}>
         {listQ.isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+          <ListSkeleton rows={5} />
         ) : items.length === 0 ? (
           <div className="py-12 text-center">
             <Lamp size={28} className="mx-auto mb-2 text-muted-foreground/30" />

@@ -61,7 +61,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // The DB read is best-effort: a transient failure must not 500 the crawler's
   // fetch, so fall back to the static routes instead of throwing.
   try {
-    const [properties, builders, agents, interiors, decorStores] = await Promise.all([
+    const [properties, builders, agents, interiors] = await Promise.all([
       prisma.property.findMany({
         where: { status: "Active" },
         select: { slug: true, updatedAt: true },
@@ -89,12 +89,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         orderBy: { updatedAt: "desc" },
         take: MAX_URLS_PER_TYPE,
       }),
-      prisma.decorStore.findMany({
-        where: { status: "active" },
-        select: { slug: true, updatedAt: true },
-        orderBy: { updatedAt: "desc" },
-        take: MAX_URLS_PER_TYPE,
-      }),
     ]);
 
     return [
@@ -103,7 +97,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...detailEntries(builders, "/builders", "monthly", 0.6),
       ...detailEntries(agents, "/agents", "monthly", 0.5),
       ...detailEntries(interiors, "/interiors", "monthly", 0.5),
-      ...detailEntries(decorStores, "/decor", "monthly", 0.5),
     ];
   } catch (err) {
     console.error("[sitemap] DB query failed; serving static routes only:", err);

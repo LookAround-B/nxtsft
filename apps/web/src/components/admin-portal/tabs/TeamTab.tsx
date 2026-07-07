@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Pencil, Ban, CheckCircle2 } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PageHead } from "./PageHead";
 import { type NewMemberInput, type TeamMember, ROLE_LABEL } from "./shared";
@@ -325,7 +326,7 @@ export function TeamTab() {
         }
       >
         {teamQ.isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading team…</p>
+          <TableSkeleton rows={6} cols={7} />
         ) : members.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">No team members match this filter.</p>
         ) : (

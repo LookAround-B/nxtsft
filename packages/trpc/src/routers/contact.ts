@@ -17,6 +17,16 @@ import {
 // length-capped, stripped of unsafe chars, optional.
 const contactPhoneSchema = safeString(20, 1).optional();
 
+// GOL-291: fixed opt-out reason lists — free text only via the capped "Other" field.
+const UNSUB_REASONS = [
+  "Not interested anymore",
+  "Don't remember signing up",
+  "Getting messages too often",
+  "Broken email design",
+  "Irrelevant content",
+  "Other",
+] as const;
+
 export const contactRouter = router({
   // Public: anyone can submit a contact-form enquiry. Rate-limited (5/hour).
   submit: publicProcedure
@@ -44,6 +54,33 @@ export const contactRouter = router({
       });
 
       // Don't leak the row id to anonymous submitters.
+      return { ok: true };
+    }),
+
+  // Public: opt out of marketing communication per channel. Rate-limited.
+  // Upserts so repeat submissions just refresh the reasons.
+  unsubscribe: publicProcedure
+    .use(contactRateLimit)
+    .input(
+      z.object({
+        email: emailSchema,
+        channels: z
+          .array(z.enum(["email", "sms_whatsapp"]))
+          .min(1, "Pick at least one channel"),
+        reasons: z.array(z.enum(UNSUB_REASONS)).max(UNSUB_REASONS.length).default([]),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const email = input.email.toLowerCase();
+      await Promise.all(
+        input.channels.map((channel) =>
+          prisma.unsubscribeRequest.upsert({
+            where: { email_channel: { email, channel } },
+            create: { email, channel, reasons: input.reasons },
+            update: { reasons: input.reasons },
+          }),
+        ),
+      );
       return { ok: true };
     }),
 

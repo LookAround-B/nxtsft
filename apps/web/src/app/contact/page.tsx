@@ -3,12 +3,15 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Mail, Phone, MapPin, Clock, Send, CheckCircle2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { MapLinkPreview } from "@/components/ui/MapLinkPreview";
+import { OFFICE_COORDS, OFFICE_MAPS_URL } from "@/lib/map";
 
-const CONTACTS = [
+const CONTACTS: { label: string; value: string; icon: React.ReactNode; href?: string }[] = [
   {
     label: "Headquarters",
     value: "Awfis, Kirloskar Business Park, Hebbal, Bengaluru, Karnataka 560024",
     icon: <MapPin size={18} />,
+    href: OFFICE_MAPS_URL,
   },
   {
     label: "Sales",
@@ -190,7 +193,7 @@ export default function ContactPage() {
 
           {/* Contact info */}
           <div className="space-y-4 lg:col-span-2">
-            {CONTACTS.map(({ label, value, icon }) => (
+            {CONTACTS.map(({ label, value, icon, href }) => (
               <div
                 key={label}
                 className="flex gap-4 rounded-2xl border border-border bg-white p-6 shadow-sm"
@@ -200,7 +203,20 @@ export default function ContactPage() {
                   <div className="text-xs font-semibold uppercase tracking-widest text-accent">
                     {label}
                   </div>
-                  <div className="mt-1.5 text-sm text-navy">{value}</div>
+                  <div className="mt-1.5 text-sm text-navy">
+                    {href ? (
+                      <MapLinkPreview
+                        href={href}
+                        lat={OFFICE_COORDS.lat}
+                        lng={OFFICE_COORDS.lng}
+                        className="underline-offset-4 transition hover:text-accent hover:underline"
+                      >
+                        {value}
+                      </MapLinkPreview>
+                    ) : (
+                      value
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

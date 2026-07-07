@@ -1,6 +1,19 @@
 // Shared types and constants used across multiple admin-portal tabs.
 // JSX components live in PageHead.tsx to keep this file JSX-free.
 
+// Live "needs action" counts per queue (admin.badgeCounts) — drives the
+// sidebar badge bubbles in both the admin and super-admin portals.
+export type BadgeCounts = {
+  enquiries: number;
+  kyc: number;
+  sellerApprovals: number;
+  listings: number;
+  reviews: number;
+  interiors: number;
+  decor: number;
+  escalations: number;
+};
+
 export type NewMemberInput = {
   name: string;
   email: string;

@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { ImageUploader, type UploadImage } from "@/components/ui/ImageUploader";
 import { compressImage } from "@/lib/image";
+import { AREA_UNITS, areaEquivalents, toSqft, type AreaUnit } from "@/lib/area";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Plot", "Commercial", "PG / Co-living", "Studio"];
 const CITIES = [
@@ -77,7 +78,7 @@ type FormData = {
   longitude: string;
   price: string;
   area: string;
-  areaUnit: "sqft" | "sqyd";
+  areaUnit: AreaUnit;
   builtUpArea: string;
   bhk: string;
   title: string;
@@ -302,7 +303,7 @@ export default function ListPropertyPage() {
     const hostedImages: string[] = [];
     const previewImages: string[] = [];
     for (const img of images) {
-      const dataUrl = await compressImage(img.file);
+      const dataUrl = await compressImage(img.file, undefined, undefined, { watermark: true });
       previewImages.push(dataUrl);
       try {
         const { url } = await uploadImage.mutateAsync({
@@ -324,12 +325,10 @@ export default function ListPropertyPage() {
     const listingImages = hostedImages.length ? hostedImages : previewImages;
 
     // The app stores area in sqft everywhere (search, display, DB) — convert
-    // sq. yards input (common for plots) at the point of submission so both
-    // the local listing preview and the DB record agree with the rest of the app.
-    const areaSqft =
-      data.areaUnit === "sqyd"
-        ? Math.round((parseInt(data.area) || 0) * 9)
-        : parseInt(data.area) || 0;
+    // the entered unit (sq. yards / acres are common for plots) at the point of
+    // submission. The chosen unit is kept alongside so Edit/Modify and the
+    // detail page can show the value the seller actually typed.
+    const areaSqft = toSqft(parseFloat(data.area) || 0, data.areaUnit);
 
     const result = submitListing({
       listerType: data.listerType as ListerType,
@@ -360,6 +359,7 @@ export default function ListPropertyPage() {
           purpose: data.purpose,
           price: parseInt(data.price) || 0,
           area: areaSqft,
+          areaUnit: data.areaUnit,
           builtUpArea: data.builtUpArea ? parseInt(data.builtUpArea) || undefined : undefined,
           bhk: data.bhk || undefined,
           bedrooms: parseBedrooms(data.bhk),
@@ -896,26 +896,32 @@ export default function ListPropertyPage() {
                     <div className="flex items-center justify-between">
                       <label className="block text-sm font-semibold text-foreground">Plot Area</label>
                       <div className="flex rounded-lg border border-input bg-secondary p-0.5">
-                        {(["sqft", "sqyd"] as const).map((u) => (
+                        {AREA_UNITS.map((u) => (
                           <button
-                            key={u}
+                            key={u.value}
                             type="button"
-                            onClick={() => set("areaUnit", u)}
+                            onClick={() => set("areaUnit", u.value)}
                             className={`rounded-md px-2.5 py-1 text-xs font-semibold transition
-                              ${data.areaUnit === u ? "bg-white text-navy shadow-sm" : "text-muted-foreground"}`}
+                              ${data.areaUnit === u.value ? "bg-white text-navy shadow-sm" : "text-muted-foreground"}`}
                           >
-                            {u === "sqft" ? "Sq.Ft" : "Sq.Yards"}
+                            {u.label}
                           </button>
                         ))}
                       </div>
                     </div>
                     <input
                       type="number"
+                      step="any"
                       value={data.area}
                       onChange={(e) => set("area", e.target.value)}
-                      placeholder={data.areaUnit === "sqft" ? "e.g. 2400" : "e.g. 267"}
+                      placeholder={data.areaUnit === "sqft" ? "e.g. 2400" : data.areaUnit === "sqyd" ? "e.g. 267" : "e.g. 0.5"}
                       className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.area ? "border-rose-400" : "border-input"}`}
                     />
+                    {parseFloat(data.area) > 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {areaEquivalents(parseFloat(data.area), data.areaUnit)}
+                      </p>
+                    )}
                     {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
                   </div>
                 ) : showBhk ? (

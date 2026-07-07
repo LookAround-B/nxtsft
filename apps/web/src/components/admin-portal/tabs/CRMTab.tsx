@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { X, Phone, Mail, MapPin, Building2, Tag, FileText, Calendar, ExternalLink } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PageHead } from "./PageHead";
 
 const CRM_STAGES = ["New", "Hot", "Warm", "Cold", "Converted", "Lost"] as const;
@@ -275,7 +276,11 @@ export function CRMTab() {
       <PageHead title="CRM Pipeline" subtitle="Drag a lead card between columns to move it through the funnel. Click a card to view contact details." />
       <Section title="Pipeline — All Teams" action={<Badge tone="new">{leads.length} leads</Badge>}>
         {leadsQ.isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading pipeline…</p>
+          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-44 w-full rounded-lg" />
+            ))}
+          </div>
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">

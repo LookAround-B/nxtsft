@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { keepPreviousData } from "@tanstack/react-query";
-import { Search, Lamp, MapPin, CheckCircle2, ChevronDown, X, PaintBucket } from "lucide-react";
+import { Search, Lamp, MapPin, CheckCircle2, ChevronDown, X, PaintBucket, MessageCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Pagination } from "@/components/ui/pagination";
 
@@ -164,8 +164,11 @@ function StoreCard({ store: d }: { store: StoreItem }) {
   return (
     <Link
       href={`/decor/${d.slug}`}
-      className="group flex flex-col gap-3 rounded-2xl border border-border bg-white p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-lg"
+      className="group relative flex flex-col gap-3 rounded-2xl border border-border bg-white p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-lg"
     >
+      <span className="absolute -bottom-2 -left-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-emerald-500 text-white shadow-md">
+        <MessageCircle size={16} fill="currentColor" />
+      </span>
       <div className="flex items-start justify-between gap-2">
         <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-xl bg-accent/10 text-accent">
           {d.logo ? (

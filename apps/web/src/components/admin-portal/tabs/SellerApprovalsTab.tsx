@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { CheckCircle2, UserCheck, Search, MapPin, Phone, Mail, Clock } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { PageHead } from "./PageHead";
 
 function timeAgo(iso: string | Date): string {
@@ -17,6 +18,7 @@ function timeAgo(iso: string | Date): string {
 export function SellerApprovalsTab() {
   const [search, setSearch] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const utils = trpc.useUtils();
 
   const sellersQ = trpc.admin.users.list.useQuery(
     { role: "home-seller", search: search.trim() || undefined, limit: 100, cursor: undefined },
@@ -35,6 +37,9 @@ export function SellerApprovalsTab() {
       setApprovingId(null);
       sellersQ.refetch();
       agentsQ.refetch();
+      // Sidebar badge reads admin.badgeCounts on a 60s poll — refresh it now so
+      // the pending count drops in step with this queue (LA-300).
+      void utils.admin.badgeCounts.invalidate();
     },
     onError: (err: { message: string }) => {
       toast.error(err.message);
@@ -67,9 +72,7 @@ export function SellerApprovalsTab() {
       </div>
 
       <Section title={`Pending Approval${pending.length > 0 ? ` (${pending.length})` : ""}`}>
-        {isLoading && (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        )}
+        {isLoading && <ListSkeleton rows={3} />}
 
         {!isLoading && pending.length === 0 && (
           <div className="rounded-xl border border-dashed border-border py-12 text-center">

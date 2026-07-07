@@ -1,62 +1,10 @@
-export type ResellerPlan = {
-  id: string;
-  name: string;
-  priceLabel: string;
-  leads: number;
-  validity: string;
-  badge: string | null;
-  features: string[];
-};
+// Static copy for the pricing page. Deliberately price-free: all plan names,
+// prices, credits and validity render from the DB (prisma.plan via
+// subscriptions.plans) so Plans Manager changes can never drift from this copy.
 
-export const RESELLER_PLANS: ResellerPlan[] = [
-  {
-    id: "resell-standard",
-    name: "Standard Pack",
-    priceLabel: "₹2,999",
-    leads: 10,
-    validity: "30 days",
-    badge: null,
-    features: [
-      "10 Verified Buyer Leads",
-      "1 Property Listing",
-      "Dedicated RM Assigned",
-      "Up to 5 Physical Walkthroughs",
-      "Legal / Paperwork Help",
-    ],
-  },
-  {
-    id: "resell-pro",
-    name: "Pro Assisted",
-    priceLabel: "₹4,999",
-    leads: 30,
-    validity: "45 days",
-    badge: null,
-    features: [
-      "30 Verified Buyer Leads",
-      "Dedicated RM + Premium Search",
-      "Up to 5 Site Visits Managed",
-      "End-to-End Lease / Sale Closing",
-    ],
-  },
-  {
-    id: "resell-executive",
-    name: "Executive Premium",
-    priceLabel: "₹9,999",
-    leads: 50,
-    validity: "60 days",
-    badge: "Best Value",
-    features: [
-      "50 Verified Buyer Leads",
-      "Dedicated RM + Premium Search",
-      "Up to 15 Site Visits Managed",
-      "End-to-End Lease / Sale Closing",
-    ],
-  },
-];
+export const PRICING_TABS = ["Property Seller", "Property Buyer"] as const;
 
-export const PRICING_TABS = ["Builders & Consultants", "Tenants", "Resellers & Owners"] as const;
-
-export type ChooserVariant = "owner-rent" | "owner-sell" | "seeker" | "reseller";
+export type ChooserVariant = "owner-rent" | "owner-sell" | "seeker";
 
 export const CHOOSER_FLOWS: Record<
   ChooserVariant,
@@ -88,33 +36,34 @@ export const CHOOSER_FLOWS: Record<
         options: [
           { label: "Just give me leads", sub: "I'll handle everything", value: "self" },
           { label: "Help with lead routing", sub: "Auto-alerts and filtering", value: "assisted" },
-          { label: "Fully managed", sub: "Social ads + support + routing", value: "full" },
+          { label: "Fully managed", sub: "Ads + support + routing", value: "full" },
         ],
       },
     ],
+    // planId must match a real Plan.id (type "owner-rent") in the DB.
     recommend: ([props, speed, help]) => {
       if (props === "4+" || help === "full")
         return {
-          planId: "rent-platinum",
-          name: "Rent Monthly Platinum",
-          why: "Covers 15 listings with social ad engine and automated lead routing — ideal for agents managing multiple properties.",
+          planId: "owner-rent-elite",
+          name: "Elite",
+          why: "Our top rental tier — maximum listings and leads, top placement, a dedicated manager and marketing support. Ideal for agents managing multiple properties.",
         };
-      if (props === "2-3")
+      if (props === "2-3" || help === "assisted")
         return {
-          planId: "rent-gold",
-          name: "Rent Monthly Gold",
-          why: "Lists up to 3 properties with homepage rotation and 75 verified leads — perfect for small portfolios.",
+          planId: "owner-rent-standard",
+          name: "Standard",
+          why: "Multiple listings with a featured badge and stronger lead flow — perfect for small portfolios.",
         };
       if (speed === "urgent")
         return {
-          planId: "rent-weekly",
-          name: "Rent Weekly Booster",
-          why: "Get maximum visibility for 7 days with top placement — best when you need a tenant fast.",
+          planId: "owner-rent-pro",
+          name: "Pro",
+          why: "Priority placement, generous lead limits and a dedicated manager — maximum visibility when you need a tenant fast.",
         };
       return {
-        planId: "rent-silver",
-        name: "Rent Monthly Silver",
-        why: "Single listing, 30 days, 30 verified leads with WhatsApp alerts — the right fit for most individual landlords.",
+        planId: "owner-rent-basic",
+        name: "Basic",
+        why: "A single listing with steady lead flow — the right fit for most individual landlords.",
       };
     },
   },
@@ -132,8 +81,8 @@ export const CHOOSER_FLOWS: Record<
         q: "What kind of marketing support do you need?",
         options: [
           { label: "Basic listing", sub: "Just be listed", value: "basic" },
-          { label: "Facebook Ads + Top Placement", sub: "More visibility", value: "boosted" },
-          { label: "Google + Meta campaigns", sub: "Full digital marketing", value: "full" },
+          { label: "Boosted visibility", sub: "Ads + top placement", value: "boosted" },
+          { label: "Full digital marketing", sub: "Managed ad campaigns", value: "full" },
         ],
       },
       {
@@ -144,29 +93,30 @@ export const CHOOSER_FLOWS: Record<
         ],
       },
     ],
+    // planId must match a real Plan.id (type "owner-sell") in the DB.
     recommend: ([props, mkt, crm]) => {
       if (crm === "yes" || props === "7+")
         return {
-          planId: "sell-builder",
-          name: "Sell Monthly Builder Pro",
-          why: "CRM integration, Google + Meta campaigns, 15 listings and 400 leads — built for serious developers.",
+          planId: "owner-sell-elite",
+          name: "Elite",
+          why: "Our top selling tier — maximum listings and leads, top placement, a dedicated manager and full marketing support. Built for serious developers.",
         };
       if (mkt === "full")
         return {
-          planId: "sell-platinum",
-          name: "Sell Monthly Platinum",
-          why: "Homepage rotation, 7 listings, 200 leads, and dedicated lead filters — for premium agencies.",
+          planId: "owner-sell-pro",
+          name: "Pro",
+          why: "Priority placement, generous lead limits and a dedicated manager — for premium agencies.",
         };
       if (props === "2-3" || mkt === "boosted")
         return {
-          planId: "sell-gold",
-          name: "Sell Monthly Gold",
-          why: "3 listings, Facebook Ad Boost, top placement and 120 verified buyer leads — the sweet spot for agents.",
+          planId: "owner-sell-standard",
+          name: "Standard",
+          why: "Multiple listings with a featured badge and stronger lead flow — the sweet spot for agents.",
         };
       return {
-        planId: "sell-silver",
-        name: "Sell Monthly Silver",
-        why: "Single property, 50 verified buyer leads and featured tag — the right start for a direct homeowner.",
+        planId: "owner-sell-basic",
+        name: "Basic",
+        why: "A single property listing with steady buyer lead flow — the right start for a direct homeowner.",
       };
     },
   },
@@ -205,65 +155,18 @@ export const CHOOSER_FLOWS: Record<
         return {
           planId: "premium",
           name: "Premium",
-          why: "15 owner contacts valid for 90 days, priority support and free site-visit scheduling — best for an active, multi-property search.",
+          why: "Our largest credit bundle with priority support — best for an active, multi-property search.",
         };
       if (count === "1-2" && when === "explore")
         return {
           planId: "instant",
           name: "Instant",
-          why: "1 owner contact at ₹99 — perfect for testing a single lead with zero commitment.",
+          why: "A single owner contact — perfect for testing one lead with zero commitment.",
         };
       return {
         planId: "basic",
         name: "Basic",
-        why: "5 owner contacts valid for 60 days — our most popular plan for a focused, short search.",
-      };
-    },
-  },
-  reseller: {
-    steps: [
-      {
-        q: "How many properties do you want to sell or lease?",
-        options: [
-          { label: "1 property", sub: "Single owner", value: "1" },
-          { label: "2 – 3", sub: "Small portfolio", value: "2-3" },
-          { label: "4 or more", sub: "Active reseller", value: "4+" },
-        ],
-      },
-      {
-        q: "How much closing support do you need?",
-        options: [
-          { label: "Full end-to-end", sub: "RM + site visits + closing", value: "full" },
-          { label: "Partial support", sub: "RM + walkthrough help", value: "partial" },
-          { label: "Just the leads", sub: "I'll handle closings myself", value: "self" },
-        ],
-      },
-      {
-        q: "What is your target timeline to close?",
-        options: [
-          { label: "Within 30 days", sub: "Urgent", value: "30" },
-          { label: "30 – 45 days", sub: "Normal pace", value: "45" },
-          { label: "45 – 60 days", sub: "Relaxed", value: "60" },
-        ],
-      },
-    ],
-    recommend: ([props, support]) => {
-      if (props === "4+" || support === "full")
-        return {
-          planId: "resell-executive",
-          name: "Executive Premium",
-          why: "50 verified buyer leads, dedicated RM + premium search, and up to 15 managed site visits with end-to-end closing — the complete package for serious resellers.",
-        };
-      if (props === "2-3" || support === "partial")
-        return {
-          planId: "resell-pro",
-          name: "Pro Assisted",
-          why: "30 verified buyer leads with a dedicated RM, premium buyer search, and up to 5 managed site visits — the sweet spot for active resellers.",
-        };
-      return {
-        planId: "resell-standard",
-        name: "Standard Pack",
-        why: "10 verified buyer leads, 1 property listing, a dedicated RM and legal/paperwork support — the ideal start for a single property sale or lease.",
+        why: "Our most popular credit bundle — the right fit for a focused, short search.",
       };
     },
   },
@@ -271,16 +174,12 @@ export const CHOOSER_FLOWS: Record<
 
 export const seekerFaqs: string[][] = [
   [
-    "What is the difference between all the seeker plans?",
-    "Micro Match (₹99) gives you 1 contact for a quick test. Trial Pack (₹199) gives 3 contacts over 15 days — perfect for casual exploration. Standard Pack (₹499) gives 6 contacts over 30 days, the best value for a short but focused search. Active Hunter (₹999) gives 12 contacts over 30 days for a serious multi-option search. Pro Assisted (₹1,999) and Executive Premium (₹2,999) include a dedicated Relationship Manager who handles site visits, negotiation, and paperwork on your behalf.",
+    "What is the difference between the buyer plans?",
+    "Instant gives you a single owner contact — ideal for testing one specific property. Basic is our most popular bundle for a focused, short search. Premium gives the largest credit bundle for an active search across many properties. The exact price, number of credits, and validity of each plan are shown on the plan cards above — they are always up to date.",
   ],
   [
     "Which plan should I choose?",
-    'Use the "Help me choose" tool above — answer 3 questions and we\'ll match you to the right plan. As a rule of thumb: if you have 1–2 specific properties in mind, go Micro or Trial. For an active search across a neighbourhood, Standard or Active Hunter. If you want someone to do the legwork, Pro Assisted or Executive Premium.',
-  ],
-  [
-    "What is a Dedicated Relationship Manager (RM) and how does it work?",
-    "A Relationship Manager is a NxtSft.com property advisor assigned exclusively to you when you buy Pro Assisted or Executive Premium. They proactively shortlist matching properties, arrange and accompany you on site visits, negotiate rent or price with the owner on your behalf, and help complete the rental/sale agreement. You communicate directly with your RM over phone and WhatsApp.",
+    'Use the "Help me choose" tool above — answer 3 questions and we\'ll match you to the right plan. As a rule of thumb: if you have 1–2 specific properties in mind, go Instant. For a focused search across a neighbourhood, Basic. If you are actively searching across many properties and want priority support, Premium.',
   ],
   [
     "How quickly can I access contacts after purchasing a plan?",
@@ -296,38 +195,34 @@ export const seekerFaqs: string[][] = [
   ],
   [
     "Do unused credits expire?",
-    "Yes — credits are valid only within the plan's validity window (7 to 60 days depending on the plan). Unused credits are not carried forward or refunded after expiry. Plan accordingly: if you're exploring casually, buy a small plan. If you're actively searching for the next 45–60 days, go with Pro or Executive.",
+    "Yes — credits are valid only within the plan's validity window, which is shown on each plan card. Unused credits are not carried forward or refunded after expiry. Plan accordingly: if you're exploring casually, buy a small plan; if you're actively searching, pick a larger bundle with longer validity.",
   ],
   [
     "Can I unlock the same property twice?",
     "No. Once a contact is unlocked it stays visible in your Unlocks tab permanently — you will never be charged again for the same property. Only one credit is deducted per property, ever.",
   ],
   [
-    "Is there a plan that guarantees I'll find a home?",
-    "The Executive Premium plan includes end-to-end closing support — your RM works with you until a rental/sale agreement is signed. While we cannot guarantee every search succeeds (property availability depends on the market), our RM-backed plans have a 91% satisfaction rate with closures typically within the plan validity window.",
-  ],
-  [
     "Can I top-up or upgrade mid-search?",
-    "Yes. You can purchase another plan at any time. New credits are added to your existing wallet balance. You can also upgrade to a Pro or Executive plan and a RM will be assigned within 2 hours of purchase, regardless of any plan you previously held.",
+    "Yes. You can purchase another plan at any time. New credits are added to your existing wallet balance on top of whatever you already hold.",
   ],
   [
     "Is there a monthly subscription?",
-    "No. All plans are one-time payments. There are no auto-renewals, no hidden recurring charges. Buy credits only when you need to search.",
+    "No. All buyer plans are one-time payments. There are no auto-renewals, no hidden recurring charges. Buy credits only when you need to search.",
   ],
   [
     "Is my payment secure?",
-    "Yes. All transactions are processed by Razorpay, a PCI-DSS compliant payment gateway. NxtSft.com never stores your card, UPI, or banking credentials. Payments are encrypted end-to-end.",
+    "Yes. All transactions are processed by PCI-DSS compliant payment gateways. NxtSft.com never stores your card, UPI, or banking credentials. Payments are encrypted end-to-end.",
   ],
 ];
 
 export const ownerFaqs: string[][] = [
   [
     "What is the difference between the rental and selling plans?",
-    "Rental plans (Weekly Booster, Monthly Silver, Gold, Platinum) are designed for landlords seeking tenants — they come with shorter validity and are priced for faster turnover. Selling plans (Silver, Gold, Platinum, Builder Pro, Enterprise) are for homeowners, agents, and developers selling properties — they carry higher lead quotas, longer validity, and optional CRM integration because the sales cycle is longer.",
+    "Rental plans are designed for landlords seeking tenants — priced for faster turnover. Selling plans are for homeowners, agents, and developers selling properties — they carry higher lead quotas and longer validity because the sales cycle is longer. Both come in four tiers (Basic, Standard, Pro, Elite); the exact price, validity and inclusions of each tier are shown on the plan cards above.",
   ],
   [
     "When will my listing go live after I purchase a plan?",
-    "Our team verifies and publishes listings within 24 hours of submission. For higher-tier plans (Gold and above), we prioritise within 8 hours. You will receive a WhatsApp confirmation with your listing URL once it's live. If your listing is not published within 24 hours, contact care@nxtsft.com immediately.",
+    "Our team verifies and publishes listings within 24 hours of submission. Higher-tier plans are prioritised. You will receive a WhatsApp confirmation with your listing URL once it's live. If your listing is not published within 24 hours, contact care@nxtsft.com immediately.",
   ],
   [
     "Why was my listing rejected?",
@@ -335,7 +230,7 @@ export const ownerFaqs: string[][] = [
   ],
   [
     "Can I list multiple properties on a single plan?",
-    "Yes, if your plan allows it. Rent Monthly Gold allows 3 listings, Rent Monthly Platinum allows 15, Sell Builder Pro allows 15, and Sell Enterprise allows 40. Each plan clearly states the number of active listings permitted. The Weekly Booster and Rent Monthly Silver are single-property plans.",
+    "Yes, if your plan allows it. Each plan card above clearly states the number of active listings permitted — higher tiers allow more listings, with the top tier supporting large portfolios.",
   ],
   [
     'What counts as a "verified lead"?',
@@ -347,11 +242,11 @@ export const ownerFaqs: string[][] = [
   ],
   [
     "My plan expired before I found a tenant — what now?",
-    "You can renew or upgrade at any time. There is no penalty, and your original listing content is preserved — just reactivate it when you renew. We recommend opting for a 30-day plan if you are not finding tenants quickly, as it gives more time for lead flow.",
+    "You can renew or upgrade at any time. There is no penalty, and your original listing content is preserved — just reactivate it when you renew. If you are not finding tenants quickly, consider a longer-validity tier for more time and lead flow.",
   ],
   [
     "Can I get a refund if my property gets rented through another channel?",
-    "Plans are non-refundable once activated and a listing goes live — similar to how classified ads work. If your property is rented before the plan expires, you can redirect the remaining lead quota to another property you own (Gold/Platinum plans). Contact care@nxtsft.com to reassign.",
+    "Plans are non-refundable once activated and a listing goes live — similar to how classified ads work. If your property is rented before the plan expires, higher-tier plans let you redirect the remaining lead quota to another property you own. Contact care@nxtsft.com to reassign.",
   ],
   [
     "Can I upgrade my plan mid-listing?",
@@ -363,22 +258,22 @@ export const ownerFaqs: string[][] = [
   ],
   [
     "Will NxtSft.com agents help me find tenants?",
-    "On Gold and Platinum plans, our team actively matches your listing to tenant searches and WhatsApp-alerts you on all new enquiries. On Platinum, our Social Ad Engine runs targeted campaigns on Instagram and Facebook. If you want a fully hands-off experience, contact our team about managed letting services.",
+    "On Standard and above, our team actively matches your listing to tenant searches and WhatsApp-alerts you on all new enquiries. On higher tiers, a dedicated manager and marketing support are included. If you want a fully hands-off experience, contact our team about managed letting services.",
   ],
   [
     "What if a tenant I found causes problems later?",
-    "NxtSft.com facilitates the connection but is not party to the tenancy agreement. Gold and above plans include basic tenant background screening (name, ID verification) through our portal. For higher-value properties, we recommend engaging a local lawyer for a formal rental agreement. Our RM (available on request) can assist with lease paperwork review.",
+    "NxtSft.com facilitates the connection but is not party to the tenancy agreement. Higher-tier plans include basic tenant background screening (name, ID verification) through our portal. For higher-value properties, we recommend engaging a local lawyer for a formal rental agreement.",
   ],
 ];
 
 export const ownerSellFaqs: string[][] = [
   [
-    "What is the difference between all the selling plans?",
-    "Sell Silver (₹4,999) is for individual homeowners with 1 property and basic lead access. Sell Gold (₹9,999) adds Facebook Ads and top search placement — ideal for active agents with 2–3 listings. Sell Platinum (₹14,999) adds homepage rotation and dedicated lead filters for independent agencies. Builder Pro (₹24,999) includes CRM integration, Google + Meta campaigns, and is built for developers. Enterprise (₹49,999) is for large-scale developers needing a dedicated project landing page, 40 listings, and a personal account manager.",
+    "What is the difference between the selling plans?",
+    "Basic is for individual homeowners with a single property. Standard adds a featured badge and stronger lead flow — ideal for active agents with a few listings. Pro adds priority placement and a dedicated manager for independent agencies. Elite is our top tier for builders and developers, with maximum listings, top placement and full marketing support. The exact price, validity and inclusions of each tier are shown on the plan cards above.",
   ],
   [
     "When will my listing go live after I purchase?",
-    "Within 24 hours of document submission on standard plans. Builder Pro and Enterprise listings are prioritised and typically go live within 8 hours. You receive a WhatsApp confirmation with your listing URL once published.",
+    "Within 24 hours of document submission on standard plans. Higher-tier listings are prioritised and typically go live faster. You receive a WhatsApp confirmation with your listing URL once published.",
   ],
   [
     "Why was my sale listing rejected?",
@@ -389,16 +284,12 @@ export const ownerSellFaqs: string[][] = [
     "No. NxtSft.com charges a flat listing fee only. There are zero commissions or success fees. Every rupee from your sale goes entirely to you.",
   ],
   [
-    "What is the Builder Pro plan designed for?",
-    "Builder Pro (₹24,999/month) is built for mid-tier developers with 15 active listings across one or more projects. It includes 400 verified buyer leads, CRM + lead routing, and Google + Meta ad campaigns managed by our team. For projects with 20+ units or multiple towers, consider the Enterprise plan or a custom quote.",
+    "Which plan is right for a builder or developer?",
+    "The Elite plan — it supports the largest number of active listings, includes a dedicated manager, and comes with managed marketing campaigns. For very large projects needing a dedicated microsite or custom integrations, email partners@nxtsft.com for a tailored quote and dedicated onboarding.",
   ],
   [
-    "Can I get a custom plan for my project?",
-    "Yes. Developers needing more than 40 listings, a dedicated project microsite, virtual tour integration, or custom RERA-page embedding can email partners@nxtsft.com for a tailored quote and dedicated onboarding.",
-  ],
-  [
-    "How do the Facebook and Google ad campaigns work?",
-    "On Gold and above, our marketing team builds targeted campaigns reaching buyers by city, budget range, and property type. For Builder Pro and Enterprise, we run full Google Search + Meta (Instagram/Facebook) funnels. Campaigns go live within 48 hours of plan activation and include weekly performance reports.",
+    "How do the marketing campaigns work?",
+    "On higher tiers, our marketing team builds targeted campaigns reaching buyers by city, budget range, and property type. Campaigns go live within 48 hours of plan activation and include weekly performance reports.",
   ],
   [
     "Can I upgrade my plan or add more listings mid-month?",
@@ -410,45 +301,6 @@ export const ownerSellFaqs: string[][] = [
   ],
   [
     "Is payment secure and what are the accepted methods?",
-    "All payments are processed by Razorpay (PCI-DSS Level 1 compliant). We accept UPI, net banking, debit/credit cards, and EMI on select plans. NxtSft.com does not store any card or banking credentials.",
-  ],
-];
-
-export const resellerFaqs: string[][] = [
-  [
-    "What exactly is a Verified Buyer Lead?",
-    "A Verified Buyer Lead is a pre-qualified buyer who has registered on NxtSft.com with a verified identity and an active property search that matches your listing. Unlike cold leads, they have expressed genuine purchase or lease intent — meaning higher conversion rates and far less time wasted on unqualified enquiries.",
-  ],
-  [
-    "How are leads delivered to me?",
-    "Within 24 hours of plan activation, your dedicated Relationship Manager reaches out to understand your property requirements. Leads are then delivered to your WhatsApp — including the buyer's name, phone number, budget range, and property requirements — so you always have context before the first call.",
-  ],
-  [
-    "What is the difference between the 3 plans?",
-    "Standard Pack (₹2,999) gives you 10 leads for a single listing with RM support and walkthrough assistance over 30 days. Pro Assisted (₹4,999) gives 30 leads with RM-managed site visits and end-to-end closing over 45 days. Executive Premium (₹9,999) gives 50 leads, premium buyer search access, up to 15 managed site visits, and full closing support over 60 days — best value if you want maximum reach with zero effort.",
-  ],
-  [
-    "Is there a commission when my property sells?",
-    "No. These are flat-fee plans — NxtSft.com charges zero commission on your transaction. Every rupee from your sale or lease goes entirely to you.",
-  ],
-  [
-    'What does "End-to-End Lease/Sale Closing" mean?',
-    "Your dedicated RM handles everything after lead matching — scheduling and accompanying site visits, negotiating price on your behalf, coordinating with lawyers for documentation, and assisting with the sale or lease agreement. You only need to approve the final deal.",
-  ],
-  [
-    "What if leads don't convert?",
-    "We focus on quality over quantity — all leads are intent-verified and matched to your property type, location, and budget. If leads delivered are unresponsive or clearly irrelevant, contact care@nxtsft.com within 48 hours and our team will review and replace them at no extra cost.",
-  ],
-  [
-    "Can I get more leads if I exhaust my pack before validity ends?",
-    "Yes. You can top up by purchasing an additional plan or upgrading mid-validity. Contact care@nxtsft.com for a seamless upgrade with pro-rated pricing.",
-  ],
-  [
-    "How quickly is my RM assigned after purchase?",
-    "Your Relationship Manager is assigned within 2 hours of payment confirmation. They will reach out via WhatsApp to introduce themselves and schedule an onboarding call to understand your property and expectations.",
-  ],
-  [
-    "Is my payment secure?",
-    "All payments are processed by Razorpay (PCI-DSS Level 1 compliant). We accept UPI, net banking, debit/credit cards. NxtSft.com does not store card or banking credentials.",
+    "All payments are processed by PCI-DSS compliant payment gateways. We accept UPI, net banking, debit/credit cards, and EMI on select plans. NxtSft.com does not store any card or banking credentials.",
   ],
 ];

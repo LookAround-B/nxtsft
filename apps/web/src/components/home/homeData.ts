@@ -14,6 +14,8 @@ import {
   Crown,
   Monitor,
   Anchor,
+  Ship,
+  Mountain,
   Sparkles,
   ShieldCheck,
   DollarSign,
@@ -22,7 +24,6 @@ import {
   Lock,
   CheckCircle2,
   Sofa,
-  Lamp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -99,8 +100,7 @@ export const CATEGORIES: { label: string; Icon: LucideIcon; type: string; image?
   { label: "Commercial", Icon: Briefcase, type: "Commercial", image: `${R2}/site/categories/commercial.png` },
   { label: "PG / Co-living", Icon: Users, type: "PG", image: `${R2}/site/categories/pg.png`, href: "/pg" },
   { label: "New Projects", Icon: TrendingUp, type: "New" },
-  { label: "Home Interiors", Icon: Sofa, type: "Home Interiors", href: "/interiors" },
-  { label: "Decors", Icon: Lamp, type: "Decors", href: "/decor" },
+  { label: "Interior Designers", Icon: Sofa, type: "Interior Designers", href: "/interiors" },
 ];
 
 export const CITIES: { label: string; Icon: LucideIcon; tagline: string }[] = [
@@ -116,6 +116,10 @@ export const CITIES: { label: string; Icon: LucideIcon; tagline: string }[] = [
   { label: "Noida", Icon: Monitor, tagline: "NCR's IT Hub" },
   { label: "Gurgaon", Icon: TrendingUp, tagline: "Millennium City" },
   { label: "Kochi", Icon: Anchor, tagline: "Queen of the Arabian Sea" },
+  { label: "Mangalore", Icon: Anchor, tagline: "Coastal Karnataka" },
+  { label: "Warangal", Icon: Mountain, tagline: "Kakatiya Heritage City" },
+  { label: "Vishakapatnam", Icon: Ship, tagline: "City of Destiny" },
+  { label: "Amaravati", Icon: Landmark, tagline: "Andhra Pradesh's Capital" },
 ];
 
 export const SERVICES: { Icon: LucideIcon; title: string; desc: string }[] = [

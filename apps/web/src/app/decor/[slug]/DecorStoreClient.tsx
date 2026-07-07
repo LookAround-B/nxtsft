@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { BuyCreditsLabel } from "@/components/pricing/BuyCreditsLabel";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -156,7 +157,7 @@ function ContactCard({ store, session, credits, refreshCredits }: {
           href="/pricing"
           className="mt-3 flex items-center justify-center gap-1 text-xs font-semibold text-accent hover:underline"
         >
-          Buy credits from ₹99
+          <BuyCreditsLabel />
           <ChevronRight size={12} />
         </Link>
       )}

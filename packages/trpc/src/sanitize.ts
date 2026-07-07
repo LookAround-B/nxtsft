@@ -269,6 +269,9 @@ export const priceSchema = z.number().int().positive().max(999_999_999_999, "Pri
 /** Area schema */
 export const areaSchema = z.number().int().positive().max(9_999_999, "Area is too large");
 
+/** Unit the seller entered a plot area in — canonical storage stays sqft */
+export const areaUnitSchema = z.enum(["sqft", "sqyd", "acre"]);
+
 /** Room count (bedrooms, bathrooms, balconies, parking) */
 export const roomCountSchema = z.number().int().min(0).max(50).default(0);
 

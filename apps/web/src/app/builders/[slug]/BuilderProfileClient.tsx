@@ -143,7 +143,7 @@ export default function BuilderProfileClient({ slug }: { slug: string }) {
 type ProjectData = {
   id: string; slug: string; name: string; city: string; area: string | null;
   type: string; status: string; reraNo: string | null;
-  priceMin: bigint | null; priceMax: bigint | null;
+  priceMin: number | null; priceMax: number | null;
   sftMin: number | null; sftMax: number | null;
   totalUnits: number | null; amenities: string[]; description: string | null;
 };

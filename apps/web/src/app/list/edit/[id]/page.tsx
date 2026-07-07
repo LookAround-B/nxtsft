@@ -12,6 +12,7 @@ import { parseLatLng } from "@/lib/map";
 import { AMENITIES } from "@/data/amenities";
 import { ImageUploader, type UploadImage } from "@/components/ui/ImageUploader";
 import { compressImage } from "@/lib/image";
+import { AREA_UNITS, areaEquivalents, editValue, toSqft, type AreaUnit } from "@/lib/area";
 
 const BHK_OPTIONS = ["1 BHK", "2 BHK", "3 BHK", "4+ BHK", "Open Plot", "Studio"];
 const FURNISHING = ["Furnished", "Semi-Furnished", "Unfurnished"];
@@ -25,6 +26,7 @@ type EditForm = {
   description: string;
   price: string;
   area: string;
+  areaUnit: AreaUnit;
   builtUpArea: string;
   bhk: string;
   bedrooms: string;
@@ -69,9 +71,11 @@ export default function EditListingPage() {
         ownerId: string;
         title: string;
         slug: string;
+        type: string;
         description: string | null;
         price: number;
         area: number;
+        areaUnit: AreaUnit;
         builtUpArea: number | null;
         bhk: string | null;
         bedrooms: number;
@@ -89,14 +93,17 @@ export default function EditListingPage() {
       }
     | undefined;
 
-  // Seed the form once the listing loads.
+  // Seed the form once the listing loads. Area is stored in sqft — for plots we
+  // show it converted to the unit the seller originally entered (areaUnit).
   useEffect(() => {
     if (!property || form) return;
+    const unit: AreaUnit = property.type === "Plot" ? (property.areaUnit ?? "sqft") : "sqft";
     const seeded: EditForm = {
       title: property.title ?? "",
       description: property.description ?? "",
       price: numOrEmpty(property.price),
-      area: numOrEmpty(property.area),
+      area: property.area != null ? editValue(property.area, unit) : "",
+      areaUnit: unit,
       builtUpArea: numOrEmpty(property.builtUpArea),
       bhk: property.bhk ?? "",
       bedrooms: numOrEmpty(property.bedrooms),
@@ -122,6 +129,16 @@ export default function EditListingPage() {
   const set = <K extends keyof EditForm>(k: K, v: EditForm[K]) => {
     setForm((f) => (f ? { ...f, [k]: v } : f));
     setErrors((e) => (e[k as string] ? { ...e, [k as string]: "" } : e));
+  };
+
+  // Switching the plot-area unit keeps the same physical area — the number is
+  // converted, not reinterpreted (240 sq.yd → 2160 sq.ft, not 240 sq.ft).
+  const switchAreaUnit = (unit: AreaUnit) => {
+    setForm((f) => {
+      if (!f || f.areaUnit === unit) return f;
+      const sqft = toSqft(parseFloat(f.area) || 0, f.areaUnit);
+      return { ...f, areaUnit: unit, area: sqft > 0 ? editValue(sqft, unit) : f.area };
+    });
   };
 
   const toggleAmenity = (a: string) =>
@@ -183,7 +200,7 @@ export default function EditListingPage() {
     const uploaded: string[] = [];
     for (const img of newImages) {
       try {
-        const dataUrl = await compressImage(img.file);
+        const dataUrl = await compressImage(img.file, undefined, undefined, { watermark: true });
         const { url } = await uploadImage.mutateAsync({
           contentType: "image/jpeg",
           data: dataUrl.split(",")[1] ?? "",
@@ -212,7 +229,15 @@ export default function EditListingPage() {
     put("title", form.title.trim(), original.title, form.title);
     put("description", form.description.trim() || undefined, original.description, form.description);
     put("price", num(form.price), original.price, form.price);
-    put("area", num(form.area), original.area, form.area);
+    // Area is edited in the seller's unit but stored in sqft — diff on the
+    // converted value so a pure unit toggle (same physical area) sends only
+    // areaUnit, while a value edit sends the recomputed sqft.
+    const areaSqftNow =
+      property?.type === "Plot"
+        ? toSqft(parseFloat(form.area) || 0, form.areaUnit)
+        : Math.round(Number(form.area) || 0);
+    if (property && areaSqftNow !== property.area) changed.area = areaSqftNow;
+    put("areaUnit", form.areaUnit, original.areaUnit, form.areaUnit);
     put("builtUpArea", num(form.builtUpArea), original.builtUpArea, form.builtUpArea);
     put("bhk", form.bhk || undefined, original.bhk, form.bhk);
     put("bedrooms", num(form.bedrooms), original.bedrooms, form.bedrooms);
@@ -328,25 +353,61 @@ export default function EditListingPage() {
               />
               {errors.price && <p className="mt-1 text-xs text-rose-500">{errors.price}</p>}
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-foreground">Super Built-up Area (sqft)</label>
-              <input
-                type="number"
-                value={form.area}
-                onChange={(e) => set("area", e.target.value)}
-                className={inputCls(errors.area)}
-              />
-              {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-foreground">Built-up Area (sqft)</label>
-              <input
-                type="number"
-                value={form.builtUpArea}
-                onChange={(e) => set("builtUpArea", e.target.value)}
-                className={inputCls()}
-              />
-            </div>
+            {property.type === "Plot" ? (
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-semibold text-foreground">Plot Area</label>
+                  <div className="flex rounded-lg border border-input bg-secondary p-0.5">
+                    {AREA_UNITS.map((u) => (
+                      <button
+                        key={u.value}
+                        type="button"
+                        onClick={() => switchAreaUnit(u.value)}
+                        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition
+                          ${form.areaUnit === u.value ? "bg-white text-navy shadow-sm" : "text-muted-foreground"}`}
+                      >
+                        {u.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.area}
+                  onChange={(e) => set("area", e.target.value)}
+                  className={inputCls(errors.area)}
+                />
+                {parseFloat(form.area) > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {areaEquivalents(parseFloat(form.area), form.areaUnit)}
+                  </p>
+                )}
+                {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-semibold text-foreground">Super Built-up Area (sqft)</label>
+                <input
+                  type="number"
+                  value={form.area}
+                  onChange={(e) => set("area", e.target.value)}
+                  className={inputCls(errors.area)}
+                />
+                {errors.area && <p className="mt-1 text-xs text-rose-500">{errors.area}</p>}
+              </div>
+            )}
+            {property.type !== "Plot" && (
+              <div>
+                <label className="block text-sm font-semibold text-foreground">Built-up Area (sqft)</label>
+                <input
+                  type="number"
+                  value={form.builtUpArea}
+                  onChange={(e) => set("builtUpArea", e.target.value)}
+                  className={inputCls()}
+                />
+              </div>
+            )}
             <div>
               <label className="block text-sm font-semibold text-foreground">Configuration / BHK</label>
               <select value={form.bhk} onChange={(e) => set("bhk", e.target.value)} className={inputCls()}>

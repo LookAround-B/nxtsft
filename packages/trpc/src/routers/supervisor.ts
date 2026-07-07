@@ -10,6 +10,24 @@ const escalationLevelSchema = z.enum(["Low", "Medium", "High"]);
 const MONTHLY_TARGET = 8;
 
 export const supervisorRouter = router({
+  // Live sidebar badge counts — one number per "needs action" queue.
+  badgeCounts: supervisorProcedure.query(async () => {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+    const [hotLeads, unassigned, escalations, visitsToday] = await Promise.all([
+      prisma.lead.count({ where: { status: "Hot" } }),
+      prisma.lead.count({
+        where: { assignedToId: null, status: { notIn: ["Converted", "Lost"] } },
+      }),
+      prisma.escalation.count({ where: { status: "open" } }),
+      prisma.siteVisit.count({
+        where: { status: "Scheduled", scheduledAt: { gte: startOfDay, lt: endOfDay } },
+      }),
+    ]);
+    return { hotLeads, unassigned, escalations, visitsToday };
+  }),
+
   // Per-rep performance derived from real Lead + Commission data.
   // "Closed" = a lead marked Converted; conversion = converted / assigned.
   performance: supervisorProcedure.query(async () => {

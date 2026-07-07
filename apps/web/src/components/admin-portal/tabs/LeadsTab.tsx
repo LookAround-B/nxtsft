@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { leads } from "@/data/static";
 import { PageHead } from "./PageHead";
 
@@ -50,7 +51,7 @@ export function LeadsTab() {
           ))}
         </div>
         {dbLeadsQ.isLoading && (
-          <div className="mt-4 text-sm text-muted-foreground">Loading leads…</div>
+          <div className="mt-4"><TableSkeleton rows={5} cols={6} /></div>
         )}
         <div className="mt-5 overflow-x-auto">
           <table className="portal-table">

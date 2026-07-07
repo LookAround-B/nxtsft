@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";
@@ -9,6 +10,7 @@ type NotificationItem = {
   type: string;
   title: string;
   content: string | null;
+  actionUrl: string | null;
   read: boolean;
   createdAt: string;
 };
@@ -23,6 +25,7 @@ function timeAgo(iso: string): string {
 
 export function NotificationBell() {
   const { session } = useAuth();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -105,7 +108,13 @@ export function NotificationBell() {
               items.map((n) => (
                 <button
                   key={n.id}
-                  onClick={() => !n.read && markRead.mutate({ id: n.id })}
+                  onClick={() => {
+                    if (!n.read) markRead.mutate({ id: n.id });
+                    if (n.actionUrl) {
+                      setOpen(false);
+                      router.push(n.actionUrl);
+                    }
+                  }}
                   className={`block w-full border-b border-border px-4 py-3 text-left transition last:border-0 hover:bg-secondary/50 ${n.read ? "" : "bg-accent/5"}`}
                 >
                   <div className="flex items-start gap-2">

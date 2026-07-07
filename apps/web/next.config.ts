@@ -32,9 +32,11 @@ import fs from "fs";
 // pub-*.r2.dev domain), so next/image and the CSP allow listing photos.
 const r2Host = (() => {
   try {
-    return process.env.CLOUDFLARE_R2_PUBLIC_URL
-      ? new URL(process.env.CLOUDFLARE_R2_PUBLIC_URL).hostname
-      : null;
+    // Uploads build URLs from R2_PUBLIC_URL (packages/trpc/src/r2.ts); accept
+    // the legacy CLOUDFLARE_R2_PUBLIC_URL name too so the allowlist can't
+    // drift from the host the stored image URLs actually use.
+    const url = process.env.R2_PUBLIC_URL || process.env.CLOUDFLARE_R2_PUBLIC_URL;
+    return url ? new URL(url).hostname : null;
   } catch {
     return null;
   }
@@ -102,6 +104,15 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ["lucide-react"],
+  },
+  // GOL-288: /decor duplicated /interiors — one public directory now, named
+  // "Interior Designers". Decor store data + admin tab remain; only the public
+  // route folds into /interiors.
+  async redirects() {
+    return [
+      { source: "/decor", destination: "/interiors", permanent: true },
+      { source: "/decor/:path*", destination: "/interiors", permanent: true },
+    ];
   },
   async headers() {
     return [

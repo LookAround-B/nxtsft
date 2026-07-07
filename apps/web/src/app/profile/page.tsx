@@ -89,7 +89,7 @@ const roleActions: Record<Role, Array<{ label: string; to: string; Icon: LucideI
 /* ── per-role stats ─────────────────────────────────────────────── */
 const roleStats: Record<Role, Array<{ label: string; value: string; sub?: string }>> = {
   "super-admin": [
-    { label: "Tenants", value: "42", sub: "3 new this month" },
+    { label: "Users", value: "42", sub: "3 new this month" },
     { label: "Global Users", value: "12,480", sub: "+218 this week" },
     { label: "Uptime", value: "99.98%", sub: "Last 30 days" },
     { label: "Revenue YTD", value: "₹142 Cr", sub: "+18% vs last year" },

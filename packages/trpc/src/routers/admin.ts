@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
+import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 import { notify, notifyCredit } from "../notify";
 import { router, adminProcedure, superAdminProcedure } from "../server";
 import {
@@ -34,6 +35,8 @@ import { makeDecorStoreSlug } from "./decorStores";
 import { generateSlug, assertReraValid, splitList, CATEGORY_IMAGE } from "./properties";
 import { agentInitials, uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 
+
+
 const safeUserSelect = {
   id: true,
   email: true,
@@ -50,6 +53,13 @@ const safeUserSelect = {
 };
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+
+// BigInt columns can't be JSON-serialized — convert before returning rows
+// to the client (interiorDesigner / decorStore both carry startingBudget).
+const serializeBudget = <T extends { startingBudget: bigint | null }>(row: T) => ({
+  ...row,
+  startingBudget: row.startingBudget != null ? Number(row.startingBudget) : null,
+});
 
 export const adminRouter = router({
   // Platform KPIs for the command dashboard
@@ -78,6 +88,83 @@ export const adminRouter = router({
       hotLeads,
       totalRevenue: Number(totalRevenue._sum.amount ?? 0) / 100, // convert paise to rupees
     };
+  }),
+
+  // Live sidebar badge counts — one number per "needs action" queue.
+  badgeCounts: adminProcedure.query(async () => {
+    const [enquiries, kyc, sellerApprovals, listings, reviews, interiors, decor, escalations] =
+      await Promise.all([
+        prisma.enquiry.count({ where: { status: "New" } }),
+        prisma.user.count({ where: { kycStatus: "pending" } }),
+        prisma.user.count({ where: { role: { in: ["home-seller", "agent"] }, verified: false } }),
+        prisma.propertyEditRequest.count({ where: { status: "Pending" } }),
+        prisma.review.count({ where: { status: "Pending" } }),
+        prisma.interiorDesigner.count({ where: { status: "pending" } }),
+        prisma.decorStore.count({ where: { status: "pending" } }),
+        prisma.escalation.count({ where: { status: "escalated" } }),
+      ]);
+    return { enquiries, kyc, sellerApprovals, listings, reviews, interiors, decor, escalations };
+  }),
+
+  // Escalations raised to admin by supervisors (status: "escalated")
+  escalations: router({
+    list: adminProcedure
+      .input(z.object({ status: z.enum(["escalated", "resolved"]).optional() }).optional())
+      .query(async ({ input }) => {
+        const items = await prisma.escalation.findMany({
+          where: { status: input?.status ?? "escalated" },
+          include: {
+            lead: { select: { id: true, name: true } },
+            assignedTo: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        });
+
+        const raisedByIds = [...new Set(items.map((e) => e.raisedById).filter((v): v is string => !!v))];
+        const raisers = raisedByIds.length
+          ? await prisma.user.findMany({ where: { id: { in: raisedByIds } }, select: { id: true, name: true } })
+          : [];
+        const raiserName = new Map(raisers.map((u) => [u.id, u.name]));
+
+        const now = Date.now();
+        return items.map((e) => ({
+          id: e.id,
+          leadId: e.leadId,
+          leadName: e.lead?.name ?? "—",
+          note: e.note,
+          level: e.level,
+          status: e.status,
+          assignedTo: e.assignedTo?.name ?? "Unassigned",
+          raisedBy: (e.raisedById && raiserName.get(e.raisedById)) || "—",
+          createdAt: e.createdAt.toISOString(),
+          ageHours: Math.max(0, Math.round((now - e.createdAt.getTime()) / (60 * 60 * 1000))),
+        }));
+      }),
+
+    resolve: adminProcedure
+      .input(z.object({ id: cuidSchema }))
+      .mutation(async ({ input, ctx }) => {
+        const escalation = await prisma.escalation.findUnique({ where: { id: input.id } });
+        if (!escalation) throw new TRPCError({ code: "NOT_FOUND", message: "Escalation not found." });
+
+        const [updated] = await Promise.all([
+          prisma.escalation.update({
+            where: { id: input.id },
+            data: { status: "resolved", resolvedAt: new Date() },
+          }),
+          prisma.auditLog.create({
+            data: {
+              userId: ctx.user.id,
+              action: "escalation_resolved",
+              entity: "Escalation",
+              entityId: input.id,
+              changes: { leadId: escalation.leadId, level: escalation.level },
+            },
+          }),
+        ]);
+        return updated;
+      }),
   }),
 
   // User management
@@ -288,6 +375,7 @@ export const adminRouter = router({
             content:
               input.note ??
               `Your KYC verification status has been updated to ${label}.`,
+            actionUrl: "/user-portal#kyc",
           },
         });
 
@@ -310,6 +398,7 @@ export const adminRouter = router({
               type: "account_approved",
               title: "Your account has been approved!",
               content: "You can now log in to NxtSft and list your property.",
+              actionUrl: "/list",
             },
           });
         } else if (user.role === "agent") {
@@ -320,6 +409,7 @@ export const adminRouter = router({
               title: "Your agent account has been approved!",
               content:
                 "Your agent profile is now live on NxtSft. Log in to manage your listings and details.",
+              actionUrl: "/user-portal#mylist",
             },
           });
         }
@@ -363,7 +453,11 @@ export const adminRouter = router({
         const hasMore = items.length > limit;
         const page = hasMore ? items.slice(0, limit) : items;
         return {
-          items: page.map((p) => ({ ...p, price: Number(p.price) })),
+          items: page.map((p) => ({
+            ...p,
+            price: Number(p.price),
+            pgDeposit: p.pgDeposit != null ? Number(p.pgDeposit) : null,
+          })),
           nextCursor: page.at(-1)?.id ?? null,
           hasMore,
         };
@@ -385,33 +479,89 @@ export const adminRouter = router({
           content: `"${property.title}" is now live and visible to buyers.`,
           actionUrl: `/properties/${property.slug}`,
         });
-        return updated;
+        return {
+          ...updated,
+          price: Number(updated.price),
+          pgDeposit: updated.pgDeposit != null ? Number(updated.pgDeposit) : null,
+        };
       }),
 
     // Admin-only bulk import: each row carries its own owner (name/phone/email).
     // A matching phone reuses that user; otherwise a new dummy home-seller
     // account is created so the listing has a real owner to attribute to.
     bulkCreateListings: adminProcedure
-      .input(z.object({ rows: z.array(z.unknown()).min(1).max(500) }))
+      .input(z.object({ rows: z.array(z.unknown()).min(1).max(BULK_IMPORT_MAX_ROWS) }))
       .mutation(async ({ input }) => {
+        // External spreadsheets commonly carry a country code / internal
+        // spacing, e.g. "+91 75319 34532" — strip everything but digits and
+        // drop a leading "91" before handing off to the strict shared schema.
+        const bulkPhoneSchema = z.string().transform((s) => {
+          const digits = s.replace(/\D/g, "");
+          return digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
+        }).pipe(phoneSchema);
+
+        // Same story for numbers: "₹1,76,72,460" / "1,668" (Indian-grouped,
+        // currency-prefixed) fail z.coerce.number() outright — strip everything
+        // but digits/sign/decimal point first. Junk placeholders ("N/A", "-")
+        // clean down to nothing and become undefined so optionals stay optional.
+        const cleanNumeric = (v: unknown) => {
+          if (typeof v !== "string") return v;
+          const cleaned = v.replace(/[^0-9.-]/g, "");
+          return cleaned === "" || cleaned === "-" ? undefined : cleaned;
+        };
+        const bulkNum = <T extends z.ZodTypeAny>(schema: T) => z.preprocess(cleanNumeric, schema);
+
+        // External datasets use listing-style type names ("Highrise Apartment",
+        // "Commercial Space") rather than our fixed enum — map the common ones;
+        // anything else still falls through to propertyTypeSchema and fails loudly.
+        const TYPE_ALIASES: Record<string, string> = {
+          "highrise apartment": "Apartment",
+          "high-rise apartment": "Apartment",
+          "high rise apartment": "Apartment",
+          "commercial space": "Office",
+        };
+        const bulkTypeSchema = z
+          .string()
+          .transform((s) => TYPE_ALIASES[s.trim().toLowerCase()] ?? s.trim())
+          .pipe(propertyTypeSchema);
+
+        // Furnishing synonyms from external datasets → our fixed enum.
+        const FURNISHING_ALIASES: Record<string, string> = {
+          "fully furnished": "Furnished",
+          "fully-furnished": "Furnished",
+          "semi furnished": "Semi-Furnished",
+          "semifurnished": "Semi-Furnished",
+          "bare shell": "Unfurnished",
+          "unfurnished": "Unfurnished",
+        };
+        const bulkFurnishingSchema = z.preprocess(
+          // Plot/land rows carry "N/A" — treat placeholder junk as absent.
+          (v) => (typeof v === "string" && ["n/a", "na", "-", ""].includes(v.trim().toLowerCase()) ? undefined : v),
+          z
+            .string()
+            .transform((s) => FURNISHING_ALIASES[s.trim().toLowerCase()] ?? s.trim())
+            .pipe(furnishingSchema)
+            .optional(),
+        );
+
         const rowSchema = z.object({
           ownerName: nameSchema,
-          ownerPhone: phoneSchema,
+          ownerPhone: bulkPhoneSchema,
           ownerEmail: emailSchema.optional(),
 
           title: safeString(200, 10),
           description: descriptionSchema.optional(),
-          type: propertyTypeSchema,
+          type: bulkTypeSchema,
           purpose: purposeSchema,
-          price: z.coerce.number().int().positive().max(999_999_999_999),
-          area: z.coerce.number().int().positive().max(9_999_999),
-          builtUpArea: z.coerce.number().int().positive().max(9_999_999).optional(),
+          price: bulkNum(z.coerce.number().int().positive().max(999_999_999_999)),
+          area: bulkNum(z.coerce.number().int().positive().max(9_999_999)),
+          builtUpArea: bulkNum(z.coerce.number().int().positive().max(9_999_999).optional()),
           bhk: safeString(20).optional(),
-          bedrooms: z.coerce.number().int().min(0).max(50).default(0),
-          bathrooms: z.coerce.number().int().min(0).max(50).default(0),
-          balconies: z.coerce.number().int().min(0).max(50).optional(),
-          parking: z.coerce.number().int().min(0).max(50).optional(),
-          furnishing: furnishingSchema.optional(),
+          bedrooms: bulkNum(z.coerce.number().int().min(0).max(50).default(0)),
+          bathrooms: bulkNum(z.coerce.number().int().min(0).max(50).default(0)),
+          balconies: bulkNum(z.coerce.number().int().min(0).max(50).optional()),
+          parking: bulkNum(z.coerce.number().int().min(0).max(50).optional()),
+          furnishing: bulkFurnishingSchema,
           facing: safeString(30).optional(),
           floors: safeString(20).optional(),
           age: safeString(20).optional(),
@@ -424,24 +574,28 @@ export const adminRouter = router({
           locality: geoTextSchema,
           address: safeString(500).optional(),
           zipCode: safeString(6).optional(),
-          latitude: z.coerce.number().min(-90).max(90).optional(),
-          longitude: z.coerce.number().min(-180).max(180).optional(),
+          latitude: bulkNum(z.coerce.number().min(-90).max(90).optional()),
+          longitude: bulkNum(z.coerce.number().min(-180).max(180).optional()),
           amenities: safeString(2000).optional(),
           images: safeString(4000).optional(),
           virtualTourUrl: safeString(500).optional(),
           walkthroughVideoUrl: safeString(500).optional(),
           pgGender: z.enum(["Boys", "Girls", "Co-living"]).optional(),
           pgOccupancy: safeString(200).optional(),
-          pgAvailableBeds: z.coerce.number().int().min(0).max(9999).optional(),
-          pgDeposit: z.coerce.number().int().min(0).max(999_999_999_999).optional(),
+          pgAvailableBeds: bulkNum(z.coerce.number().int().min(0).max(9999).optional()),
+          pgDeposit: bulkNum(z.coerce.number().int().min(0).max(999_999_999_999).optional()),
           pgRoomTypes: safeString(200).optional(),
           pgHouseRules: safeString(2000).optional(),
           pgFood: safeString(30).optional(),
         });
 
         const errors: { row: number; message: string }[] = [];
-        let created = 0;
+        const createdListings: { id: string; slug: string; title: string }[] = [];
 
+        // Phase 1 — parse + synchronous validation (RERA format etc). Cheap,
+        // no DB calls, so this stays a plain loop.
+        type Row = z.infer<typeof rowSchema>;
+        const valid: { sheetRow: number; d: Row }[] = [];
         for (let i = 0; i < input.rows.length; i++) {
           const sheetRow = i + 2;
           const parsed = rowSchema.safeParse(input.rows[i]);
@@ -449,37 +603,137 @@ export const adminRouter = router({
             errors.push({ row: sheetRow, message: parsed.error.issues[0]?.message ?? "Invalid row" });
             continue;
           }
-          const d = parsed.data;
           try {
-            assertReraValid(d.city, d.rera, d.reraLabel);
+            assertReraValid(parsed.data.city, parsed.data.rera, parsed.data.reraLabel);
+            valid.push({ sheetRow, d: parsed.data });
+          } catch (e) {
+            errors.push({ row: sheetRow, message: e instanceof TRPCError ? e.message : "Invalid RERA details" });
+          }
+        }
 
-            // Resolve the owner: reuse an existing account by phone, otherwise
-            // create a dummy home-seller record so the listing has a real owner.
-            let owner = await prisma.user.findUnique({ where: { phone: d.ownerPhone } });
-            if (!owner) {
-              const email = d.ownerEmail ?? `dummy.${d.ownerPhone}@nxtsft.internal`;
-              const emailTaken = await prisma.user.findUnique({ where: { email } });
-              if (emailTaken) {
-                throw new TRPCError({ code: "CONFLICT", message: "Owner email already registered to a different account." });
-              }
-              owner = await prisma.user.create({
-                data: {
-                  name: d.ownerName,
-                  phone: d.ownerPhone,
-                  email,
-                  role: "home-seller",
-                  city: d.city,
-                  verified: true,
-                  verifiedAt: new Date(),
-                  metadata: { source: "admin-bulk-upload" },
-                },
-              });
-            }
+        // The DB is remote and the shared pool is capped at ONE connection
+        // (packages/db/client.ts — deliberate, for Vercel serverless), so this
+        // handler must issue a constant number of batch queries, never one
+        // query per row: per-row inserts made a 1000-row file take 5+ minutes
+        // and time out. Everything below is createMany/findMany over the whole
+        // batch — ~7 round-trips total regardless of file size.
 
-            const images = splitList(d.images);
-            const isPg = d.type === "PG";
-            await prisma.property.create({
-              data: {
+        // Phase 2 — resolve owners in bulk. First-seen row per new phone
+        // supplies name/email/city for account creation (first row wins).
+        const uniquePhones = [...new Set(valid.map((v) => v.d.ownerPhone))];
+        const existingOwners = await prisma.user.findMany({
+          where: { phone: { in: uniquePhones } },
+          select: { id: true, phone: true },
+        });
+        const ownerIdByPhone = new Map(existingOwners.map((u) => [u.phone, u.id] as const));
+
+        const newPhoneInfo = new Map<string, { name: string; email: string; city: string }>();
+        const usedEmails = new Set<string>();
+        const emailConflictPhones = new Set<string>();
+        for (const { d } of valid) {
+          if (ownerIdByPhone.has(d.ownerPhone) || newPhoneInfo.has(d.ownerPhone)) continue;
+          const email = d.ownerEmail ?? `dummy.${d.ownerPhone}@nxtsft.internal`;
+          if (usedEmails.has(email)) {
+            emailConflictPhones.add(d.ownerPhone);
+            continue;
+          }
+          usedEmails.add(email);
+          newPhoneInfo.set(d.ownerPhone, { name: d.ownerName, email, city: d.city });
+        }
+
+        if (usedEmails.size > 0) {
+          const emailTaken = await prisma.user.findMany({
+            where: { email: { in: [...usedEmails] } },
+            select: { email: true },
+          });
+          const takenEmails = new Set(emailTaken.map((u) => u.email));
+          for (const [phone, info] of newPhoneInfo) {
+            if (takenEmails.has(info.email)) emailConflictPhones.add(phone);
+          }
+        }
+
+        const ownersToCreate = [...newPhoneInfo.entries()]
+          .filter(([phone]) => !emailConflictPhones.has(phone))
+          .map(([phone, info]) => ({
+            name: info.name,
+            phone,
+            email: info.email,
+            role: "home-seller",
+            city: info.city,
+            verified: true,
+            verifiedAt: new Date(),
+            metadata: { source: "admin-bulk-upload" },
+          }));
+        if (ownersToCreate.length > 0) {
+          // skipDuplicates absorbs races on the unique phone/email columns.
+          await prisma.user.createMany({ data: ownersToCreate, skipDuplicates: true });
+          const createdOwners = await prisma.user.findMany({
+            where: { phone: { in: ownersToCreate.map((o) => o.phone) } },
+            select: { id: true, phone: true },
+          });
+          for (const u of createdOwners) ownerIdByPhone.set(u.phone, u.id);
+        }
+
+        for (const v of valid) {
+          if (ownerIdByPhone.has(v.d.ownerPhone)) continue;
+          errors.push({
+            row: v.sheetRow,
+            message: emailConflictPhones.has(v.d.ownerPhone)
+              ? "Owner email already registered to a different account."
+              : "Failed to create owner account.",
+          });
+        }
+        const rowsWithOwner = valid.filter((v) => ownerIdByPhone.has(v.d.ownerPhone));
+
+        // Phase 3 — duplicate detection. A row is a duplicate of an existing
+        // listing when its RERA number already exists, or (no RERA) when the
+        // same owner already has a listing with the same title in the same
+        // city. The same rule dedupes rows within the file itself.
+        const reras = [...new Set(rowsWithOwner.map((v) => v.d.rera).filter((r): r is string => !!r))];
+        const titles = [...new Set(rowsWithOwner.map((v) => v.d.title))];
+        const dupCandidates = await prisma.property.findMany({
+          where: {
+            deletedAt: null,
+            OR: [
+              ...(reras.length ? [{ rera: { in: reras } }] : []),
+              { ownerId: { in: [...new Set(rowsWithOwner.map((v) => ownerIdByPhone.get(v.d.ownerPhone)!))] }, title: { in: titles } },
+            ],
+          },
+          select: { rera: true, ownerId: true, title: true, location: { select: { city: true } } },
+        });
+        const existingReras = new Set(dupCandidates.map((p) => p.rera).filter(Boolean));
+        const existingOwnerTitleCity = new Set(
+          dupCandidates.map((p) => `${p.ownerId}|${p.title.toLowerCase()}|${(p.location?.city ?? "").toLowerCase()}`),
+        );
+
+        const toInsert: { sheetRow: number; d: Row; slug: string; ownerId: string }[] = [];
+        const seenInFile = new Set<string>();
+        for (const { sheetRow, d } of rowsWithOwner) {
+          const ownerId = ownerIdByPhone.get(d.ownerPhone)!;
+          const fileKey = d.rera ? `rera|${d.rera}` : `otc|${ownerId}|${d.title.toLowerCase()}|${d.city.toLowerCase()}`;
+          const isDupe =
+            (d.rera && existingReras.has(d.rera)) ||
+            existingOwnerTitleCity.has(`${ownerId}|${d.title.toLowerCase()}|${d.city.toLowerCase()}`) ||
+            seenInFile.has(fileKey);
+          if (isDupe) {
+            errors.push({ row: sheetRow, message: "Duplicate listing — skipped (same RERA or same owner + title + city already exists)." });
+            continue;
+          }
+          seenInFile.add(fileKey);
+          // generateSlug's uniqueness suffix is Date.now(), which is identical
+          // across a tight loop — append the sheet row to keep slugs unique
+          // within this batch.
+          toInsert.push({ sheetRow, d, ownerId, slug: `${generateSlug(d.title, d.city)}-${sheetRow}` });
+        }
+
+        // Phase 4 — insert everything in two batch statements: properties
+        // first, then their Location rows keyed by the slugs we just created.
+        if (toInsert.length > 0) {
+          await prisma.property.createMany({
+            data: toInsert.map(({ d, slug, ownerId }) => {
+              const images = splitList(d.images);
+              const isPg = d.type === "PG";
+              return {
                 title: d.title,
                 description: d.description,
                 type: d.type,
@@ -497,7 +751,7 @@ export const adminRouter = router({
                 builder: d.builder,
                 reraLabel: d.reraLabel,
                 rera: d.rera,
-                slug: generateSlug(d.title, d.city),
+                slug,
                 price: BigInt(d.price),
                 pricePerSqft: Math.round(d.price / d.area),
                 area: d.area,
@@ -507,7 +761,7 @@ export const adminRouter = router({
                 virtualTourUrl: d.virtualTourUrl,
                 walkthroughVideoUrl: d.walkthroughVideoUrl,
                 status: "Active",
-                ownerId: owner.id,
+                ownerId,
                 ...(isPg
                   ? {
                       pgGender: d.pgGender,
@@ -519,26 +773,49 @@ export const adminRouter = router({
                       pgFood: d.pgFood,
                     }
                   : {}),
-                location: {
-                  create: {
-                    city: d.city,
-                    state: d.state,
-                    locality: d.locality,
-                    address: d.address,
-                    zipCode: d.zipCode,
-                    latitude: d.latitude ?? 0,
-                    longitude: d.longitude ?? 0,
-                  },
-                },
-              },
-            });
-            created++;
-          } catch (e) {
-            errors.push({ row: sheetRow, message: e instanceof TRPCError ? e.message : "Failed to create listing" });
+              };
+            }),
+          });
+
+          const insertedProps = await prisma.property.findMany({
+            where: { slug: { in: toInsert.map((t) => t.slug) } },
+            select: { id: true, slug: true, title: true },
+          });
+          const idBySlug = new Map(insertedProps.map((p) => [p.slug, p.id] as const));
+
+          await prisma.location.createMany({
+            data: toInsert
+              .filter((t) => idBySlug.has(t.slug))
+              .map(({ d, slug }) => ({
+                propertyId: idBySlug.get(slug)!,
+                city: d.city,
+                state: d.state,
+                locality: d.locality,
+                address: d.address,
+                zipCode: d.zipCode,
+                latitude: d.latitude ?? 0,
+                longitude: d.longitude ?? 0,
+              })),
+            skipDuplicates: true,
+          });
+
+          for (const t of toInsert) {
+            const id = idBySlug.get(t.slug);
+            if (id) createdListings.push({ id, slug: t.slug, title: t.d.title });
+            else errors.push({ row: t.sheetRow, message: "Failed to create listing" });
           }
         }
 
-        return { received: input.rows.length, created, failed: errors.length, errors: errors.slice(0, 100) };
+        const created = createdListings.length;
+        errors.sort((a, b) => a.row - b.row);
+
+        return {
+          received: input.rows.length,
+          created,
+          failed: errors.length,
+          errors: errors.slice(0, 100),
+          createdListings,
+        };
       }),
 
     // Seller edit requests on live listings (PropertyEditRequest). Admins review
@@ -566,7 +843,11 @@ export const adminRouter = router({
           return {
             items: page.map((r) => ({
               ...r,
-              property: { ...r.property, price: Number(r.property.price) },
+              property: {
+                ...r.property,
+                price: Number(r.property.price),
+                pgDeposit: r.property.pgDeposit != null ? Number(r.property.pgDeposit) : null,
+              },
             })),
             nextCursor: page.at(-1)?.id ?? null,
             hasMore,
@@ -591,7 +872,7 @@ export const adminRouter = router({
           const arr = (v: unknown) => (Array.isArray(v) ? (v as string[]) : undefined);
 
           // Scalar Property columns a seller can edit (mirrors properties.submitEdit).
-          const stringFields = ["title", "description", "bhk", "furnishing", "facing", "possession", "rera", "reraLabel"] as const;
+          const stringFields = ["title", "description", "bhk", "furnishing", "facing", "possession", "rera", "reraLabel", "areaUnit"] as const;
           const intFields = ["builtUpArea", "bedrooms", "bathrooms", "balconies", "parking"] as const;
 
           const data: Parameters<typeof prisma.property.update>[0]["data"] = {};
@@ -658,6 +939,7 @@ export const adminRouter = router({
             content:
               input.note ??
               `The changes to "${request.property.title}" were not approved. Please review and resubmit.`,
+            actionUrl: "/user-portal#mylist",
           });
 
           return { ok: true };
@@ -1443,13 +1725,14 @@ export const adminRouter = router({
         while (await prisma.interiorDesigner.findUnique({ where: { slug } })) slug = `${base}-${n++}`;
 
         const { startingBudget, ...rest } = input;
-        return prisma.interiorDesigner.create({
+        const created = await prisma.interiorDesigner.create({
           data: {
             ...rest,
             slug,
             startingBudget: startingBudget != null ? BigInt(startingBudget) : null,
           },
         });
+        return serializeBudget(created);
       }),
 
     update: adminProcedure
@@ -1482,13 +1765,14 @@ export const adminRouter = router({
         const { id, startingBudget, ...rest } = input;
         const designer = await prisma.interiorDesigner.findUnique({ where: { id } });
         if (!designer) throw new TRPCError({ code: "NOT_FOUND", message: "Designer not found." });
-        return prisma.interiorDesigner.update({
+        const updated = await prisma.interiorDesigner.update({
           where: { id },
           data: {
             ...rest,
             ...(startingBudget !== undefined && { startingBudget: BigInt(startingBudget) }),
           },
         });
+        return serializeBudget(updated);
       }),
 
     // Approve & publish (verified badge + goes live) or send back to pending/inactive.
@@ -1497,13 +1781,14 @@ export const adminRouter = router({
       .mutation(async ({ input }): Promise<unknown> => {
         const designer = await prisma.interiorDesigner.findUnique({ where: { id: input.id } });
         if (!designer) throw new TRPCError({ code: "NOT_FOUND", message: "Designer not found." });
-        return prisma.interiorDesigner.update({
+        const updated = await prisma.interiorDesigner.update({
           where: { id: input.id },
           data: {
             status: input.status,
             ...(input.status === "active" && { verified: true }),
           },
         });
+        return serializeBudget(updated);
       }),
 
     delete: adminProcedure
@@ -1606,13 +1891,14 @@ export const adminRouter = router({
         while (await prisma.decorStore.findUnique({ where: { slug } })) slug = `${base}-${n++}`;
 
         const { startingBudget, ...rest } = input;
-        return prisma.decorStore.create({
+        const created = await prisma.decorStore.create({
           data: {
             ...rest,
             slug,
             startingBudget: startingBudget != null ? BigInt(startingBudget) : null,
           },
         });
+        return serializeBudget(created);
       }),
 
     update: adminProcedure
@@ -1643,13 +1929,14 @@ export const adminRouter = router({
         const { id, startingBudget, ...rest } = input;
         const store = await prisma.decorStore.findUnique({ where: { id } });
         if (!store) throw new TRPCError({ code: "NOT_FOUND", message: "Store not found." });
-        return prisma.decorStore.update({
+        const updated = await prisma.decorStore.update({
           where: { id },
           data: {
             ...rest,
             ...(startingBudget !== undefined && { startingBudget: BigInt(startingBudget) }),
           },
         });
+        return serializeBudget(updated);
       }),
 
     // Approve & publish (verified badge + goes live) or send back to pending/inactive.
@@ -1658,13 +1945,14 @@ export const adminRouter = router({
       .mutation(async ({ input }): Promise<unknown> => {
         const store = await prisma.decorStore.findUnique({ where: { id: input.id } });
         if (!store) throw new TRPCError({ code: "NOT_FOUND", message: "Store not found." });
-        return prisma.decorStore.update({
+        const updated = await prisma.decorStore.update({
           where: { id: input.id },
           data: {
             status: input.status,
             ...(input.status === "active" && { verified: true }),
           },
         });
+        return serializeBudget(updated);
       }),
 
     delete: adminProcedure

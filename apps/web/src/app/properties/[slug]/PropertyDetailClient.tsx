@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { BuyCreditsLabel } from "@/components/pricing/BuyCreditsLabel";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useRouter } from "next/navigation";
 import {
@@ -35,12 +36,15 @@ import { PropertyEngagement } from "@/components/PropertyEngagement";
 import { PropertyReport } from "@/components/PropertyReport";
 import { PropertyMapWrapper as PropertyMap } from "@/components/map/PropertyMapWrapper";
 import { GalleryLightbox } from "@/components/ui/GalleryLightbox";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { trpc } from "@/lib/trpc";
+import { formatArea } from "@/lib/area";
 import { propertyActivity } from "@/lib/propertyActivity";
 import { amenityIcon } from "@/data/amenities";
 import { useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { SITE_URL } from "@/lib/site";
 
 function formatPrice(price: number): string {
   if (price >= 1_00_00_000) return `₹${(price / 1_00_00_000).toFixed(2)} Cr`;
@@ -324,7 +328,9 @@ function ContactCard({
             {phone}
           </a>
           <a
-            href={`https://wa.me/91${phone.replace(/\D/g, "")}`}
+            href={`https://wa.me/91${phone.replace(/\D/g, "")}?text=${encodeURIComponent(
+              `Namaste,\n\nI came across your property ${property.title} on ${SITE_URL}/properties/${property.slug}\n\nI liked the listing and would like more details:\n\n1. Price\n2. Visit timing\n3. Are you Direct owner?\n\nLooking forward to your reply.\n\nThank you`,
+            )}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-emerald-500 py-3 font-display text-sm font-bold text-emerald-600 transition hover:bg-emerald-50"
@@ -374,7 +380,7 @@ function ContactCard({
           href="/pricing"
           className="mt-3 flex items-center justify-center gap-1 text-xs font-semibold text-accent hover:underline"
         >
-          Buy credits from ₹99
+          <BuyCreditsLabel />
           <ChevronRight size={12} />
         </Link>
       )}
@@ -715,11 +721,33 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                     value={property.bhk ?? `${property.bedrooms} BHK`}
                   />
                 )}
-                <SpecItem
-                  icon={<SquareStack size={18} />}
-                  label="Super Built-up Area"
-                  value={`${property.area.toLocaleString()} sq.ft`}
-                />
+                {property.type === "Plot" ? (
+                  // Plots trade in multiple units — show the same area in all
+                  // three (LA-296) instead of a single sq.ft box.
+                  <>
+                    <SpecItem
+                      icon={<SquareStack size={18} />}
+                      label="Plot Area (Sq.Ft)"
+                      value={formatArea(property.area, "sqft")}
+                    />
+                    <SpecItem
+                      icon={<SquareStack size={18} />}
+                      label="Plot Area (Sq.Yards)"
+                      value={formatArea(property.area, "sqyd")}
+                    />
+                    <SpecItem
+                      icon={<SquareStack size={18} />}
+                      label="Plot Area (Acres)"
+                      value={formatArea(property.area, "acre")}
+                    />
+                  </>
+                ) : (
+                  <SpecItem
+                    icon={<SquareStack size={18} />}
+                    label="Super Built-up Area"
+                    value={`${property.area.toLocaleString()} sq.ft`}
+                  />
+                )}
                 {property.builtUpArea != null && property.builtUpArea > 0 && (
                   <SpecItem
                     icon={<SquareStack size={18} />}
@@ -1068,7 +1096,11 @@ function ScheduleVisitCard({
 }) {
   const router = useRouter();
   const [booked, setBooked] = useState(false);
-  const [when, setWhen] = useState("");
+  // Default: two hours from now, rounded up to the next 5 minutes.
+  const [when, setWhen] = useState<Date>(() => {
+    const step = 5 * 60 * 1000;
+    return new Date(Math.ceil((Date.now() + 2 * 60 * 60 * 1000) / step) * step);
+  });
 
   const createVisit = trpc.siteVisits.create.useMutation({
     onSuccess: () => {
@@ -1083,10 +1115,8 @@ function ScheduleVisitCard({
       router.push("/login");
       return;
     }
-    if (!when) return toast.error("Pick a date and time for your visit.");
-    if (new Date(when).getTime() <= Date.now())
-      return toast.error("Pick a time in the future.");
-    createVisit.mutate({ propertyId: property.id, scheduledAt: new Date(when).toISOString() });
+    if (when.getTime() <= Date.now()) return toast.error("Pick a time in the future.");
+    createVisit.mutate({ propertyId: property.id, scheduledAt: when.toISOString() });
   };
 
   return (
@@ -1109,13 +1139,7 @@ function ScheduleVisitCard({
             Pick a time to tour this {property.type.toLowerCase()} in person.
           </p>
           <div className="mt-4 space-y-2.5">
-            <input
-              type="datetime-local"
-              value={when}
-              onChange={(e) => setWhen(e.target.value)}
-              min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)}
-              className="w-full rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
-            />
+            <DateTimePicker value={when} onChange={setWhen} />
             <button
               onClick={submit}
               disabled={createVisit.isPending}

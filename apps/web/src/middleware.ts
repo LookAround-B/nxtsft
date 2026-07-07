@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { verifySessionCookie, SESSION_COOKIE_NAME } from "@nxtsft/shared";
 import {
@@ -46,30 +45,39 @@ function roleFromCookie(value: string | undefined) {
 // runs at build time, this one runs per-request).
 const r2Host = (() => {
   try {
-    return process.env.CLOUDFLARE_R2_PUBLIC_URL
-      ? new URL(process.env.CLOUDFLARE_R2_PUBLIC_URL).hostname
-      : null;
+    // Same dual-name lookup as next.config.ts — uploads use R2_PUBLIC_URL.
+    const url = process.env.R2_PUBLIC_URL || process.env.CLOUDFLARE_R2_PUBLIC_URL;
+    return url ? new URL(url).hostname : null;
   } catch {
     return null;
   }
 })();
 const r2ImgSrc = r2Host ? ` https://${r2Host}` : "";
 
-// Builds the Content-Security-Policy value for this request. script-src uses
-// a per-request nonce instead of 'unsafe-inline' (GOL-268 H3) — the only
-// inline scripts in the app are the JSON-LD <script> tags on detail pages
-// (properties/builders/agents/interiors/decor), which read this same nonce
-// via src/lib/nonce.ts. style-src keeps 'unsafe-inline' (Tailwind/inline
-// style attributes throughout the app; out of scope for this fix — the
-// finding is specifically about script-src).
-function buildCsp(nonce: string): string {
+// Builds the site Content-Security-Policy. script-src keeps 'unsafe-inline':
+// a per-request nonce is incompatible with static prerendering — Next only
+// injects the nonce into its bootstrap scripts on dynamically-rendered pages,
+// so a global nonce CSP blocks the inline scripts on every static page
+// (homepage, listings, marketing). The one app-authored inline-script vector,
+// the JSON-LD <script> tags on detail pages, is XSS-safe regardless of CSP
+// because jsonLdScript() escapes the payload (see src/lib/jsonLd.ts). GOL-268
+// H3 is accepted as a Low residual in exchange for keeping static generation.
+function buildCsp(): string {
+  // Vercel Analytics / Speed Insights load debug scripts from va.vercel-scripts.com
+  // in dev only; in prod they load same-origin from /_vercel/* (covered by 'self').
+  const devScriptSrc =
+    process.env.NODE_ENV === "development" ? " https://va.vercel-scripts.com" : "";
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' blob: https://accounts.google.com https://checkout.razorpay.com`,
+    "script-src 'self' 'unsafe-inline' blob: https://accounts.google.com https://checkout.razorpay.com" +
+      devScriptSrc,
     // Mapbox GL renders tiles in a blob web worker.
     "worker-src 'self' blob:",
     "child-src 'self' blob:",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    // accounts.google.com: the GSI client injects its stylesheet
+    // (https://accounts.google.com/gsi/style) into the page for the Google
+    // sign-in button/popup UX.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https://images.unsplash.com https://*.r2.cloudflarecontent.com https://*.r2.dev https://api.mapbox.com https://*.razorpay.com" +
       r2ImgSrc,
@@ -80,16 +88,9 @@ function buildCsp(nonce: string): string {
   ].join("; ");
 }
 
-function nextWithCsp(request: NextRequest): NextResponse {
-  const nonce = randomBytes(16).toString("base64");
-  const csp = buildCsp(nonce);
-
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
-  requestHeaders.set("Content-Security-Policy", csp);
-
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.headers.set("Content-Security-Policy", csp);
+function nextWithCsp(_request: NextRequest): NextResponse {
+  const response = NextResponse.next();
+  response.headers.set("Content-Security-Policy", buildCsp());
   return response;
 }
 
@@ -135,6 +136,6 @@ export const config = {
      *  - /_next/image    (image optimizer)
      *  - common static files (favicon, robots, sitemap, images, fonts)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.json|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf)$).*)",
   ],
 };

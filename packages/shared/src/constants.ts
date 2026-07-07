@@ -43,6 +43,8 @@ export const PAGINATION = {
   DEFAULT_PAGE: 1,
 } as const;
 
+export const BULK_IMPORT_MAX_ROWS = 1000;
+
 export const RATE_LIMITS = {
   SEARCH: { points: 1, duration: "1 minute" },
   CONTACT_AGENT: { points: 5, duration: "1 hour" },

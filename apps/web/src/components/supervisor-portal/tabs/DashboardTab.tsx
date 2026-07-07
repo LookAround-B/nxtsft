@@ -1,6 +1,6 @@
 "use client";
+import Link from "next/link";
 import { Phone, MapPin } from "lucide-react";
-import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { teamMembers } from "@/data/static";
@@ -80,12 +80,16 @@ export function DashboardTab() {
                   <span>{repCallsToday[m.name] ?? 0} calls today</span>
                 </div>
                 <Badge tone="success">Online</Badge>
-                <button
-                  onClick={() => toast(`Opening ${m.name}'s profile…`)}
-                  className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold"
+                <Link
+                  href="/supervisor-portal#performance"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.location.hash = "performance";
+                  }}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold transition hover:border-accent hover:text-accent"
                 >
                   View
-                </button>
+                </Link>
               </div>
             </div>
             {/* Conversion bar */}

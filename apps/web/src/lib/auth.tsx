@@ -116,12 +116,18 @@ const CREDITS_KEY = "nxtsft.credits";
  * and discarded, never stored. */
 
 async function syncSessionCookie(token: string): Promise<void> {
-  await fetch("/api/auth/session", {
+  const res = await fetch("/api/auth/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ token }),
   });
+  // Without the cookie every subsequent request is unauthenticated and the
+  // middleware bounces the user straight back to login — fail the login
+  // loudly here instead of letting it look like it succeeded.
+  if (!res.ok) {
+    throw new Error("Could not establish your session. Please try again.");
+  }
 }
 
 async function clearSessionCookieServer(): Promise<void> {

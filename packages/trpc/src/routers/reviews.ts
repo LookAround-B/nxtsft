@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, publicProcedure, protectedProcedure } from "../server";
+import { portalBase } from "../notify";
 import {
   safeString,
   cuidSchema,
@@ -77,7 +78,7 @@ export const reviewsRouter = router({
       // Notify all admins and super-admins
       const admins = await prisma.user.findMany({
         where: { role: { in: ["admin", "super-admin"] } },
-        select: { id: true },
+        select: { id: true, role: true },
       });
       if (admins.length > 0) {
         await prisma.notification.createMany({
@@ -86,6 +87,7 @@ export const reviewsRouter = router({
             type: "review",
             title: "New review pending approval",
             content: `${ctx.user.name} left a ${input.rating}★ review on "${property.title}" — needs your approval.`,
+            actionUrl: `${portalBase(a.role)}#reviews`,
           })),
         });
       }
@@ -93,15 +95,49 @@ export const reviewsRouter = router({
       return review;
     }),
 
+  // Toggle: one "helpful" vote per user per review, enforced by the unique
+  // (reviewId, userId) constraint on ReviewHelpful. Voting again removes the
+  // vote. Review.helpful is the denormalized display count, updated in the
+  // same batch transaction as the vote row so the two can't drift. LA-294.
   markHelpful: protectedProcedure
     .input(z.object({ id: cuidSchema }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const review = await prisma.review.findUnique({ where: { id: input.id } });
       if (!review) throw new TRPCError({ code: "NOT_FOUND", message: "Review not found." });
 
-      return prisma.review.update({
-        where: { id: input.id },
-        data: { helpful: { increment: 1 } },
+      const existing = await prisma.reviewHelpful.findUnique({
+        where: { reviewId_userId: { reviewId: input.id, userId: ctx.user.id } },
       });
+
+      if (existing) {
+        const [, updated] = await prisma.$transaction([
+          prisma.reviewHelpful.delete({ where: { id: existing.id } }),
+          prisma.review.update({
+            where: { id: input.id },
+            data: { helpful: { decrement: 1 } },
+          }),
+        ]);
+        return { ...updated, votedByMe: false };
+      }
+
+      try {
+        const [, updated] = await prisma.$transaction([
+          prisma.reviewHelpful.create({
+            data: { reviewId: input.id, userId: ctx.user.id },
+          }),
+          prisma.review.update({
+            where: { id: input.id },
+            data: { helpful: { increment: 1 } },
+          }),
+        ]);
+        return { ...updated, votedByMe: true };
+      } catch (err) {
+        // P2002 = a concurrent double-submit hit the unique constraint; the
+        // vote already exists, so treat it as a no-op rather than an error.
+        if ((err as { code?: string })?.code === "P2002") {
+          return { ...review, votedByMe: true };
+        }
+        throw err;
+      }
     }),
 });

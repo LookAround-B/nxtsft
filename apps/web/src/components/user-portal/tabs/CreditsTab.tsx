@@ -20,7 +20,7 @@ const creditTimeline = [
   { date: "2026-05-18", action: "Unlocked Marina Heights contact", tokens: -1 },
   { date: "2026-05-16", action: "Unlocked Skyline Residences contact", tokens: -1 },
   { date: "2026-05-19", action: "Refund: Dispute resolved (Marina)", tokens: +1 },
-  { date: "2026-05-15", action: "Standard Pack purchased", tokens: +6 },
+  { date: "2026-05-15", action: "Basic plan purchased", tokens: +6 },
   { date: "2026-05-10", action: "Trial credits granted (signup bonus)", tokens: +1 },
 ];
 

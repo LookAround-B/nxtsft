@@ -196,13 +196,23 @@ export const buildersRouter = router({
   publicGet: publicProcedure
     .input(z.object({ slug: safeString(300, 1) }))
     .query(async ({ input }) => {
-      return prisma.builder.findUnique({
+      const builder = await prisma.builder.findUnique({
         where: { slug: input.slug },
         include: {
           projects: { orderBy: { status: "asc" } },
           _count: { select: { projects: true } },
         },
       });
+      if (!builder) return null;
+      // Project.priceMin/priceMax are BigInt — convert or JSON serialization throws.
+      return {
+        ...builder,
+        projects: builder.projects.map((p) => ({
+          ...p,
+          priceMin: p.priceMin != null ? Number(p.priceMin) : null,
+          priceMax: p.priceMax != null ? Number(p.priceMax) : null,
+        })),
+      };
     }),
 
   // Project search for the listing wizard — owner/builder picks their project and

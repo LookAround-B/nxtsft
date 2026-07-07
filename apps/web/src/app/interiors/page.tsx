@@ -2,17 +2,20 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { keepPreviousData } from "@tanstack/react-query";
-import { Search, Sofa, MapPin, CheckCircle2, ChevronDown, X, Palette } from "lucide-react";
+import { Search, Sofa, MapPin, CheckCircle2, ChevronDown, X, Palette, MessageCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Pagination } from "@/components/ui/pagination";
 
 const CITIES = ["Mumbai", "Bengaluru", "Delhi NCR", "Hyderabad", "Pune", "Chennai", "Kolkata", "Ahmedabad", "Jaipur", "Noida", "Gurgaon", "Kochi"];
 const DESIGN_STYLES = ["Modern", "Minimal", "Luxury", "Contemporary", "Traditional", "Industrial"];
+// Negative values are a floor (minBudget), not a ceiling — see BudgetFilter's
+// consumer, which splits the sign back out into minBudget/maxBudget.
 const BUDGETS: { label: string; value: number }[] = [
   { label: "Under ₹2 L", value: 200_000 },
   { label: "Under ₹5 L", value: 500_000 },
   { label: "Under ₹10 L", value: 1_000_000 },
   { label: "Under ₹25 L", value: 2_500_000 },
+  { label: "Above ₹25 L", value: -2_500_000 },
 ];
 const SORTS: { label: string; value: "featured" | "latest" | "popular" | "budget_low" }[] = [
   { label: "Featured", value: "featured" },
@@ -36,7 +39,8 @@ export default function InteriorsPage() {
       search: search || undefined,
       city: city || undefined,
       designStyle: designStyle || undefined,
-      maxBudget: maxBudget ? Number(maxBudget) : undefined,
+      maxBudget: maxBudget && Number(maxBudget) > 0 ? Number(maxBudget) : undefined,
+      minBudget: maxBudget && Number(maxBudget) < 0 ? Math.abs(Number(maxBudget)) : undefined,
       sort,
       page,
       limit: 24,
@@ -81,7 +85,7 @@ export default function InteriorsPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h1 className="font-display text-2xl font-black text-navy sm:text-3xl">
-                  Home Interiors — Designer Directory
+                  Interior Designers
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Discover trusted interior design companies and their portfolios near you
@@ -164,8 +168,11 @@ function DesignerCard({ designer: d }: { designer: DesignerItem }) {
   return (
     <Link
       href={`/interiors/${d.slug}`}
-      className="group flex flex-col gap-3 rounded-2xl border border-border bg-white p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-lg"
+      className="group relative flex flex-col gap-3 rounded-2xl border border-border bg-white p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-lg"
     >
+      <span className="absolute -bottom-2 -left-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-emerald-500 text-white shadow-md">
+        <MessageCircle size={16} fill="currentColor" />
+      </span>
       <div className="flex items-start justify-between gap-2">
         <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-xl bg-accent/10 text-accent">
           {d.logo ? (

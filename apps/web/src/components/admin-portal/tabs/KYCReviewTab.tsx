@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { ChevronDown, ChevronUp, ExternalLink, FileText, ShieldCheck } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { PageHead } from "./PageHead";
 
 const FILTER_OPTIONS = [
@@ -261,9 +262,7 @@ export function KYCReviewTab() {
       </Section>
 
       <Section title={`Users (${users.length})`}>
-        {kycQ.isLoading && (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        )}
+        {kycQ.isLoading && <ListSkeleton rows={5} />}
         {!kycQ.isLoading && users.length === 0 && (
           <p className="text-sm text-muted-foreground">
             No users found with status: {filter ?? "all submitted"}.

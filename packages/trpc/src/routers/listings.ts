@@ -112,6 +112,7 @@ export const listingsRouter = router({
         type: "listing_created",
         title: "Listing created",
         content: `Your listing for "${listing.property.title}" was created.`,
+        actionUrl: "/user-portal#mylist",
       });
 
       return listing;
@@ -151,6 +152,7 @@ export const listingsRouter = router({
           type: "listing_updated",
           title: "Listing updated",
           content: `Your listing for "${updated.property.title}" was updated.`,
+          actionUrl: "/user-portal#mylist",
         });
       }
 

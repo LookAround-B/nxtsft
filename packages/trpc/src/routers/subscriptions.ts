@@ -16,39 +16,41 @@ import {
 } from "../sanitize";
 import { generatePayUHash, PAYU_BASE_URL } from "../payu";
 
-// Seeker plans seeded in DB via migrations/seed. These are the canonical values.
-const SEEKER_PLANS = [
-  { id: "instant", name: "Instant", price: 99, priceLabel: "₹99", credits: 1, validity: 30, tagline: "Try it out", popular: false },
-  { id: "basic", name: "Basic", price: 299, priceLabel: "₹299", credits: 5, validity: 60, tagline: "Most popular for buyers", popular: true },
-  { id: "premium", name: "Premium", price: 699, priceLabel: "₹699", credits: 15, validity: 90, tagline: "Best value", popular: false },
-] as const;
+// All plan lookups are DB-only. Legacy static arrays have been removed.
+// Plans are managed via the admin Plans Manager (prisma.plan table).
 
-// Owner/landlord/builder subscription plans (not credit-based)
-const OWNER_PLANS = [
-  { id: "rent-weekly",     name: "Rent Weekly Booster",     price: 499,   validityDays: 7,  cycle: "weekly"  },
-  { id: "rent-silver",     name: "Rent Monthly Silver",     price: 999,   validityDays: 30, cycle: "monthly" },
-  { id: "rent-gold",       name: "Rent Monthly Gold",       price: 1999,  validityDays: 30, cycle: "monthly" },
-  { id: "rent-platinum",   name: "Rent Monthly Platinum",   price: 4999,  validityDays: 30, cycle: "monthly" },
-  { id: "sell-silver",     name: "Sell Monthly Silver",     price: 4999,  validityDays: 30, cycle: "monthly" },
-  { id: "sell-gold",       name: "Sell Monthly Gold",       price: 9999,  validityDays: 30, cycle: "monthly" },
-  { id: "sell-platinum",   name: "Sell Monthly Platinum",   price: 14999, validityDays: 30, cycle: "monthly" },
-  { id: "sell-builder",    name: "Sell Monthly Builder Pro",price: 24999, validityDays: 30, cycle: "monthly" },
-  { id: "sell-enterprise", name: "Sell Monthly Enterprise", price: 49999, validityDays: 30, cycle: "monthly" },
-] as const;
+// Resolve an owner plan by id — DB only, must be an active owner-* plan.
+// Rejects seeker plan ids so the owner checkout path can never be used to
+// dodge the credit-plan flow.
+async function findOwnerPlan(planId: string) {
+  const dbPlan = await prisma.plan.findUnique({ where: { id: planId } });
+  if (!dbPlan || !dbPlan.type.startsWith("owner") || !dbPlan.active) return null;
+  return {
+    id: dbPlan.id,
+    name: dbPlan.name,
+    price: dbPlan.price,
+    validityDays: dbPlan.validity,
+    cycle: dbPlan.validity <= 7 ? "weekly" : "monthly",
+  };
+}
+
+// Resolve a seeker (credit) plan for new orders — DB only, must be an active
+// seeker plan. Owner plan ids are rejected so the credit checkout can't be
+// pointed at a subscription plan.
+async function findSeekerPlan(planId: string) {
+  const dbPlan = await prisma.plan.findUnique({ where: { id: planId } });
+  if (!dbPlan || dbPlan.type !== "seeker" || !dbPlan.active) return null;
+  return dbPlan;
+}
 
 export const subscriptionsRouter = router({
-  // List available plans
+  // List available plans — DB is the single source of truth (managed via the
+  // Plans Manager). No static fallback: an unseeded DB shows no plans.
   plans: publicProcedure
     .input(z.object({ type: planTypeSchema.optional() }))
     .query(async ({ input }) => {
       const where = input.type ? { type: input.type, active: true } : { active: true };
-      const dbPlans = await prisma.plan.findMany({ where, orderBy: { price: "asc" } });
-
-      // Fall back to hardcoded seeker plans if DB is not seeded yet
-      if (dbPlans.length === 0 && (!input.type || input.type === "seeker")) {
-        return SEEKER_PLANS;
-      }
-      return dbPlans;
+      return prisma.plan.findMany({ where, orderBy: { price: "asc" } });
     }),
 
   // Get single plan
@@ -81,9 +83,7 @@ export const subscriptionsRouter = router({
   createOrder: protectedProcedure
     .input(z.object({ planId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
-      const dbPlan = await prisma.plan.findUnique({ where: { id: input.planId } });
-      const staticPlan = SEEKER_PLANS.find((p) => p.id === input.planId);
-      const plan = dbPlan ?? staticPlan;
+      const plan = await findSeekerPlan(input.planId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       const keyId = process.env.RAZORPAY_KEY_ID;
@@ -148,9 +148,7 @@ export const subscriptionsRouter = router({
   createPayUOrder: protectedProcedure
     .input(z.object({ planId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
-      const dbPlan = await prisma.plan.findUnique({ where: { id: input.planId } });
-      const staticPlan = SEEKER_PLANS.find((p) => p.id === input.planId);
-      const plan = dbPlan ?? staticPlan;
+      const plan = await findSeekerPlan(input.planId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       if (!process.env.PAYU_MERCHANT_KEY || !process.env.PAYU_MERCHANT_SALT) {
@@ -243,9 +241,23 @@ export const subscriptionsRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "Payment already processed." });
       }
 
-      const dbPlan = await prisma.plan.findUnique({ where: { id: input.planId } });
-      const staticPlan = SEEKER_PLANS.find((p) => p.id === input.planId);
-      const plan = dbPlan ?? staticPlan;
+      // Bind the plan to the pending order created by createOrder — never trust
+      // the client-supplied planId. Otherwise a user could pay for the cheapest
+      // plan and replay the valid signature with an expensive planId to mint a
+      // larger credit grant. The signature only covers orderId|paymentId, so the
+      // plan/amount must come from our own recorded order row.
+      const pendingOrder = await prisma.payment.findFirst({
+        where: { razorpayOrderId: input.razorpayOrderId, userId: ctx.user.id, gateway: "razorpay" },
+      });
+      if (!pendingOrder) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Order not found." });
+      }
+      const boundPlanId = (pendingOrder.metadata as { planId?: string } | null)?.planId;
+      if (!boundPlanId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Order is missing plan information." });
+      }
+
+      const plan = await prisma.plan.findUnique({ where: { id: boundPlanId } });
 
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
@@ -283,6 +295,7 @@ export const subscriptionsRouter = router({
         userId: ctx.user.id,
         type: "payment_success",
         title: "Payment successful",
+        actionUrl: "/user-portal#credits",
         content: `${plan.name} — ${plan.credits} credits added to your wallet.`,
       });
 
@@ -293,7 +306,7 @@ export const subscriptionsRouter = router({
   createOwnerOrder: protectedProcedure
     .input(z.object({ planId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
-      const plan = OWNER_PLANS.find((p) => p.id === input.planId);
+      const plan = await findOwnerPlan(input.planId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       const keyId = process.env.RAZORPAY_KEY_ID;
@@ -358,7 +371,7 @@ export const subscriptionsRouter = router({
   createOwnerPayUOrder: protectedProcedure
     .input(z.object({ planId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
-      const plan = OWNER_PLANS.find((p) => p.id === input.planId);
+      const plan = await findOwnerPlan(input.planId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       if (!process.env.PAYU_MERCHANT_KEY || !process.env.PAYU_MERCHANT_SALT) {
@@ -442,7 +455,21 @@ export const subscriptionsRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "Payment already processed." });
       }
 
-      const plan = OWNER_PLANS.find((p) => p.id === input.planId);
+      // Bind the plan to the pending order — never trust the client planId (see
+      // verifyPayment). Prevents paying for a cheap tier then activating a higher
+      // one via a replayed-but-valid signature.
+      const pendingOrder = await prisma.payment.findFirst({
+        where: { razorpayOrderId: input.razorpayOrderId, userId: ctx.user.id, gateway: "razorpay" },
+      });
+      if (!pendingOrder) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Order not found." });
+      }
+      const boundPlanId = (pendingOrder.metadata as { planId?: string } | null)?.planId;
+      if (!boundPlanId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Order is missing plan information." });
+      }
+
+      const plan = await findOwnerPlan(boundPlanId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       const now = new Date();
@@ -453,7 +480,7 @@ export const subscriptionsRouter = router({
         prisma.subscription.create({
           data: {
             userId: ctx.user.id,
-            planId: input.planId,
+            planId: boundPlanId,
             planName: plan.name,
             amount: BigInt(plan.price * 100),
             status: "Active",

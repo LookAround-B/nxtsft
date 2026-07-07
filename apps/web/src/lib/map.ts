@@ -20,6 +20,10 @@ export function hasMapboxToken(): boolean {
 
 export type LngLat = { lng: number; lat: number };
 
+/** NxtSft HQ — Awfis, Kirloskar Business Park, Hebbal, Bengaluru. */
+export const OFFICE_COORDS: LngLat = { lng: 77.5877, lat: 13.0403 };
+export const OFFICE_MAPS_URL = "https://maps.app.goo.gl/4aVQ9z3njAxBJr2Z9";
+
 /**
  * Approximate city centroids (lng/lat) for the cities NxtSft operates in.
  * Used as a fallback when a listing has no real coordinates yet, so pins land

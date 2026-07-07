@@ -165,6 +165,7 @@ export const leadsRouter = router({
               type: "lead_update",
               title: "Commission earned!",
               content: `${fmtAmount} commission pending for converting ${lead.name}.`,
+              actionUrl: "/sales-portal#commission",
             },
           });
         }
@@ -215,6 +216,7 @@ export const leadsRouter = router({
           type: "lead_update",
           title: "New lead assigned to you",
           content: `${lead.name} (${lead.phone}) has been assigned to you.`,
+          actionUrl: "/sales-portal",
         },
       });
 
@@ -381,6 +383,7 @@ export const leadsRouter = router({
           type: "lead_update",
           title: `${input.leadIds.length} lead${input.leadIds.length === 1 ? "" : "s"} assigned to you`,
           content: `You have been assigned ${input.leadIds.length} new lead${input.leadIds.length === 1 ? "" : "s"}.`,
+          actionUrl: "/sales-portal",
         },
       });
 
@@ -411,5 +414,19 @@ export const leadsRouter = router({
       converted,
       lost,
     };
+  }),
+
+  // Live sidebar badge counts for the sales portal — scoped to the signed-in
+  // rep (admins/supervisors see the whole pipeline, same rule as stats above).
+  badgeCounts: staffProcedure.query(async ({ ctx }) => {
+    const where: { assignedToId?: string } = {};
+    if (ctx.user.role === "sales") where.assignedToId = ctx.user.id;
+
+    const [openLeads, hotLeads, visitsUpcoming] = await Promise.all([
+      prisma.lead.count({ where: { ...where, status: { notIn: ["Converted", "Lost"] } } }),
+      prisma.lead.count({ where: { ...where, status: "Hot" } }),
+      prisma.lead.count({ where: { ...where, visitScheduled: { gte: new Date() } } }),
+    ]);
+    return { openLeads, hotLeads, visitsUpcoming };
   }),
 });

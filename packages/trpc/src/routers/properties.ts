@@ -13,6 +13,7 @@ import {
   descriptionSchema,
   propertyTypeSchema,
   areaSchema,
+  areaUnitSchema,
   furnishingSchema,
   reraSchema,
   latitudeSchema,
@@ -23,6 +24,7 @@ import {
   propertyStatusSchema,
 } from "../sanitize";
 import prisma from "@nxtsft/db";
+import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 import { notify, notifyCredit } from "../notify";
 import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server";
 
@@ -121,6 +123,7 @@ export const propertiesRouter = router({
         minPrice: priceSchema.optional(),
         maxPrice: priceSchema.optional(),
         bedrooms: roomCountSchema.optional(),
+        furnishing: furnishingSchema.optional(),
         search: searchSchema.optional(),
         featured: z.boolean().optional(),
         // PG-specific filters (only meaningful when type === "PG")
@@ -131,7 +134,7 @@ export const propertiesRouter = router({
       }),
     )
     .query(async ({ input }) => {
-      const { page, limit, city, type, purpose, minPrice, maxPrice, bedrooms, search, featured, pgGender, pgOccupancy } = input;
+      const { page, limit, city, type, purpose, minPrice, maxPrice, bedrooms, furnishing, search, featured, pgGender, pgOccupancy } = input;
 
       const where: NonNullable<Parameters<typeof prisma.property.findMany>[0]>["where"] = {
         deletedAt: null,
@@ -142,6 +145,7 @@ export const propertiesRouter = router({
       if (type) where.type = type;
       if (purpose) where.purpose = purpose;
       if (bedrooms) where.bedrooms = bedrooms;
+      if (furnishing) where.furnishing = furnishing;
       if (featured !== undefined) where.featured = featured;
       if (pgGender) where.pgGender = pgGender;
       if (pgOccupancy) where.pgOccupancy = { has: pgOccupancy };
@@ -392,6 +396,7 @@ export const propertiesRouter = router({
         purpose: purposeSchema,
         price: priceSchema,
         area: areaSchema,
+        areaUnit: areaUnitSchema.default("sqft"),
         builtUpArea: areaSchema.optional(),
         bhk: safeString(20).optional(),
         bedrooms: roomCountSchema,
@@ -470,7 +475,7 @@ export const propertiesRouter = router({
   // batch — the result reports per-row errors (row numbers are 1-based incl. the
   // header, matching the uploaded sheet). Photos are added later per listing.
   bulkCreate: protectedProcedure
-    .input(z.object({ rows: z.array(z.unknown()).min(1).max(500) }))
+    .input(z.object({ rows: z.array(z.unknown()).min(1).max(BULK_IMPORT_MAX_ROWS) }))
     .mutation(async ({ input, ctx }) => {
       // Numbers may arrive as strings from CSV cells — coerce them. Empty
       // optional cells arrive as undefined from the client, so .optional() holds.
@@ -599,6 +604,7 @@ export const propertiesRouter = router({
           type: "listing_submitted",
           title: `${created} listing${created > 1 ? "s" : ""} submitted`,
           content: "Your uploaded listings are pending admin approval.",
+          actionUrl: "/user-portal#mylist",
         });
       }
 
@@ -614,6 +620,7 @@ export const propertiesRouter = router({
         description: descriptionSchema.optional(),
         price: priceSchema.optional(),
         area: areaSchema.optional(),
+        areaUnit: areaUnitSchema.optional(),
         builtUpArea: areaSchema.optional(),
         bhk: safeString(20).optional(),
         bedrooms: roomCountSchema.optional(),
@@ -701,6 +708,7 @@ export const propertiesRouter = router({
         description: descriptionSchema.optional(),
         price: priceSchema.optional(),
         area: areaSchema.optional(),
+        areaUnit: areaUnitSchema.optional(),
         builtUpArea: areaSchema.optional(),
         bhk: safeString(20).optional(),
         bedrooms: roomCountSchema.optional(),
@@ -753,6 +761,7 @@ export const propertiesRouter = router({
         type: "listing_edit_submitted",
         title: "Edit submitted for review",
         content: `Your changes to "${property.title}" are pending admin approval.`,
+        actionUrl: "/user-portal#mylist",
       });
 
       return { ok: true };

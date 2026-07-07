@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const ACTION: Record<ActivityAction, { label: string; tone: string }> = {
   interested: { label: "showed interest", tone: "text-blue-600" },
-  wishlisted: { label: "shortlisted this", tone: "text-rose-500" },
+  wishlisted: { label: "shortlisted", tone: "text-rose-500" },
   contact: { label: "requested contact", tone: "text-emerald-600" },
 };
 
@@ -108,7 +108,7 @@ export function PropertyEngagement({
       <div className="grid grid-cols-3 gap-2.5">
         <Stat icon={<Eye size={17} />} value={counts.views} label="Unique Views" tone="text-blue-600" />
         <Stat icon={<Heart size={17} />} value={counts.shortlists} label="Shortlists" tone="text-rose-500" />
-        <Stat icon={<Phone size={17} />} value={counts.contacted} label="Contacted" tone="text-emerald-600" />
+        <Stat icon={<Phone size={17} />} value={counts.contacted} label="Requested" tone="text-emerald-600" />
       </div>
 
       <p className="mt-3 text-right text-xs text-muted-foreground">

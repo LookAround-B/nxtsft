@@ -6,6 +6,7 @@ import { Eye, Search, Clock, Unlock, Flame, RotateCcw, Pencil, Check } from "luc
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
 import { trpc } from "@/lib/trpc";
+import { TableSkeleton, ListSkeleton } from "@/components/ui/skeleton";
 import { downloadCSV } from "@/lib/download-csv";
 import { PageHead } from "./PageHead";
 
@@ -73,7 +74,7 @@ function ViewBoostSection() {
         Reset zeroes both the base and the real view count.
       </p>
 
-      {listQ.isLoading && <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>}
+      {listQ.isLoading && <TableSkeleton rows={6} cols={5} />}
       {!listQ.isLoading && items.length === 0 && (
         <p className="py-6 text-center text-sm text-muted-foreground">No properties found.</p>
       )}
@@ -201,7 +202,7 @@ function BuyerActivitySection() {
         />
       </div>
 
-      {activityQ.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {activityQ.isLoading && <ListSkeleton rows={5} />}
 
       {!activityQ.isLoading && items.length === 0 && (
         <div className="rounded-xl border border-dashed border-border py-10 text-center">
@@ -330,7 +331,7 @@ export function ViewsTab() {
       </div>
 
       {viewsQ.isLoading ? (
-        <Section title="Views by Property"><p className="py-8 text-center text-sm text-muted-foreground">Loading…</p></Section>
+        <Section title="Views by Property"><TableSkeleton rows={6} cols={5} /></Section>
       ) : views.length === 0 ? (
         <Section title="View Records"><p className="py-8 text-center text-sm text-muted-foreground">No property views recorded yet.</p></Section>
       ) : (

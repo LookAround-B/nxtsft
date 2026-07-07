@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { notify, notifyCredit } from "../notify";
+import { notify, notifyCredit, portalBase } from "../notify";
 import { router, publicProcedure, protectedProcedure, contactRateLimit } from "../server";
 import {
   safeString,
@@ -41,19 +41,25 @@ export const interiorDesignersRouter = router({
         city:        geoTextSchema.optional(),
         designStyle: safeString(60).optional(),
         maxBudget:   z.number().int().positive().max(999_999_999_999).optional(),
+        minBudget:   z.number().int().positive().max(999_999_999_999).optional(),
         sort:        z.enum(["featured", "latest", "popular", "budget_low"]).default("featured"),
         page:        pageSchema,
         limit:       limitSchema,
       }),
     )
     .query(async ({ input }) => {
-      const { search, city, designStyle, maxBudget, sort, page, limit } = input;
+      const { search, city, designStyle, maxBudget, minBudget, sort, page, limit } = input;
       const where: NonNullable<Parameters<typeof prisma.interiorDesigner.findMany>[0]>["where"] = {
         status: "active",
       };
       if (city) where.city = { contains: city, mode: "insensitive" };
       if (designStyle) where.designStyles = { has: designStyle };
-      if (maxBudget != null) where.startingBudget = { lte: BigInt(maxBudget) };
+      if (maxBudget != null || minBudget != null) {
+        where.startingBudget = {
+          ...(maxBudget != null ? { lte: BigInt(maxBudget) } : {}),
+          ...(minBudget != null ? { gte: BigInt(minBudget) } : {}),
+        };
+      }
       if (search) {
         where.OR = [
           { companyName: { contains: search, mode: "insensitive" } },
@@ -158,6 +164,25 @@ export const interiorDesignersRouter = router({
           userId: ctx.user.id,
         },
       });
+
+      // Surface the new pending listing in every admin's notification bell,
+      // linking straight to their portal's review queue.
+      const admins = await prisma.user.findMany({
+        where: { role: { in: ["admin", "super-admin"] } },
+        select: { id: true, role: true },
+      });
+      if (admins.length > 0) {
+        await prisma.notification.createMany({
+          data: admins.map((a) => ({
+            userId: a.id,
+            type: "interior_submission",
+            title: "New Home Interiors listing pending review",
+            content: `"${input.companyName}" (${input.city}) was submitted and awaits approval.`,
+            actionUrl: `${portalBase(a.role)}#interiors`,
+          })),
+        });
+      }
+
       return { id: designer.id, slug: designer.slug };
     }),
 

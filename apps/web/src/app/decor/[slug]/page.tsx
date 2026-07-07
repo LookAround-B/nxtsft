@@ -4,7 +4,6 @@ import { cache } from "react";
 import prisma from "@nxtsft/db";
 import { SITE_URL } from "@/lib/site";
 import { jsonLdScript } from "@/lib/jsonLd";
-import { getNonce } from "@/lib/nonce";
 import DecorStoreClient from "./DecorStoreClient";
 
 export const runtime = "nodejs";
@@ -133,7 +132,6 @@ export default async function DecorStorePage({
     <>
       <script
         type="application/ld+json"
-        nonce={await getNonce()}
         dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
       />
       <DecorStoreClient slug={slug} />
