@@ -20,6 +20,12 @@ type Lead = {
   property: { id: string; title: string; slug: string } | null;
 };
 
+type Unlock = {
+  buyer: { id: string; name: string; phone: string } | null;
+  property: { id: string; title: string; slug: string } | null;
+  createdAt: string;
+};
+
 // Lead status → Badge tone. Falls back to "default" for anything unmapped.
 const leadTone: Record<string, "success" | "warm" | "cold" | "new" | "hot" | "default"> = {
   Hot: "hot",
@@ -33,6 +39,9 @@ const leadTone: Record<string, "success" | "warm" | "cold" | "new" | "hot" | "de
 export function SellerLeadsTab() {
   const { session } = useAuth();
   const leadsQ = trpc.users.sellerLeads.useQuery(undefined, {
+    enabled: session?.role === "home-seller",
+  });
+  const unlocksQ = trpc.users.sellerUnlocks.useQuery(undefined, {
     enabled: session?.role === "home-seller",
   });
 
@@ -49,6 +58,7 @@ export function SellerLeadsTab() {
   }
 
   const items = (leadsQ.data ?? []) as unknown as Lead[];
+  const unlocks = (unlocksQ.data ?? []) as unknown as Unlock[];
 
   return (
     <>
@@ -116,6 +126,41 @@ export function SellerLeadsTab() {
                     )}
                   </div>
                 )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section title="Contact Unlocks">
+        {unlocksQ.isLoading ? (
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-16 animate-pulse rounded-lg border border-border bg-secondary/40" />
+            ))}
+          </div>
+        ) : unlocks.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-secondary/20 py-10 text-center">
+            <p className="text-sm text-muted-foreground">No one has unlocked your contact yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {unlocks.map((u, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 text-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="font-semibold text-navy">{u.buyer?.name ?? "Unknown buyer"}</span>
+                  {u.buyer?.phone && (
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <Phone size={11} /> {u.buyer.phone}
+                    </span>
+                  )}
+                  {u.property && (
+                    <Link href={`/properties/${u.property.slug}`} className="truncate font-medium text-navy hover:text-accent">
+                      {u.property.title}
+                    </Link>
+                  )}
+                </div>
+                <span className="shrink-0 text-muted-foreground">{fmtDate(u.createdAt)}</span>
               </div>
             ))}
           </div>

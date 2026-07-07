@@ -13,12 +13,14 @@ import {
   PlusCircle,
   Users,
   LifeBuoy,
+  Briefcase,
 } from "lucide-react";
 import { Home as HomeIcon } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
 import { usePortalGuard } from "@/lib/use-portal-guard";
+import { trpc } from "@/lib/trpc";
 import { OverviewDashboard } from "@/components/user-portal/tabs/OverviewDashboard";
 import { SavedTab } from "@/components/user-portal/tabs/SavedTab";
 import { MyListingsTab } from "@/components/user-portal/tabs/MyListingsTab";
@@ -33,17 +35,23 @@ import { ReferTab } from "@/components/user-portal/tabs/ReferTab";
 import { SellerLeadsTab } from "@/components/user-portal/tabs/SellerLeadsTab";
 import { SellerVisitsTab } from "@/components/user-portal/tabs/SellerVisitsTab";
 import { SupportTicketsTab } from "@/components/user-portal/tabs/SupportTicketsTab";
+import { MyBusinessTab } from "@/components/user-portal/tabs/MyBusinessTab";
 
 export default function UserPortal() {
   const { session } = useAuth();
   const h = useActiveHash();
   const ready = usePortalGuard();
+  // Visibility of "My Business" is data-owned, not role-gated: any signed-in
+  // user who has submitted a Home Interiors / Decor Store listing gets it.
+  const designersQ = trpc.interiorDesigners.myProfiles.useQuery(undefined, { enabled: !!session });
+  const storesQ = trpc.decorStores.myProfiles.useQuery(undefined, { enabled: !!session });
 
   if (!ready || !session) return null;
 
   // Agents list & manage properties like Home Sellers, so they get the same
   // seller-only tabs (Leads / Visits).
   const isSeller = session.role === "home-seller" || session.role === "agent";
+  const hasBusiness = (designersQ.data?.length ?? 0) > 0 || (storesQ.data?.length ?? 0) > 0;
   const nav = [
     { label: "Overview",         to: "/user-portal",          icon: <HomeIcon size={14} /> },
     { label: "Saved",            to: "/user-portal#saved",    icon: <Heart size={14} /> },
@@ -58,6 +66,10 @@ export default function UserPortal() {
           { label: "Leads",  to: "/user-portal#leads",     icon: <Users size={14} /> },
           { label: "Visits", to: "/user-portal#propvisits", icon: <Calendar size={14} /> },
         ]
+      : []),
+    // Data-owned: shown to whoever has submitted a Home Interiors / Decor listing.
+    ...(hasBusiness
+      ? [{ label: "My Business", to: "/user-portal#business", icon: <Briefcase size={14} /> }]
       : []),
     { label: "List a Property",  to: "/list",                 icon: <PlusCircle size={14} /> },
     { label: "Scheduled Tours",  to: "/user-portal#visits",   icon: <Calendar size={14} /> },
@@ -88,6 +100,7 @@ function renderTab(h: string, userEmail: string) {
     case "mylist":  return <MyListingsTab />;
     case "leads":   return <SellerLeadsTab />;
     case "propvisits": return <SellerVisitsTab />;
+    case "business": return <MyBusinessTab />;
     case "credits": return <CreditsTab />;
     case "viewed":  return <RecentlyViewedTab />;
     case "visits":  return <SiteVisitsTab />;

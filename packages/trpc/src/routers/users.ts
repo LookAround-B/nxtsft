@@ -462,6 +462,38 @@ export const usersRouter = router({
     }));
   }),
 
+  // Raw contact-unlock events on the seller's own listings — distinct from
+  // sellerLeads (formal enquiry-form submissions). Buyer identity resolved
+  // from CreditTransaction the same way properties.engagement already does.
+  sellerUnlocks: protectedProcedure.query(async ({ ctx }) => {
+    const myProps = await prisma.property.findMany({
+      where: { ownerId: ctx.user.id, deletedAt: null },
+      select: { id: true, title: true, slug: true },
+    });
+    if (myProps.length === 0) return [];
+    const propById = new Map(myProps.map((p) => [p.id, p]));
+
+    const unlocks = await prisma.creditTransaction.findMany({
+      where: { reason: "contact_unlock", propertyId: { in: myProps.map((p) => p.id) } },
+      orderBy: { createdAt: "desc" },
+      select: { userId: true, propertyId: true, createdAt: true },
+    });
+    if (unlocks.length === 0) return [];
+
+    const buyerIds = [...new Set(unlocks.map((u) => u.userId))];
+    const buyers = await prisma.user.findMany({
+      where: { id: { in: buyerIds } },
+      select: { id: true, name: true, phone: true },
+    });
+    const buyerById = new Map(buyers.map((b) => [b.id, b]));
+
+    return unlocks.map((u) => ({
+      buyer: buyerById.get(u.userId) ?? null,
+      property: u.propertyId ? propById.get(u.propertyId) ?? null : null,
+      createdAt: u.createdAt,
+    }));
+  }),
+
   // Headline counts for the seller's profile stat cards.
   sellerStats: protectedProcedure.query(async ({ ctx }) => {
     const myProps = await prisma.property.findMany({

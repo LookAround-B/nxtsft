@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { notifyCredit } from "../notify";
+import { notify, notifyCredit } from "../notify";
 import { router, publicProcedure, protectedProcedure, contactRateLimit } from "../server";
 import {
   safeString,
@@ -143,7 +143,7 @@ export const interiorDesignersRouter = router({
         email: emailSchema.optional(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const base = makeSlug(`${input.companyName}-${input.city}`);
       let slug = base;
       let n = 2;
@@ -155,10 +155,54 @@ export const interiorDesignersRouter = router({
           ...rest,
           slug,
           startingBudget: startingBudget != null ? BigInt(startingBudget) : null,
+          userId: ctx.user.id,
         },
       });
       return { id: designer.id, slug: designer.slug };
     }),
+
+  // The caller's own listing(s) — a user may own more than one. Includes
+  // private phone/email since it's their own data.
+  myProfiles: protectedProcedure.query(async ({ ctx }) => {
+    const designers = await prisma.interiorDesigner.findMany({
+      where: { userId: ctx.user.id },
+      orderBy: { createdAt: "desc" },
+    });
+    return designers.map(serializeDesigner);
+  }),
+
+  // Leads (contact-unlock events) across every listing the caller owns.
+  // Buyer identity is resolved from CreditTransaction the same way
+  // properties.engagement batch-resolves unlock events.
+  myLeads: protectedProcedure.query(async ({ ctx }) => {
+    const mine = await prisma.interiorDesigner.findMany({
+      where: { userId: ctx.user.id },
+      select: { id: true, companyName: true, slug: true },
+    });
+    if (mine.length === 0) return [];
+    const designerIds = mine.map((d) => d.id);
+    const byDesignerId = new Map(mine.map((d) => [d.id, d]));
+
+    const unlocks = await prisma.creditTransaction.findMany({
+      where: { reason: "designer_contact_unlock", interiorDesignerId: { in: designerIds } },
+      orderBy: { createdAt: "desc" },
+      select: { userId: true, interiorDesignerId: true, createdAt: true },
+    });
+    if (unlocks.length === 0) return [];
+
+    const buyerIds = [...new Set(unlocks.map((u) => u.userId))];
+    const buyers = await prisma.user.findMany({
+      where: { id: { in: buyerIds } },
+      select: { id: true, name: true, phone: true, email: true, city: true },
+    });
+    const buyerById = new Map(buyers.map((b) => [b.id, b]));
+
+    return unlocks.map((u) => ({
+      buyer: buyerById.get(u.userId) ?? null,
+      designer: u.interiorDesignerId ? byDesignerId.get(u.interiorDesignerId) ?? null : null,
+      createdAt: u.createdAt,
+    }));
+  }),
 
   // Flag a listing — routed to staff as an Enquiry row (mirrors properties.reportIssue).
   reportIssue: publicProcedure
@@ -209,7 +253,7 @@ export const interiorDesignersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const designer = await prisma.interiorDesigner.findFirst({
         where: { id: input.id, status: "active" },
-        select: { id: true, phone: true, email: true, companyName: true },
+        select: { id: true, phone: true, email: true, companyName: true, userId: true, slug: true },
       });
       if (!designer) throw new TRPCError({ code: "NOT_FOUND", message: "Designer not found." });
 
@@ -238,6 +282,15 @@ export const interiorDesignersRouter = router({
         prisma.interiorDesigner.update({ where: { id: input.id }, data: { contacts: { increment: 1 } } }),
       ]);
       await notifyCredit({ userId: ctx.user.id, type: "debit", amount: 1, reason: "designer_contact_unlock" });
+      if (designer.userId) {
+        await notify({
+          userId: designer.userId,
+          type: "designer_lead",
+          title: `New lead on ${designer.companyName}`,
+          content: "Someone unlocked your contact details.",
+          actionUrl: "/user-portal#business",
+        });
+      }
 
       return { phone: designer.phone, email: designer.email, companyName: designer.companyName };
     }),

@@ -62,6 +62,8 @@ model User {
   designerFavorites     DesignerFavorite[]
   decorStoreViews       DecorStoreView[]       @relation("UserDecorStoreViews")
   decorFavorites        DecorFavorite[]
+  ownedInteriorDesigners InteriorDesigner[]    @relation("UserOwnedInteriorDesigners")
+  ownedDecorStores       DecorStore[]          @relation("UserOwnedDecorStores")
   campaigns             Campaign[]
   cmsPages              CmsPage[]
   kycDocuments          KycDocument[]          @relation("UserKycDocuments")
@@ -516,6 +518,12 @@ model InteriorDesigner {
   phone String
   email String?
 
+  // Owning account — the signed-in user who self-submitted this listing (set
+  // by interiorDesigners.submit). Nullable: admin/bulk-imported rows have no
+  // owning account yet. Not unique: a user may run more than one business.
+  userId String?
+  user   User?   @relation("UserOwnedInteriorDesigners", fields: [userId], references: [id])
+
   verified Boolean @default(false)
   status   String  @default("pending") // pending | active | inactive — admin publish gate
 
@@ -531,6 +539,7 @@ model InteriorDesigner {
   @@index([city])
   @@index([verified])
   @@index([status])
+  @@index([userId])
 }
 
 // Wishlist join for interior designers — mirrors Favorite (properties).
@@ -599,6 +608,12 @@ model DecorStore {
   phone String
   email String?
 
+  // Owning account — the signed-in user who self-submitted this listing (set
+  // by decorStores.submit). Nullable: admin/bulk-imported rows have no owning
+  // account yet. Not unique: a user may run more than one business.
+  userId String?
+  user   User?   @relation("UserOwnedDecorStores", fields: [userId], references: [id])
+
   verified Boolean @default(false)
   status   String  @default("pending") // pending | active | inactive — admin publish gate
 
@@ -614,6 +629,7 @@ model DecorStore {
   @@index([city])
   @@index([verified])
   @@index([status])
+  @@index([userId])
 }
 
 // Wishlist join for decor stores — mirrors DesignerFavorite.

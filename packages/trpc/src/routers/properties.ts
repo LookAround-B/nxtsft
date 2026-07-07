@@ -763,6 +763,13 @@ export const propertiesRouter = router({
         prisma.property.update({ where: { id: input.id }, data: { contacts: { increment: 1 } } }),
       ]);
       await notifyCredit({ userId: ctx.user.id, type: "debit", amount: 1, reason: "contact_unlock" });
+      await notify({
+        userId: property.owner.id,
+        type: "property_lead",
+        title: `New lead on ${property.title}`,
+        content: "Someone unlocked your contact details.",
+        actionUrl: "/user-portal#leads",
+      });
 
       return { phone: property.owner.phone, name: property.owner.name };
     }),

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { notifyCredit } from "../notify";
+import { notify, notifyCredit } from "../notify";
 import { router, publicProcedure, protectedProcedure, contactRateLimit } from "../server";
 import {
   safeString,
@@ -143,7 +143,7 @@ export const decorStoresRouter = router({
         email: emailSchema.optional(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const base = makeSlug(`${input.companyName}-${input.city}`);
       let slug = base;
       let n = 2;
@@ -155,10 +155,52 @@ export const decorStoresRouter = router({
           ...rest,
           slug,
           startingBudget: startingBudget != null ? BigInt(startingBudget) : null,
+          userId: ctx.user.id,
         },
       });
       return { id: store.id, slug: store.slug };
     }),
+
+  // The caller's own listing(s) — a user may own more than one. Includes
+  // private phone/email since it's their own data.
+  myProfiles: protectedProcedure.query(async ({ ctx }) => {
+    const stores = await prisma.decorStore.findMany({
+      where: { userId: ctx.user.id },
+      orderBy: { createdAt: "desc" },
+    });
+    return stores.map(serializeStore);
+  }),
+
+  // Leads (contact-unlock events) across every store the caller owns.
+  myLeads: protectedProcedure.query(async ({ ctx }) => {
+    const mine = await prisma.decorStore.findMany({
+      where: { userId: ctx.user.id },
+      select: { id: true, companyName: true, slug: true },
+    });
+    if (mine.length === 0) return [];
+    const storeIds = mine.map((s) => s.id);
+    const byStoreId = new Map(mine.map((s) => [s.id, s]));
+
+    const unlocks = await prisma.creditTransaction.findMany({
+      where: { reason: "decor_contact_unlock", decorStoreId: { in: storeIds } },
+      orderBy: { createdAt: "desc" },
+      select: { userId: true, decorStoreId: true, createdAt: true },
+    });
+    if (unlocks.length === 0) return [];
+
+    const buyerIds = [...new Set(unlocks.map((u) => u.userId))];
+    const buyers = await prisma.user.findMany({
+      where: { id: { in: buyerIds } },
+      select: { id: true, name: true, phone: true, email: true, city: true },
+    });
+    const buyerById = new Map(buyers.map((b) => [b.id, b]));
+
+    return unlocks.map((u) => ({
+      buyer: buyerById.get(u.userId) ?? null,
+      store: u.decorStoreId ? byStoreId.get(u.decorStoreId) ?? null : null,
+      createdAt: u.createdAt,
+    }));
+  }),
 
   // Flag a listing — routed to staff as an Enquiry row (mirrors properties.reportIssue).
   reportIssue: publicProcedure
@@ -209,7 +251,7 @@ export const decorStoresRouter = router({
     .mutation(async ({ input, ctx }) => {
       const store = await prisma.decorStore.findFirst({
         where: { id: input.id, status: "active" },
-        select: { id: true, phone: true, email: true, companyName: true },
+        select: { id: true, phone: true, email: true, companyName: true, userId: true, slug: true },
       });
       if (!store) throw new TRPCError({ code: "NOT_FOUND", message: "Store not found." });
 
@@ -238,6 +280,15 @@ export const decorStoresRouter = router({
         prisma.decorStore.update({ where: { id: input.id }, data: { contacts: { increment: 1 } } }),
       ]);
       await notifyCredit({ userId: ctx.user.id, type: "debit", amount: 1, reason: "decor_contact_unlock" });
+      if (store.userId) {
+        await notify({
+          userId: store.userId,
+          type: "decor_lead",
+          title: `New lead on ${store.companyName}`,
+          content: "Someone unlocked your contact details.",
+          actionUrl: "/user-portal#business",
+        });
+      }
 
       return { phone: store.phone, email: store.email, companyName: store.companyName };
     }),
