@@ -54,7 +54,13 @@ export default function EditListingPage() {
 
   const propertyQ = trpc.properties.get.useQuery({ id }, { enabled: !!id });
   const submitEdit = trpc.properties.submitEdit.useMutation();
+  const directUpdate = trpc.properties.update.useMutation();
   const uploadImage = trpc.media.uploadImage.useMutation();
+
+  // Admins/super-admins can edit any listing and publish immediately (they are
+  // the approvers) — sellers go through the edit-request/approval flow.
+  const isAdmin = !!session && ["admin", "super-admin"].includes(session.role as string);
+  const backHref = isAdmin ? "/admin-portal#listings" : "/user-portal#mylist";
 
   const [form, setForm] = useState<EditForm | null>(null);
   const [original, setOriginal] = useState<EditForm | null>(null);
@@ -256,10 +262,16 @@ export default function EditListingPage() {
     if (JSON.stringify(finalImages) !== JSON.stringify(originalImages)) changed.images = finalImages;
 
     try {
-      await submitEdit.mutateAsync({ id, ...changed });
-      setSubmitting(false);
-      toast.success("Changes submitted for review.");
-      router.push("/user-portal#mylist");
+      if (isAdmin) {
+        await directUpdate.mutateAsync({ id, ...changed });
+        setSubmitting(false);
+        toast.success("Listing updated — changes are live.");
+      } else {
+        await submitEdit.mutateAsync({ id, ...changed });
+        setSubmitting(false);
+        toast.success("Changes submitted for review.");
+      }
+      router.push(backHref);
     } catch (err) {
       setSubmitting(false);
       toast.error(err instanceof Error ? err.message : "Couldn't submit changes.");
@@ -290,7 +302,7 @@ export default function EditListingPage() {
   if (propertyQ.isError || !property) {
     return <GuardCard title="Listing not found" body="This listing may have been removed." />;
   }
-  if (property.ownerId !== session.id) {
+  if (property.ownerId !== session.id && !isAdmin) {
     return <GuardCard title="Not your listing" body="You can only modify listings you own." />;
   }
 
@@ -301,21 +313,32 @@ export default function EditListingPage() {
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
         <Link
-          href="/user-portal#mylist"
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition hover:text-accent"
         >
-          <ArrowLeft size={15} /> Back to my listings
+          <ArrowLeft size={15} /> {isAdmin ? "Back to listings" : "Back to my listings"}
         </Link>
 
         {/* Review notice */}
         <div className="mt-4 flex items-start gap-3 rounded-2xl border border-accent/25 bg-accent/[0.04] p-4">
           <Clock size={18} className="mt-0.5 shrink-0 text-accent" />
           <div className="text-sm text-navy">
-            <p className="font-semibold">Changes require admin approval before they go live.</p>
-            <p className="mt-0.5 text-muted-foreground">
-              Approval may take up to 24 hours (TAT). Your listing stays live with its current details until
-              then, and you&apos;ll get a notification once the changes are approved.
-            </p>
+            {isAdmin ? (
+              <>
+                <p className="font-semibold">Editing as admin — changes publish immediately.</p>
+                <p className="mt-0.5 text-muted-foreground">
+                  Your edits (including photos) go live on the listing right away, no approval step.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold">Changes require admin approval before they go live.</p>
+                <p className="mt-0.5 text-muted-foreground">
+                  Approval may take up to 24 hours (TAT). Your listing stays live with its current details until
+                  then, and you&apos;ll get a notification once the changes are approved.
+                </p>
+              </>
+            )}
           </div>
         </div>
 
@@ -607,7 +630,7 @@ export default function EditListingPage() {
           {/* Actions */}
           <div className="flex items-center justify-between gap-4 border-t border-border pt-6">
             <Link
-              href="/user-portal#mylist"
+              href={backHref}
               className="rounded-xl border border-border px-5 py-2.5 text-sm font-semibold text-foreground/70 transition hover:bg-secondary"
             >
               Cancel
@@ -617,7 +640,7 @@ export default function EditListingPage() {
               disabled={submitting || !isDirty}
               className="rounded-xl bg-accent px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:pointer-events-none disabled:opacity-60"
             >
-              {submitting ? "Submitting…" : "Submit for approval"}
+              {submitting ? "Saving…" : isAdmin ? "Save changes" : "Submit for approval"}
             </button>
           </div>
         </div>

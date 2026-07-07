@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin } from "lucide-react";
+import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin, ImageIcon } from "lucide-react";
 import { keepPreviousData } from "@tanstack/react-query";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
@@ -735,6 +736,14 @@ export function ListingsTab() {
                 >
                   Reject
                 </button>
+                {it.isDbProperty && (
+                  <Link
+                    href={`/list/edit/${it.id}`}
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-xs font-semibold transition hover:bg-secondary"
+                  >
+                    <ImageIcon size={11} /> Edit Details
+                  </Link>
+                )}
                 {it.isDbProperty && (
                   <button
                     onClick={() => setChecklistOpen(checklistOpen === it.id ? null : it.id)}

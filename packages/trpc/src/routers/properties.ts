@@ -635,12 +635,13 @@ export const propertiesRouter = router({
         status: propertyStatusSchema.optional(),
         amenities: amenitiesSchema.optional(),
         images: safeUrlArraySchema.optional(),
+        locality: geoTextSchema.optional(),
         latitude: z.number().min(-90).max(90).optional(),
         longitude: z.number().min(-180).max(180).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { id, price, area, latitude, longitude, ...rest } = input;
+      const { id, price, area, latitude, longitude, locality, ...rest } = input;
 
       const property = await prisma.property.findFirst({ where: { id, deletedAt: null } });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
@@ -661,19 +662,15 @@ export const propertiesRouter = router({
       const priceUpdate = price !== undefined ? { price: BigInt(price) } : {};
       const sqftUpdate = price !== undefined && area !== undefined ? { pricePerSqft: Math.round(price / area) } : {};
 
-      // Coordinates live on the related Location row (created alongside every
-      // property), so patch them via a nested update when supplied.
+      // Coordinates + locality live on the related Location row (created
+      // alongside every property), so patch them via a nested update when supplied.
+      const locationData = {
+        ...(latitude !== undefined && { latitude }),
+        ...(longitude !== undefined && { longitude }),
+        ...(locality !== undefined && { locality }),
+      };
       const locationUpdate =
-        latitude !== undefined || longitude !== undefined
-          ? {
-              location: {
-                update: {
-                  ...(latitude !== undefined && { latitude }),
-                  ...(longitude !== undefined && { longitude }),
-                },
-              },
-            }
-          : {};
+        Object.keys(locationData).length > 0 ? { location: { update: locationData } } : {};
 
       const updated = await prisma.property.update({
         where: { id },
