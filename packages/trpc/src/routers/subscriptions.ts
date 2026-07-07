@@ -483,6 +483,224 @@ export const subscriptionsRouter = router({
       return { ok: true, planName: plan.name, endDate };
     }),
 
+  // Create a Razorpay order for a designer/decor "Business Listing" plan.
+  // Same shape as createOwnerOrder, but sourced from the DB Plan table
+  // (not a hardcoded array) so pricing changes don't need a deploy.
+  createBusinessOrder: protectedProcedure
+    .input(z.object({ planId: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const plan = await prisma.plan.findUnique({ where: { id: input.planId } });
+      if (!plan || (plan.type !== "designer" && plan.type !== "decor")) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
+      }
+
+      const keyId = process.env.RAZORPAY_KEY_ID;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keyId || !keySecret) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Razorpay not configured." });
+      }
+
+      const receipt = `nxtsft_biz_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+
+      const res = await fetch("https://api.razorpay.com/v1/orders", {
+        method: "POST",
+        headers: { "Authorization": `Basic ${auth}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: plan.price * 100,
+          currency: "INR",
+          receipt,
+          notes: { userId: ctx.user.id, planId: input.planId, type: "owner_subscription" },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: { description?: string } };
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: err?.error?.description ?? "Failed to create Razorpay order.",
+        });
+      }
+
+      const order = await res.json() as { id: string; amount: number; currency: string };
+
+      await prisma.payment.create({
+        data: {
+          userId: ctx.user.id,
+          amount: BigInt(plan.price * 100),
+          status: "Pending",
+          method: "Razorpay",
+          gateway: "razorpay",
+          razorpayOrderId: order.id,
+          description: `${plan.name} subscription`,
+          metadata: { planId: input.planId, type: "owner_subscription" },
+        },
+      });
+
+      return {
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        planId: input.planId,
+        planName: plan.name,
+        keyId,
+        prefill: { name: ctx.user.name, email: ctx.user.email, contact: ctx.user.phone ?? "" },
+      };
+    }),
+
+  // Create a PayU order for a designer/decor plan (redirect flow). Sets the
+  // SAME "owner_subscription" metadata marker the PayU callback route already
+  // branches on generically — the callback route needs no changes.
+  createBusinessPayUOrder: protectedProcedure
+    .input(z.object({ planId: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const plan = await prisma.plan.findUnique({ where: { id: input.planId } });
+      if (!plan || (plan.type !== "designer" && plan.type !== "decor")) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
+      }
+
+      if (!process.env.PAYU_MERCHANT_KEY || !process.env.PAYU_MERCHANT_SALT) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PayU not configured." });
+      }
+
+      const txnid = `nxtsft_biz_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const amount = plan.price.toFixed(2);
+      const productinfo = `NxtSft ${plan.name}`;
+      const firstname = ctx.user.name.split(" ")[0] || ctx.user.name;
+      const email = ctx.user.email;
+      const phone = ctx.user.phone ?? "9999999999";
+      const udf1 = ctx.user.id;
+      const udf2 = input.planId;
+
+      const hash = generatePayUHash({ txnid, amount, productinfo, firstname, email, udf1, udf2 });
+
+      await prisma.payment.create({
+        data: {
+          userId: ctx.user.id,
+          amount: BigInt(plan.price * 100),
+          status: "Pending",
+          method: "PayU",
+          gateway: "payu",
+          payuTxnId: txnid,
+          description: `${plan.name} subscription`,
+          metadata: { planId: input.planId, type: "owner_subscription", validityDays: plan.validity, planName: plan.name, cycle: "monthly" },
+        },
+      });
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://nxtsft.com";
+
+      return {
+        action: PAYU_BASE_URL,
+        key: process.env.PAYU_MERCHANT_KEY,
+        txnid, amount, productinfo, firstname,
+        lastname: "",
+        email, phone, udf1, udf2,
+        surl: `${baseUrl}/api/payu/callback`,
+        furl: `${baseUrl}/api/payu/callback`,
+        hash,
+      };
+    }),
+
+  // Verify Razorpay payment for a designer/decor plan and activate the
+  // subscription. Mirrors verifyOwnerPayment; DB-plan-sourced instead of
+  // OWNER_PLANS-sourced, and always monthly (this vertical has one flat
+  // plan, no weekly/tiered cycles).
+  verifyBusinessPayment: protectedProcedure
+    .input(
+      z.object({
+        razorpayOrderId: safeString(200, 1),
+        razorpayPaymentId: safeString(200, 1),
+        razorpaySignature: safeString(200, 1),
+        planId: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const secret = process.env.RAZORPAY_KEY_SECRET;
+      if (secret) {
+        const expected = createHmac("sha256", secret)
+          .update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`)
+          .digest("hex");
+        const a = Buffer.from(expected);
+        const b = Buffer.from(input.razorpaySignature);
+        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Payment verification failed." });
+        }
+      } else if (process.env.NODE_ENV === "production") {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Payment gateway not configured." });
+      }
+
+      const existingPayment = await prisma.payment.findFirst({
+        where: { razorpayId: input.razorpayPaymentId },
+      });
+      if (existingPayment) {
+        throw new TRPCError({ code: "CONFLICT", message: "Payment already processed." });
+      }
+
+      const plan = await prisma.plan.findUnique({ where: { id: input.planId } });
+      if (!plan || (plan.type !== "designer" && plan.type !== "decor")) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
+      }
+
+      const now = new Date();
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + plan.validity);
+
+      await Promise.all([
+        prisma.subscription.create({
+          data: {
+            userId: ctx.user.id,
+            planId: input.planId,
+            planName: plan.name,
+            amount: BigInt(plan.price * 100),
+            status: "Active",
+            cycle: "monthly",
+            razorpayId: input.razorpayPaymentId,
+            razorpayOrderId: input.razorpayOrderId,
+            startDate: now,
+            endDate,
+          },
+        }),
+        prisma.payment.upsert({
+          where: { razorpayOrderId: input.razorpayOrderId },
+          update: { status: "Success", razorpayId: input.razorpayPaymentId },
+          create: {
+            userId: ctx.user.id,
+            amount: BigInt(plan.price * 100),
+            status: "Success",
+            method: "Razorpay",
+            gateway: "razorpay",
+            razorpayId: input.razorpayPaymentId,
+            razorpayOrderId: input.razorpayOrderId,
+            description: `${plan.name} subscription`,
+          },
+        }),
+      ]);
+
+      return { ok: true, planName: plan.name, endDate };
+    }),
+
+  // Type-scoped current-subscription lookup for the "My Business" tab.
+  // Unlike myCurrent (which returns whichever Subscription is most recently
+  // created regardless of type — wrong for a user who's both a buyer and a
+  // business owner), this filters to designer/decor plan ids specifically.
+  myBusinessSubscription: protectedProcedure.query(async ({ ctx }) => {
+    const businessPlans = await prisma.plan.findMany({
+      where: { type: { in: ["designer", "decor"] } },
+      select: { id: true },
+    });
+    if (businessPlans.length === 0) return null;
+
+    const sub = await prisma.subscription.findFirst({
+      where: {
+        userId: ctx.user.id,
+        status: "Active",
+        planId: { in: businessPlans.map((p) => p.id) },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return sub ? { ...sub, amount: Number(sub.amount) } : null;
+  }),
+
   // Active subscription for current user
   myCurrent: protectedProcedure.query(async ({ ctx }) => {
     const sub = await prisma.subscription.findFirst({
