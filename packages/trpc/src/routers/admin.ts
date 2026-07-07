@@ -35,6 +35,25 @@ import { makeDecorStoreSlug } from "./decorStores";
 import { generateSlug, assertReraValid, splitList, CATEGORY_IMAGE } from "./properties";
 import { agentInitials, uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 
+// Runs `fn` over `items` with at most `limit` in flight at once — a bulk
+// upload of N rows must not serialize N sequential round-trips to the DB.
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const idx = cursor++;
+      results[idx] = await fn(items[idx]!, idx);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 const safeUserSelect = {
   id: true,
   email: true,
@@ -565,8 +584,11 @@ export const adminRouter = router({
 
         const errors: { row: number; message: string }[] = [];
         const createdListings: { id: string; slug: string; title: string }[] = [];
-        let created = 0;
 
+        // Phase 1 — parse + synchronous validation (RERA format etc). Cheap,
+        // no DB calls, so this stays a plain loop.
+        type Row = z.infer<typeof rowSchema>;
+        const valid: { sheetRow: number; d: Row }[] = [];
         for (let i = 0; i < input.rows.length; i++) {
           const sheetRow = i + 2;
           const parsed = rowSchema.safeParse(input.rows[i]);
@@ -574,33 +596,94 @@ export const adminRouter = router({
             errors.push({ row: sheetRow, message: parsed.error.issues[0]?.message ?? "Invalid row" });
             continue;
           }
-          const d = parsed.data;
           try {
-            assertReraValid(d.city, d.rera, d.reraLabel);
+            assertReraValid(parsed.data.city, parsed.data.rera, parsed.data.reraLabel);
+            valid.push({ sheetRow, d: parsed.data });
+          } catch (e) {
+            errors.push({ row: sheetRow, message: e instanceof TRPCError ? e.message : "Invalid RERA details" });
+          }
+        }
 
-            // Resolve the owner: reuse an existing account by phone, otherwise
-            // create a dummy home-seller record so the listing has a real owner.
-            let owner = await prisma.user.findUnique({ where: { phone: d.ownerPhone } });
-            if (!owner) {
-              const email = d.ownerEmail ?? `dummy.${d.ownerPhone}@nxtsft.internal`;
-              const emailTaken = await prisma.user.findUnique({ where: { email } });
-              if (emailTaken) {
-                throw new TRPCError({ code: "CONFLICT", message: "Owner email already registered to a different account." });
-              }
-              owner = await prisma.user.create({
-                data: {
-                  name: d.ownerName,
-                  phone: d.ownerPhone,
-                  email,
-                  role: "home-seller",
-                  city: d.city,
-                  verified: true,
-                  verifiedAt: new Date(),
-                  metadata: { source: "admin-bulk-upload" },
-                },
-              });
-            }
+        // Phase 2 — resolve owners in bulk instead of one findUnique/create per
+        // row: a 1000-row file is often the same handful of owners repeated
+        // across many listings, and even in the worst case this turns ~2000
+        // sequential round-trips into a handful of batch queries plus one
+        // create per *unique* new phone (run with bounded concurrency).
+        const uniquePhones = [...new Set(valid.map((v) => v.d.ownerPhone))];
+        const existingOwners = await prisma.user.findMany({
+          where: { phone: { in: uniquePhones } },
+          select: { id: true, phone: true },
+        });
+        const ownerIdByPhone = new Map(existingOwners.map((u) => [u.phone, u.id] as const));
 
+        // First-seen row per new phone supplies the name/email for account
+        // creation, matching the old row-by-row behavior (first row wins).
+        const newPhoneInfo = new Map<string, { name: string; email: string; city: string }>();
+        const usedEmails = new Set<string>();
+        const emailConflictPhones = new Set<string>();
+        for (const { d } of valid) {
+          if (ownerIdByPhone.has(d.ownerPhone) || newPhoneInfo.has(d.ownerPhone)) continue;
+          const email = d.ownerEmail ?? `dummy.${d.ownerPhone}@nxtsft.internal`;
+          if (usedEmails.has(email)) {
+            emailConflictPhones.add(d.ownerPhone);
+            continue;
+          }
+          usedEmails.add(email);
+          newPhoneInfo.set(d.ownerPhone, { name: d.ownerName, email, city: d.city });
+        }
+
+        if (usedEmails.size > 0) {
+          const emailTaken = await prisma.user.findMany({
+            where: { email: { in: [...usedEmails] } },
+            select: { email: true },
+          });
+          const takenEmails = new Set(emailTaken.map((u) => u.email));
+          for (const [phone, info] of newPhoneInfo) {
+            if (takenEmails.has(info.email)) emailConflictPhones.add(phone);
+          }
+        }
+
+        const phonesToCreate = [...newPhoneInfo.keys()].filter((p) => !emailConflictPhones.has(p));
+        const createResults = await mapWithConcurrency(phonesToCreate, 20, async (phone) => {
+          const info = newPhoneInfo.get(phone)!;
+          try {
+            const owner = await prisma.user.create({
+              data: {
+                name: info.name,
+                phone,
+                email: info.email,
+                role: "home-seller",
+                city: info.city,
+                verified: true,
+                verifiedAt: new Date(),
+                metadata: { source: "admin-bulk-upload" },
+              },
+            });
+            return { phone, ok: true as const, id: owner.id };
+          } catch {
+            return { phone, ok: false as const };
+          }
+        });
+        for (const r of createResults) {
+          if (r.ok) ownerIdByPhone.set(r.phone, r.id);
+        }
+
+        // Phase 3 — create properties for every row whose owner resolved,
+        // again with bounded concurrency instead of one row at a time.
+        const rowsWithOwner = valid.filter((v) => ownerIdByPhone.has(v.d.ownerPhone));
+        for (const v of valid) {
+          if (ownerIdByPhone.has(v.d.ownerPhone)) continue;
+          errors.push({
+            row: v.sheetRow,
+            message: emailConflictPhones.has(v.d.ownerPhone)
+              ? "Owner email already registered to a different account."
+              : "Failed to create owner account.",
+          });
+        }
+
+        const propertyResults = await mapWithConcurrency(rowsWithOwner, 20, async ({ sheetRow, d }) => {
+          try {
+            const ownerId = ownerIdByPhone.get(d.ownerPhone)!;
             const images = splitList(d.images);
             const isPg = d.type === "PG";
             const slug = generateSlug(d.title, d.city);
@@ -633,7 +716,7 @@ export const adminRouter = router({
                 virtualTourUrl: d.virtualTourUrl,
                 walkthroughVideoUrl: d.walkthroughVideoUrl,
                 status: "Active",
-                ownerId: owner.id,
+                ownerId,
                 ...(isPg
                   ? {
                       pgGender: d.pgGender,
@@ -658,12 +741,22 @@ export const adminRouter = router({
                 },
               },
             });
-            createdListings.push({ id: createdProperty.id, slug: createdProperty.slug, title: createdProperty.title });
+            return { sheetRow, ok: true as const, listing: createdProperty };
+          } catch {
+            return { sheetRow, ok: false as const };
+          }
+        });
+
+        let created = 0;
+        for (const r of propertyResults) {
+          if (r.ok) {
             created++;
-          } catch (e) {
-            errors.push({ row: sheetRow, message: e instanceof TRPCError ? e.message : "Failed to create listing" });
+            createdListings.push({ id: r.listing.id, slug: r.listing.slug, title: r.listing.title });
+          } else {
+            errors.push({ row: r.sheetRow, message: "Failed to create listing" });
           }
         }
+        errors.sort((a, b) => a.row - b.row);
 
         return {
           received: input.rows.length,
