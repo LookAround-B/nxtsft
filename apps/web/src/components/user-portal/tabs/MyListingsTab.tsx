@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Building2, Eye, Clock, Pencil } from "lucide-react";
+import { Building2, Eye, Clock, Pencil, Camera, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Badge, Section } from "@/components/portal/PortalShell";
 import { useAuth } from "@/lib/auth";
@@ -15,6 +15,7 @@ type ListingItem = {
   slug: string;
   title: string;
   status: string;
+  type: string;
   views: number;
   price: number;
   bhk: string | null;
@@ -24,6 +25,137 @@ type ListingItem = {
   _count?: { leads: number; favoritedBy: number };
   hasPendingEdit?: boolean;
 };
+
+const STARTER_FEATURES = [
+  "Professional property photos",
+  "Listing on NxtSft",
+  "Complete property information",
+  "Lead generation through the platform",
+  "Social media promotion",
+];
+
+const PREMIUM_FEATURES = [
+  ...STARTER_FEATURES,
+  "360° Virtual Tour",
+  "Cinematic walkthrough video",
+  "Instagram Reel creation (2–3 reels)",
+  "Professional thumbnail and cover images",
+  "Featured placement on NxtSft",
+  "Promotion on NxtSft's Instagram and other social platforms",
+  "Tagged collaboration posts for increased reach",
+];
+
+function MediaPackageModal({
+  propertyId,
+  propertyTitle,
+  onClose,
+}: {
+  propertyId: string;
+  propertyTitle: string;
+  onClose: () => void;
+}) {
+  const [submitted, setSubmitted] = useState<"starter" | "premium" | null>(null);
+  const requestPackage = trpc.properties.requestMediaPackage.useMutation({
+    onError: (err) => toast.error(err.message || "Couldn't submit request."),
+  });
+
+  const request = (packageType: "starter" | "premium") => {
+    requestPackage.mutate(
+      { propertyId, packageType },
+      { onSuccess: () => setSubmitted(packageType) },
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-navy/40 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-2xl rounded-2xl border border-border bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {submitted ? (
+          <div className="py-6 text-center">
+            <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-emerald-600">
+              <Check size={22} />
+            </div>
+            <h3 className="text-base font-bold text-navy">Request submitted</h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Our team will reach out shortly about your {submitted === "starter" ? "Starter" : "Premium"} package request for &quot;{propertyTitle}&quot;.
+            </p>
+            <button
+              onClick={onClose}
+              className="mt-5 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
+                <Camera size={18} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-navy">Get Professional Media</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Our team will reach out to schedule the shoot and quote final pricing.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-border p-4">
+                <div className="text-sm font-bold text-navy">Starter Package</div>
+                <div className="mt-1 text-xs font-semibold text-accent">₹2,000–4,500</div>
+                <ul className="mt-3 space-y-1.5">
+                  {STARTER_FEATURES.map((f) => (
+                    <li key={f} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                      <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => request("starter")}
+                  disabled={requestPackage.isPending}
+                  className="mt-4 w-full rounded-md border border-border px-3 py-2 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent disabled:opacity-50"
+                >
+                  Request This Package
+                </button>
+              </div>
+
+              <div className="rounded-xl border-2 border-accent p-4">
+                <div className="text-sm font-bold text-navy">Premium Package</div>
+                <div className="mt-1 text-xs font-semibold text-accent">₹5,000–8,000</div>
+                <ul className="mt-3 space-y-1.5">
+                  {PREMIUM_FEATURES.map((f) => (
+                    <li key={f} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                      <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => request("premium")}
+                  disabled={requestPackage.isPending}
+                  className="mt-4 w-full rounded-md bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-60"
+                >
+                  Request This Package
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="mt-4 w-full rounded-md border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-secondary"
+            >
+              Cancel
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // Confirmation shown before a seller edits a live listing — changes go through
 // admin review rather than publishing immediately.
@@ -83,6 +215,7 @@ export function MyListingsTab() {
   const { session } = useAuth();
   const router = useRouter();
   const [modifyTarget, setModifyTarget] = useState<string | null>(null);
+  const [mediaPackageTarget, setMediaPackageTarget] = useState<{ id: string; title: string } | null>(null);
   const listingsQ = trpc.users.myListings.useQuery(undefined, { enabled: session?.role === "home-seller" });
 
   if (session?.role !== "home-seller") {
@@ -111,6 +244,13 @@ export function MyListingsTab() {
         <ModifyConfirmDialog
           onClose={() => setModifyTarget(null)}
           onConfirm={() => router.push(`/list/edit/${modifyTarget}`)}
+        />
+      )}
+      {mediaPackageTarget && (
+        <MediaPackageModal
+          propertyId={mediaPackageTarget.id}
+          propertyTitle={mediaPackageTarget.title}
+          onClose={() => setMediaPackageTarget(null)}
         />
       )}
       <Head t="My Listings" s="What you've put on the market." />
@@ -200,6 +340,14 @@ export function MyListingsTab() {
                       >
                         Boost
                       </button>
+                      {p.type === "PG" && (
+                        <button
+                          onClick={() => setMediaPackageTarget({ id: p.id, title: p.title })}
+                          className="inline-flex items-center gap-1 rounded-md border border-accent px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent/5"
+                        >
+                          <Camera size={11} /> Get Professional Media
+                        </button>
+                      )}
                       <Link
                         href={`/properties/${p.slug}`}
                         className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold"
