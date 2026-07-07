@@ -16,47 +16,22 @@ import {
 } from "../sanitize";
 import { generatePayUHash, PAYU_BASE_URL } from "../payu";
 
-// Legacy seeker plan values — used ONLY by verifyPayment to honour orders
-// created before plans became DB-only (bound planIds like "basic"). Display
-// and new-order creation always read prisma.plan.
-const SEEKER_PLANS = [
-  { id: "instant", name: "Instant", price: 99, priceLabel: "₹99", credits: 1, validity: 30, tagline: "Try it out", popular: false },
-  { id: "basic", name: "Basic", price: 299, priceLabel: "₹299", credits: 5, validity: 60, tagline: "Most popular for buyers", popular: true },
-  { id: "premium", name: "Premium", price: 699, priceLabel: "₹699", credits: 15, validity: 90, tagline: "Best value", popular: false },
-] as const;
+// All plan lookups are DB-only. Legacy static arrays have been removed.
+// Plans are managed via the admin Plans Manager (prisma.plan table).
 
-// Owner/landlord/builder subscription plans (not credit-based).
-// Legacy static list — kept as fallback for txns created before plans moved to
-// the DB. New checkouts resolve owner plans from prisma.plan (type owner-*).
-const OWNER_PLANS = [
-  { id: "rent-weekly",     name: "Rent Weekly Booster",     price: 499,   validityDays: 7,  cycle: "weekly"  },
-  { id: "rent-silver",     name: "Rent Monthly Silver",     price: 999,   validityDays: 30, cycle: "monthly" },
-  { id: "rent-gold",       name: "Rent Monthly Gold",       price: 1999,  validityDays: 30, cycle: "monthly" },
-  { id: "rent-platinum",   name: "Rent Monthly Platinum",   price: 4999,  validityDays: 30, cycle: "monthly" },
-  { id: "sell-silver",     name: "Sell Monthly Silver",     price: 4999,  validityDays: 30, cycle: "monthly" },
-  { id: "sell-gold",       name: "Sell Monthly Gold",       price: 9999,  validityDays: 30, cycle: "monthly" },
-  { id: "sell-platinum",   name: "Sell Monthly Platinum",   price: 14999, validityDays: 30, cycle: "monthly" },
-  { id: "sell-builder",    name: "Sell Monthly Builder Pro",price: 24999, validityDays: 30, cycle: "monthly" },
-  { id: "sell-enterprise", name: "Sell Monthly Enterprise", price: 49999, validityDays: 30, cycle: "monthly" },
-] as const;
-
-// Resolve an owner plan by id — DB first (type must be owner-*, active),
-// falling back to the legacy static list. Rejects seeker plan ids so the
-// owner checkout path can never be used to dodge the credit-plan flow.
+// Resolve an owner plan by id — DB only, must be an active owner-* plan.
+// Rejects seeker plan ids so the owner checkout path can never be used to
+// dodge the credit-plan flow.
 async function findOwnerPlan(planId: string) {
   const dbPlan = await prisma.plan.findUnique({ where: { id: planId } });
-  if (dbPlan) {
-    if (!dbPlan.type.startsWith("owner") || !dbPlan.active) return null;
-    return {
-      id: dbPlan.id,
-      name: dbPlan.name,
-      price: dbPlan.price,
-      validityDays: dbPlan.validity,
-      cycle: dbPlan.validity <= 7 ? "weekly" : "monthly",
-    };
-  }
-  const staticPlan = OWNER_PLANS.find((p) => p.id === planId);
-  return staticPlan ? { ...staticPlan } : null;
+  if (!dbPlan || !dbPlan.type.startsWith("owner") || !dbPlan.active) return null;
+  return {
+    id: dbPlan.id,
+    name: dbPlan.name,
+    price: dbPlan.price,
+    validityDays: dbPlan.validity,
+    cycle: dbPlan.validity <= 7 ? "weekly" : "monthly",
+  };
 }
 
 // Resolve a seeker (credit) plan for new orders — DB only, must be an active
@@ -282,9 +257,7 @@ export const subscriptionsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Order is missing plan information." });
       }
 
-      const dbPlan = await prisma.plan.findUnique({ where: { id: boundPlanId } });
-      const staticPlan = SEEKER_PLANS.find((p) => p.id === boundPlanId);
-      const plan = dbPlan ?? staticPlan;
+      const plan = await prisma.plan.findUnique({ where: { id: boundPlanId } });
 
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
