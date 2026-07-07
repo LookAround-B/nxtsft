@@ -35,24 +35,7 @@ import { makeDecorStoreSlug } from "./decorStores";
 import { generateSlug, assertReraValid, splitList, CATEGORY_IMAGE } from "./properties";
 import { agentInitials, uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 
-// Runs `fn` over `items` with at most `limit` in flight at once — a bulk
-// upload of N rows must not serialize N sequential round-trips to the DB.
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let cursor = 0;
-  async function worker() {
-    while (cursor < items.length) {
-      const idx = cursor++;
-      results[idx] = await fn(items[idx]!, idx);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
-}
+
 
 const safeUserSelect = {
   id: true,
@@ -519,8 +502,13 @@ export const adminRouter = router({
 
         // Same story for numbers: "₹1,76,72,460" / "1,668" (Indian-grouped,
         // currency-prefixed) fail z.coerce.number() outright — strip everything
-        // but digits/sign/decimal point first.
-        const cleanNumeric = (v: unknown) => (typeof v === "string" ? v.replace(/[^0-9.-]/g, "") : v);
+        // but digits/sign/decimal point first. Junk placeholders ("N/A", "-")
+        // clean down to nothing and become undefined so optionals stay optional.
+        const cleanNumeric = (v: unknown) => {
+          if (typeof v !== "string") return v;
+          const cleaned = v.replace(/[^0-9.-]/g, "");
+          return cleaned === "" || cleaned === "-" ? undefined : cleaned;
+        };
         const bulkNum = <T extends z.ZodTypeAny>(schema: T) => z.preprocess(cleanNumeric, schema);
 
         // External datasets use listing-style type names ("Highrise Apartment",
@@ -536,6 +524,20 @@ export const adminRouter = router({
           .string()
           .transform((s) => TYPE_ALIASES[s.trim().toLowerCase()] ?? s.trim())
           .pipe(propertyTypeSchema);
+
+        // Furnishing synonyms from external datasets → our fixed enum.
+        const FURNISHING_ALIASES: Record<string, string> = {
+          "fully furnished": "Furnished",
+          "fully-furnished": "Furnished",
+          "semi furnished": "Semi-Furnished",
+          "semifurnished": "Semi-Furnished",
+          "bare shell": "Unfurnished",
+          "unfurnished": "Unfurnished",
+        };
+        const bulkFurnishingSchema = z
+          .string()
+          .transform((s) => FURNISHING_ALIASES[s.trim().toLowerCase()] ?? s.trim())
+          .pipe(furnishingSchema);
 
         const rowSchema = z.object({
           ownerName: nameSchema,
@@ -554,7 +556,7 @@ export const adminRouter = router({
           bathrooms: bulkNum(z.coerce.number().int().min(0).max(50).default(0)),
           balconies: bulkNum(z.coerce.number().int().min(0).max(50).optional()),
           parking: bulkNum(z.coerce.number().int().min(0).max(50).optional()),
-          furnishing: furnishingSchema.optional(),
+          furnishing: bulkFurnishingSchema.optional(),
           facing: safeString(30).optional(),
           floors: safeString(20).optional(),
           age: safeString(20).optional(),
@@ -604,11 +606,15 @@ export const adminRouter = router({
           }
         }
 
-        // Phase 2 — resolve owners in bulk instead of one findUnique/create per
-        // row: a 1000-row file is often the same handful of owners repeated
-        // across many listings, and even in the worst case this turns ~2000
-        // sequential round-trips into a handful of batch queries plus one
-        // create per *unique* new phone (run with bounded concurrency).
+        // The DB is remote and the shared pool is capped at ONE connection
+        // (packages/db/client.ts — deliberate, for Vercel serverless), so this
+        // handler must issue a constant number of batch queries, never one
+        // query per row: per-row inserts made a 1000-row file take 5+ minutes
+        // and time out. Everything below is createMany/findMany over the whole
+        // batch — ~7 round-trips total regardless of file size.
+
+        // Phase 2 — resolve owners in bulk. First-seen row per new phone
+        // supplies name/email/city for account creation (first row wins).
         const uniquePhones = [...new Set(valid.map((v) => v.d.ownerPhone))];
         const existingOwners = await prisma.user.findMany({
           where: { phone: { in: uniquePhones } },
@@ -616,8 +622,6 @@ export const adminRouter = router({
         });
         const ownerIdByPhone = new Map(existingOwners.map((u) => [u.phone, u.id] as const));
 
-        // First-seen row per new phone supplies the name/email for account
-        // creation, matching the old row-by-row behavior (first row wins).
         const newPhoneInfo = new Map<string, { name: string; email: string; city: string }>();
         const usedEmails = new Set<string>();
         const emailConflictPhones = new Set<string>();
@@ -643,38 +647,28 @@ export const adminRouter = router({
           }
         }
 
-        const phonesToCreate = [...newPhoneInfo.keys()].filter((p) => !emailConflictPhones.has(p));
-        // Concurrency 1: the shared Prisma pool is capped at a single
-        // connection (packages/db/client.ts — deliberate, for Vercel serverless
-        // correctness), so anything higher just queues behind that one
-        // connection and trips its 8s connection-acquire timeout under load.
-        const createResults = await mapWithConcurrency(phonesToCreate, 1, async (phone) => {
-          const info = newPhoneInfo.get(phone)!;
-          try {
-            const owner = await prisma.user.create({
-              data: {
-                name: info.name,
-                phone,
-                email: info.email,
-                role: "home-seller",
-                city: info.city,
-                verified: true,
-                verifiedAt: new Date(),
-                metadata: { source: "admin-bulk-upload" },
-              },
-            });
-            return { phone, ok: true as const, id: owner.id };
-          } catch {
-            return { phone, ok: false as const };
-          }
-        });
-        for (const r of createResults) {
-          if (r.ok) ownerIdByPhone.set(r.phone, r.id);
+        const ownersToCreate = [...newPhoneInfo.entries()]
+          .filter(([phone]) => !emailConflictPhones.has(phone))
+          .map(([phone, info]) => ({
+            name: info.name,
+            phone,
+            email: info.email,
+            role: "home-seller",
+            city: info.city,
+            verified: true,
+            verifiedAt: new Date(),
+            metadata: { source: "admin-bulk-upload" },
+          }));
+        if (ownersToCreate.length > 0) {
+          // skipDuplicates absorbs races on the unique phone/email columns.
+          await prisma.user.createMany({ data: ownersToCreate, skipDuplicates: true });
+          const createdOwners = await prisma.user.findMany({
+            where: { phone: { in: ownersToCreate.map((o) => o.phone) } },
+            select: { id: true, phone: true },
+          });
+          for (const u of createdOwners) ownerIdByPhone.set(u.phone, u.id);
         }
 
-        // Phase 3 — create properties for every row whose owner resolved,
-        // again with bounded concurrency instead of one row at a time.
-        const rowsWithOwner = valid.filter((v) => ownerIdByPhone.has(v.d.ownerPhone));
         for (const v of valid) {
           if (ownerIdByPhone.has(v.d.ownerPhone)) continue;
           errors.push({
@@ -684,15 +678,57 @@ export const adminRouter = router({
               : "Failed to create owner account.",
           });
         }
+        const rowsWithOwner = valid.filter((v) => ownerIdByPhone.has(v.d.ownerPhone));
 
-        const propertyResults = await mapWithConcurrency(rowsWithOwner, 1, async ({ sheetRow, d }) => {
-          try {
-            const ownerId = ownerIdByPhone.get(d.ownerPhone)!;
-            const images = splitList(d.images);
-            const isPg = d.type === "PG";
-            const slug = generateSlug(d.title, d.city);
-            const createdProperty = await prisma.property.create({
-              data: {
+        // Phase 3 — duplicate detection. A row is a duplicate of an existing
+        // listing when its RERA number already exists, or (no RERA) when the
+        // same owner already has a listing with the same title in the same
+        // city. The same rule dedupes rows within the file itself.
+        const reras = [...new Set(rowsWithOwner.map((v) => v.d.rera).filter((r): r is string => !!r))];
+        const titles = [...new Set(rowsWithOwner.map((v) => v.d.title))];
+        const dupCandidates = await prisma.property.findMany({
+          where: {
+            deletedAt: null,
+            OR: [
+              ...(reras.length ? [{ rera: { in: reras } }] : []),
+              { ownerId: { in: [...new Set(rowsWithOwner.map((v) => ownerIdByPhone.get(v.d.ownerPhone)!))] }, title: { in: titles } },
+            ],
+          },
+          select: { rera: true, ownerId: true, title: true, location: { select: { city: true } } },
+        });
+        const existingReras = new Set(dupCandidates.map((p) => p.rera).filter(Boolean));
+        const existingOwnerTitleCity = new Set(
+          dupCandidates.map((p) => `${p.ownerId}|${p.title.toLowerCase()}|${(p.location?.city ?? "").toLowerCase()}`),
+        );
+
+        const toInsert: { sheetRow: number; d: Row; slug: string; ownerId: string }[] = [];
+        const seenInFile = new Set<string>();
+        for (const { sheetRow, d } of rowsWithOwner) {
+          const ownerId = ownerIdByPhone.get(d.ownerPhone)!;
+          const fileKey = d.rera ? `rera|${d.rera}` : `otc|${ownerId}|${d.title.toLowerCase()}|${d.city.toLowerCase()}`;
+          const isDupe =
+            (d.rera && existingReras.has(d.rera)) ||
+            existingOwnerTitleCity.has(`${ownerId}|${d.title.toLowerCase()}|${d.city.toLowerCase()}`) ||
+            seenInFile.has(fileKey);
+          if (isDupe) {
+            errors.push({ row: sheetRow, message: "Duplicate listing — skipped (same RERA or same owner + title + city already exists)." });
+            continue;
+          }
+          seenInFile.add(fileKey);
+          // generateSlug's uniqueness suffix is Date.now(), which is identical
+          // across a tight loop — append the sheet row to keep slugs unique
+          // within this batch.
+          toInsert.push({ sheetRow, d, ownerId, slug: `${generateSlug(d.title, d.city)}-${sheetRow}` });
+        }
+
+        // Phase 4 — insert everything in two batch statements: properties
+        // first, then their Location rows keyed by the slugs we just created.
+        if (toInsert.length > 0) {
+          await prisma.property.createMany({
+            data: toInsert.map(({ d, slug, ownerId }) => {
+              const images = splitList(d.images);
+              const isPg = d.type === "PG";
+              return {
                 title: d.title,
                 description: d.description,
                 type: d.type,
@@ -732,34 +768,40 @@ export const adminRouter = router({
                       pgFood: d.pgFood,
                     }
                   : {}),
-                location: {
-                  create: {
-                    city: d.city,
-                    state: d.state,
-                    locality: d.locality,
-                    address: d.address,
-                    zipCode: d.zipCode,
-                    latitude: d.latitude ?? 0,
-                    longitude: d.longitude ?? 0,
-                  },
-                },
-              },
-            });
-            return { sheetRow, ok: true as const, listing: createdProperty };
-          } catch {
-            return { sheetRow, ok: false as const };
-          }
-        });
+              };
+            }),
+          });
 
-        let created = 0;
-        for (const r of propertyResults) {
-          if (r.ok) {
-            created++;
-            createdListings.push({ id: r.listing.id, slug: r.listing.slug, title: r.listing.title });
-          } else {
-            errors.push({ row: r.sheetRow, message: "Failed to create listing" });
+          const insertedProps = await prisma.property.findMany({
+            where: { slug: { in: toInsert.map((t) => t.slug) } },
+            select: { id: true, slug: true, title: true },
+          });
+          const idBySlug = new Map(insertedProps.map((p) => [p.slug, p.id] as const));
+
+          await prisma.location.createMany({
+            data: toInsert
+              .filter((t) => idBySlug.has(t.slug))
+              .map(({ d, slug }) => ({
+                propertyId: idBySlug.get(slug)!,
+                city: d.city,
+                state: d.state,
+                locality: d.locality,
+                address: d.address,
+                zipCode: d.zipCode,
+                latitude: d.latitude ?? 0,
+                longitude: d.longitude ?? 0,
+              })),
+            skipDuplicates: true,
+          });
+
+          for (const t of toInsert) {
+            const id = idBySlug.get(t.slug);
+            if (id) createdListings.push({ id, slug: t.slug, title: t.d.title });
+            else errors.push({ row: t.sheetRow, message: "Failed to create listing" });
           }
         }
+
+        const created = createdListings.length;
         errors.sort((a, b) => a.row - b.row);
 
         return {

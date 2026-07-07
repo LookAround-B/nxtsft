@@ -33,6 +33,7 @@ type Furnishing = (typeof FURNISHINGS)[number]["value"];
 const CITIES = [
   "Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Pune", "Chennai",
   "Ahmedabad", "Kolkata", "Jaipur", "Noida", "Gurgaon", "Surat",
+  "Mangalore", "Warangal", "Visakhapatnam", "Amaravati",
 ];
 
 function formatPrice(price: number): string {

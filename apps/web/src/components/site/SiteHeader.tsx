@@ -40,6 +40,10 @@ const PROPERTY_CITIES = [
   "Chennai",
   "Kolkata",
   "Ahmedabad",
+  "Mangalore",
+  "Warangal",
+  "Visakhapatnam",
+  "Amaravati",
 ];
 
 const NAV_ITEMS = [
