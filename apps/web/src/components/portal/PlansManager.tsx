@@ -9,7 +9,7 @@ import { trpc } from "@/lib/trpc";
 // portals (adminProcedure permits both roles). Add / edit / price / activate /
 // delete persist straight to the Plan table and the live pricing page.
 
-type PlanType = "seeker" | "owner-rent" | "owner-sell";
+type PlanType = "seeker" | "owner-rent" | "owner-sell" | "designer" | "decor";
 
 type EditablePlan = {
   id: string;
@@ -384,8 +384,10 @@ export function PlansManager({
   const seekerGroup = usePlanGroup("seeker");
   const ownerRentalGroup = usePlanGroup("owner-rent");
   const ownerSellGroup = usePlanGroup("owner-sell");
+  const designerGroup = usePlanGroup("designer");
+  const decorGroup = usePlanGroup("decor");
 
-  const allPlans = [...seekerGroup.plans, ...ownerRentalGroup.plans, ...ownerSellGroup.plans];
+  const allPlans = [...seekerGroup.plans, ...ownerRentalGroup.plans, ...ownerSellGroup.plans, ...designerGroup.plans, ...decorGroup.plans];
   const activePlans = allPlans.filter((p) => p.active).length;
 
   return (
@@ -397,7 +399,7 @@ export function PlansManager({
 
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Total Plans" value={String(allPlans.length)} sub={`${activePlans} active`} />
-        <StatCard label="Plan Groups" value="3" sub="Seeker · Owner Rent · Owner Sell" />
+        <StatCard label="Plan Groups" value="5" sub="Seeker · Owner Rent · Owner Sell · Designer · Decor" />
         <StatCard label="Active Plans" value={String(activePlans)} sub="live on pricing page" />
       </div>
 
@@ -416,6 +418,16 @@ export function PlansManager({
           title="Owner Sell Plans"
           description="Listing plans for property sellers, agents and developers."
           group={ownerSellGroup}
+        />
+        <PlanGroup
+          title="Designer Business Listing Plans"
+          description="Monthly listing plans for Home Interiors designer businesses."
+          group={designerGroup}
+        />
+        <PlanGroup
+          title="Decor Business Listing Plans"
+          description="Monthly listing plans for Decor Store businesses."
+          group={decorGroup}
         />
       </div>
     </>
