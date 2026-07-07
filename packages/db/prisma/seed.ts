@@ -106,7 +106,34 @@ async function main() {
     type: "owner-sell",
   }));
 
-  const allPlans = [...seekerPlans, ...ownerRentPlans, ...ownerSellPlans];
+  const businessPlans = [
+    {
+      id: "designer-monthly",
+      name: "Business Listing",
+      price: 499,
+      priceLabel: "₹499",
+      credits: 0,
+      validity: 30,
+      tagline: "Stay listed on the Home Interiors directory",
+      features: ["Live directory listing", "Buyer leads via contact unlock", "30-day validity"],
+      popular: false,
+      type: "designer",
+    },
+    {
+      id: "decor-monthly",
+      name: "Business Listing",
+      price: 499,
+      priceLabel: "₹499",
+      credits: 0,
+      validity: 30,
+      tagline: "Stay listed on the Decor Stores directory",
+      features: ["Live directory listing", "Buyer leads via contact unlock", "30-day validity"],
+      popular: false,
+      type: "decor",
+    },
+  ];
+
+  const allPlans = [...seekerPlans, ...ownerRentPlans, ...ownerSellPlans, ...businessPlans];
   for (const plan of allPlans) {
     await prisma.plan.upsert({ where: { id: plan.id }, update: plan, create: plan });
   }
