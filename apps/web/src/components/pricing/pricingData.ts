@@ -2,7 +2,7 @@
 // prices, credits and validity render from the DB (prisma.plan via
 // subscriptions.plans) so Plans Manager changes can never drift from this copy.
 
-export const PRICING_TABS = ["Home Seller", "Home Buyer"] as const;
+export const PRICING_TABS = ["Property Seller", "Property Buyer"] as const;
 
 export type ChooserVariant = "owner-rent" | "owner-sell" | "seeker";
 

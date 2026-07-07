@@ -208,7 +208,7 @@ export default function PricingPage() {
             Pay once. Talk directly. <span className="text-gold">No commissions.</span>
           </h1>
           <p className="mt-5 text-base text-white/70 sm:text-lg">
-            Whether you are selling, renting out, or searching for your next home — NxtSft.com has
+            Whether you are selling, renting out, or searching for your next property — NxtSft.com has
             a plan sized exactly for you.
           </p>
         </div>
@@ -231,7 +231,7 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* ── HOME SELLER ── */}
+      {/* ── PROPERTY SELLER ── */}
       {activeTab === 0 && (
         <>
           {/* Sub-toggle */}
@@ -283,15 +283,15 @@ export default function PricingPage() {
             faqs={ownerMode === "renting" ? ownerFaqs : ownerSellFaqs}
             title={
               ownerMode === "renting"
-                ? "Home seller rental plan FAQs"
-                : "Home seller selling plan FAQs"
+                ? "Property seller rental plan FAQs"
+                : "Property seller selling plan FAQs"
             }
           />
           <CTABanner session={session} />
         </>
       )}
 
-      {/* ── HOME BUYER ── */}
+      {/* ── PROPERTY BUYER ── */}
       {activeTab === 1 && (
         <>
           <section className="mx-auto max-w-6xl px-5 pb-6 pt-10 sm:px-6">
@@ -320,7 +320,7 @@ export default function PricingPage() {
           <div className="pb-4" />
           <PlanChooser variant="seeker" plans={dbSeekerPlans} onScrollToPlans={scrollToPlan} />
           <HowItWorks forSeeker={true} />
-          <FAQ faqs={seekerFaqs} title="Home buyer plan FAQs" />
+          <FAQ faqs={seekerFaqs} title="Property buyer plan FAQs" />
           <CTABanner session={session} />
         </>
       )}
