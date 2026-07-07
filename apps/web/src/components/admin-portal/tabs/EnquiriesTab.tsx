@@ -24,6 +24,7 @@ type Enquiry = {
   city: string | null;
   message: string;
   status: string;
+  source: string;
   createdAt: string | Date;
 };
 
@@ -55,7 +56,7 @@ function EnquiryModal({
         <div className="flex items-start justify-between border-b border-border px-5 py-4">
           <div>
             <h2 className="text-base font-bold text-navy">{enquiry.name}</h2>
-            <p className="text-xs text-muted-foreground">Contact enquiry</p>
+            <p className="text-xs text-muted-foreground">{enquiry.source}</p>
           </div>
           <button
             onClick={onClose}
@@ -191,6 +192,7 @@ export function EnquiriesTab() {
                 <tr>
                   <th className="py-2">Received</th>
                   <th>From</th>
+                  <th>Source</th>
                   <th>Contact</th>
                   <th>City</th>
                   <th>Message</th>
@@ -212,6 +214,9 @@ export function EnquiriesTab() {
                     <td>
                       <div className="font-semibold text-navy">{e.name}</div>
                       <div className="text-xs text-muted-foreground">{e.email}</div>
+                    </td>
+                    <td>
+                      <Badge tone={e.source === "PG Media Package" ? "hot" : "default"}>{e.source}</Badge>
                     </td>
                     <td className="text-xs">{e.phone ?? "—"}</td>
                     <td className="text-xs">{e.city ?? "—"}</td>
