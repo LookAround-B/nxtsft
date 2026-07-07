@@ -43,6 +43,7 @@ import { amenityIcon } from "@/data/amenities";
 import { useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { SITE_URL } from "@/lib/site";
 
 function formatPrice(price: number): string {
   if (price >= 1_00_00_000) return `₹${(price / 1_00_00_000).toFixed(2)} Cr`;
@@ -282,7 +283,9 @@ function ContactCard({
             {phone}
           </a>
           <a
-            href={`https://wa.me/91${phone.replace(/\D/g, "")}`}
+            href={`https://wa.me/91${phone.replace(/\D/g, "")}?text=${encodeURIComponent(
+              `Namaste,\n\nI came across your property ${property.title} on ${SITE_URL}/properties/${property.slug}\n\nI liked the listing and would like more details:\n\n1. Price\n2. Visit timing\n3. Are you Direct owner?\n\nLooking forward to your reply.\n\nThank you`,
+            )}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-emerald-500 py-3 font-display text-sm font-bold text-emerald-600 transition hover:bg-emerald-50"

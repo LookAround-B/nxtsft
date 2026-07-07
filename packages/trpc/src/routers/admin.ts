@@ -473,6 +473,7 @@ export const adminRouter = router({
         });
 
         const errors: { row: number; message: string }[] = [];
+        const createdListings: { id: string; slug: string; title: string }[] = [];
         let created = 0;
 
         for (let i = 0; i < input.rows.length; i++) {
@@ -511,7 +512,8 @@ export const adminRouter = router({
 
             const images = splitList(d.images);
             const isPg = d.type === "PG";
-            await prisma.property.create({
+            const slug = generateSlug(d.title, d.city);
+            const createdProperty = await prisma.property.create({
               data: {
                 title: d.title,
                 description: d.description,
@@ -530,7 +532,7 @@ export const adminRouter = router({
                 builder: d.builder,
                 reraLabel: d.reraLabel,
                 rera: d.rera,
-                slug: generateSlug(d.title, d.city),
+                slug,
                 price: BigInt(d.price),
                 pricePerSqft: Math.round(d.price / d.area),
                 area: d.area,
@@ -565,13 +567,20 @@ export const adminRouter = router({
                 },
               },
             });
+            createdListings.push({ id: createdProperty.id, slug: createdProperty.slug, title: createdProperty.title });
             created++;
           } catch (e) {
             errors.push({ row: sheetRow, message: e instanceof TRPCError ? e.message : "Failed to create listing" });
           }
         }
 
-        return { received: input.rows.length, created, failed: errors.length, errors: errors.slice(0, 100) };
+        return {
+          received: input.rows.length,
+          created,
+          failed: errors.length,
+          errors: errors.slice(0, 100),
+          createdListings,
+        };
       }),
 
     // Seller edit requests on live listings (PropertyEditRequest). Admins review

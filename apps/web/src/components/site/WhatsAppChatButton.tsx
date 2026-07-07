@@ -38,7 +38,7 @@ export function WhatsAppChatButton() {
             Chat with us
           </div>
           <a
-            href={waLink(SALES_NUMBER, "Hi! I'd like to talk to Sales about a property.")}
+            href={waLink(SALES_NUMBER, "Hello! Can I get more info on Sales?")}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
@@ -48,7 +48,7 @@ export function WhatsAppChatButton() {
             Sales
           </a>
           <a
-            href={waLink(SUPPORT_NUMBER, "Hi! I need help with my account/listing.")}
+            href={waLink(SUPPORT_NUMBER, "Hello! Can I get more info on Support?")}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}

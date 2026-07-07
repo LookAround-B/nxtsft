@@ -14,6 +14,8 @@ import {
   Crown,
   Monitor,
   Anchor,
+  Ship,
+  Mountain,
   Sparkles,
   ShieldCheck,
   DollarSign,
@@ -114,6 +116,10 @@ export const CITIES: { label: string; Icon: LucideIcon; tagline: string }[] = [
   { label: "Noida", Icon: Monitor, tagline: "NCR's IT Hub" },
   { label: "Gurgaon", Icon: TrendingUp, tagline: "Millennium City" },
   { label: "Kochi", Icon: Anchor, tagline: "Queen of the Arabian Sea" },
+  { label: "Mangalore", Icon: Anchor, tagline: "Coastal Karnataka" },
+  { label: "Warangal", Icon: Mountain, tagline: "Kakatiya Heritage City" },
+  { label: "Vishakapatnam", Icon: Ship, tagline: "City of Destiny" },
+  { label: "Amaravati", Icon: Landmark, tagline: "Andhra Pradesh's Capital" },
 ];
 
 export const SERVICES: { Icon: LucideIcon; title: string; desc: string }[] = [
