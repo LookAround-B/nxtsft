@@ -66,17 +66,17 @@ function ProfileCard({ profile, href }: { profile: Profile; href: string }) {
   );
 }
 
-function ListingPlanSection() {
+function ListingPlanSection({ planType }: { planType: "designer" | "decor" }) {
   const [buying, setBuying] = useState(false);
   const subQ = trpc.subscriptions.myBusinessSubscription.useQuery();
-  const designerPlanQ = trpc.subscriptions.plans.useQuery({ type: "designer" });
+  const businessPlanQ = trpc.subscriptions.plans.useQuery({ type: planType });
   const gatewayQ = trpc.subscriptions.activeGateway.useQuery();
   const createOrder = trpc.subscriptions.createBusinessOrder.useMutation();
   const createPayUOrder = trpc.subscriptions.createBusinessPayUOrder.useMutation();
   const verifyPayment = trpc.subscriptions.verifyBusinessPayment.useMutation();
 
   const sub = subQ.data as CurrentBusinessSub | null | undefined;
-  const plan = (designerPlanQ.data as unknown as PlanListing[] | undefined)?.[0];
+  const plan = (businessPlanQ.data as unknown as PlanListing[] | undefined)?.[0];
 
   const handleSubscribe = async () => {
     if (!plan) return;
@@ -219,7 +219,7 @@ export function MyBusinessTab() {
     <>
       <Head t="My Business" s="Your Home Interiors / Decor listings and the leads they've generated." />
 
-      <ListingPlanSection />
+      <ListingPlanSection planType={designers.length === 0 && stores.length > 0 ? "decor" : "designer"} />
 
       <Section title="Your listings">
         {loading ? (
