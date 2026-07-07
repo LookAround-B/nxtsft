@@ -644,7 +644,11 @@ export const adminRouter = router({
         }
 
         const phonesToCreate = [...newPhoneInfo.keys()].filter((p) => !emailConflictPhones.has(p));
-        const createResults = await mapWithConcurrency(phonesToCreate, 20, async (phone) => {
+        // Concurrency 1: the shared Prisma pool is capped at a single
+        // connection (packages/db/client.ts — deliberate, for Vercel serverless
+        // correctness), so anything higher just queues behind that one
+        // connection and trips its 8s connection-acquire timeout under load.
+        const createResults = await mapWithConcurrency(phonesToCreate, 1, async (phone) => {
           const info = newPhoneInfo.get(phone)!;
           try {
             const owner = await prisma.user.create({
@@ -681,7 +685,7 @@ export const adminRouter = router({
           });
         }
 
-        const propertyResults = await mapWithConcurrency(rowsWithOwner, 20, async ({ sheetRow, d }) => {
+        const propertyResults = await mapWithConcurrency(rowsWithOwner, 1, async ({ sheetRow, d }) => {
           try {
             const ownerId = ownerIdByPhone.get(d.ownerPhone)!;
             const images = splitList(d.images);
