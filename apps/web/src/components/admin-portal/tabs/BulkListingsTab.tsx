@@ -3,9 +3,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Download, Upload, Loader2, FileSpreadsheet, Check, CheckCircle2, AlertTriangle, Pencil, ExternalLink } from "lucide-react";
 import { Section } from "@/components/portal/PortalShell";
+import { normalizeBulkImportMatrix, type BulkImportMatrix } from "@/lib/bulk-import";
 import { trpc } from "@/lib/trpc";
 import { validateBulkImportFile } from "@/lib/file-validation";
 import { PageHead } from "./PageHead";
+import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 
 // Admin-only variant of the seller bulk-upload template (apps/web/src/app/list/bulk/page.tsx),
 // extended with owner columns so admins can seed dummy listings + dummy owner
@@ -235,17 +237,17 @@ export function BulkListingsTab() {
 
     setParseErr(""); setParsed(null); setResult(null); setFileName(file.name); setParsing(true);
     try {
-      let matrix: (string | number | null | boolean)[][];
+      let matrix: BulkImportMatrix;
       if (file.name.toLowerCase().endsWith(".csv")) {
         matrix = parseCsv(await file.text());
       } else {
         const readXlsxFile = (await import("read-excel-file/browser")).default;
-        matrix = (await readXlsxFile(file)) as (string | number | null | boolean)[][];
+        matrix = normalizeBulkImportMatrix(await readXlsxFile(file));
       }
       const { rows, error } = rowsFromMatrix(matrix);
       if (error) setParseErr(error);
       else if (!rows.length) setParseErr("No listing rows found in the file.");
-      else if (rows.length > 500) setParseErr("Too many rows — upload up to 500 listings at a time.");
+      else if (rows.length > BULK_IMPORT_MAX_ROWS) setParseErr(`Too many rows — upload up to ${BULK_IMPORT_MAX_ROWS} listings at a time.`);
       else setParsed(rows);
     } catch {
       setParseErr("Couldn't read this file. Make sure it's a valid .xlsx or .csv matching the template.");

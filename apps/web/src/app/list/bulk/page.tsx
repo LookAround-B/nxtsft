@@ -14,9 +14,11 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { normalizeBulkImportMatrix, type BulkImportMatrix } from "@/lib/bulk-import";
 import { trpc } from "@/lib/trpc";
 import { validateBulkImportFile } from "@/lib/file-validation";
 import { parseLatLng } from "@/lib/map";
+import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 
 // Single source of truth for the bulk template. List order = template column
 // order = preview order. Headers, required set, header-matching, the parser and
@@ -177,17 +179,17 @@ export default function BulkListPage() {
 
     setParseErr(""); setParsed(null); setResult(null); setFileName(file.name); setParsing(true);
     try {
-      let matrix: (string | number | null | boolean)[][];
+      let matrix: BulkImportMatrix;
       if (file.name.toLowerCase().endsWith(".csv")) {
         matrix = parseCsv(await file.text());
       } else {
         const readXlsxFile = (await import("read-excel-file/browser")).default;
-        matrix = (await readXlsxFile(file)) as (string | number | null | boolean)[][];
+        matrix = normalizeBulkImportMatrix(await readXlsxFile(file));
       }
       const { rows, error } = rowsFromMatrix(matrix);
       if (error) setParseErr(error);
       else if (!rows.length) setParseErr("No property rows found in the file.");
-      else if (rows.length > 500) setParseErr("Too many rows — upload up to 500 properties at a time.");
+      else if (rows.length > BULK_IMPORT_MAX_ROWS) setParseErr(`Too many rows — upload up to ${BULK_IMPORT_MAX_ROWS} properties at a time.`);
       else setParsed(rows);
     } catch {
       setParseErr("Couldn't read this file. Make sure it's a valid .xlsx or .csv matching the template.");

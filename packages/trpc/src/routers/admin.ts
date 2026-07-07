@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
+import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 import { notify, notifyCredit } from "../notify";
 import { router, adminProcedure, superAdminProcedure } from "../server";
 import {
@@ -487,25 +488,53 @@ export const adminRouter = router({
     // A matching phone reuses that user; otherwise a new dummy home-seller
     // account is created so the listing has a real owner to attribute to.
     bulkCreateListings: adminProcedure
-      .input(z.object({ rows: z.array(z.unknown()).min(1).max(500) }))
+      .input(z.object({ rows: z.array(z.unknown()).min(1).max(BULK_IMPORT_MAX_ROWS) }))
       .mutation(async ({ input }) => {
+        // External spreadsheets commonly carry a country code / internal
+        // spacing, e.g. "+91 75319 34532" — strip everything but digits and
+        // drop a leading "91" before handing off to the strict shared schema.
+        const bulkPhoneSchema = z.string().transform((s) => {
+          const digits = s.replace(/\D/g, "");
+          return digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
+        }).pipe(phoneSchema);
+
+        // Same story for numbers: "₹1,76,72,460" / "1,668" (Indian-grouped,
+        // currency-prefixed) fail z.coerce.number() outright — strip everything
+        // but digits/sign/decimal point first.
+        const cleanNumeric = (v: unknown) => (typeof v === "string" ? v.replace(/[^0-9.-]/g, "") : v);
+        const bulkNum = <T extends z.ZodTypeAny>(schema: T) => z.preprocess(cleanNumeric, schema);
+
+        // External datasets use listing-style type names ("Highrise Apartment",
+        // "Commercial Space") rather than our fixed enum — map the common ones;
+        // anything else still falls through to propertyTypeSchema and fails loudly.
+        const TYPE_ALIASES: Record<string, string> = {
+          "highrise apartment": "Apartment",
+          "high-rise apartment": "Apartment",
+          "high rise apartment": "Apartment",
+          "commercial space": "Office",
+        };
+        const bulkTypeSchema = z
+          .string()
+          .transform((s) => TYPE_ALIASES[s.trim().toLowerCase()] ?? s.trim())
+          .pipe(propertyTypeSchema);
+
         const rowSchema = z.object({
           ownerName: nameSchema,
-          ownerPhone: phoneSchema,
+          ownerPhone: bulkPhoneSchema,
           ownerEmail: emailSchema.optional(),
 
           title: safeString(200, 10),
           description: descriptionSchema.optional(),
-          type: propertyTypeSchema,
+          type: bulkTypeSchema,
           purpose: purposeSchema,
-          price: z.coerce.number().int().positive().max(999_999_999_999),
-          area: z.coerce.number().int().positive().max(9_999_999),
-          builtUpArea: z.coerce.number().int().positive().max(9_999_999).optional(),
+          price: bulkNum(z.coerce.number().int().positive().max(999_999_999_999)),
+          area: bulkNum(z.coerce.number().int().positive().max(9_999_999)),
+          builtUpArea: bulkNum(z.coerce.number().int().positive().max(9_999_999).optional()),
           bhk: safeString(20).optional(),
-          bedrooms: z.coerce.number().int().min(0).max(50).default(0),
-          bathrooms: z.coerce.number().int().min(0).max(50).default(0),
-          balconies: z.coerce.number().int().min(0).max(50).optional(),
-          parking: z.coerce.number().int().min(0).max(50).optional(),
+          bedrooms: bulkNum(z.coerce.number().int().min(0).max(50).default(0)),
+          bathrooms: bulkNum(z.coerce.number().int().min(0).max(50).default(0)),
+          balconies: bulkNum(z.coerce.number().int().min(0).max(50).optional()),
+          parking: bulkNum(z.coerce.number().int().min(0).max(50).optional()),
           furnishing: furnishingSchema.optional(),
           facing: safeString(30).optional(),
           floors: safeString(20).optional(),
@@ -519,16 +548,16 @@ export const adminRouter = router({
           locality: geoTextSchema,
           address: safeString(500).optional(),
           zipCode: safeString(6).optional(),
-          latitude: z.coerce.number().min(-90).max(90).optional(),
-          longitude: z.coerce.number().min(-180).max(180).optional(),
+          latitude: bulkNum(z.coerce.number().min(-90).max(90).optional()),
+          longitude: bulkNum(z.coerce.number().min(-180).max(180).optional()),
           amenities: safeString(2000).optional(),
           images: safeString(4000).optional(),
           virtualTourUrl: safeString(500).optional(),
           walkthroughVideoUrl: safeString(500).optional(),
           pgGender: z.enum(["Boys", "Girls", "Co-living"]).optional(),
           pgOccupancy: safeString(200).optional(),
-          pgAvailableBeds: z.coerce.number().int().min(0).max(9999).optional(),
-          pgDeposit: z.coerce.number().int().min(0).max(999_999_999_999).optional(),
+          pgAvailableBeds: bulkNum(z.coerce.number().int().min(0).max(9999).optional()),
+          pgDeposit: bulkNum(z.coerce.number().int().min(0).max(999_999_999_999).optional()),
           pgRoomTypes: safeString(200).optional(),
           pgHouseRules: safeString(2000).optional(),
           pgFood: safeString(30).optional(),

@@ -5,6 +5,7 @@ import { keepPreviousData } from "@tanstack/react-query";
 import { Download, Upload, Loader2, FileSpreadsheet, Search, Check, X as XIcon, FileCode2, RefreshCw } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
+import { normalizeBulkImportMatrix, type BulkImportMatrix } from "@/lib/bulk-import";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { validateBulkImportFile } from "@/lib/file-validation";
@@ -194,12 +195,12 @@ export function DevTab() {
 
     setParseErr(""); setParsed(null); setFileName(file.name); setParsing(true);
     try {
-      let matrix: (string | number | null | boolean)[][];
+      let matrix: BulkImportMatrix;
       if (file.name.toLowerCase().endsWith(".csv")) {
         matrix = parseCsv(await file.text());
       } else {
         const readXlsxFile = (await import("read-excel-file/browser")).default;
-        matrix = (await readXlsxFile(file)) as (string | number | null | boolean)[][];
+        matrix = normalizeBulkImportMatrix(await readXlsxFile(file));
       }
       const { rows, error } = rowsFromMatrix(matrix);
       if (error) setParseErr(error);

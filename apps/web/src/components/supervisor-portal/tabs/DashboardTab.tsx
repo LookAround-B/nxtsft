@@ -82,6 +82,10 @@ export function DashboardTab() {
                 <Badge tone="success">Online</Badge>
                 <Link
                   href="/supervisor-portal#performance"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.location.hash = "performance";
+                  }}
                   className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold transition hover:border-accent hover:text-accent"
                 >
                   View

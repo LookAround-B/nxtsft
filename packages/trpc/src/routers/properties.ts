@@ -24,6 +24,7 @@ import {
   propertyStatusSchema,
 } from "../sanitize";
 import prisma from "@nxtsft/db";
+import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 import { notify, notifyCredit } from "../notify";
 import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server";
 
@@ -394,7 +395,7 @@ export const propertiesRouter = router({
   // batch — the result reports per-row errors (row numbers are 1-based incl. the
   // header, matching the uploaded sheet). Photos are added later per listing.
   bulkCreate: protectedProcedure
-    .input(z.object({ rows: z.array(z.unknown()).min(1).max(500) }))
+    .input(z.object({ rows: z.array(z.unknown()).min(1).max(BULK_IMPORT_MAX_ROWS) }))
     .mutation(async ({ input, ctx }) => {
       // Numbers may arrive as strings from CSV cells — coerce them. Empty
       // optional cells arrive as undefined from the client, so .optional() holds.
