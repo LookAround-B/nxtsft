@@ -1,9 +1,15 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
-import { Briefcase, Eye, Phone, Mail, MapPin, Sofa, ShieldCheck } from "lucide-react";
+import { Briefcase, Eye, Phone, Mail, MapPin, Sofa, ShieldCheck, IndianRupee } from "lucide-react";
+import { toast } from "sonner";
 import { Badge, Section } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 import { Head, fmtDate } from "./shared";
+
+type PlanListing = { id: string; name: string; price: number; priceLabel: string; tagline: string; features: string[] };
+type CurrentBusinessSub = { id: string; planName: string; amount: number; endDate: string };
 
 type Profile = {
   id: string;
@@ -60,6 +66,107 @@ function ProfileCard({ profile, href }: { profile: Profile; href: string }) {
   );
 }
 
+function ListingPlanSection() {
+  const [buying, setBuying] = useState(false);
+  const subQ = trpc.subscriptions.myBusinessSubscription.useQuery();
+  const designerPlanQ = trpc.subscriptions.plans.useQuery({ type: "designer" });
+  const gatewayQ = trpc.subscriptions.activeGateway.useQuery();
+  const createOrder = trpc.subscriptions.createBusinessOrder.useMutation();
+  const createPayUOrder = trpc.subscriptions.createBusinessPayUOrder.useMutation();
+  const verifyPayment = trpc.subscriptions.verifyBusinessPayment.useMutation();
+
+  const sub = subQ.data as CurrentBusinessSub | null | undefined;
+  const plan = (designerPlanQ.data as unknown as PlanListing[] | undefined)?.[0];
+
+  const handleSubscribe = async () => {
+    if (!plan) return;
+    const gateway = gatewayQ.data?.gateway ?? "razorpay";
+    setBuying(true);
+    try {
+      if (gateway === "razorpay") {
+        const order = await createOrder.mutateAsync({ planId: plan.id });
+        await openRazorpayCheckout({
+          keyId: order.keyId,
+          orderId: order.orderId,
+          amount: order.amount,
+          currency: order.currency,
+          prefill: order.prefill,
+          onDismiss: () => setBuying(false),
+          onSuccess: async (resp) => {
+            try {
+              await verifyPayment.mutateAsync({
+                razorpayOrderId: resp.razorpay_order_id,
+                razorpayPaymentId: resp.razorpay_payment_id,
+                razorpaySignature: resp.razorpay_signature,
+                planId: plan.id,
+              });
+              toast.success("Listing plan activated!");
+              subQ.refetch();
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Payment verification failed.");
+            } finally {
+              setBuying(false);
+            }
+          },
+        });
+      } else {
+        const fields = await createPayUOrder.mutateAsync({ planId: plan.id });
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = fields.action;
+        (Object.entries(fields) as [string, string][]).forEach(([k, v]) => {
+          if (k === "action") return;
+          const inp = document.createElement("input");
+          inp.type = "hidden";
+          inp.name = k;
+          inp.value = v;
+          form.appendChild(inp);
+        });
+        document.body.appendChild(form);
+        form.submit();
+      }
+    } catch (err) {
+      setBuying(false);
+      toast.error(err instanceof Error ? err.message : "Purchase failed.");
+    }
+  };
+
+  return (
+    <Section title="Listing Plan">
+      {subQ.isLoading ? (
+        <div className="h-24 animate-pulse rounded-lg border border-border bg-secondary/40" />
+      ) : sub ? (
+        <div className="rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-navy">{sub.planName}</span>
+            <Badge tone="success">Active</Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            ₹{(sub.amount / 100).toLocaleString("en-IN")} · expires {fmtDate(sub.endDate)}
+          </p>
+        </div>
+      ) : plan ? (
+        <div className="rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-navy">{plan.name}</span>
+            <span className="flex items-center gap-0.5 text-sm font-bold text-accent">
+              <IndianRupee size={13} />{plan.price}/mo
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">{plan.tagline}</p>
+          <button
+            onClick={handleSubscribe}
+            disabled={buying}
+            className="mt-3 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60"
+          >
+            {buying ? "Processing…" : "Subscribe"}
+          </button>
+        </div>
+      ) : null}
+    </Section>
+  );
+}
+
 export function MyBusinessTab() {
   const designersQ = trpc.interiorDesigners.myProfiles.useQuery();
   const storesQ = trpc.decorStores.myProfiles.useQuery();
@@ -111,6 +218,8 @@ export function MyBusinessTab() {
   return (
     <>
       <Head t="My Business" s="Your Home Interiors / Decor listings and the leads they've generated." />
+
+      <ListingPlanSection />
 
       <Section title="Your listings">
         {loading ? (
