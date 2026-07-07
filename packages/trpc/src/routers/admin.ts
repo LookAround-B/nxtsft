@@ -534,10 +534,15 @@ export const adminRouter = router({
           "bare shell": "Unfurnished",
           "unfurnished": "Unfurnished",
         };
-        const bulkFurnishingSchema = z
-          .string()
-          .transform((s) => FURNISHING_ALIASES[s.trim().toLowerCase()] ?? s.trim())
-          .pipe(furnishingSchema);
+        const bulkFurnishingSchema = z.preprocess(
+          // Plot/land rows carry "N/A" — treat placeholder junk as absent.
+          (v) => (typeof v === "string" && ["n/a", "na", "-", ""].includes(v.trim().toLowerCase()) ? undefined : v),
+          z
+            .string()
+            .transform((s) => FURNISHING_ALIASES[s.trim().toLowerCase()] ?? s.trim())
+            .pipe(furnishingSchema)
+            .optional(),
+        );
 
         const rowSchema = z.object({
           ownerName: nameSchema,
@@ -556,7 +561,7 @@ export const adminRouter = router({
           bathrooms: bulkNum(z.coerce.number().int().min(0).max(50).default(0)),
           balconies: bulkNum(z.coerce.number().int().min(0).max(50).optional()),
           parking: bulkNum(z.coerce.number().int().min(0).max(50).optional()),
-          furnishing: bulkFurnishingSchema.optional(),
+          furnishing: bulkFurnishingSchema,
           facing: safeString(30).optional(),
           floors: safeString(20).optional(),
           age: safeString(20).optional(),
