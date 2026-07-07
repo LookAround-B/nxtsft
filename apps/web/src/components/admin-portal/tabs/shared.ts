@@ -11,6 +11,7 @@ export type BadgeCounts = {
   reviews: number;
   interiors: number;
   decor: number;
+  escalations: number;
 };
 
 export type NewMemberInput = {

@@ -21,6 +21,7 @@ import {
   ReceiptText,
   Eye,
   BellRing,
+  Flame,
   Megaphone,
   Building,
   Wallet,
@@ -65,6 +66,7 @@ import { ListingsTab } from "@/components/admin-portal/tabs/ListingsTab";
 import { SubscriptionsTab } from "@/components/admin-portal/tabs/SubscriptionsTab";
 import { ViewsTab } from "@/components/admin-portal/tabs/ViewsTab";
 import { AlertsTab } from "@/components/admin-portal/tabs/AlertsTab";
+import { EscalationsTab } from "@/components/admin-portal/tabs/EscalationsTab";
 import { MarketingTab } from "@/components/admin-portal/tabs/MarketingTab";
 import { DevTab } from "@/components/admin-portal/tabs/DevTab";
 import { CommissionsTab } from "@/components/admin-portal/tabs/CommissionsTab";
@@ -103,6 +105,7 @@ const makeNav = (b?: BadgeCounts) => [
   { label: "KYC Review",        to: "/sa-portal#kyc",             icon: <ShieldCheck size={14} />, badge: b?.kyc },
   { label: "Seller Approvals",  to: "/sa-portal#seller-approvals",icon: <UserCheck size={14} />, badge: b?.sellerApprovals },
   { label: "Support Tickets",   to: "/sa-portal#tickets",         icon: <FileText size={14} /> },
+  { label: "Escalations",       to: "/sa-portal#escalations",     icon: <Flame size={14} />, badge: b?.escalations },
   { label: "Click Alerts",      to: "/sa-portal#alerts",          icon: <BellRing size={14} /> },
 
   // ── Platform ─────────────────────────────────────────────────────────
@@ -201,6 +204,8 @@ function renderTab(hash: string) {
       return <ViewsTab />;
     case "alerts":
       return <AlertsTab />;
+    case "escalations":
+      return <EscalationsTab />;
     case "marketing":
       return <MarketingTab />;
     case "developers":

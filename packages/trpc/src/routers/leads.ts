@@ -415,4 +415,18 @@ export const leadsRouter = router({
       lost,
     };
   }),
+
+  // Live sidebar badge counts for the sales portal — scoped to the signed-in
+  // rep (admins/supervisors see the whole pipeline, same rule as stats above).
+  badgeCounts: staffProcedure.query(async ({ ctx }) => {
+    const where: { assignedToId?: string } = {};
+    if (ctx.user.role === "sales") where.assignedToId = ctx.user.id;
+
+    const [openLeads, hotLeads, visitsUpcoming] = await Promise.all([
+      prisma.lead.count({ where: { ...where, status: { notIn: ["Converted", "Lost"] } } }),
+      prisma.lead.count({ where: { ...where, status: "Hot" } }),
+      prisma.lead.count({ where: { ...where, visitScheduled: { gte: new Date() } } }),
+    ]);
+    return { openLeads, hotLeads, visitsUpcoming };
+  }),
 });

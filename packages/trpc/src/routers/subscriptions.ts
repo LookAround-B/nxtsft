@@ -16,14 +16,18 @@ import {
 } from "../sanitize";
 import { generatePayUHash, PAYU_BASE_URL } from "../payu";
 
-// Seeker plans seeded in DB via migrations/seed. These are the canonical values.
+// Legacy seeker plan values — used ONLY by verifyPayment to honour orders
+// created before plans became DB-only (bound planIds like "basic"). Display
+// and new-order creation always read prisma.plan.
 const SEEKER_PLANS = [
   { id: "instant", name: "Instant", price: 99, priceLabel: "₹99", credits: 1, validity: 30, tagline: "Try it out", popular: false },
   { id: "basic", name: "Basic", price: 299, priceLabel: "₹299", credits: 5, validity: 60, tagline: "Most popular for buyers", popular: true },
   { id: "premium", name: "Premium", price: 699, priceLabel: "₹699", credits: 15, validity: 90, tagline: "Best value", popular: false },
 ] as const;
 
-// Owner/landlord/builder subscription plans (not credit-based)
+// Owner/landlord/builder subscription plans (not credit-based).
+// Legacy static list — kept as fallback for txns created before plans moved to
+// the DB. New checkouts resolve owner plans from prisma.plan (type owner-*).
 const OWNER_PLANS = [
   { id: "rent-weekly",     name: "Rent Weekly Booster",     price: 499,   validityDays: 7,  cycle: "weekly"  },
   { id: "rent-silver",     name: "Rent Monthly Silver",     price: 999,   validityDays: 30, cycle: "monthly" },
@@ -36,19 +40,42 @@ const OWNER_PLANS = [
   { id: "sell-enterprise", name: "Sell Monthly Enterprise", price: 49999, validityDays: 30, cycle: "monthly" },
 ] as const;
 
+// Resolve an owner plan by id — DB first (type must be owner-*, active),
+// falling back to the legacy static list. Rejects seeker plan ids so the
+// owner checkout path can never be used to dodge the credit-plan flow.
+async function findOwnerPlan(planId: string) {
+  const dbPlan = await prisma.plan.findUnique({ where: { id: planId } });
+  if (dbPlan) {
+    if (!dbPlan.type.startsWith("owner") || !dbPlan.active) return null;
+    return {
+      id: dbPlan.id,
+      name: dbPlan.name,
+      price: dbPlan.price,
+      validityDays: dbPlan.validity,
+      cycle: dbPlan.validity <= 7 ? "weekly" : "monthly",
+    };
+  }
+  const staticPlan = OWNER_PLANS.find((p) => p.id === planId);
+  return staticPlan ? { ...staticPlan } : null;
+}
+
+// Resolve a seeker (credit) plan for new orders — DB only, must be an active
+// seeker plan. Owner plan ids are rejected so the credit checkout can't be
+// pointed at a subscription plan.
+async function findSeekerPlan(planId: string) {
+  const dbPlan = await prisma.plan.findUnique({ where: { id: planId } });
+  if (!dbPlan || dbPlan.type !== "seeker" || !dbPlan.active) return null;
+  return dbPlan;
+}
+
 export const subscriptionsRouter = router({
-  // List available plans
+  // List available plans — DB is the single source of truth (managed via the
+  // Plans Manager). No static fallback: an unseeded DB shows no plans.
   plans: publicProcedure
     .input(z.object({ type: planTypeSchema.optional() }))
     .query(async ({ input }) => {
       const where = input.type ? { type: input.type, active: true } : { active: true };
-      const dbPlans = await prisma.plan.findMany({ where, orderBy: { price: "asc" } });
-
-      // Fall back to hardcoded seeker plans if DB is not seeded yet
-      if (dbPlans.length === 0 && (!input.type || input.type === "seeker")) {
-        return SEEKER_PLANS;
-      }
-      return dbPlans;
+      return prisma.plan.findMany({ where, orderBy: { price: "asc" } });
     }),
 
   // Get single plan
@@ -81,9 +108,7 @@ export const subscriptionsRouter = router({
   createOrder: protectedProcedure
     .input(z.object({ planId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
-      const dbPlan = await prisma.plan.findUnique({ where: { id: input.planId } });
-      const staticPlan = SEEKER_PLANS.find((p) => p.id === input.planId);
-      const plan = dbPlan ?? staticPlan;
+      const plan = await findSeekerPlan(input.planId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       const keyId = process.env.RAZORPAY_KEY_ID;
@@ -148,9 +173,7 @@ export const subscriptionsRouter = router({
   createPayUOrder: protectedProcedure
     .input(z.object({ planId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
-      const dbPlan = await prisma.plan.findUnique({ where: { id: input.planId } });
-      const staticPlan = SEEKER_PLANS.find((p) => p.id === input.planId);
-      const plan = dbPlan ?? staticPlan;
+      const plan = await findSeekerPlan(input.planId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       if (!process.env.PAYU_MERCHANT_KEY || !process.env.PAYU_MERCHANT_SALT) {
@@ -310,7 +333,7 @@ export const subscriptionsRouter = router({
   createOwnerOrder: protectedProcedure
     .input(z.object({ planId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
-      const plan = OWNER_PLANS.find((p) => p.id === input.planId);
+      const plan = await findOwnerPlan(input.planId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       const keyId = process.env.RAZORPAY_KEY_ID;
@@ -375,7 +398,7 @@ export const subscriptionsRouter = router({
   createOwnerPayUOrder: protectedProcedure
     .input(z.object({ planId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
-      const plan = OWNER_PLANS.find((p) => p.id === input.planId);
+      const plan = await findOwnerPlan(input.planId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       if (!process.env.PAYU_MERCHANT_KEY || !process.env.PAYU_MERCHANT_SALT) {
@@ -473,7 +496,7 @@ export const subscriptionsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Order is missing plan information." });
       }
 
-      const plan = OWNER_PLANS.find((p) => p.id === boundPlanId);
+      const plan = await findOwnerPlan(boundPlanId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       const now = new Date();

@@ -89,7 +89,7 @@ export const adminRouter = router({
 
   // Live sidebar badge counts — one number per "needs action" queue.
   badgeCounts: adminProcedure.query(async () => {
-    const [enquiries, kyc, sellerApprovals, listings, reviews, interiors, decor] =
+    const [enquiries, kyc, sellerApprovals, listings, reviews, interiors, decor, escalations] =
       await Promise.all([
         prisma.enquiry.count({ where: { status: "New" } }),
         prisma.user.count({ where: { kycStatus: "pending" } }),
@@ -98,8 +98,70 @@ export const adminRouter = router({
         prisma.review.count({ where: { status: "Pending" } }),
         prisma.interiorDesigner.count({ where: { status: "pending" } }),
         prisma.decorStore.count({ where: { status: "pending" } }),
+        prisma.escalation.count({ where: { status: "escalated" } }),
       ]);
-    return { enquiries, kyc, sellerApprovals, listings, reviews, interiors, decor };
+    return { enquiries, kyc, sellerApprovals, listings, reviews, interiors, decor, escalations };
+  }),
+
+  // Escalations raised to admin by supervisors (status: "escalated")
+  escalations: router({
+    list: adminProcedure
+      .input(z.object({ status: z.enum(["escalated", "resolved"]).optional() }).optional())
+      .query(async ({ input }) => {
+        const items = await prisma.escalation.findMany({
+          where: { status: input?.status ?? "escalated" },
+          include: {
+            lead: { select: { id: true, name: true } },
+            assignedTo: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        });
+
+        const raisedByIds = [...new Set(items.map((e) => e.raisedById).filter((v): v is string => !!v))];
+        const raisers = raisedByIds.length
+          ? await prisma.user.findMany({ where: { id: { in: raisedByIds } }, select: { id: true, name: true } })
+          : [];
+        const raiserName = new Map(raisers.map((u) => [u.id, u.name]));
+
+        const now = Date.now();
+        return items.map((e) => ({
+          id: e.id,
+          leadId: e.leadId,
+          leadName: e.lead?.name ?? "—",
+          note: e.note,
+          level: e.level,
+          status: e.status,
+          assignedTo: e.assignedTo?.name ?? "Unassigned",
+          raisedBy: (e.raisedById && raiserName.get(e.raisedById)) || "—",
+          createdAt: e.createdAt.toISOString(),
+          ageHours: Math.max(0, Math.round((now - e.createdAt.getTime()) / (60 * 60 * 1000))),
+        }));
+      }),
+
+    resolve: adminProcedure
+      .input(z.object({ id: cuidSchema }))
+      .mutation(async ({ input, ctx }) => {
+        const escalation = await prisma.escalation.findUnique({ where: { id: input.id } });
+        if (!escalation) throw new TRPCError({ code: "NOT_FOUND", message: "Escalation not found." });
+
+        const [updated] = await Promise.all([
+          prisma.escalation.update({
+            where: { id: input.id },
+            data: { status: "resolved", resolvedAt: new Date() },
+          }),
+          prisma.auditLog.create({
+            data: {
+              userId: ctx.user.id,
+              action: "escalation_resolved",
+              entity: "Escalation",
+              entityId: input.id,
+              changes: { leadId: escalation.leadId, level: escalation.level },
+            },
+          }),
+        ]);
+        return updated;
+      }),
   }),
 
   // User management

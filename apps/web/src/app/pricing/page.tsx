@@ -2,40 +2,50 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Users, Key, Shield } from "lucide-react";
+import { Building2, Users, Shield } from "lucide-react";
 import { toast } from "sonner";
-import { ownerRentalPlans, ownerSellPlans } from "@/data/static";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { openRazorpayCheckout } from "@/lib/razorpay";
 import { Skeleton } from "@/components/ui/skeleton";
-import { OwnerPlanCard } from "@/components/pricing/OwnerPlanCard";
+import { OwnerPlanCard, type OwnerPlan } from "@/components/pricing/OwnerPlanCard";
 import { SeekerPlanCard, type SeekerPlan } from "@/components/pricing/SeekerPlanCard";
-import { ResellerPlanCard } from "@/components/pricing/ResellerPlanCard";
 import { WalletTrustRow } from "@/components/pricing/WalletTrustRow";
-import { ResellerTrustRow } from "@/components/pricing/ResellerTrustRow";
 import { HowItWorks } from "@/components/pricing/HowItWorks";
 import { FAQ } from "@/components/pricing/FAQ";
 import { PlanChooser } from "@/components/pricing/PlanChooser";
 import { CTABanner } from "@/components/pricing/CTABanner";
 import {
-  RESELLER_PLANS,
   PRICING_TABS,
   seekerFaqs,
   ownerFaqs,
   ownerSellFaqs,
-  resellerFaqs,
-  type ResellerPlan,
 } from "@/components/pricing/pricingData";
-import type { ownerRentalPlans as OwnerRentalPlansType } from "@/data/static";
-
-type OwnerPlan = (typeof ownerRentalPlans)[0];
 
 const TAB_ICONS = [
   <Building2 size={15} key="b" />,
   <Users size={15} key="u" />,
-  <Key size={15} key="k" />,
 ];
+
+function PlanSkeletons({ count }: { count: number }) {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="space-y-4 rounded-2xl border border-border bg-white p-6">
+          <Skeleton className="h-5 w-24 rounded" />
+          <Skeleton className="h-9 w-32 rounded" />
+          <Skeleton className="h-3 w-40 rounded" />
+          <div className="space-y-2 pt-2">
+            <Skeleton className="h-3 w-full rounded" />
+            <Skeleton className="h-3 w-5/6 rounded" />
+            <Skeleton className="h-3 w-4/6 rounded" />
+          </div>
+          <Skeleton className="h-11 w-full rounded-xl" />
+        </div>
+      ))}
+    </>
+  );
+}
 
 export default function PricingPage() {
   const { session, refreshCredits } = useAuth();
@@ -44,7 +54,10 @@ export default function PricingPage() {
   const [ownerMode, setOwnerMode] = useState<"renting" | "selling">("renting");
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
 
-  const plansQuery = trpc.subscriptions.plans.useQuery({ type: "seeker" });
+  const seekerPlansQuery = trpc.subscriptions.plans.useQuery({ type: "seeker" });
+  const ownerPlansQuery = trpc.subscriptions.plans.useQuery({
+    type: ownerMode === "renting" ? "owner-rent" : "owner-sell",
+  });
   const gatewayQ = trpc.subscriptions.activeGateway.useQuery();
   const createOrder = trpc.subscriptions.createOrder.useMutation();
   const createOwnerOrder = trpc.subscriptions.createOwnerOrder.useMutation();
@@ -52,6 +65,22 @@ export default function PricingPage() {
   const createPayUOrder = trpc.subscriptions.createPayUOrder.useMutation();
   const verifyPayment = trpc.subscriptions.verifyPayment.useMutation();
   const verifyOwnerPayment = trpc.subscriptions.verifyOwnerPayment.useMutation();
+
+  const submitPayUForm = (fields: Record<string, string> & { action: string }) => {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = fields.action;
+    (Object.entries(fields) as [string, string][]).forEach(([k, v]) => {
+      if (k === "action") return;
+      const inp = document.createElement("input");
+      inp.type = "hidden";
+      inp.name = k;
+      inp.value = v;
+      form.appendChild(inp);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  };
 
   const handleBuyOwner = async (plan: OwnerPlan) => {
     if (!session) {
@@ -91,19 +120,7 @@ export default function PricingPage() {
       } else {
         // PayU — redirect flow
         const fields = await createOwnerPayUOrder.mutateAsync({ planId: plan.id });
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = fields.action;
-        (Object.entries(fields) as [string, string][]).forEach(([k, v]) => {
-          if (k === "action") return;
-          const inp = document.createElement("input");
-          inp.type = "hidden";
-          inp.name = k;
-          inp.value = v;
-          form.appendChild(inp);
-        });
-        document.body.appendChild(form);
-        form.submit();
+        submitPayUForm(fields);
       }
     } catch (err) {
       setBuyingPlanId(null);
@@ -150,19 +167,7 @@ export default function PricingPage() {
       } else {
         // PayU — redirect flow
         const fields = await createPayUOrder.mutateAsync({ planId: plan.id });
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = fields.action;
-        (Object.entries(fields) as [string, string][]).forEach(([k, v]) => {
-          if (k === "action") return;
-          const inp = document.createElement("input");
-          inp.type = "hidden";
-          inp.name = k;
-          inp.value = v;
-          form.appendChild(inp);
-        });
-        document.body.appendChild(form);
-        form.submit();
+        submitPayUForm(fields);
       }
     } catch (err) {
       setBuyingPlanId(null);
@@ -170,19 +175,8 @@ export default function PricingPage() {
     }
   };
 
-  const handleBuyReseller = (plan: ResellerPlan) => {
-    if (!session) {
-      toast.error("Please sign in first");
-      return;
-    }
-    toast.success(`${plan.name} activated!`, {
-      description: `Your RM will contact you within 2 hours. Valid for ${plan.validity}.`,
-      duration: 5000,
-    });
-  };
-
-  const ownerPlans = ownerMode === "renting" ? ownerRentalPlans : ownerSellPlans;
-  const dbSeekerPlans = (plansQuery.data ?? []) as SeekerPlan[];
+  const ownerPlans = (ownerPlansQuery.data ?? []) as OwnerPlan[];
+  const dbSeekerPlans = (seekerPlansQuery.data ?? []) as SeekerPlan[];
 
   const scrollToPlan = (planId: string) => {
     // Exact match first; fall back to a suffix match since DB-seeded seeker
@@ -214,8 +208,8 @@ export default function PricingPage() {
             Pay once. Talk directly. <span className="text-gold">No commissions.</span>
           </h1>
           <p className="mt-5 text-base text-white/70 sm:text-lg">
-            Whether you build, consult, rent or are reselling a property — NxtSft.com has a plan
-            sized exactly for you.
+            Whether you are selling, renting out, or searching for your next home — NxtSft.com has
+            a plan sized exactly for you.
           </p>
         </div>
       </section>
@@ -237,7 +231,7 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* ── BUILDERS & CONSULTANTS ── */}
+      {/* ── HOME SELLER ── */}
       {activeTab === 0 && (
         <>
           {/* Sub-toggle */}
@@ -258,14 +252,20 @@ export default function PricingPage() {
 
           {/* Cards */}
           <section className="mx-auto max-w-6xl px-5 pt-10 pb-6 sm:px-6">
-            <div
-              className={`grid grid-cols-1 items-stretch gap-6 pt-5 sm:grid-cols-2 ${ownerMode === "renting" ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
-            >
-              {ownerPlans.map((plan) => (
-                <div id={`plan-${plan.id}`} key={plan.id} className="h-full">
-                  <OwnerPlanCard plan={plan} onBuy={handleBuyOwner} />
-                </div>
-              ))}
+            <div className="grid grid-cols-1 items-stretch gap-6 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+              {ownerPlansQuery.isLoading ? (
+                <PlanSkeletons count={4} />
+              ) : (
+                ownerPlans.map((plan) => (
+                  <div
+                    id={`plan-${plan.id}`}
+                    key={plan.id}
+                    className={`h-full transition-opacity ${buyingPlanId && buyingPlanId !== plan.id ? "opacity-50" : ""}`}
+                  >
+                    <OwnerPlanCard plan={plan} onBuy={handleBuyOwner} />
+                  </div>
+                ))
+              )}
             </div>
             <p className="mt-8 text-center text-xs text-muted-foreground">
               Secure payment via Razorpay · No subscription, no hidden charges · Listings go live
@@ -275,6 +275,7 @@ export default function PricingPage() {
 
           <PlanChooser
             variant={ownerMode === "renting" ? "owner-rent" : "owner-sell"}
+            plans={ownerPlans}
             onScrollToPlans={scrollToPlan}
           />
           <HowItWorks forSeeker={false} />
@@ -282,45 +283,32 @@ export default function PricingPage() {
             faqs={ownerMode === "renting" ? ownerFaqs : ownerSellFaqs}
             title={
               ownerMode === "renting"
-                ? "Builder & consultant rental plan FAQs"
-                : "Builder & consultant selling plan FAQs"
+                ? "Home seller rental plan FAQs"
+                : "Home seller selling plan FAQs"
             }
           />
           <CTABanner session={session} />
         </>
       )}
 
-      {/* ── TENANTS ── */}
+      {/* ── HOME BUYER ── */}
       {activeTab === 1 && (
         <>
           <section className="mx-auto max-w-6xl px-5 pb-6 pt-10 sm:px-6">
             <div className="grid grid-cols-1 items-stretch gap-6 pt-5 sm:grid-cols-2 lg:grid-cols-3">
-              {plansQuery.isLoading
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="space-y-4 rounded-2xl border border-border bg-white p-6"
-                    >
-                      <Skeleton className="h-5 w-24 rounded" />
-                      <Skeleton className="h-9 w-32 rounded" />
-                      <Skeleton className="h-3 w-40 rounded" />
-                      <div className="space-y-2 pt-2">
-                        <Skeleton className="h-3 w-full rounded" />
-                        <Skeleton className="h-3 w-5/6 rounded" />
-                        <Skeleton className="h-3 w-4/6 rounded" />
-                      </div>
-                      <Skeleton className="h-11 w-full rounded-xl" />
-                    </div>
-                  ))
-                : dbSeekerPlans.map((plan) => (
-                    <div
-                      id={`plan-${plan.id}`}
-                      key={plan.id}
-                      className={`h-full transition-opacity ${buyingPlanId && buyingPlanId !== plan.id ? "opacity-50" : ""}`}
-                    >
-                      <SeekerPlanCard plan={plan} onBuy={handleBuySeeker} />
-                    </div>
-                  ))}
+              {seekerPlansQuery.isLoading ? (
+                <PlanSkeletons count={3} />
+              ) : (
+                dbSeekerPlans.map((plan) => (
+                  <div
+                    id={`plan-${plan.id}`}
+                    key={plan.id}
+                    className={`h-full transition-opacity ${buyingPlanId && buyingPlanId !== plan.id ? "opacity-50" : ""}`}
+                  >
+                    <SeekerPlanCard plan={plan} onBuy={handleBuySeeker} />
+                  </div>
+                ))
+              )}
             </div>
             <p className="mt-8 text-center text-xs text-muted-foreground">
               Secure payment via Razorpay · One-time only, no recurring charges · Dispute refund
@@ -330,50 +318,9 @@ export default function PricingPage() {
 
           <WalletTrustRow />
           <div className="pb-4" />
-          <PlanChooser variant="seeker" onScrollToPlans={scrollToPlan} />
+          <PlanChooser variant="seeker" plans={dbSeekerPlans} onScrollToPlans={scrollToPlan} />
           <HowItWorks forSeeker={true} />
-          <FAQ faqs={seekerFaqs} title="Tenant plan FAQs" />
-          <CTABanner session={session} />
-        </>
-      )}
-
-      {/* ── RESELLERS & OWNERS ── */}
-      {activeTab === 2 && (
-        <>
-          {/* Intro blurb */}
-          <div className="mx-auto max-w-2xl px-5 pt-10 text-center sm:px-6">
-            <div className="mb-2 text-xs font-bold uppercase tracking-widest text-accent">
-              Verified Lead Packs
-            </div>
-            <h2 className="font-display text-2xl font-black text-navy sm:text-3xl">
-              Sell or lease your property faster with intent-verified buyer leads.
-            </h2>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Choose a pack based on how many qualified leads you need. Your dedicated Relationship
-              Manager handles the rest — from site visits to closing.
-            </p>
-          </div>
-
-          {/* Cards */}
-          <section className="mx-auto max-w-5xl px-5 pb-6 pt-8 sm:px-6">
-            <div className="grid grid-cols-1 items-stretch gap-6 pt-5 sm:grid-cols-3">
-              {RESELLER_PLANS.map((plan) => (
-                <div id={`plan-${plan.id}`} key={plan.id} className="h-full">
-                  <ResellerPlanCard plan={plan} onBuy={handleBuyReseller} />
-                </div>
-              ))}
-            </div>
-            <p className="mt-8 text-center text-xs text-muted-foreground">
-              Secure payment via Razorpay · Flat fee, zero commission · Dedicated RM assigned within
-              2 hrs of purchase
-            </p>
-          </section>
-
-          <ResellerTrustRow />
-          <div className="pb-4" />
-          <PlanChooser variant="reseller" onScrollToPlans={scrollToPlan} />
-          <HowItWorks forSeeker={false} forReseller={true} />
-          <FAQ faqs={resellerFaqs} title="Reseller & owner plan FAQs" />
+          <FAQ faqs={seekerFaqs} title="Home buyer plan FAQs" />
           <CTABanner session={session} />
         </>
       )}

@@ -24,6 +24,7 @@ import {
   Lamp,
   UploadCloud,
   Contact,
+  Flame,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -55,6 +56,7 @@ import { InteriorsTab } from "@/components/admin-portal/tabs/InteriorsTab";
 import { DecorTab } from "@/components/admin-portal/tabs/DecorTab";
 import { BulkListingsTab } from "@/components/admin-portal/tabs/BulkListingsTab";
 import { AgentsTab } from "@/components/admin-portal/tabs/AgentsTab";
+import { EscalationsTab } from "@/components/admin-portal/tabs/EscalationsTab";
 
 // Grouped nav — groups surface in the sidebar as section headings.
 // Badges come from admin.badgeCounts (hidden while loading or when 0).
@@ -71,6 +73,7 @@ const makeNav = (b?: BadgeCounts) => [
   { label: "Contact Enquiries",  to: "/admin-portal#enquiries",      icon: <Inbox size={14} />,      group: "Customer Service", badge: b?.enquiries },
   { label: "KYC Review",         to: "/admin-portal#kyc",            icon: <ShieldCheck size={14} />, badge: b?.kyc },
   { label: "Seller Approvals",   to: "/admin-portal#seller-approvals",icon: <UserCheck size={14} />,  badge: b?.sellerApprovals },
+  { label: "Escalations",        to: "/admin-portal#escalations",    icon: <Flame size={14} />, badge: b?.escalations },
   { label: "Click Alerts",       to: "/admin-portal#alerts",         icon: <BellRing size={14} /> },
 
   // ── Platform ─────────────────────────────────────────────────────────
@@ -107,6 +110,7 @@ function renderTab(hash: string) {
     case "subscriptions": return <SubscriptionsTab />;
     case "views":         return <ViewsTab />;
     case "alerts":        return <AlertsTab />;
+    case "escalations":   return <EscalationsTab />;
     case "marketing":     return <MarketingTab />;
     case "dev":           return <DevTab />;
     case "reports":       return <ReportsTab />;

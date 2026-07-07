@@ -19,6 +19,7 @@ import { PortalShell } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
 import { usePortalGuard } from "@/lib/use-portal-guard";
+import { trpc } from "@/lib/trpc";
 import { OverviewDashboard } from "@/components/user-portal/tabs/OverviewDashboard";
 import { SavedTab } from "@/components/user-portal/tabs/SavedTab";
 import { MyListingsTab } from "@/components/user-portal/tabs/MyListingsTab";
@@ -39,31 +40,41 @@ export default function UserPortal() {
   const h = useActiveHash();
   const ready = usePortalGuard();
 
+  // Live sidebar badge counts (hidden while loading or when 0).
+  const badgesQ = trpc.users.badgeCounts.useQuery(undefined, {
+    enabled: ready && !!session,
+    refetchInterval: 60_000,
+  });
+  const b = badgesQ.data;
+
   if (!ready || !session) return null;
 
   // Agents list & manage properties like Home Sellers, so they get the same
   // seller-only tabs (Leads / Visits).
   const isSeller = session.role === "home-seller" || session.role === "agent";
   const nav = [
-    { label: "Overview",         to: "/user-portal",          icon: <HomeIcon size={14} /> },
-    { label: "Saved",            to: "/user-portal#saved",    icon: <Heart size={14} /> },
+    { label: "Overview",         to: "/user-portal",          icon: <HomeIcon size={14} />, group: "Overview" },
+
+    { label: "Saved",            to: "/user-portal#saved",    icon: <Heart size={14} />, group: "My Search", badge: b?.saved },
     { label: "Recently Viewed",  to: "/user-portal#viewed",   icon: <Eye size={14} /> },
-    { label: "My Credits",       to: "/user-portal#credits",  icon: <CreditCard size={14} /> },
-    { label: "Profile",          to: "/user-portal#profile",  icon: <Settings2 size={14} /> },
     { label: "Search Alerts",    to: "/user-portal#alerts",   icon: <Bell size={14} /> },
-    { label: "My Listings",      to: "/user-portal#mylist",   icon: <Building2 size={14} /> },
+    { label: "Scheduled Tours",  to: "/user-portal#visits",   icon: <Calendar size={14} />, badge: b?.tours },
+    { label: "EMI Calculator",   to: "/user-portal#emi",      icon: <Calculator size={14} /> },
+
+    { label: "My Listings",      to: "/user-portal#mylist",   icon: <Building2 size={14} />, group: "My Property", badge: b?.myListings },
     // Seller-only: buyers who enquired on / booked visits to their listings.
     ...(isSeller
       ? [
-          { label: "Leads",  to: "/user-portal#leads",     icon: <Users size={14} /> },
+          { label: "Leads",  to: "/user-portal#leads",     icon: <Users size={14} />, badge: b?.sellerNewLeads },
           { label: "Visits", to: "/user-portal#propvisits", icon: <Calendar size={14} /> },
         ]
       : []),
     { label: "List a Property",  to: "/list",                 icon: <PlusCircle size={14} /> },
-    { label: "Scheduled Tours",  to: "/user-portal#visits",   icon: <Calendar size={14} /> },
-    { label: "EMI Calculator",   to: "/user-portal#emi",      icon: <Calculator size={14} /> },
+
+    { label: "My Credits",       to: "/user-portal#credits",  icon: <CreditCard size={14} />, group: "Account" },
+    { label: "Profile",          to: "/user-portal#profile",  icon: <Settings2 size={14} /> },
     { label: "Documents (KYC)", to: "/user-portal#kyc",      icon: <FileCheck size={14} /> },
-    { label: "Support Tickets", to: "/user-portal#support",  icon: <LifeBuoy size={14} /> },
+    { label: "Support Tickets", to: "/user-portal#support",  icon: <LifeBuoy size={14} />, badge: b?.openTickets },
     { label: "Refer & Earn",     to: "/user-portal#refer",    icon: <Gift size={14} /> },
   ];
 

@@ -67,6 +67,20 @@ export function deriveTicketRow(t: TicketRowInput, assignedMap: Record<string, s
 }
 
 export const ticketsRouter = router({
+  // Live sidebar badge counts for the support portal. "Escalated" mirrors
+  // deriveEscalation above: urgent priority and not yet resolved/closed.
+  badgeCounts: staffProcedure.query(async ({ ctx }) => {
+    const openStatuses = ["open", "in_progress"];
+    const [queue, escalated, mine] = await Promise.all([
+      prisma.ticket.count({ where: { status: { in: openStatuses } } }),
+      prisma.ticket.count({
+        where: { priority: "urgent", status: { notIn: ["resolved", "closed"] } },
+      }),
+      prisma.ticket.count({ where: { assignedTo: ctx.user.id, status: { in: openStatuses } } }),
+    ]);
+    return { queue, escalated, mine };
+  }),
+
   create: protectedProcedure
     .input(
       z.object({
