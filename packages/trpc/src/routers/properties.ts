@@ -311,6 +311,56 @@ export const propertiesRouter = router({
       return serializeProperty(items);
     }),
 
+  // PG owner requests a professional media package (Starter/Premium) — lead
+  // capture only, no payment here. Staff follow up offline to scope, schedule,
+  // and collect payment. Stored as an Enquiry, same pattern as reportIssue,
+  // so it shows up in the existing admin Enquiries queue. Duplicate
+  // submissions are allowed on purpose — no dedup check.
+  requestMediaPackage: protectedProcedure
+    .use(contactRateLimit)
+    .input(
+      z.object({
+        propertyId: cuidSchema,
+        packageType: z.enum(["starter", "premium"]),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const property = await prisma.property.findFirst({
+        where: { id: input.propertyId, deletedAt: null },
+        select: { id: true, title: true, slug: true, type: true, ownerId: true },
+      });
+      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+      if (property.ownerId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (property.type !== "PG") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Media packages are only available for PG listings." });
+      }
+
+      const PACKAGE_LABEL: Record<typeof input.packageType, string> = {
+        starter: "Starter Package (₹2,000–4,500)",
+        premium: "Premium Package (₹5,000–8,000)",
+      };
+
+      await prisma.enquiry.create({
+        data: {
+          name: ctx.user.name,
+          email: ctx.user.email,
+          phone: ctx.user.phone,
+          message: `[${PACKAGE_LABEL[input.packageType]}] requested for "${property.title}" (/properties/${property.slug}).`,
+          source: "PG Media Package",
+          status: "New",
+        },
+      });
+
+      await notify({
+        userId: ctx.user.id,
+        type: "media_package_requested",
+        title: "Media package request received",
+        content: `We received your ${PACKAGE_LABEL[input.packageType]} request for "${property.title}". Our team will reach out shortly.`,
+      });
+
+      return { ok: true };
+    }),
+
   // Single property by id or slug
   get: publicProcedure
     .input(z.object({ id: safeString(100, 1) }))
