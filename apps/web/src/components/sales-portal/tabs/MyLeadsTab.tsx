@@ -14,14 +14,53 @@ const sourceTone: Record<string, OutcomeTone> = {
   Direct: "cold",
 };
 
+// Indian numbers are stored as 10 digits; wa.me needs the country code and no
+// punctuation. tel: is happy with the raw value.
+function waHref(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  const withCc = digits.length === 10 ? `91${digits}` : digits;
+  return `https://wa.me/${withCc}`;
+}
+
 export function MyLeadsTab() {
   const [filter, setFilter] = useState<"All" | "Hot" | "Warm" | "Cold">("All");
+  // Which lead has its Note / Schedule panel open, and the in-progress input.
+  const [openAction, setOpenAction] = useState<{ id: string; kind: "note" | "schedule" } | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [visitAt, setVisitAt] = useState("");
 
+  const utils = trpc.useUtils();
   const leadsQ = trpc.leads.list.useQuery({
     status: filter !== "All" ? (filter as "Hot" | "Warm" | "Cold") : undefined,
     limit: 50,
   });
   const items = (leadsQ.data?.items ?? []) as DbLead[];
+
+  const addNote = trpc.leads.addNote.useMutation({
+    onSuccess: () => {
+      utils.leads.list.invalidate();
+      toast.success("Note saved");
+      setOpenAction(null);
+      setNoteDraft("");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const scheduleVisit = trpc.leads.scheduleVisit.useMutation({
+    onSuccess: () => {
+      utils.leads.list.invalidate();
+      toast.success("Visit scheduled");
+      setOpenAction(null);
+      setVisitAt("");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function toggle(id: string, kind: "note" | "schedule") {
+    setOpenAction((prev) => (prev?.id === id && prev.kind === kind ? null : { id, kind }));
+    setNoteDraft("");
+    setVisitAt("");
+  }
 
   const hotCount = items.filter((l) => l.status === "Hot").length;
 
@@ -113,32 +152,87 @@ export function MyLeadsTab() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => toast.success(`Calling ${l.name}`)}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white"
+                  <a
+                    href={`tel:${l.phone}`}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
                   >
                     <Phone size={12} /> Call
-                  </button>
-                  <button
-                    onClick={() => toast.success(`WhatsApp opened for ${l.name}`)}
-                    className="rounded-md bg-mid-blue px-3 py-1.5 text-xs font-semibold text-white"
+                  </a>
+                  <a
+                    href={waHref(l.phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-md bg-mid-blue px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
                   >
                     WhatsApp
-                  </button>
+                  </a>
                   <button
-                    onClick={() => toast("Note saved")}
-                    className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold"
+                    onClick={() => toggle(l.id, "note")}
+                    className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
+                      openAction?.id === l.id && openAction.kind === "note"
+                        ? "border-accent text-accent"
+                        : "border-border"
+                    }`}
                   >
                     + Note
                   </button>
                   <button
-                    onClick={() => toast.success(`Visit scheduled for ${l.name}`)}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white"
+                    onClick={() => toggle(l.id, "schedule")}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
                   >
                     <Calendar size={12} /> Schedule Visit
                   </button>
                 </div>
               </div>
+
+              {openAction?.id === l.id && openAction.kind === "note" && (
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Add a note…"
+                    value={noteDraft}
+                    onChange={(e) => setNoteDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && noteDraft.trim()) addNote.mutate({ id: l.id, note: noteDraft.trim() });
+                    }}
+                    className="min-w-0 flex-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <button
+                    onClick={() => addNote.mutate({ id: l.id, note: noteDraft.trim() })}
+                    disabled={!noteDraft.trim() || addNote.isPending}
+                    className="shrink-0 rounded-md bg-navy px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                  >
+                    Save
+                  </button>
+                </div>
+              )}
+
+              {openAction?.id === l.id && openAction.kind === "schedule" && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    type="datetime-local"
+                    autoFocus
+                    value={visitAt}
+                    onChange={(e) => setVisitAt(e.target.value)}
+                    className="rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <button
+                    onClick={() =>
+                      scheduleVisit.mutate({ leadId: l.id, scheduledAt: new Date(visitAt).toISOString() })
+                    }
+                    disabled={!visitAt || scheduleVisit.isPending}
+                    className="shrink-0 rounded-md bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                  >
+                    Confirm visit
+                  </button>
+                  {!l.property && (
+                    <span className="text-[11px] text-muted-foreground">
+                      Link this lead to a property first to schedule.
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}

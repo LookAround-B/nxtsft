@@ -311,7 +311,7 @@ function PropertiesInner() {
       bedrooms,
       furnishing: furnishing || undefined,
       page,
-      limit: 12,
+      limit: 18, // 3 cols × 6 rows — most traffic is mobile, fewer page flips
     },
     { placeholderData: keepPreviousData },
   );

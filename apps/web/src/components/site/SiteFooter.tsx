@@ -253,7 +253,7 @@ export function SiteFooter() {
       <div className="relative z-10 border-t border-white/8">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 py-5 sm:flex-row sm:justify-between sm:px-6">
           <span className="text-xs text-white/35">
-            © 2026 NxtSFT PropTech innovations — All rights reserved.
+            © 2026 NXTSFT PROPTECH INNOVATIONs 
           </span>
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <Link href="/terms" className="text-xs text-white/35 transition hover:text-white/70">

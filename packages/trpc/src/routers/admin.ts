@@ -685,23 +685,32 @@ export const adminRouter = router({
         }
         const rowsWithOwner = valid.filter((v) => ownerIdByPhone.has(v.d.ownerPhone));
 
-        // Phase 3 — duplicate detection. A row is a duplicate of an existing
-        // listing when its RERA number already exists, or (no RERA) when the
-        // same owner already has a listing with the same title in the same
-        // city. The same rule dedupes rows within the file itself.
+        // Phase 3 — duplicate detection. A RERA number is a *project-level*
+        // registration shared by every unit and every owner in that project
+        // (a 750-flat tower carries one RERA), so it is NOT globally unique —
+        // treating it as such collapsed a whole project down to one listing.
+        // A row is therefore a duplicate only when the SAME owner already has a
+        // listing with that RERA (a re-upload/spam), or (no RERA) the same owner
+        // already has a listing with the same title in the same city. Different
+        // owners listing in the same project are allowed. The same rule dedupes
+        // rows within the file itself.
+        const ownerIds = [...new Set(rowsWithOwner.map((v) => ownerIdByPhone.get(v.d.ownerPhone)!))];
         const reras = [...new Set(rowsWithOwner.map((v) => v.d.rera).filter((r): r is string => !!r))];
         const titles = [...new Set(rowsWithOwner.map((v) => v.d.title))];
         const dupCandidates = await prisma.property.findMany({
           where: {
             deletedAt: null,
+            ownerId: { in: ownerIds },
             OR: [
               ...(reras.length ? [{ rera: { in: reras } }] : []),
-              { ownerId: { in: [...new Set(rowsWithOwner.map((v) => ownerIdByPhone.get(v.d.ownerPhone)!))] }, title: { in: titles } },
+              { title: { in: titles } },
             ],
           },
           select: { rera: true, ownerId: true, title: true, location: { select: { city: true } } },
         });
-        const existingReras = new Set(dupCandidates.map((p) => p.rera).filter(Boolean));
+        const existingOwnerRera = new Set(
+          dupCandidates.filter((p) => p.rera).map((p) => `${p.ownerId}|${p.rera}`),
+        );
         const existingOwnerTitleCity = new Set(
           dupCandidates.map((p) => `${p.ownerId}|${p.title.toLowerCase()}|${(p.location?.city ?? "").toLowerCase()}`),
         );
@@ -710,13 +719,13 @@ export const adminRouter = router({
         const seenInFile = new Set<string>();
         for (const { sheetRow, d } of rowsWithOwner) {
           const ownerId = ownerIdByPhone.get(d.ownerPhone)!;
-          const fileKey = d.rera ? `rera|${d.rera}` : `otc|${ownerId}|${d.title.toLowerCase()}|${d.city.toLowerCase()}`;
+          const fileKey = d.rera ? `rera|${ownerId}|${d.rera}` : `otc|${ownerId}|${d.title.toLowerCase()}|${d.city.toLowerCase()}`;
           const isDupe =
-            (d.rera && existingReras.has(d.rera)) ||
+            (d.rera && existingOwnerRera.has(`${ownerId}|${d.rera}`)) ||
             existingOwnerTitleCity.has(`${ownerId}|${d.title.toLowerCase()}|${d.city.toLowerCase()}`) ||
             seenInFile.has(fileKey);
           if (isDupe) {
-            errors.push({ row: sheetRow, message: "Duplicate listing — skipped (same RERA or same owner + title + city already exists)." });
+            errors.push({ row: sheetRow, message: "Duplicate listing — skipped (this owner already has a listing with the same RERA, or same title + city)." });
             continue;
           }
           seenInFile.add(fileKey);

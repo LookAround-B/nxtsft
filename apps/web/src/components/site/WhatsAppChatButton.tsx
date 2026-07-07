@@ -6,8 +6,8 @@ import { MessageCircle, Headset, TrendingUp, X } from "lucide-react";
 // Placeholder numbers until real Sales/Support WhatsApp lines are provided —
 // set NEXT_PUBLIC_WHATSAPP_{SALES,SUPPORT}_NUMBER to override. 10 digits, no
 // country code (prefixed with 91 below), no spaces.
-const SALES_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_SALES_NUMBER || "9100000000";
-const SUPPORT_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_NUMBER || "9100000001";
+const SALES_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_SALES_NUMBER ?? "";
+const SUPPORT_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_NUMBER ?? "";
 
 function waLink(number: string, message: string): string {
   return `https://wa.me/91${number}?text=${encodeURIComponent(message)}`;
