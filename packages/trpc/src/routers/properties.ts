@@ -345,6 +345,7 @@ export const propertiesRouter = router({
           name: ctx.user.name,
           email: ctx.user.email,
           phone: ctx.user.phone,
+          city: ctx.user.city,
           message: `[${PACKAGE_LABEL[input.packageType]}] requested for "${property.title}" (/properties/${property.slug}).`,
           source: "PG Media Package",
           status: "New",

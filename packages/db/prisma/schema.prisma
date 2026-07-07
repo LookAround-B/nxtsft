@@ -384,7 +384,7 @@ model Enquiry {
   city    String?
   message String
 
-  source String @default("Website") // Website | Phone | Email
+  source String @default("Website") // Website | Phone | Email | Report | PG Media Package
   status String @default("New") // New | In Progress | Resolved | Closed
 
   // Staff member who picked it up (optional until someone responds).
