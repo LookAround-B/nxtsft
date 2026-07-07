@@ -3,7 +3,9 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin } from "lucide-react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
+import { Pagination } from "@/components/ui/pagination";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { parseLatLng } from "@/lib/map";
@@ -285,7 +287,17 @@ function EditRequestsSection() {
 }
 
 export function ListingsTab() {
-  const dbListingsQ = trpc.admin.properties.list.useQuery({ limit: 50 });
+  const [page, setPage] = useState(1);
+  const dbListingsQ = trpc.admin.properties.list.useQuery(
+    { page, limit: 18 },
+    { placeholderData: keepPreviousData },
+  );
+  const totalPages = dbListingsQ.data?.totalPages ?? 1;
+  const serverCounts = dbListingsQ.data?.counts;
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const approveMutation = trpc.admin.properties.approve.useMutation({
     onSuccess: () => {
       void dbListingsQ.refetch();
@@ -414,7 +426,10 @@ export function ListingsTab() {
     featured: p.featured,
   }));
 
-  const items = [...localItems, ...dbItems];
+  // User submissions live in localStorage (legacy /list form) and aren't part
+  // of the paginated DB set — surface them above page 1 only, so they don't
+  // repeat under every page.
+  const items = page === 1 ? [...localItems, ...dbItems] : dbItems;
 
   const approve = (it: ListingItem) => {
     if (it.isUserSubmission) {
@@ -434,11 +449,14 @@ export function ListingsTab() {
     toast.error(`Rejected: ${it.title}`);
   };
 
+  // Stat cards reflect the whole DB (from the server `counts`), not just the
+  // current page. Local user submissions are added on top where relevant.
+  const localPending = localItems.filter((i) => i.status === "Pending").length;
   const counts = {
-    pending: items.filter((i) => i.status === "Pending").length,
-    approved: items.filter((i) => i.status === "Approved").length,
-    rejected: items.filter((i) => i.status === "Rejected").length,
-    user: items.filter((i) => i.isUserSubmission).length,
+    pending: (serverCounts?.Pending ?? 0) + localPending,
+    approved: serverCounts?.Active ?? 0, // "Live on site" = Active listings
+    rejected: (serverCounts?.Inactive ?? 0) + localItems.filter((i) => i.status === "Rejected").length,
+    user: localItems.length,
   };
 
   return (
@@ -469,7 +487,12 @@ export function ListingsTab() {
         />
       </div>
       <EditRequestsSection />
-      <Section title="All Submissions">
+      <Section title={dbListingsQ.data ? `All Submissions (${dbListingsQ.data.total} live in library)` : "All Submissions"}>
+        {dbListingsQ.isLoading ? (
+          <TableSkeleton rows={6} cols={2} />
+        ) : items.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">No listings found.</p>
+        ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {items.map((it) => (
             <div
@@ -742,6 +765,12 @@ export function ListingsTab() {
             </div>
           ))}
         </div>
+        )}
+        {totalPages > 1 && (
+          <div className="mt-6">
+            <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} total={dbListingsQ.data?.total} noun="listings" />
+          </div>
+        )}
       </Section>
     </>
   );

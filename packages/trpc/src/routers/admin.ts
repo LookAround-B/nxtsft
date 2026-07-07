@@ -426,40 +426,55 @@ export const adminRouter = router({
           status: propertyStatusSchema.optional(),
           city: geoTextSchema.optional(),
           type: safeString(50).optional(),
-          cursor: cursorSchema,
+          page: pageSchema.optional(),
           limit: limitSchema,
         }),
       )
       .query(async ({ input }) => {
-        const { cursor, limit, status, city, type } = input;
+        const { limit, status, city, type } = input;
+        const page = input.page ?? 1;
 
         const where: NonNullable<Parameters<typeof prisma.property.findMany>[0]>["where"] = { deletedAt: null };
         if (status) where.status = status;
         if (type) where.type = type;
         if (city) where.location = { city: { equals: city, mode: "insensitive" } };
 
-        const items = await prisma.property.findMany({
-          where,
-          include: {
-            location: true,
-            owner: { select: { id: true, name: true, email: true, role: true } },
-            _count: { select: { leads: true, favoritedBy: true } },
-          },
-          orderBy: { createdAt: "desc" },
-          take: limit + 1,
-          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        });
+        // Offset pagination + a matching total so the admin grid can show a
+        // numbered pager. `counts` is DB-wide (ignores the status filter) so the
+        // stat cards reflect the real library, not just the current page.
+        const [items, total, byStatus] = await Promise.all([
+          prisma.property.findMany({
+            where,
+            include: {
+              location: true,
+              owner: { select: { id: true, name: true, email: true, role: true } },
+              _count: { select: { leads: true, favoritedBy: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            take: limit,
+            skip: (page - 1) * limit,
+          }),
+          prisma.property.count({ where }),
+          prisma.property.groupBy({
+            by: ["status"],
+            where: { deletedAt: null },
+            _count: true,
+          }),
+        ]);
 
-        const hasMore = items.length > limit;
-        const page = hasMore ? items.slice(0, limit) : items;
+        const counts = { Active: 0, Pending: 0, Sold: 0, Rented: 0, Inactive: 0 } as Record<string, number>;
+        for (const row of byStatus) counts[row.status] = row._count;
+
         return {
-          items: page.map((p) => ({
+          items: items.map((p) => ({
             ...p,
             price: Number(p.price),
             pgDeposit: p.pgDeposit != null ? Number(p.pgDeposit) : null,
           })),
-          nextCursor: page.at(-1)?.id ?? null,
-          hasMore,
+          page,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+          total,
+          counts,
         };
       }),
 
