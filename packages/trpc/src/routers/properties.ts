@@ -282,6 +282,35 @@ export const propertiesRouter = router({
       return { ok: true };
     }),
 
+  // Similar properties — same purpose (Sale/Rent) always; same city or same
+  // type for breadth (mirrors interiorDesigners.similar). Excludes self.
+  similar: publicProcedure
+    .input(z.object({ slug: safeString(300, 1), limit: z.number().int().min(1).max(12).default(4) }))
+    .query(async ({ input }) => {
+      const base = await prisma.property.findFirst({
+        where: { slug: input.slug, deletedAt: null },
+        select: { id: true, type: true, purpose: true, location: { select: { city: true } } },
+      });
+      if (!base) return [];
+
+      const items = await prisma.property.findMany({
+        where: {
+          deletedAt: null,
+          status: "Active",
+          id: { not: base.id },
+          purpose: base.purpose,
+          OR: [
+            ...(base.location?.city ? [{ location: { city: { equals: base.location.city, mode: "insensitive" as const } } }] : []),
+            { type: base.type },
+          ],
+        },
+        include: propertyInclude,
+        orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+        take: input.limit,
+      });
+      return serializeProperty(items);
+    }),
+
   // Single property by id or slug
   get: publicProcedure
     .input(z.object({ id: safeString(100, 1) }))

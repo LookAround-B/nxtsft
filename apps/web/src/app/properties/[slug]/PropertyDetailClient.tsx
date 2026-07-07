@@ -96,6 +96,50 @@ type FullProperty = {
   owner: { id: string; name: string; email: string; avatar: string | null } | null;
 };
 
+type SimilarProperty = {
+  id: string;
+  slug: string;
+  title: string;
+  images: string[];
+  price: number;
+  bhk: string | null;
+  location: { city: string } | null;
+};
+
+function SimilarProperties({ slug, type }: { slug: string; type: string }) {
+  const { data } = trpc.properties.similar.useQuery({ slug }) as { data: SimilarProperty[] | undefined };
+  if (!data || data.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+      <h2 className="mb-4 font-display text-lg font-bold text-navy">
+        {type === "PG" ? "Similar PGs" : "Similar Properties"}
+      </h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {data.map((p) => (
+          <Link
+            key={p.id}
+            href={`/properties/${p.slug}`}
+            className="group flex items-center gap-3 rounded-xl border border-border p-3 transition hover:border-accent/40 hover:shadow-sm"
+          >
+            <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
+              <SafeImage src={p.images[0] ?? ""} alt={p.title} fill sizes="56px" className="object-cover" />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-bold text-navy group-hover:text-accent">{p.title}</div>
+              <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                <MapPin size={10} />
+                {p.location?.city}
+                {p.bhk ? ` · ${p.bhk}` : ""}
+              </div>
+              <div className="text-xs font-semibold text-accent">{formatPrice(p.price)}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* Small labelled fact tile used in the PG details grid */
 function PgFact({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
@@ -853,6 +897,9 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                 className="h-80"
               />
             </div>
+
+            {/* Similar listings */}
+            <SimilarProperties slug={property.slug} type={property.type} />
           </div>
 
           {/* Right: Contact sidebar */}
