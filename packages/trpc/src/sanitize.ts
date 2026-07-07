@@ -239,7 +239,7 @@ export const alertFrequencySchema = z.enum(["daily", "weekly", "instant"]);
 export const passwordComplexitySchema = z.enum(["low", "medium", "high"]);
 
 /** Plan type enum */
-export const planTypeSchema = z.enum(["seeker", "owner-rent", "owner-sell"]);
+export const planTypeSchema = z.enum(["seeker", "owner-rent", "owner-sell", "designer", "decor"]);
 
 /** Safe amenities array: short strings, limited count */
 export const amenitiesSchema = z.array(safeString(100)).max(30).default([]);
