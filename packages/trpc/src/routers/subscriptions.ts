@@ -737,6 +737,54 @@ export const subscriptionsRouter = router({
     return sub ? { ...sub, amount: Number(sub.amount) } : null;
   }),
 
+  // Seller listing quota — how many listings the seller's active plan allows vs
+  // how many they've already posted. Powers the LA-322 "upgrade to activate"
+  // message shown after a seller submits a listing. The listing allowance isn't
+  // a structured field: seller (owner-*) plans encode it in their feature list
+  // ("1 listing", "3 listings", "Unlimited listings"), so we parse it from there.
+  sellerListingQuota: protectedProcedure.query(async ({ ctx }) => {
+    // Most recent active owner-* subscription, if any.
+    const ownerPlans = await prisma.plan.findMany({
+      where: { type: { in: ["owner-rent", "owner-sell"] } },
+      select: { id: true, name: true, features: true },
+    });
+    const ownerPlanById = new Map(ownerPlans.map((p) => [p.id, p]));
+
+    const sub = await prisma.subscription.findFirst({
+      where: {
+        userId: ctx.user.id,
+        status: "Active",
+        planId: { in: ownerPlans.map((p) => p.id) },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // A listing credit is consumed only once a listing is approved & live
+    // (LA-321), so count Active listings — a freshly-submitted Pending one
+    // hasn't consumed the seller's allowance yet.
+    const used = await prisma.property.count({
+      where: { ownerId: ctx.user.id, deletedAt: null, status: "Active" },
+    });
+
+    if (!sub) {
+      return { hasPlan: false, planName: null, allowance: 0, used, remaining: 0, exhausted: true };
+    }
+
+    // Parse the listing allowance from the plan's feature list. "Unlimited"
+    // → null (no cap). Otherwise the first "<n> listing(s)" number wins; if the
+    // feature text ever drops the count, fall back to a 1-listing allowance.
+    const features = ownerPlanById.get(sub.planId)?.features ?? [];
+    const joined = features.join(" ").toLowerCase();
+    const unlimited = joined.includes("unlimited listing");
+    const match = joined.match(/(\d+)\s*listing/);
+    const allowance = unlimited ? null : match ? Number(match[1]) : 1;
+
+    const remaining = allowance === null ? null : Math.max(0, allowance - used);
+    const exhausted = allowance !== null && used >= allowance;
+
+    return { hasPlan: true, planName: sub.planName, allowance, used, remaining, exhausted };
+  }),
+
   cancel: protectedProcedure
     .input(z.object({ subscriptionId: cuidSchema }))
     .mutation(async ({ input, ctx }) => {

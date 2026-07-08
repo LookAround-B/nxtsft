@@ -155,6 +155,11 @@ export default function ListPropertyPage() {
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState<PendingListing | null>(null);
+  // Fetched once the listing is submitted — tells us whether this seller has
+  // used up their plan's listing allowance so we can prompt an upgrade (LA-322).
+  const quotaQ = trpc.subscriptions.sellerListingQuota.useQuery(undefined, {
+    enabled: !!submitted && session?.role === "home-seller",
+  });
   const [images, setImages] = useState<UploadImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [data, setData] = useState<FormData>(EMPTY);
@@ -443,19 +448,37 @@ export default function ListPropertyPage() {
             </div>
           </div>
 
-          {/* Seller plans upsell — a listing needs an active seller plan to be
-              approved and showcased. LA-321. */}
-          <Link
-            href="/pricing"
-            className="mx-auto mt-6 flex max-w-md items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/5 px-5 py-3 text-left transition hover:border-accent"
-          >
-            <span className="text-sm font-semibold text-navy">
-              Choose a seller plan to get your listing approved &amp; showcased
-            </span>
-            <span className="shrink-0 rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white">
-              View Plans
-            </span>
-          </Link>
+          {/* Seller plans upsell — a listing needs an active seller plan with a
+              free listing slot to be approved and showcased. When the seller has
+              exhausted their plan's allowance (or has none), prompt an upgrade
+              instead of a generic "view plans". LA-321 / LA-322. */}
+          {quotaQ.data?.exhausted ? (
+            <div className="mx-auto mt-6 max-w-md rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 text-left">
+              <p className="text-sm font-semibold text-amber-900">
+                {quotaQ.data.hasPlan
+                  ? "You've used all the listings in your current plan. Please upgrade your plan to activate and approve this listing for showcase."
+                  : "Please choose a seller plan to activate and approve your listing for showcase."}
+              </p>
+              <Link
+                href="/pricing"
+                className="mt-3 inline-block rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white transition hover:opacity-95"
+              >
+                {quotaQ.data.hasPlan ? "Upgrade Plan" : "View Plans"}
+              </Link>
+            </div>
+          ) : (
+            <Link
+              href="/pricing"
+              className="mx-auto mt-6 flex max-w-md items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/5 px-5 py-3 text-left transition hover:border-accent"
+            >
+              <span className="text-sm font-semibold text-navy">
+                Choose a seller plan to get your listing approved &amp; showcased
+              </span>
+              <span className="shrink-0 rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white">
+                View Plans
+              </span>
+            </Link>
+          )}
 
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
