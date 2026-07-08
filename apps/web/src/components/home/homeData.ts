@@ -66,12 +66,13 @@ export const TOP_STATS_DATA = [
   { num: 100, suffix: "K+", l: "Customers" },
 ];
 
-export const PROPERTY_TABS = ["All", "Apartments", "Villas", "Commercial", "PG"];
+export const PROPERTY_TABS = ["All", "Apartments", "Villas", "Commercial", "Plots", "PG"];
 
 export const TAB_TYPE_MAP: Record<string, string> = {
   Apartments: "Apartment",
   Villas: "Villa",
   Commercial: "Office",
+  Plots: "Plot",
   PG: "PG",
 };
 

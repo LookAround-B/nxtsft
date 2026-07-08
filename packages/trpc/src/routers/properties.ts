@@ -446,6 +446,7 @@ export const propertiesRouter = router({
         data: {
           ...rest,
           slug,
+          status: "Pending",
           price: BigInt(price),
           pricePerSqft: Math.round(price / area),
           area,
@@ -460,10 +461,10 @@ export const propertiesRouter = router({
 
       await notify({
         userId: ctx.user.id,
-        type: "listing_published",
-        title: "Listing published",
-        content: `"${property.title}" is now live.`,
-        actionUrl: `/properties/${property.slug}`,
+        type: "listing_submitted",
+        title: "Listing submitted",
+        content: `"${property.title}" is pending admin approval.`,
+        actionUrl: "/user-portal#mylist",
       });
 
       return serializeProperty(property);
@@ -790,6 +791,26 @@ export const propertiesRouter = router({
       return { id: updated.id, featured: updated.featured };
     }),
 
+  // Whether the current user already unlocked this property's contact —
+  // lets the detail page show the owner contact on load without re-charging.
+  contactUnlockStatus: protectedProcedure
+    .input(z.object({ id: cuidSchema }))
+    .query(async ({ input, ctx }) => {
+      const unlocked = await prisma.creditTransaction.findFirst({
+        where: { userId: ctx.user.id, propertyId: input.id, reason: "contact_unlock" },
+        select: { id: true },
+      });
+      if (!unlocked) return { unlocked: false as const };
+
+      const property = await prisma.property.findFirst({
+        where: { id: input.id, deletedAt: null },
+        include: { owner: { select: { name: true, phone: true } } },
+      });
+      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+
+      return { unlocked: true as const, phone: property.owner.phone, name: property.owner.name };
+    }),
+
   // Unlock owner contact — costs 1 credit (credit gate)
   unlockContact: protectedProcedure
     .use(contactRateLimit)
@@ -800,6 +821,15 @@ export const propertiesRouter = router({
         include: { owner: { select: { id: true, name: true, phone: true } } },
       });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+
+      // Already unlocked by this user — return contact without charging again.
+      const alreadyUnlocked = await prisma.creditTransaction.findFirst({
+        where: { userId: ctx.user.id, propertyId: input.id, reason: "contact_unlock" },
+        select: { id: true },
+      });
+      if (alreadyUnlocked) {
+        return { phone: property.owner.phone, name: property.owner.name };
+      }
 
       // Atomic deduct: WHERE credits >= 1 prevents double-spend from concurrent requests
       const deducted = await prisma.user.updateMany({

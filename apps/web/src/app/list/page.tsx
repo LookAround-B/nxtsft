@@ -443,7 +443,21 @@ export default function ListPropertyPage() {
             </div>
           </div>
 
-          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          {/* Seller plans upsell — a listing needs an active seller plan to be
+              approved and showcased. LA-321. */}
+          <Link
+            href="/pricing"
+            className="mx-auto mt-6 flex max-w-md items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/5 px-5 py-3 text-left transition hover:border-accent"
+          >
+            <span className="text-sm font-semibold text-navy">
+              Choose a seller plan to get your listing approved &amp; showcased
+            </span>
+            <span className="shrink-0 rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white">
+              View Plans
+            </span>
+          </Link>
+
+          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
               href="/"
               className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95"

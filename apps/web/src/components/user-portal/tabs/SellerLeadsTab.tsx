@@ -57,14 +57,37 @@ export function SellerLeadsTab() {
     );
   }
 
-  const items = (leadsQ.data ?? []) as unknown as Lead[];
+  const enquiries = (leadsQ.data ?? []) as unknown as Lead[];
   const unlocks = (unlocksQ.data ?? []) as unknown as Unlock[];
+
+  // Contact-unlock events are leads too (buyer paid a credit to see the owner's
+  // number) — merge them into the same list so they don't hide in a section
+  // below the fold. LA-327: reporter expected unlocks to show under "Leads".
+  const unlockLeads: Lead[] = unlocks
+    .filter((u) => u.buyer)
+    .map((u) => ({
+      id: `unlock-${u.property?.id ?? "x"}-${u.buyer!.id}-${u.createdAt}`,
+      name: u.buyer!.name,
+      phone: u.buyer!.phone,
+      email: null,
+      city: null,
+      interest: null,
+      source: "Contact Unlock",
+      status: "New",
+      value: null,
+      createdAt: u.createdAt,
+      property: u.property,
+    }));
+
+  const items = [...enquiries, ...unlockLeads].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 
   return (
     <>
-      <Head t="Leads" s="Buyers who enquired on your listings." />
+      <Head t="Leads" s="Buyers who enquired or unlocked contact on your listings." />
       <Section title={items.length ? `${items.length} lead${items.length > 1 ? "s" : ""}` : "Leads"}>
-        {leadsQ.isLoading ? (
+        {leadsQ.isLoading || unlocksQ.isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-24 animate-pulse rounded-lg border border-border bg-secondary/40" />
@@ -75,7 +98,7 @@ export function SellerLeadsTab() {
             <Users size={32} className="mx-auto mb-3 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">No leads yet.</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              When a buyer enquires on one of your listings, they&apos;ll appear here.
+              When a buyer enquires or unlocks contact on one of your listings, they&apos;ll appear here.
             </p>
           </div>
         ) : (
@@ -126,41 +149,6 @@ export function SellerLeadsTab() {
                     )}
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
-
-      <Section title="Contact Unlocks">
-        {unlocksQ.isLoading ? (
-          <div className="space-y-3">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-16 animate-pulse rounded-lg border border-border bg-secondary/40" />
-            ))}
-          </div>
-        ) : unlocks.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-secondary/20 py-10 text-center">
-            <p className="text-sm text-muted-foreground">No one has unlocked your contact yet.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {unlocks.map((u, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 text-xs">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="font-semibold text-navy">{u.buyer?.name ?? "Unknown buyer"}</span>
-                  {u.buyer?.phone && (
-                    <span className="inline-flex items-center gap-1 text-muted-foreground">
-                      <Phone size={11} /> {u.buyer.phone}
-                    </span>
-                  )}
-                  {u.property && (
-                    <Link href={`/properties/${u.property.slug}`} className="truncate font-medium text-navy hover:text-accent">
-                      {u.property.title}
-                    </Link>
-                  )}
-                </div>
-                <span className="shrink-0 text-muted-foreground">{fmtDate(u.createdAt)}</span>
               </div>
             ))}
           </div>

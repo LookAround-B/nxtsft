@@ -252,6 +252,14 @@ function ContactCard({
   const router = useRouter();
   const [phone, setPhone] = useState<string | null>(null);
 
+  const { data: unlockStatus } = trpc.properties.contactUnlockStatus.useQuery(
+    { id: property.id },
+    { enabled: !!session },
+  );
+  useEffect(() => {
+    if (unlockStatus?.unlocked) setPhone(unlockStatus.phone);
+  }, [unlockStatus]);
+
   const unlock = trpc.properties.unlockContact.useMutation({
     onSuccess: (data) => {
       setPhone(data.phone);

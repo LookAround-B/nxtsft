@@ -321,6 +321,17 @@ export const usersRouter = router({
       return { ok: true };
     }),
 
+  // Total credits this user has spent unlocking contacts (property/interior
+  // designer/decor store) — powers the "Contact Unlocks Used" stat card.
+  contactUnlocksUsed: protectedProcedure.query(async ({ ctx }) => {
+    return prisma.creditTransaction.count({
+      where: {
+        userId: ctx.user.id,
+        reason: { in: ["contact_unlock", "designer_contact_unlock", "decor_contact_unlock"] },
+      },
+    });
+  }),
+
   siteVisits: protectedProcedure.query(async ({ ctx }) => {
     const visits = await prisma.siteVisit.findMany({
       where: { userId: ctx.user.id },

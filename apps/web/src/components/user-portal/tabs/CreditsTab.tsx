@@ -26,14 +26,20 @@ const creditTimeline = [
 
 
 export function CreditsTab() {
-  const { credits, refreshCredits } = useAuth();
+  const { session, credits, refreshCredits } = useAuth();
   const router = useRouter();
+  const isSeller = session?.role === "home-seller";
   const [unlocks, setUnlocks] = useState(myUnlocks.map((u) => ({ ...u })));
   const [showTopUp, setShowTopUp] = useState(false);
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
 
+  // Sellers buy owner-rent/owner-sell subscription plans, not per-contact
+  // buyer credits — send them to /pricing (which has both plan types) rather
+  // than this buyer-only credit top-up modal. LA-324.
+  const viewPlans = () => (isSeller ? router.push("/pricing") : setShowTopUp(true));
+
   const creditsQ = trpc.users.credits.useQuery();
-  const plansQ = trpc.subscriptions.plans.useQuery({ type: "seeker" });
+  const plansQ = trpc.subscriptions.plans.useQuery({ type: "seeker" }, { enabled: !isSeller });
   const planQ = trpc.subscriptions.myCurrent.useQuery();
   const gatewayQ = trpc.subscriptions.activeGateway.useQuery();
   const createOrder = trpc.subscriptions.createOrder.useMutation();
@@ -184,9 +190,13 @@ export function CreditsTab() {
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">No active plan. Buy credits to unlock owner contacts.</p>
+            <p className="text-sm text-muted-foreground">
+              {isSeller
+                ? "No active plan. Choose a seller plan to publish listings."
+                : "No active plan. Buy credits to unlock owner contacts."}
+            </p>
             <button
-              onClick={() => setShowTopUp(true)}
+              onClick={viewPlans}
               className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
             >
               View plans
@@ -216,10 +226,10 @@ export function CreditsTab() {
               : "No transactions yet"}
           </span>
           <button
-            onClick={() => setShowTopUp(true)}
+            onClick={viewPlans}
             className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
           >
-            <Plus size={12} /> Top Up Credits
+            <Plus size={12} /> {isSeller ? "View Seller Plans" : "Top Up Credits"}
           </button>
         </div>
       </Section>

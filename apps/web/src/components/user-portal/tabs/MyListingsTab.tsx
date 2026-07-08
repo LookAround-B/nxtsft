@@ -348,6 +348,14 @@ export function MyListingsTab() {
                           <Camera size={11} /> Get Professional Media
                         </button>
                       )}
+                      {p.status === "Pending" && (
+                        <Link
+                          href="/pricing"
+                          className="rounded-md bg-mid-blue px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+                        >
+                          Upgrade to Activate
+                        </Link>
+                      )}
                       <Link
                         href={`/properties/${p.slug}`}
                         className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold"

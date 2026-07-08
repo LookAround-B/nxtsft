@@ -13,6 +13,7 @@ export function OverviewDashboard({ userEmail }: { userEmail: string }) {
   const displayName = session?.name ?? DEMO_USER.name;
   const favoritesQ = trpc.users.favorites.useQuery(undefined, { enabled: !!session });
   const visitsQ = trpc.users.siteVisits.useQuery(undefined, { enabled: !!session });
+  const unlocksUsedQ = trpc.users.contactUnlocksUsed.useQuery(undefined, { enabled: !!session });
   const myViews = propertyViews
     .filter((v) => v.userEmail === userEmail || v.userEmail === "rohan@example.com")
     .sort((a, b) => b.ts.localeCompare(a.ts));
@@ -41,7 +42,11 @@ export function OverviewDashboard({ userEmail }: { userEmail: string }) {
           value={favoritesQ.data ? String(favoritesQ.data.length) : "—"}
           sub="from your shortlist"
         />
-        <StatCard label="Contact Unlocks Used" value="—" sub="see Credits tab" />
+        <StatCard
+          label="Contact Unlocks Used"
+          value={unlocksUsedQ.data !== undefined ? String(unlocksUsedQ.data) : "—"}
+          sub="see Credits tab"
+        />
         <StatCard
           label="Credits Remaining"
           value={String(credits)}

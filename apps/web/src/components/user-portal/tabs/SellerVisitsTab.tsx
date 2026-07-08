@@ -92,7 +92,12 @@ export function SellerVisitsTab() {
                           {v.buyer.phone && (
                             <>
                               <span className="text-border">·</span>
-                              <Phone size={11} /> {v.buyer.phone}
+                              <a
+                                href={`tel:${v.buyer.phone}`}
+                                className="inline-flex items-center gap-1 font-semibold text-accent hover:underline"
+                              >
+                                <Phone size={11} /> {v.buyer.phone}
+                              </a>
                             </>
                           )}
                         </span>
