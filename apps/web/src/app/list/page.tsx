@@ -160,6 +160,14 @@ export default function ListPropertyPage() {
   const quotaQ = trpc.subscriptions.sellerListingQuota.useQuery(undefined, {
     enabled: !!submitted && session?.role === "home-seller",
   });
+  // LA-330: hide property types an admin has deactivated. Form labels map to
+  // schema types via DB_TYPE_MAP; a type is available unless its mapped schema
+  // type is in the disabled set.
+  const disabledTypesQ = trpc.properties.disabledTypes.useQuery();
+  const disabledTypes = disabledTypesQ.data ?? [];
+  const availableTypes = PROPERTY_TYPES.filter(
+    (t) => !disabledTypes.includes(DB_TYPE_MAP[t] ?? t),
+  );
   const [images, setImages] = useState<UploadImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [data, setData] = useState<FormData>(EMPTY);
@@ -768,7 +776,7 @@ export default function ListPropertyPage() {
               <div className="mt-6">
                 <label className="block text-sm font-semibold text-foreground">Property Type</label>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {PROPERTY_TYPES.map((t) => (
+                  {availableTypes.map((t) => (
                     <button
                       key={t}
                       onClick={() => {

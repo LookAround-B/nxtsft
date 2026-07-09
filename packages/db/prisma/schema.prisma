@@ -73,6 +73,7 @@ model User {
   salesActivities       SalesActivity[]        @relation("SalesRepActivities")
   escalationsAssigned   Escalation[]           @relation("EscalationAssignee")
   referralSubmissions   ReferralSubmission[]   @relation("UserReferralSubmissions")
+  pushSubscriptions     PushSubscription[]     @relation("UserPushSubscriptions")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -867,6 +868,23 @@ model Notification {
 
   @@index([userId])
   @@index([read])
+}
+
+// Browser Web Push subscription (LA-332). One row per device/browser a user
+// has opted in from; `endpoint` is the unique push service URL, keys are the
+// p256dh/auth pair the browser hands back. Dead endpoints (410/404 on send)
+// are pruned by the broadcaster.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("UserPushSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // A seller's proposed edits to a live listing, held for admin review. The

@@ -99,6 +99,7 @@ self.addEventListener('push', (e) => {
       body: data.body || '',
       icon: '/logo.png',
       badge: '/logo.png',
+      image: data.image || undefined,
       tag: data.tag || 'nxtsft',
       data: { url: data.url || '/' },
     })

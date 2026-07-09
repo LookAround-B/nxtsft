@@ -169,17 +169,29 @@ export const propertiesRouter = router({
         ];
       }
 
-      const items = await prisma.property.findMany({
-        where,
-        include: propertyInclude,
-        orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
-        take: limit,
-        skip: (page - 1) * limit,
-      });
-      const total = await prisma.property.count({ where });
+      // Run page + count concurrently — count was ~100ms of sequential wait
+      // per page flip on mobile (LA-333).
+      const [items, total] = await Promise.all([
+        prisma.property.findMany({
+          where,
+          include: propertyInclude,
+          orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+          take: limit,
+          skip: (page - 1) * limit,
+        }),
+        prisma.property.count({ where }),
+      ]);
 
       return serializeProperty({ items, page, totalPages: Math.max(1, Math.ceil(total / limit)), total });
     }),
+
+  // Property types an admin has disabled (LA-330) — public so the browse
+  // filter and the "list your property" form can hide them. Returns just the
+  // disabled names; consumers filter their own type lists against it.
+  disabledTypes: publicProcedure.query(async (): Promise<string[]> => {
+    const row = await prisma.siteSetting.findUnique({ where: { key: "property_types.disabled" } });
+    return ((row?.value as string[] | undefined) ?? []).filter((t): t is string => typeof t === "string");
+  }),
 
   // Per-property engagement: interest (leads), wishlists, contact requests.
   // Names are anonymized ("Rohan M.") — safe for public social proof.

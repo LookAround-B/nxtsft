@@ -1163,6 +1163,111 @@ export const adminRouter = router({
       };
     }),
 
+  // Transaction history — all subscription/credit payments across gateways
+  // (LA-331). Backs the admin Transactions tab: gateway/status/date filters,
+  // search by payer email/name or gateway payment id, CSV export on the client.
+  payments: adminProcedure
+    .input(
+      z.object({
+        gateway: z.enum(["razorpay", "payu"]).optional(),
+        status: z.enum(["Success", "Pending", "Failed", "Refunded"]).optional(),
+        search: searchSchema.optional(),
+        dateFrom: z.string().datetime().optional(),
+        dateTo: z.string().datetime().optional(),
+        page: pageSchema,
+        limit: limitSchema,
+      }),
+    )
+    .query(async ({ input }) => {
+      const { page, limit, gateway, status, search, dateFrom, dateTo } = input;
+
+      const where: NonNullable<Parameters<typeof prisma.payment.findMany>[0]>["where"] = {};
+      if (gateway) where.gateway = gateway;
+      if (status) where.status = status;
+      if (dateFrom || dateTo) {
+        where.createdAt = {};
+        if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+        // dateTo is a calendar day (inclusive) — extend to end of that day.
+        if (dateTo) where.createdAt.lte = new Date(new Date(dateTo).getTime() + 86_399_999);
+      }
+      if (search) {
+        where.OR = [
+          { user: { email: { contains: search, mode: "insensitive" } } },
+          { user: { name: { contains: search, mode: "insensitive" } } },
+          { razorpayId: { contains: search, mode: "insensitive" } },
+          { razorpayOrderId: { contains: search, mode: "insensitive" } },
+          { payuMihpayId: { contains: search, mode: "insensitive" } },
+          { payuTxnId: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const [rows, total, successAgg] = await Promise.all([
+        prisma.payment.findMany({
+          where,
+          include: { user: { select: { name: true, email: true } } },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+          skip: (page - 1) * limit,
+        }),
+        prisma.payment.count({ where }),
+        prisma.payment.aggregate({ where: { ...where, status: "Success" }, _sum: { amount: true } }),
+      ]);
+
+      return {
+        items: rows.map((p) => ({
+          id: p.id,
+          name: p.user.name,
+          email: p.user.email,
+          plan: p.description ?? "—",
+          amount: Number(p.amount) / 100, // paise → rupees
+          gateway: p.gateway,
+          method: p.method,
+          status: p.status,
+          paymentId: p.razorpayId ?? p.payuMihpayId ?? p.payuTxnId ?? p.razorpayOrderId ?? "—",
+          createdAt: p.createdAt.toISOString(),
+        })),
+        collected: Number(successAgg._sum.amount ?? 0n) / 100,
+        page,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        total,
+      };
+    }),
+
+  // Property types active/inactive (LA-330). We don't have a PropertyType
+  // master table — `Property.type` is a free string validated by an enum.
+  // Instead of a heavy CMS + migration, we persist a "disabled" set in
+  // SiteSetting; disabling a type hides it from the browse filter and the
+  // "list your property" form without touching existing listings.
+  propertyTypes: adminProcedure.query(async () => {
+    const [setting, counts] = await Promise.all([
+      prisma.siteSetting.findUnique({ where: { key: "property_types.disabled" } }),
+      prisma.property.groupBy({ by: ["type"], where: { deletedAt: null }, _count: true }),
+    ]);
+    const disabled = new Set((setting?.value as string[] | undefined) ?? []);
+    const countByType = new Map(counts.map((c) => [c.type, c._count]));
+    return propertyTypeSchema.options.map((type) => ({
+      type,
+      enabled: !disabled.has(type),
+      count: countByType.get(type) ?? 0,
+    }));
+  }),
+
+  setPropertyTypeEnabled: adminProcedure
+    .input(z.object({ type: propertyTypeSchema, enabled: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      const setting = await prisma.siteSetting.findUnique({ where: { key: "property_types.disabled" } });
+      const disabled = new Set((setting?.value as string[] | undefined) ?? []);
+      if (input.enabled) disabled.delete(input.type);
+      else disabled.add(input.type);
+      const value = [...disabled];
+      await prisma.siteSetting.upsert({
+        where: { key: "property_types.disabled" },
+        create: { key: "property_types.disabled", value, editorId: ctx.user.id },
+        update: { value, editorId: ctx.user.id },
+      });
+      return { type: input.type, enabled: input.enabled };
+    }),
+
   teamMembers: adminProcedure
     .input(
       z.object({

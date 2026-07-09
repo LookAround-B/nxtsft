@@ -298,6 +298,11 @@ function PropertiesInner() {
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
 
+  // LA-330: admin can deactivate property types — hide them from the filter.
+  const disabledTypesQ = trpc.properties.disabledTypes.useQuery();
+  const disabledTypes = disabledTypesQ.data ?? [];
+  const availableTypes = PROPERTY_TYPES.filter((t) => !disabledTypes.includes(t));
+
   useEffect(() => {
     setPage(1);
   }, [search, city, type, purpose, bedrooms, furnishing]);
@@ -384,7 +389,7 @@ function PropertiesInner() {
               <FilterSelect
                 value={type}
                 onChange={setType}
-                options={PROPERTY_TYPES}
+                options={availableTypes}
                 placeholder="Property Type"
               />
 

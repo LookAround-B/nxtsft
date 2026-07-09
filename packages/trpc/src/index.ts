@@ -25,6 +25,7 @@ import { interiorDesignersRouter } from "./routers/interiorDesigners";
 import { decorStoresRouter } from "./routers/decorStores";
 import { referralsRouter } from "./routers/referrals";
 import { socialRouter } from "./routers/social";
+import { pushRouter } from "./routers/push";
 
 export const appRouter = router({
   auth: authRouter,
@@ -53,6 +54,7 @@ export const appRouter = router({
   decorStores: decorStoresRouter,
   referrals: referralsRouter,
   social: socialRouter,
+  push: pushRouter,
 });
 
 export type AppRouter = typeof appRouter;

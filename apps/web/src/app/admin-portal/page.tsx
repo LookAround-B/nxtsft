@@ -25,6 +25,7 @@ import {
   UploadCloud,
   Contact,
   Flame,
+  Layers,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -47,6 +48,9 @@ import { AdminPlansTab } from "@/components/admin-portal/tabs/AdminPlansTab";
 import { CommissionsTab } from "@/components/admin-portal/tabs/CommissionsTab";
 import { EnquiriesTab } from "@/components/admin-portal/tabs/EnquiriesTab";
 import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
+import { TransactionsTab } from "@/components/admin-portal/tabs/TransactionsTab";
+import { PropertyTypesTab } from "@/components/admin-portal/tabs/PropertyTypesTab";
+import { PushNotificationsTab } from "@/components/admin-portal/tabs/PushNotificationsTab";
 import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
 import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprovalsTab";
 import { SiteContentTab } from "@/components/admin-portal/tabs/SiteContentTab";
@@ -78,12 +82,14 @@ const makeNav = (b?: BadgeCounts) => [
 
   // ── Platform ─────────────────────────────────────────────────────────
   { label: "Listings",       to: "/admin-portal#listings",     icon: <Building2 size={14} />,  group: "Platform", badge: b?.listings },
+  { label: "Property Types", to: "/admin-portal#property-types",icon: <Layers size={14} /> },
   { label: "Agents",         to: "/admin-portal#agents",       icon: <Contact size={14} /> },
   { label: "Reviews",        to: "/admin-portal#reviews",      icon: <Star size={14} />, badge: b?.reviews },
   { label: "Home Interiors", to: "/admin-portal#interiors",    icon: <Sofa size={14} />, badge: b?.interiors },
   { label: "Decors",         to: "/admin-portal#decor",        icon: <Lamp size={14} />, badge: b?.decor },
   { label: "Property Views", to: "/admin-portal#views",        icon: <Eye size={14} /> },
   { label: "Subscriptions",  to: "/admin-portal#subscriptions",icon: <ReceiptText size={14} /> },
+  { label: "Transactions",   to: "/admin-portal#transactions", icon: <ReceiptText size={14} /> },
   { label: "Buyer Wallets",  to: "/admin-portal#credits",      icon: <Coins size={14} /> },
   { label: "Plans",          to: "/admin-portal#plans",        icon: <PackageOpen size={14} /> },
 
@@ -94,6 +100,7 @@ const makeNav = (b?: BadgeCounts) => [
   // ── Admin ─────────────────────────────────────────────────────────────
   { label: "Team Management",  to: "/admin-portal#team",         icon: <Users size={14} />,      group: "Admin" },
   { label: "Marketing",        to: "/admin-portal#marketing",    icon: <Megaphone size={14} /> },
+  { label: "Push Notifications",to: "/admin-portal#push",        icon: <BellRing size={14} /> },
   { label: "Home Page Content",to: "/admin-portal#site-content", icon: <ImageIcon size={14} /> },
   { label: "Bulk Listings",    to: "/admin-portal#bulk-listings",icon: <UploadCloud size={14} /> },
   { label: "Dev Tools",        to: "/admin-portal#dev",          icon: <Building size={14} /> },
@@ -117,6 +124,9 @@ function renderTab(hash: string) {
     case "plans":         return <AdminPlansTab />;
     case "commissions":   return <CommissionsTab />;
     case "credits":       return <CreditsTab />;
+    case "transactions":  return <TransactionsTab />;
+    case "property-types": return <PropertyTypesTab />;
+    case "push":          return <PushNotificationsTab />;
     case "seller-approvals": return <SellerApprovalsTab />;
     case "kyc":           return <KYCReviewTab />;
     case "site-content":  return <SiteContentTab />;

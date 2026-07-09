@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { Section } from "@/components/portal/PortalShell";
+import { PushToggle } from "@/components/site/PushToggle";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import {
@@ -221,6 +222,12 @@ export function ProfileTab() {
         <Toggle on={notifNewMatches} onChange={setNotifNewMatches} label="New matches" />
         <Toggle on={notifPriceDrops} onChange={setNotifPriceDrops} label="Price drops" />
         <Toggle on={notifVisitRemind} onChange={setNotifVisitRemind} label="Site visit reminders" />
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="mb-2 text-sm text-muted-foreground">
+            Get alerts on this device even when NxtSft isn’t open.
+          </p>
+          <PushToggle />
+        </div>
       </Section>
 
       {/* Change Password */}
