@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -31,10 +32,13 @@ import {
   FolderOpen,
   RefreshCcw,
   Satellite,
+  Camera,
+  Loader2,
   type LucideIcon,
 } from "lucide-react";
 import { ROLE_META, useAuth, type Role } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
+import { compressImage } from "@/lib/image";
 import { ListSkeleton } from "@/components/ui/skeleton";
 
 /* ── per-role quick actions ─────────────────────────────────────── */
@@ -188,8 +192,40 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 }
 
 export default function ProfilePage() {
-  const { session, signOut, updateProfile } = useAuth();
+  const { session, signOut, updateProfile, updateAvatar } = useAuth();
   const router = useRouter();
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const uploadImage = trpc.media.uploadImage.useMutation();
+
+  // Avatars are never watermarked (that's for listing photos only) and are
+  // squared down hard — the tile renders at 96px.
+  async function onAvatarPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // let the same file be re-picked after a failure
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Pick an image file.");
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      const dataUrl = await compressImage(file, 512, 0.8);
+      const { url } = await uploadImage.mutateAsync({
+        contentType: "image/jpeg",
+        data: dataUrl.split(",")[1] ?? "",
+        folder: "avatars",
+      });
+      await updateAvatar(url);
+      toast.success("Profile photo updated.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not upload photo.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
 
   const updateProfileMutation = trpc.users.updateProfile.useMutation();
   const activityQ = trpc.users.recentActivity.useQuery(undefined, { enabled: !!session });
@@ -334,9 +370,42 @@ export default function ProfilePage() {
             {/* Identity row */}
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
               <div className="relative shrink-0">
-                <div className="grid h-24 w-24 place-items-center rounded-2xl bg-linear-to-br from-accent to-cyan-500 font-display text-3xl font-black text-white shadow-2xl ring-4 ring-white/15">
-                  {session.initials}
+                <div className="relative grid h-24 w-24 place-items-center overflow-hidden rounded-2xl bg-linear-to-br from-accent to-cyan-500 font-display text-3xl font-black text-white shadow-2xl ring-4 ring-white/15">
+                  {session.avatar ? (
+                    <Image
+                      src={session.avatar}
+                      alt={session.name}
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    session.initials
+                  )}
+                  {avatarUploading && (
+                    <div className="absolute inset-0 grid place-items-center bg-navy/60">
+                      <Loader2 size={20} className="animate-spin text-white" />
+                    </div>
+                  )}
                 </div>
+
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={onAvatarPicked}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  aria-label="Change profile photo"
+                  className="absolute -bottom-1.5 -left-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-navy shadow-lg ring-4 ring-navy transition hover:bg-white disabled:opacity-60"
+                >
+                  <Camera size={14} strokeWidth={2.5} />
+                </button>
+
                 <span className="absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 ring-4 ring-navy">
                   <CheckCircle2 size={12} className="text-white" strokeWidth={3} />
                 </span>
@@ -368,7 +437,7 @@ export default function ProfilePage() {
                   href={meta.portal}
                   className="flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-accent/25 transition hover:-translate-y-0.5 hover:opacity-95"
                 >
-                  Open Portal <ChevronRight size={14} />
+                  Open Dashboard <ChevronRight size={14} />
                 </Link>
                 <button
                   onClick={() => {

@@ -22,6 +22,8 @@ export interface Session {
   city: string;
   phone: string;
   joined: string;
+  /** Hosted profile photo; null falls back to rendering `initials`. */
+  avatar: string | null;
 }
 
 export const ROLE_META: Record<
@@ -151,6 +153,7 @@ interface Ctx {
   register: (name: string, email: string, phone: string, password: string, city?: string) => Promise<Session>;
   registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent") => Promise<void>;
   updateProfile: (name: string, phone: string) => Promise<void>;
+  updateAvatar: (url: string) => Promise<void>;
   addCredits: (n: number) => void;
   useCredit: () => boolean;
   refreshCredits: () => Promise<void>;
@@ -191,6 +194,7 @@ type SafeUser = {
   city: string;
   credits: number;
   joined: Date | string;
+  avatar?: string | null;
 };
 
 function toSession(user: SafeUser): Session {
@@ -203,6 +207,7 @@ function toSession(user: SafeUser): Session {
     city: user.city || "India",
     phone: user.phone ? (user.phone.startsWith("+") ? user.phone : `+91 ${user.phone}`) : "",
     joined: formatJoined(user.joined),
+    avatar: user.avatar ?? null,
   };
 }
 
@@ -360,6 +365,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(updated);
   }
 
+  async function updateAvatar(url: string): Promise<void> {
+    if (!session) return;
+    await makeTRPC().users.updateProfile.mutate({ avatar: url });
+    const updated: Session = { ...session, avatar: url };
+    writeLS(SESSION_KEY, JSON.stringify(updated));
+    setSession(updated);
+  }
+
   function addCredits(n: number): void {
     const next = Math.max(0, credits + n);
     writeLS(CREDITS_KEY, String(next));
@@ -399,6 +412,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         registerSeller,
         updateProfile,
+        updateAvatar,
         addCredits,
         useCredit,
         refreshCredits,
