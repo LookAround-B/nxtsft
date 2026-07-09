@@ -42,11 +42,13 @@ export function OverviewDashboard({ userEmail }: { userEmail: string }) {
           value={favoritesQ.data ? String(favoritesQ.data.length) : "—"}
           sub="from your shortlist"
         />
-        <StatCard
-          label="Contact Unlocks Used"
-          value={unlocksUsedQ.data !== undefined ? String(unlocksUsedQ.data) : "—"}
-          sub="see Credits tab"
-        />
+        <Link href="/user-portal#credits" className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+          <StatCard
+            label="Contact Unlocks Used"
+            value={unlocksUsedQ.data !== undefined ? String(unlocksUsedQ.data) : "—"}
+            sub="view unlocked contacts →"
+          />
+        </Link>
         <StatCard
           label="Credits Remaining"
           value={String(credits)}

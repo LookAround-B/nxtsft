@@ -1,19 +1,24 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, X, CheckCircle, XCircle } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { openRazorpayCheckout } from "@/lib/razorpay";
-import { subscriptions, unlockedContacts, walletLedger, disputes } from "@/data/static";
+import { walletLedger, disputes } from "@/data/static";
 import { Head } from "./shared";
 
-const mySubscription = subscriptions[0];
-const myUnlocks = unlockedContacts.filter((u) => u.subId === mySubscription.id);
 const myLedger = walletLedger;
 const myDisputes = disputes;
+
+const unlockKindLabel: Record<"property" | "designer" | "decor", string> = {
+  property: "Property",
+  designer: "Interiors",
+  decor: "Decor",
+};
 
 // Static credit usage timeline (last 5 unlock events)
 const creditTimeline = [
@@ -29,7 +34,6 @@ export function CreditsTab() {
   const { session, credits, refreshCredits } = useAuth();
   const router = useRouter();
   const isSeller = session?.role === "home-seller";
-  const [unlocks, setUnlocks] = useState(myUnlocks.map((u) => ({ ...u })));
   const [showTopUp, setShowTopUp] = useState(false);
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
 
@@ -58,6 +62,7 @@ export function CreditsTab() {
   type TxItem = { id: string; type: string; amount: number; reason: string | null; createdAt: string };
   const balance = creditsQ.data?.balance ?? credits;
   const transactions = (creditsQ.data?.transactions ?? []) as unknown as TxItem[];
+  const unlockedQ = trpc.users.unlockedContacts.useQuery();
 
   const handleTopUp = async (plan: { id: string; name: string; credits: number }) => {
     const gateway = gatewayQ.data?.gateway ?? "razorpay";
@@ -114,19 +119,6 @@ export function CreditsTab() {
     }
   };
 
-  const toggleClosed = (id: string) => {
-    setUnlocks((prev) => prev.map((u) => (u.id === id ? { ...u, closed: !u.closed } : u)));
-    toast.success("Closure status updated");
-  };
-
-  const fileDispute = (property: string) => {
-    toast.success(
-      `Dispute filed for "${property}". Token refund will be reviewed within 48 hours.`,
-    );
-  };
-
-  const disputedUnlockIds = new Set(myDisputes.map((d) => d.id));
-
   return (
     <>
       <Head t="My Credits" s="Subscription status and unlock history." />
@@ -147,7 +139,7 @@ export function CreditsTab() {
         <StatCard
           label="Credits Used"
           value={String(transactions.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0))}
-          sub={`${unlocks.filter((u) => u.closed).length} contacts closed`}
+          sub={`${unlockedQ.data?.length ?? 0} contacts unlocked`}
         />
         <StatCard
           label="Disputes Filed"
@@ -356,70 +348,49 @@ export function CreditsTab() {
         )}
       </Section>
 
-      {/* Unlocked Contacts */}
-      <Section title="Unlocked Contacts">
-        {unlocks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No contacts unlocked yet. Browse properties and unlock a contact to get started.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {unlocks.map((u) => {
-              const alreadyDisputed = disputedUnlockIds.has(u.id);
-              return (
+      {/* Unlocked Contacts — real backend data (property / designer / decor) */}
+      <div id="unlocked-contacts" className="scroll-mt-24">
+        <Section title="Unlocked Contacts">
+          {unlockedQ.isLoading ? (
+            <p className="py-2 text-sm text-muted-foreground">Loading unlocked contacts…</p>
+          ) : (unlockedQ.data?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No contacts unlocked yet. Browse properties and unlock a contact to get started.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {unlockedQ.data!.map((u) => (
                 <div key={u.id} className="rounded-xl border border-border p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-navy truncate">{u.property}</div>
+                      <Link
+                        href={u.href}
+                        className="font-semibold text-navy truncate hover:text-accent hover:underline"
+                      >
+                        {u.name}
+                      </Link>
                       <div className="mt-0.5 text-xs text-muted-foreground">
-                        Owner: {u.owner} · {u.phone}
+                        {u.contactName !== u.name && <>{u.contactName} · </>}
+                        {u.phone ? (
+                          <a href={`tel:${u.phone}`} className="font-medium text-accent hover:underline">
+                            {u.phone}
+                          </a>
+                        ) : (
+                          <span className="italic">no number on file</span>
+                        )}
                       </div>
                       <div className="mt-1 font-mono text-[10px] text-muted-foreground">
-                        Unlocked {u.unlockedAt}
+                        Unlocked {planFmtDate(u.unlockedAt as unknown as string)}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                      <Badge tone={u.closed ? "success" : "warm"}>
-                        {u.closed ? "Closed" : "Active"}
-                      </Badge>
-                      <button
-                        onClick={() => toggleClosed(u.id)}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-accent hover:underline"
-                      >
-                        {u.closed ? (
-                          <>
-                            <XCircle size={12} /> Mark open
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle size={12} /> Mark closed
-                          </>
-                        )}
-                      </button>
-                    </div>
+                    <Badge tone="cold">{unlockKindLabel[u.kind]}</Badge>
                   </div>
-                  {!u.closed && (
-                    <div className="mt-3 border-t border-border pt-3">
-                      {alreadyDisputed ? (
-                        <span className="text-[11px] text-blue-600 font-semibold">
-                          Dispute already filed for this contact.
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => fileDispute(u.property)}
-                          className="text-[11px] font-semibold text-muted-foreground hover:text-accent underline underline-offset-2 transition-colors"
-                        >
-                          File dispute for token refund
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </Section>
+              ))}
+            </div>
+          )}
+        </Section>
+      </div>
     </>
   );
 }

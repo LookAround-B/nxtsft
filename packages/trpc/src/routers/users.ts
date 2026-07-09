@@ -332,6 +332,110 @@ export const usersRouter = router({
     });
   }),
 
+  // Full list of contacts this user has unlocked (property / interior designer /
+  // decor store), newest first — powers the "Unlocked Contacts" list in the
+  // Credits tab. Each CreditTransaction stores only the target id (no Prisma
+  // relation), so we join manually by id like siteVisits does.
+  unlockedContacts: protectedProcedure.query(async ({ ctx }) => {
+    const txns = await prisma.creditTransaction.findMany({
+      where: {
+        userId: ctx.user.id,
+        reason: { in: ["contact_unlock", "designer_contact_unlock", "decor_contact_unlock"] },
+      },
+      select: {
+        id: true,
+        reason: true,
+        createdAt: true,
+        propertyId: true,
+        interiorDesignerId: true,
+        decorStoreId: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const propertyIds = txns.flatMap((t) => (t.propertyId ? [t.propertyId] : []));
+    const designerIds = txns.flatMap((t) => (t.interiorDesignerId ? [t.interiorDesignerId] : []));
+    const storeIds = txns.flatMap((t) => (t.decorStoreId ? [t.decorStoreId] : []));
+
+    const [props, designers, stores] = await Promise.all([
+      propertyIds.length
+        ? prisma.property.findMany({
+            where: { id: { in: propertyIds } },
+            select: { id: true, slug: true, title: true, ownerName: true, owner: { select: { name: true, phone: true } } },
+          })
+        : [],
+      designerIds.length
+        ? prisma.interiorDesigner.findMany({
+            where: { id: { in: designerIds } },
+            select: { id: true, slug: true, companyName: true, phone: true },
+          })
+        : [],
+      storeIds.length
+        ? prisma.decorStore.findMany({
+            where: { id: { in: storeIds } },
+            select: { id: true, slug: true, companyName: true, phone: true },
+          })
+        : [],
+    ]);
+
+    const propById = new Map(props.map((p) => [p.id, p]));
+    const designerById = new Map(designers.map((d) => [d.id, d]));
+    const storeById = new Map(stores.map((s) => [s.id, s]));
+
+    type UnlockedContact = {
+      id: string;
+      kind: "property" | "designer" | "decor";
+      name: string;
+      href: string;
+      contactName: string;
+      phone: string | null;
+      unlockedAt: Date;
+    };
+
+    return txns.flatMap((t): UnlockedContact[] => {
+      if (t.reason === "contact_unlock" && t.propertyId) {
+        const p = propById.get(t.propertyId);
+        if (!p) return [];
+        return [{
+          id: t.id,
+          kind: "property" as const,
+          name: p.title,
+          href: `/properties/${p.slug}`,
+          contactName: p.ownerName ?? p.owner.name,
+          phone: p.owner.phone,
+          unlockedAt: t.createdAt,
+        }];
+      }
+      if (t.reason === "designer_contact_unlock" && t.interiorDesignerId) {
+        const d = designerById.get(t.interiorDesignerId);
+        if (!d) return [];
+        return [{
+          id: t.id,
+          kind: "designer" as const,
+          name: d.companyName,
+          href: `/interiors/${d.slug}`,
+          contactName: d.companyName,
+          phone: d.phone,
+          unlockedAt: t.createdAt,
+        }];
+      }
+      if (t.reason === "decor_contact_unlock" && t.decorStoreId) {
+        const s = storeById.get(t.decorStoreId);
+        if (!s) return [];
+        return [{
+          id: t.id,
+          kind: "decor" as const,
+          name: s.companyName,
+          href: `/decor/${s.slug}`,
+          contactName: s.companyName,
+          phone: s.phone,
+          unlockedAt: t.createdAt,
+        }];
+      }
+      return [];
+    });
+  }),
+
   siteVisits: protectedProcedure.query(async ({ ctx }) => {
     const visits = await prisma.siteVisit.findMany({
       where: { userId: ctx.user.id },
