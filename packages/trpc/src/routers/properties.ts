@@ -493,6 +493,14 @@ export const propertiesRouter = router({
       // Numbers may arrive as strings from CSV cells — coerce them. Empty
       // optional cells arrive as undefined from the client, so .optional() holds.
       const rowSchema = z.object({
+        // Display-only. Blank means the listing shows the uploading seller's own
+        // name. There is deliberately no ownerPhone column here: letting a seller
+        // name an arbitrary phone would mint accounts on numbers they don't own,
+        // and contact unlock must keep revealing the seller who handles the lead.
+        ownerName: z.preprocess(
+          (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+          safeString(200).optional(),
+        ),
         title: safeString(200, 10),
         description: descriptionSchema.optional(),
         type: propertyTypeSchema,
@@ -580,6 +588,7 @@ export const propertiesRouter = router({
               walkthroughVideoUrl: d.walkthroughVideoUrl,
               status: "Pending",
               ownerId: ctx.user.id,
+              ownerName: d.ownerName ?? null,
               // PG fields only when the listing is a PG.
               ...(isPg
                 ? {

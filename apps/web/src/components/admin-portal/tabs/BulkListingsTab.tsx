@@ -26,9 +26,13 @@ type FieldKey =
 type Row = Partial<Record<FieldKey, string>>;
 type FieldDef = { key: FieldKey; header: string; required?: boolean; aliases?: string[]; example: string };
 
+// Owner columns are optional. Leave both blank and the listing is attributed to
+// you, the importing admin. Give a name but no phone and the listing displays
+// that name without creating an account — the way to seed one project with many
+// owners. Give a phone and the row gets (or creates) its own owner account.
 const FIELDS: FieldDef[] = [
-  { key: "ownerName", header: "Owner Name", required: true, example: "Ramesh Kumar" },
-  { key: "ownerPhone", header: "Owner Mobile Number", required: true, aliases: ["owner phone", "owner mobile"], example: "9876500000" },
+  { key: "ownerName", header: "Owner Name", example: "Ramesh Kumar" },
+  { key: "ownerPhone", header: "Owner Mobile Number", aliases: ["owner phone", "owner mobile"], example: "9876500000" },
   { key: "ownerEmail", header: "Owner Email", aliases: ["email", "owner email id"], example: "" },
 
   { key: "title", header: "Title", required: true, example: "Spacious 3 BHK Apartment in Whitefield" },

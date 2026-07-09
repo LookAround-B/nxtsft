@@ -504,9 +504,11 @@ export const adminRouter = router({
     // Admin-only bulk import: each row carries its own owner (name/phone/email).
     // A matching phone reuses that user; otherwise a new dummy home-seller
     // account is created so the listing has a real owner to attribute to.
+    // Both owner columns are optional: with no phone the row is attributed to the
+    // importing admin, and an owner name alone becomes the listing's display name.
     bulkCreateListings: adminProcedure
       .input(z.object({ rows: z.array(z.unknown()).min(1).max(BULK_IMPORT_MAX_ROWS) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         // External spreadsheets commonly carry a country code / internal
         // spacing, e.g. "+91 75319 34532" — strip everything but digits and
         // drop a leading "91" before handing off to the strict shared schema.
@@ -559,10 +561,18 @@ export const adminRouter = router({
             .optional(),
         );
 
+        // Owner identity is optional. A blank owner phone means "this row belongs
+        // to the admin running the import"; a blank owner name then means the
+        // listing simply shows that admin's name. A name without a phone sets the
+        // per-listing display override (Property.ownerName) instead of minting an
+        // account — that's how one import shows many owners without many logins.
+        const blankToUndefined = (v: unknown) =>
+          typeof v === "string" && ["", "-", "n/a", "na"].includes(v.trim().toLowerCase()) ? undefined : v;
+
         const rowSchema = z.object({
-          ownerName: nameSchema,
-          ownerPhone: bulkPhoneSchema,
-          ownerEmail: emailSchema.optional(),
+          ownerName: z.preprocess(blankToUndefined, nameSchema.optional()),
+          ownerPhone: z.preprocess(blankToUndefined, bulkPhoneSchema.optional()),
+          ownerEmail: z.preprocess(blankToUndefined, emailSchema.optional()),
 
           title: safeString(200, 10),
           description: descriptionSchema.optional(),
@@ -633,20 +643,35 @@ export const adminRouter = router({
         // and time out. Everything below is createMany/findMany over the whole
         // batch — ~7 round-trips total regardless of file size.
 
-        // Phase 2 — resolve owners in bulk. First-seen row per new phone
-        // supplies name/email/city for account creation (first row wins).
-        const uniquePhones = [...new Set(valid.map((v) => v.d.ownerPhone))];
-        const existingOwners = await prisma.user.findMany({
-          where: { phone: { in: uniquePhones } },
-          select: { id: true, phone: true },
-        });
+        // Phase 2 — resolve owners in bulk. Only rows that name an owner phone get
+        // an account of their own; phone-less rows fall back to the importing
+        // admin. First-seen row per new phone supplies name/email/city for account
+        // creation (first row wins).
+        const uniquePhones = [
+          ...new Set(valid.map((v) => v.d.ownerPhone).filter((p): p is string => !!p)),
+        ];
+        const existingOwners = uniquePhones.length
+          ? await prisma.user.findMany({
+              where: { phone: { in: uniquePhones } },
+              select: { id: true, phone: true },
+            })
+          : [];
         const ownerIdByPhone = new Map(existingOwners.map((u) => [u.phone, u.id] as const));
 
         const newPhoneInfo = new Map<string, { name: string; email: string; city: string }>();
         const usedEmails = new Set<string>();
         const emailConflictPhones = new Set<string>();
+        // A brand-new account needs a name; we won't invent one. Rows that give a
+        // phone we've never seen but no name are rejected rather than silently
+        // creating a user called "Owner".
+        const namelessNewPhones = new Set<string>();
         for (const { d } of valid) {
+          if (!d.ownerPhone) continue;
           if (ownerIdByPhone.has(d.ownerPhone) || newPhoneInfo.has(d.ownerPhone)) continue;
+          if (!d.ownerName) {
+            namelessNewPhones.add(d.ownerPhone);
+            continue;
+          }
           const email = d.ownerEmail ?? `dummy.${d.ownerPhone}@nxtsft.internal`;
           if (usedEmails.has(email)) {
             emailConflictPhones.add(d.ownerPhone);
@@ -689,16 +714,25 @@ export const adminRouter = router({
           for (const u of createdOwners) ownerIdByPhone.set(u.phone, u.id);
         }
 
+        // A row without an owner phone belongs to the admin running the import.
+        const ownerIdFor = (d: Row): string | undefined =>
+          d.ownerPhone ? ownerIdByPhone.get(d.ownerPhone) : ctx.user.id;
+
         for (const v of valid) {
-          if (ownerIdByPhone.has(v.d.ownerPhone)) continue;
+          const phone = v.d.ownerPhone;
+          if (ownerIdFor(v.d)) continue;
           errors.push({
             row: v.sheetRow,
-            message: emailConflictPhones.has(v.d.ownerPhone)
-              ? "Owner email already registered to a different account."
-              : "Failed to create owner account.",
+            message: !phone
+              ? "Failed to resolve owner account."
+              : namelessNewPhones.has(phone)
+                ? "Owner name is required when an owner phone is given for a new account."
+                : emailConflictPhones.has(phone)
+                  ? "Owner email already registered to a different account."
+                  : "Failed to create owner account.",
           });
         }
-        const rowsWithOwner = valid.filter((v) => ownerIdByPhone.has(v.d.ownerPhone));
+        const rowsWithOwner = valid.filter((v) => !!ownerIdFor(v.d));
 
         // Phase 3 — duplicate detection. A RERA number is a *project-level*
         // registration shared by every unit and every owner in that project
@@ -710,7 +744,14 @@ export const adminRouter = router({
         // Different owners listing in the same project are allowed. Purpose is in
         // both keys because one owner may legitimately sell one unit and rent
         // another in the same project. The same rule dedupes rows within the file.
-        const ownerIds = [...new Set(rowsWithOwner.map((v) => ownerIdByPhone.get(v.d.ownerPhone)!))];
+        //
+        // Owner identity is the account id *plus* any display override: phone-less
+        // rows all share the importing admin's account, so without the override a
+        // seeded project of 12 differently-named owners would collapse to one row.
+        const ownerKey = (ownerId: string, displayName: string | null) =>
+          `${ownerId}|${(displayName ?? "").toLowerCase()}`;
+
+        const ownerIds = [...new Set(rowsWithOwner.map((v) => ownerIdFor(v.d)!))];
         const reras = [...new Set(rowsWithOwner.map((v) => v.d.rera).filter((r): r is string => !!r))];
         const titles = [...new Set(rowsWithOwner.map((v) => v.d.title))];
         const dupCandidates = await prisma.property.findMany({
@@ -722,23 +763,40 @@ export const adminRouter = router({
               { title: { in: titles } },
             ],
           },
-          select: { rera: true, ownerId: true, title: true, purpose: true, location: { select: { city: true } } },
+          select: { rera: true, ownerId: true, ownerName: true, title: true, purpose: true, location: { select: { city: true } } },
         });
         const existingOwnerRera = new Set(
-          dupCandidates.filter((p) => p.rera).map((p) => `${p.ownerId}|${p.rera}|${p.purpose}`),
+          dupCandidates
+            .filter((p) => p.rera)
+            .map((p) => `${ownerKey(p.ownerId, p.ownerName)}|${p.rera}|${p.purpose}`),
         );
         const existingOwnerTitleCity = new Set(
-          dupCandidates.map((p) => `${p.ownerId}|${p.title.toLowerCase()}|${(p.location?.city ?? "").toLowerCase()}|${p.purpose}`),
+          dupCandidates.map(
+            (p) =>
+              `${ownerKey(p.ownerId, p.ownerName)}|${p.title.toLowerCase()}|${(p.location?.city ?? "").toLowerCase()}|${p.purpose}`,
+          ),
         );
 
-        const toInsert: { sheetRow: number; d: Row; slug: string; ownerId: string }[] = [];
+        const toInsert: {
+          sheetRow: number;
+          d: Row;
+          slug: string;
+          ownerId: string;
+          displayName: string | null;
+        }[] = [];
         const seenInFile = new Set<string>();
         for (const { sheetRow, d } of rowsWithOwner) {
-          const ownerId = ownerIdByPhone.get(d.ownerPhone)!;
-          const titleCityKey = `${ownerId}|${d.title.toLowerCase()}|${d.city.toLowerCase()}|${d.purpose}`;
-          const fileKey = d.rera ? `rera|${ownerId}|${d.rera}|${d.purpose}` : `otc|${titleCityKey}`;
+          const ownerId = ownerIdFor(d)!;
+          // With a phone the row gets its own account, so the account's name is
+          // already the right one — no override. Without a phone the row rides on
+          // the admin's account, and any name in the CSV becomes the display name.
+          const displayName = d.ownerPhone ? null : (d.ownerName ?? null);
+          const oKey = ownerKey(ownerId, displayName);
+
+          const titleCityKey = `${oKey}|${d.title.toLowerCase()}|${d.city.toLowerCase()}|${d.purpose}`;
+          const fileKey = d.rera ? `rera|${oKey}|${d.rera}|${d.purpose}` : `otc|${titleCityKey}`;
           const isDupe =
-            (d.rera && existingOwnerRera.has(`${ownerId}|${d.rera}|${d.purpose}`)) ||
+            (d.rera && existingOwnerRera.has(`${oKey}|${d.rera}|${d.purpose}`)) ||
             existingOwnerTitleCity.has(titleCityKey) ||
             seenInFile.has(fileKey);
           if (isDupe) {
@@ -749,17 +807,18 @@ export const adminRouter = router({
           // generateSlug's uniqueness suffix is Date.now(), which is identical
           // across a tight loop — append the sheet row to keep slugs unique
           // within this batch.
-          toInsert.push({ sheetRow, d, ownerId, slug: `${generateSlug(d.title, d.city)}-${sheetRow}` });
+          toInsert.push({ sheetRow, d, ownerId, displayName, slug: `${generateSlug(d.title, d.city)}-${sheetRow}` });
         }
 
         // Phase 4 — insert everything in two batch statements: properties
         // first, then their Location rows keyed by the slugs we just created.
         if (toInsert.length > 0) {
           await prisma.property.createMany({
-            data: toInsert.map(({ d, slug, ownerId }) => {
+            data: toInsert.map(({ d, slug, ownerId, displayName }) => {
               const images = splitList(d.images);
               const isPg = d.type === "PG";
               return {
+                ownerName: displayName,
                 title: d.title,
                 description: d.description,
                 type: d.type,

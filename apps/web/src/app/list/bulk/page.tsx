@@ -24,6 +24,7 @@ import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 // order = preview order. Headers, required set, header-matching, the parser and
 // the example row all derive from this, so the template and parser can't drift.
 type FieldKey =
+  | "ownerName"
   | "title" | "description" | "type" | "purpose" | "price" | "area" | "builtUpArea"
   | "bhk" | "bedrooms" | "bathrooms" | "balconies" | "parking" | "furnishing"
   | "facing" | "floors" | "age" | "possession" | "builder" | "reraLabel" | "rera"
@@ -37,6 +38,9 @@ type Row = Partial<Record<FieldKey, string>>;
 type FieldDef = { key: FieldKey; header: string; required?: boolean; aliases?: string[]; example: string };
 
 const FIELDS: FieldDef[] = [
+  // Optional. Blank shows your own name on the listing. Contact unlock always
+  // reveals your number regardless — you're the one handling the lead.
+  { key: "ownerName", header: "Owner Name", aliases: ["seller name"], example: "" },
   { key: "title", header: "Title", required: true, example: "Spacious 3 BHK Apartment in Whitefield" },
   { key: "description", header: "Description", example: "Sun-facing, near metro, gated society" },
   { key: "type", header: "Type", required: true, example: "Apartment" },
