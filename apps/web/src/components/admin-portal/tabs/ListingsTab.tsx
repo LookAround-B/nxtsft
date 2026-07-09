@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin, ImageIcon } from "lucide-react";
+import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin, ImageIcon, User } from "lucide-react";
 import { keepPreviousData } from "@tanstack/react-query";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
@@ -40,6 +40,10 @@ type ListingItem = {
   interested?: number;
   wishlisted?: number;
   featured?: boolean;
+  /** Per-listing seller-name override; null means the account name shows. */
+  ownerName?: string | null;
+  /** The owning account's real name, shown as the fallback hint. */
+  accountName?: string;
 };
 
 type RawProp = {
@@ -49,6 +53,7 @@ type RawProp = {
   description: string | null;
   amenities: string[];
   owner: { name: string } | null;
+  ownerName: string | null;
   location: { city: string; latitude: number; longitude: number } | null;
   price: number;
   bhk: string | null;
@@ -329,6 +334,14 @@ export function ListingsTab() {
     },
     onError: (err: { message: string }) => toast.error(err.message),
   });
+  const ownerNameMutation = trpc.properties.update.useMutation({
+    onSuccess: () => {
+      void dbListingsQ.refetch();
+      setOwnerNameEditing(null);
+      toast.success("Seller name updated.");
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
 
   const [localItems, setLocalItems] = useState<ListingItem[]>([]);
   const [checklistOpen, setChecklistOpen] = useState<string | null>(null);
@@ -344,6 +357,19 @@ export function ListingsTab() {
   };
   const saveRera = (id: string) => {
     reraMutation.mutate({ id, rera: reraValue.trim(), reraLabel: reraLabelValue });
+  };
+
+  // Per-listing seller-name override. Blank clears it, falling the listing back
+  // to the owning account's name.
+  const [ownerNameEditing, setOwnerNameEditing] = useState<string | null>(null);
+  const [ownerNameValue, setOwnerNameValue] = useState("");
+
+  const openOwnerNameEditor = (it: ListingItem) => {
+    setOwnerNameEditing(it.id);
+    setOwnerNameValue(it.ownerName ?? "");
+  };
+  const saveOwnerName = (id: string) => {
+    ownerNameMutation.mutate({ id, ownerName: ownerNameValue.trim() });
   };
 
   // Property id whose coordinates are being edited, plus the working values.
@@ -403,7 +429,9 @@ export function ListingsTab() {
     id: p.id,
     title: p.title,
     image: p.images?.[0] ?? "",
-    builder: p.owner?.name ?? "",
+    builder: p.ownerName ?? p.owner?.name ?? "",
+    ownerName: p.ownerName,
+    accountName: p.owner?.name ?? "",
     city: p.location?.city ?? "",
     priceLabel:
       p.price >= 1e7
@@ -620,6 +648,60 @@ export function ListingsTab() {
                         className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 font-semibold transition hover:bg-secondary"
                       >
                         <Pencil size={11} /> Edit RERA
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {it.isDbProperty && (
+                <div className="mt-3 border-t border-border pt-3">
+                  {ownerNameEditing === it.id ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        value={ownerNameValue}
+                        onChange={(e) => setOwnerNameValue(e.target.value)}
+                        placeholder={it.accountName || "Seller name shown on listing"}
+                        className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      />
+                      <button
+                        onClick={() => saveOwnerName(it.id)}
+                        disabled={ownerNameMutation.isPending}
+                        className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setOwnerNameEditing(null)}
+                        className="rounded-md border border-border px-3 py-1 text-xs font-semibold transition hover:bg-secondary"
+                      >
+                        Cancel
+                      </button>
+                      <p className="w-full text-[11px] text-muted-foreground">
+                        Blank clears the override — the listing then shows{" "}
+                        <span className="font-medium">{it.accountName || "the account name"}</span>.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs">
+                      <User size={13} className={it.ownerName ? "text-emerald-500" : "text-muted-foreground/40"} />
+                      {it.ownerName ? (
+                        <span className="font-medium text-navy">
+                          Shown as {it.ownerName}{" "}
+                          <span className="font-normal text-muted-foreground">
+                            (account: {it.accountName})
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Seller shown as {it.accountName || "account name"}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => openOwnerNameEditor(it)}
+                        className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 font-semibold transition hover:bg-secondary"
+                      >
+                        <Pencil size={11} /> Edit seller name
                       </button>
                     </div>
                   )}

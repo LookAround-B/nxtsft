@@ -155,6 +155,12 @@ model Property {
   ownerId String
   owner   User   @relation("OwnedProperties", fields: [ownerId], references: [id])
 
+  // Display name for the seller on this listing, overriding owner.name. Lets a
+  // batch of seeded listings sit under one account yet show distinct owners.
+  // Null on real listings. Never holds a phone — contact stays credit-gated
+  // behind owner.phone.
+  ownerName String?
+
   // Optional marketing agent for this listing — a directory agent (role "agent")
   // who represents the property. Distinct from ownerId (the seller). Nullable:
   // most seller-listed properties have no agent.

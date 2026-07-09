@@ -651,10 +651,12 @@ export const propertiesRouter = router({
         locality: geoTextSchema.optional(),
         latitude: z.number().min(-90).max(90).optional(),
         longitude: z.number().min(-180).max(180).optional(),
+        // Admin-only; silently dropped for owners (see below). Empty string clears.
+        ownerName: safeString(200).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { id, price, area, latitude, longitude, locality, ...rest } = input;
+      const { id, price, area, latitude, longitude, locality, ownerName, ...rest } = input;
 
       const property = await prisma.property.findFirst({ where: { id, deletedAt: null } });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
@@ -675,6 +677,12 @@ export const propertiesRouter = router({
       const priceUpdate = price !== undefined ? { price: BigInt(price) } : {};
       const sqftUpdate = price !== undefined && area !== undefined ? { pricePerSqft: Math.round(price / area) } : {};
 
+      // The seller-name override is admin-only: an owner who could set it would
+      // be able to show someone else's name on their own listing. Ignore it
+      // rather than throw, so an owner's edit form can post the field harmlessly.
+      const ownerNameUpdate =
+        ownerName !== undefined && isAdmin ? { ownerName: ownerName.trim() || null } : {};
+
       // Coordinates + locality live on the related Location row (created
       // alongside every property), so patch them via a nested update when supplied.
       const locationData = {
@@ -687,7 +695,7 @@ export const propertiesRouter = router({
 
       const updated = await prisma.property.update({
         where: { id },
-        data: { ...rest, ...priceUpdate, ...sqftUpdate, ...locationUpdate },
+        data: { ...rest, ...priceUpdate, ...sqftUpdate, ...locationUpdate, ...ownerNameUpdate },
         include: propertyInclude,
       });
 
@@ -820,7 +828,7 @@ export const propertiesRouter = router({
       });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
 
-      return { unlocked: true as const, phone: property.owner.phone, name: property.owner.name };
+      return { unlocked: true as const, phone: property.owner.phone, name: property.ownerName ?? property.owner.name };
     }),
 
   // Unlock owner contact — costs 1 credit (credit gate)
@@ -840,7 +848,7 @@ export const propertiesRouter = router({
         select: { id: true },
       });
       if (alreadyUnlocked) {
-        return { phone: property.owner.phone, name: property.owner.name };
+        return { phone: property.owner.phone, name: property.ownerName ?? property.owner.name };
       }
 
       // Atomic deduct: WHERE credits >= 1 prevents double-spend from concurrent requests
@@ -870,6 +878,6 @@ export const propertiesRouter = router({
         actionUrl: "/user-portal#leads",
       });
 
-      return { phone: property.owner.phone, name: property.owner.name };
+      return { phone: property.owner.phone, name: property.ownerName ?? property.owner.name };
     }),
 });

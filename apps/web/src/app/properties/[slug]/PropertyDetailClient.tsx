@@ -98,6 +98,8 @@ type FullProperty = {
     longitude: number;
   };
   owner: { id: string; name: string; email: string; avatar: string | null } | null;
+  /** Per-listing seller-name override; falls back to owner.name when null. */
+  ownerName: string | null;
 };
 
 type SimilarProperty = {
@@ -285,8 +287,10 @@ function ContactCard({
     unlock.mutate({ id: property.id });
   };
 
+  const displayName = property.ownerName ?? property.owner?.name ?? null;
+
   const initials =
-    property.owner?.name
+    displayName
       ?.split(" ")
       .map((s) => s[0] ?? "")
       .join("")
@@ -303,7 +307,7 @@ function ContactCard({
           {initials}
         </div>
         <div>
-          <div className="font-semibold text-foreground">{property.owner?.name ?? "Owner"}</div>
+          <div className="font-semibold text-foreground">{displayName ?? "Owner"}</div>
           <div className="flex items-center gap-1 text-xs text-emerald-600 font-semibold">
             <ShieldCheck size={12} />
             Verified Owner
