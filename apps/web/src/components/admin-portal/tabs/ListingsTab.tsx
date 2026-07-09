@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin, ImageIcon, User } from "lucide-react";
+import { boostIsActive } from "@nxtsft/shared/constants";
 import { keepPreviousData } from "@tanstack/react-query";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
@@ -40,6 +41,8 @@ type ListingItem = {
   interested?: number;
   wishlisted?: number;
   featured?: boolean;
+  boostTier?: string | null;
+  boostExpiry?: string | null;
   /** Per-listing seller-name override; null means the account name shows. */
   ownerName?: string | null;
   /** The owning account's real name, shown as the fallback hint. */
@@ -54,6 +57,8 @@ type RawProp = {
   amenities: string[];
   owner: { name: string } | null;
   ownerName: string | null;
+  boostTier: string | null;
+  boostExpiry: string | null;
   location: { city: string; latitude: number; longitude: number } | null;
   price: number;
   bhk: string | null;
@@ -342,6 +347,13 @@ export function ListingsTab() {
     },
     onError: (err: { message: string }) => toast.error(err.message),
   });
+  const revokeBoostMutation = trpc.properties.revokeBoost.useMutation({
+    onSuccess: () => {
+      void dbListingsQ.refetch();
+      toast.success("Boost revoked.");
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
 
   const [localItems, setLocalItems] = useState<ListingItem[]>([]);
   const [checklistOpen, setChecklistOpen] = useState<string | null>(null);
@@ -432,6 +444,8 @@ export function ListingsTab() {
     builder: p.ownerName ?? p.owner?.name ?? "",
     ownerName: p.ownerName,
     accountName: p.owner?.name ?? "",
+    boostTier: p.boostTier,
+    boostExpiry: p.boostExpiry,
     city: p.location?.city ?? "",
     priceLabel:
       p.price >= 1e7
@@ -705,6 +719,41 @@ export function ListingsTab() {
                       </button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {it.isDbProperty && (
+                <div className="mt-3 border-t border-border pt-3">
+                  <div className="flex items-center gap-2 text-xs">
+                    <Rocket
+                      size={13}
+                      className={
+                        boostIsActive(it.boostTier ?? null, it.boostExpiry ?? null)
+                          ? "text-accent"
+                          : "text-muted-foreground/40"
+                      }
+                    />
+                    {boostIsActive(it.boostTier ?? null, it.boostExpiry ?? null) ? (
+                      <>
+                        <span className="font-medium capitalize text-navy">
+                          {it.boostTier} boost
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            · until {new Date(it.boostExpiry!).toLocaleDateString("en-IN")}
+                          </span>
+                        </span>
+                        <button
+                          onClick={() => revokeBoostMutation.mutate({ id: it.id })}
+                          disabled={revokeBoostMutation.isPending}
+                          className="ml-auto inline-flex items-center gap-1 rounded-md border border-rose-300 px-2.5 py-1 font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+                        >
+                          Revoke boost
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Not boosted</span>
+                    )}
+                  </div>
                 </div>
               )}
 

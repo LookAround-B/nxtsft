@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { keepPreviousData } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { BOOST_TIERS, boostIsActive, isBoostTier } from "@nxtsft/shared/constants";
 import { SafeImage } from "@/components/ui/SafeImage";
 import {
   Search,
@@ -55,7 +56,17 @@ type PropertyItem = {
   bhk: string | null;
   rera: string | null;
   featured: boolean;
+  boostTier: string | null;
+  boostExpiry: string | null;
   location: { city: string; locality: string; state: string };
+};
+
+// A live boost outranks the admin's `featured` flag on the card, so a Gold
+// boost ("Featured") never renders alongside the identical editorial badge.
+const BOOST_BADGE_CLASS: Record<string, string> = {
+  gold: "bg-amber-500",
+  silver: "bg-slate-500",
+  bronze: "bg-orange-700",
 };
 
 function PropertyCard({ p }: { p: PropertyItem }) {
@@ -120,10 +131,18 @@ function PropertyCard({ p }: { p: PropertyItem }) {
           >
             For {p.purpose}
           </span>
-          {p.featured && (
-            <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-white">
-              Featured
+          {boostIsActive(p.boostTier, p.boostExpiry) && isBoostTier(p.boostTier) ? (
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-bold text-white ${BOOST_BADGE_CLASS[p.boostTier]}`}
+            >
+              {BOOST_TIERS[p.boostTier].tag}
             </span>
+          ) : (
+            p.featured && (
+              <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-white">
+                Featured
+              </span>
+            )
           )}
         </div>
         {p.rera && (

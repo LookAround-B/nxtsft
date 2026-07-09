@@ -50,3 +50,28 @@ export const RATE_LIMITS = {
   CONTACT_AGENT: { points: 5, duration: "1 hour" },
   API_GENERAL: { points: 100, duration: "1 hour" },
 } as const;
+
+/**
+ * Paid listing boosts. `score` is denormalised onto Property.boostScore so
+ * Postgres can sort on an indexed integer; `tag` is what a buyer sees on the
+ * card. Gold additionally qualifies a listing for the home page.
+ */
+export const BOOST_TIERS = {
+  bronze: { score: 40, tag: "Boosted" },
+  silver: { score: 70, tag: "Top Pick" },
+  gold: { score: 100, tag: "Featured" },
+} as const;
+
+export type BoostTier = keyof typeof BOOST_TIERS;
+
+export const BOOST_TIER_NAMES = Object.keys(BOOST_TIERS) as BoostTier[];
+
+export function isBoostTier(v: unknown): v is BoostTier {
+  return typeof v === "string" && v in BOOST_TIERS;
+}
+
+/** A boost only counts while it has not lapsed. */
+export function boostIsActive(tier: string | null, expiry: Date | string | null): boolean {
+  if (!tier || !expiry) return false;
+  return new Date(expiry).getTime() > Date.now();
+}

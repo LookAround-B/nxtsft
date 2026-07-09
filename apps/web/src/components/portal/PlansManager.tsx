@@ -9,7 +9,7 @@ import { trpc } from "@/lib/trpc";
 // portals (adminProcedure permits both roles). Add / edit / price / activate /
 // delete persist straight to the Plan table and the live pricing page.
 
-type PlanType = "seeker" | "owner-rent" | "owner-sell" | "designer" | "decor";
+type PlanType = "seeker" | "owner-rent" | "owner-sell" | "designer" | "decor" | "boost";
 
 type EditablePlan = {
   id: string;
@@ -294,10 +294,13 @@ function PlanGroup({
   title,
   description,
   group,
+  allowAdd = true,
 }: {
   title: string;
   description: string;
   group: ReturnType<typeof usePlanGroup>;
+  /** Boost tiers are fixed in code (BOOST_TIERS), so that group edits but never adds. */
+  allowAdd?: boolean;
 }) {
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
@@ -317,12 +320,14 @@ function PlanGroup({
           <span className="text-xs text-muted-foreground">
             {group.plans.filter((p) => p.active).length}/{group.plans.length} active
           </span>
-          <button
-            onClick={() => setAdding((v) => !v)}
-            className="flex items-center gap-1.5 rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-navy-deep hover:opacity-90 transition"
-          >
-            <Plus size={12} /> Add Plan
-          </button>
+          {allowAdd && (
+            <button
+              onClick={() => setAdding((v) => !v)}
+              className="flex items-center gap-1.5 rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-navy-deep hover:opacity-90 transition"
+            >
+              <Plus size={12} /> Add Plan
+            </button>
+          )}
         </div>
       }
     >
@@ -386,8 +391,9 @@ export function PlansManager({
   const ownerSellGroup = usePlanGroup("owner-sell");
   const designerGroup = usePlanGroup("designer");
   const decorGroup = usePlanGroup("decor");
+  const boostGroup = usePlanGroup("boost");
 
-  const allPlans = [...seekerGroup.plans, ...ownerRentalGroup.plans, ...ownerSellGroup.plans, ...designerGroup.plans, ...decorGroup.plans];
+  const allPlans = [...seekerGroup.plans, ...ownerRentalGroup.plans, ...ownerSellGroup.plans, ...designerGroup.plans, ...decorGroup.plans, ...boostGroup.plans];
   const activePlans = allPlans.filter((p) => p.active).length;
 
   return (
@@ -428,6 +434,12 @@ export function PlansManager({
           title="Decor Business Listing Plans"
           description="Monthly listing plans for Decor Store businesses."
           group={decorGroup}
+        />
+        <PlanGroup
+          title="Listing Boost Plans"
+          description="Paid boosts that push a seller's listing up the search results. The three tiers are fixed — edit price, validity and copy here."
+          group={boostGroup}
+          allowAdd={false}
         />
       </div>
     </>

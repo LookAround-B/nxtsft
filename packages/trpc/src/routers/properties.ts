@@ -25,6 +25,7 @@ import {
 } from "../sanitize";
 import prisma from "@nxtsft/db";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
+import { sweepExpiredBoosts } from "../boostSweep";
 import { notify, notifyCredit } from "../notify";
 import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server";
 
@@ -136,6 +137,10 @@ export const propertiesRouter = router({
     .query(async ({ input }) => {
       const { page, limit, city, type, purpose, minPrice, maxPrice, bedrooms, furnishing, search, featured, pgGender, pgOccupancy } = input;
 
+      // Retire lapsed boosts before ranking. Throttled to once per 5 minutes per
+      // instance, so this is a no-op on almost every request.
+      await sweepExpiredBoosts();
+
       const where: NonNullable<Parameters<typeof prisma.property.findMany>[0]>["where"] = {
         deletedAt: null,
         status: "Active",
@@ -146,7 +151,17 @@ export const propertiesRouter = router({
       if (purpose) where.purpose = purpose;
       if (bedrooms) where.bedrooms = bedrooms;
       if (furnishing) where.furnishing = furnishing;
-      if (featured !== undefined) where.featured = featured;
+      // The home page asks for featured:true. Honour the admin's editorial pick
+      // AND any listing carrying a live Gold boost — Gold buys a home-page slot.
+      // Nested under AND so it can't clobber the `search` OR built below, and so
+      // an expiring boost never flips the admin's own `featured` flag.
+      if (featured === true) {
+        where.AND = [
+          { OR: [{ featured: true }, { boostTier: "gold", boostExpiry: { gt: new Date() } }] },
+        ];
+      } else if (featured === false) {
+        where.featured = false;
+      }
       if (pgGender) where.pgGender = pgGender;
       if (pgOccupancy) where.pgOccupancy = { has: pgOccupancy };
 
@@ -175,7 +190,9 @@ export const propertiesRouter = router({
         prisma.property.findMany({
           where,
           include: propertyInclude,
-          orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+          // Paid boosts rank first (gold > silver > bronze), then the admin's
+          // featured picks, then recency. boostScore is zeroed by the expiry cron.
+          orderBy: [{ boostScore: "desc" }, { featured: "desc" }, { createdAt: "desc" }],
           take: limit,
           skip: (page - 1) * limit,
         }),
@@ -321,7 +338,7 @@ export const propertiesRouter = router({
           ],
         },
         include: propertyInclude,
-        orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ boostScore: "desc" }, { featured: "desc" }, { createdAt: "desc" }],
         take: input.limit,
       });
       return serializeProperty(items);
@@ -818,6 +835,26 @@ export const propertiesRouter = router({
         data: { featured: input.featured },
       });
       return { id: updated.id, featured: updated.featured };
+    }),
+
+  // Strip a paid boost (abuse, refund, mistaken purchase). Admin only. Does not
+  // touch `featured` — that's the admin's own editorial flag, not a paid slot.
+  revokeBoost: adminProcedure
+    .input(z.object({ id: cuidSchema }))
+    .mutation(async ({ input }) => {
+      const updated = await prisma.property.update({
+        where: { id: input.id },
+        data: { boostTier: null, boostScore: 0, boostExpiry: null },
+        select: { id: true, ownerId: true, title: true },
+      });
+      await notify({
+        userId: updated.ownerId,
+        type: "listing_updated",
+        title: "Boost removed",
+        content: `The boost on "${updated.title}" was removed by an administrator.`,
+        actionUrl: "/user-portal#mylist",
+      });
+      return { id: updated.id };
     }),
 
   // Whether the current user already unlocked this property's contact —

@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { keepPreviousData } from "@tanstack/react-query";
-import { Search, Sofa, MapPin, CheckCircle2, ChevronDown, X, Palette, MessageCircle } from "lucide-react";
+import { Search, Sofa, MapPin, CheckCircle2, ChevronDown, X, Palette } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Pagination } from "@/components/ui/pagination";
 
@@ -159,61 +159,85 @@ type DesignerItem = {
   state: string | null; verified: boolean; logo: string | null;
   coverImage: string | null; description: string | null;
   yearsExperience: number | null; projectsCompleted: number;
-  designStyles: string[];
+  designStyles: string[]; startingBudget: number | null;
 };
+
+const DESIGNER_FALLBACK_IMG =
+  "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=600&q=80";
+
+function formatBudget(budget: number): string {
+  if (budget >= 1_00_00_000) return `₹${(budget / 1_00_00_000).toFixed(2)} Cr`;
+  if (budget >= 1_00_000) return `₹${(budget / 1_00_000).toFixed(1)} L`;
+  return `₹${budget.toLocaleString("en-IN")}`;
+}
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
+// Image-forward card matching the property-listing card layout — clicking it
+// opens the designer's portfolio page (/interiors/[slug]).
 function DesignerCard({ designer: d }: { designer: DesignerItem }) {
+  const cover = d.coverImage || d.logo || DESIGNER_FALLBACK_IMG;
   return (
     <Link
       href={`/interiors/${d.slug}`}
-      className="group relative flex flex-col gap-3 rounded-2xl border border-border bg-white p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-lg"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
     >
-      <span className="absolute -bottom-2 -left-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-emerald-500 text-white shadow-md">
-        <MessageCircle size={16} fill="currentColor" />
-      </span>
-      <div className="flex items-start justify-between gap-2">
-        <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-xl bg-accent/10 text-accent">
-          {d.logo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={d.logo} alt={d.companyName} className="h-10 w-10 rounded-lg object-contain" />
-          ) : (
-            <Sofa size={22} strokeWidth={1.75} />
+      <div className="relative h-48 overflow-hidden bg-secondary">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={cover}
+          alt={d.companyName}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+
+        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+          {d.designStyles[0] && (
+            <span className="rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold text-white">
+              {d.designStyles[0]}
+            </span>
           )}
         </div>
         {d.verified && (
-          <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-            <CheckCircle2 size={10} /> Verified
-          </span>
+          <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold text-emerald-700 backdrop-blur-sm">
+            <CheckCircle2 size={11} />
+            Verified
+          </div>
         )}
       </div>
 
-      <div className="flex-1">
-        <h3 className="font-display text-sm font-bold leading-snug text-navy group-hover:text-accent">
+      <div className="flex flex-1 flex-col p-4">
+        <div className="font-display text-xl font-black text-navy">
+          {d.startingBudget != null ? (
+            <>
+              {formatBudget(d.startingBudget)}
+              <span className="text-sm font-medium text-muted-foreground"> onwards</span>
+            </>
+          ) : (
+            <span className="text-base font-bold text-muted-foreground">Get a quote</span>
+          )}
+        </div>
+        <h3 className="mt-1 line-clamp-1 font-display text-sm font-bold text-navy group-hover:text-accent">
           {d.companyName}
         </h3>
         {(d.city || d.state) && (
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-            <MapPin size={10} />
-            {[d.city, d.state].filter(Boolean).join(", ")}
-          </p>
+          <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin size={11} className="shrink-0" />
+            <span className="line-clamp-1">{[d.city, d.state].filter(Boolean).join(", ")}</span>
+          </div>
         )}
-        {d.description && (
-          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{d.description}</p>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between border-t border-border pt-3">
-        <span className="text-xs text-muted-foreground">
-          {d.projectsCompleted} project{d.projectsCompleted !== 1 ? "s" : ""}
-          {d.yearsExperience != null ? ` · ${d.yearsExperience}y exp` : ""}
-        </span>
-        {d.designStyles[0] && (
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-navy">
-            {d.designStyles[0]}
+        <div className="mt-3 flex items-center gap-3 border-t border-border pt-3 text-xs text-foreground/70">
+          <span className="flex items-center gap-1">
+            <Sofa size={13} />
+            {d.projectsCompleted} project{d.projectsCompleted !== 1 ? "s" : ""}
           </span>
-        )}
+          {d.yearsExperience != null && (
+            <span className="flex items-center gap-1">
+              <CheckCircle2 size={13} />
+              {d.yearsExperience}y exp
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );

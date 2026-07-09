@@ -3,11 +3,13 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Building2, Eye, Clock, Pencil, Camera, Check } from "lucide-react";
+import { Building2, Eye, Clock, Pencil, Camera, Check, Coins, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import { Badge, Section } from "@/components/portal/PortalShell";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
+import { openRazorpayCheckout } from "@/lib/razorpay";
+import { boostIsActive } from "@nxtsft/shared/constants";
 import { Head, fmtDate, fmtPrice } from "./shared";
 
 type ListingItem = {
@@ -24,6 +26,8 @@ type ListingItem = {
   location: { city: string; locality: string } | null;
   _count?: { leads: number; favoritedBy: number };
   hasPendingEdit?: boolean;
+  boostTier?: string | null;
+  boostExpiry?: string | null;
 };
 
 const STARTER_FEATURES = [
@@ -44,6 +48,143 @@ const PREMIUM_FEATURES = [
   "Promotion on NxtSft's Instagram and other social platforms",
   "Tagged collaboration posts for increased reach",
 ];
+
+type BoostPlan = {
+  id: string;
+  name: string;
+  priceLabel: string;
+  validity: number;
+  tagline: string;
+  features: string[];
+  popular: boolean;
+  boostTier: string | null;
+  tag: string | null;
+};
+
+/** "Pay to jump the queue" — buy a bronze/silver/gold boost for one listing. */
+function BoostModal({
+  propertyId,
+  propertyTitle,
+  onClose,
+  onBoosted,
+}: {
+  propertyId: string;
+  propertyTitle: string;
+  onClose: () => void;
+  onBoosted: () => void;
+}) {
+  const [buying, setBuying] = useState<string | null>(null);
+  const plansQ = trpc.subscriptions.boostPlans.useQuery();
+  const createOrder = trpc.subscriptions.createBoostOrder.useMutation();
+  const verifyPayment = trpc.subscriptions.verifyBoostPayment.useMutation();
+
+  const plans = (plansQ.data ?? []) as unknown as BoostPlan[];
+
+  const buy = async (plan: BoostPlan) => {
+    setBuying(plan.id);
+    try {
+      const order = await createOrder.mutateAsync({ propertyId, planId: plan.id });
+      await openRazorpayCheckout({
+        keyId: order.keyId,
+        orderId: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        prefill: order.prefill,
+        onDismiss: () => setBuying(null),
+        onSuccess: async (resp) => {
+          try {
+            // planId/propertyId are re-derived server-side from the order row,
+            // so nothing sensitive travels back up from the widget.
+            await verifyPayment.mutateAsync({
+              razorpayOrderId: resp.razorpay_order_id,
+              razorpayPaymentId: resp.razorpay_payment_id,
+              razorpaySignature: resp.razorpay_signature,
+            });
+            toast.success(`${plan.name} is live for ${plan.validity} days.`);
+            onBoosted();
+            onClose();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Payment verification failed.");
+          } finally {
+            setBuying(null);
+          }
+        },
+      });
+    } catch (err) {
+      setBuying(null);
+      toast.error(err instanceof Error ? err.message : "Could not start payment.");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-navy/40 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-3xl rounded-2xl border border-border bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="flex items-center gap-2 font-display text-lg font-bold text-navy">
+          <Rocket size={18} className="text-accent" /> Boost Your Listing &amp; Get More Buyers
+        </h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Move &quot;{propertyTitle}&quot; to the top of search results.
+        </p>
+
+        {plansQ.isLoading ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Loading plans…</p>
+        ) : plans.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            No boost plans are available right now.
+          </p>
+        ) : (
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {plans.map((plan) => (
+              <div
+                key={plan.id}
+                className={`relative rounded-xl border p-4 ${
+                  plan.popular ? "border-accent ring-1 ring-accent/30" : "border-border"
+                }`}
+              >
+                {plan.popular && (
+                  <span className="absolute -top-2 right-3 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent-foreground">
+                    Popular
+                  </span>
+                )}
+                <div className="font-display text-base font-bold text-navy">{plan.name}</div>
+                <div className="mt-1 font-display text-2xl font-black text-navy">{plan.priceLabel}</div>
+                <p className="mt-1 text-xs text-muted-foreground">{plan.tagline}</p>
+                <ul className="mt-3 space-y-1.5">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-1.5 text-xs text-foreground">
+                      <Check size={12} className="mt-0.5 shrink-0 text-emerald-500" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => buy(plan)}
+                  disabled={buying !== null}
+                  title="Move to Page 1, 2 or 3 instantly"
+                  className="mt-4 w-full rounded-md bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {buying === plan.id ? "Opening payment…" : "Pay Now"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-5 flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-border px-4 py-2 text-sm font-semibold transition hover:bg-secondary"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function MediaPackageModal({
   propertyId,
@@ -216,6 +357,7 @@ export function MyListingsTab() {
   const router = useRouter();
   const [modifyTarget, setModifyTarget] = useState<string | null>(null);
   const [mediaPackageTarget, setMediaPackageTarget] = useState<{ id: string; title: string } | null>(null);
+  const [boostTarget, setBoostTarget] = useState<{ id: string; title: string } | null>(null);
   const listingsQ = trpc.users.myListings.useQuery(undefined, { enabled: session?.role === "home-seller" });
 
   if (session?.role !== "home-seller") {
@@ -251,6 +393,14 @@ export function MyListingsTab() {
           propertyId={mediaPackageTarget.id}
           propertyTitle={mediaPackageTarget.title}
           onClose={() => setMediaPackageTarget(null)}
+        />
+      )}
+      {boostTarget && (
+        <BoostModal
+          propertyId={boostTarget.id}
+          propertyTitle={boostTarget.title}
+          onClose={() => setBoostTarget(null)}
+          onBoosted={() => void listingsQ.refetch()}
         />
       )}
       <Head t="My Listings" s="What you've put on the market." />
@@ -332,13 +482,27 @@ export function MyListingsTab() {
                         </>
                       )}
                       {p.bhk && <Badge tone="default">{p.bhk}</Badge>}
+                      {boostIsActive(p.boostTier ?? null, p.boostExpiry ?? null) && (
+                        <Badge tone="hot">
+                          <span className="flex items-center gap-1">
+                            <Rocket size={11} /> Boosted till {fmtDate(p.boostExpiry!)}
+                          </span>
+                        </Badge>
+                      )}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
-                        onClick={() => toast("Boost is a paid upgrade — coming soon")}
-                        className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
+                        onClick={() => setBoostTarget({ id: p.id, title: p.title })}
+                        disabled={p.status !== "Active"}
+                        title={
+                          p.status === "Active"
+                            ? "Move to Page 1, 2 or 3 instantly"
+                            : "Only an active listing can be boosted"
+                        }
+                        className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground transition hover:opacity-90 disabled:opacity-50"
                       >
-                        Boost
+                        <Rocket size={11} />
+                        {boostIsActive(p.boostTier ?? null, p.boostExpiry ?? null) ? "Extend Boost" : "Boost"}
                       </button>
                       {p.type === "PG" && (
                         <button
@@ -388,6 +552,16 @@ export function MyListingsTab() {
                         </button>
                       )}
                     </div>
+                    {/* A listing credit from the seller's plan is consumed only
+                        once a listing is approved & live (Active) — LA-321. */}
+                    {p.status === "Active" && (
+                      <div
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-accent/10 px-2 py-1 text-[11px] font-semibold text-accent"
+                        title="One listing credit from your plan was used to publish this listing."
+                      >
+                        <Coins size={12} /> 1 credit consumed
+                      </div>
+                    )}
                   </div>
                 </div>
               );

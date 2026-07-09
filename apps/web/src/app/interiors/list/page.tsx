@@ -81,18 +81,44 @@ export default function ListInteriorBusinessPage() {
 
   if (submitted) {
     return (
-      <div className="mx-auto max-w-md px-4 py-24 text-center">
+      <div className="mx-auto max-w-md px-4 py-20 text-center">
         <CheckCircle2 size={36} className="mx-auto mb-3 text-emerald-500" />
         <h1 className="font-display text-xl font-bold text-navy">Submitted for review!</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Our team will verify your details and publish your listing on the Home Interiors directory soon.
+          Your listing is saved but not live yet. Choose a Business Listing plan below —
+          once you subscribe, our team reviews your details and publishes it on the Home
+          Interiors directory.
         </p>
+
+        {/* Business-plan upsell — mirrors the property paid-listing flow: the
+            listing needs an active Business Listing plan to be approved and
+            showcased. The plan is purchased in the My Business tab. */}
         <Link
-          href="/interiors"
-          className="mt-5 inline-block rounded-xl bg-navy px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+          href="/user-portal#business"
+          className="mx-auto mt-6 flex items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/5 px-5 py-3 text-left transition hover:border-accent"
         >
-          Back to Home Interiors
+          <span className="text-sm font-semibold text-navy">
+            Choose a Business Listing plan to get your listing approved &amp; showcased
+          </span>
+          <span className="shrink-0 rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white">
+            View Plan
+          </span>
         </Link>
+
+        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Link
+            href="/user-portal#business"
+            className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95"
+          >
+            Buy a plan
+          </Link>
+          <Link
+            href="/interiors"
+            className="rounded-xl border border-border px-6 py-3 text-sm font-semibold text-navy transition hover:bg-secondary"
+          >
+            Back to Home Interiors
+          </Link>
+        </div>
       </div>
     );
   }

@@ -11,10 +11,12 @@ import {
   priceSchema,
   highlightsSchema,
   planTypeSchema,
+  boostTierSchema,
   cursorSchema,
   limitSchema,
 } from "../sanitize";
 import { generatePayUHash, PAYU_BASE_URL } from "../payu";
+import { BOOST_TIERS, isBoostTier, type BoostTier } from "@nxtsft/shared/constants";
 
 // All plan lookups are DB-only. Legacy static arrays have been removed.
 // Plans are managed via the admin Plans Manager (prisma.plan table).
@@ -805,6 +807,216 @@ export const subscriptionsRouter = router({
       return { ...updated, amount: Number(updated.amount) };
     }),
 
+  // ── Listing boosts ────────────────────────────────────────────────────────
+  // "Pay to jump the queue": a seller buys a bronze/silver/gold boost for one
+  // of their listings, which ranks it above unboosted listings until it lapses.
+
+  // Tiers on offer. Public so the Boost modal can render prices before sign-in.
+  boostPlans: publicProcedure.query(async () => {
+    const plans = await prisma.plan.findMany({
+      where: { type: "boost", active: true },
+      orderBy: { price: "asc" },
+    });
+    return plans.map((p) => ({
+      ...p,
+      tag: isBoostTier(p.boostTier) ? BOOST_TIERS[p.boostTier].tag : null,
+    }));
+  }),
+
+  createBoostOrder: protectedProcedure
+    .input(z.object({ propertyId: cuidSchema, planId: planIdSchema }))
+    .mutation(async ({ input, ctx }) => {
+      const property = await prisma.property.findFirst({
+        where: { id: input.propertyId, deletedAt: null },
+        select: { id: true, title: true, ownerId: true, status: true },
+      });
+      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+
+      const isAdmin = ["admin", "super-admin"].includes(ctx.user.role);
+      if (property.ownerId !== ctx.user.id && !isAdmin) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can only boost your own listing." });
+      }
+      // Boosting a Pending/Sold/Inactive listing buys nothing — it isn't in search.
+      if (property.status !== "Active") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Only an active listing can be boosted.",
+        });
+      }
+
+      const plan = await prisma.plan.findUnique({ where: { id: input.planId } });
+      if (!plan || plan.type !== "boost" || !plan.active || !isBoostTier(plan.boostTier)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Boost plan not found." });
+      }
+
+      const keyId = process.env.RAZORPAY_KEY_ID;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keyId || !keySecret) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Razorpay not configured." });
+      }
+
+      const receipt = `nxtsft_boost_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+
+      const res = await fetch("https://api.razorpay.com/v1/orders", {
+        method: "POST",
+        headers: { "Authorization": `Basic ${auth}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: plan.price * 100,
+          currency: "INR",
+          receipt,
+          notes: { userId: ctx.user.id, planId: plan.id, propertyId: property.id },
+        }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: { description?: string } };
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: err?.error?.description ?? "Failed to create Razorpay order.",
+        });
+      }
+      const order = (await res.json()) as { id: string; amount: number; currency: string };
+
+      // metadata is the ONLY thing verifyBoostPayment trusts — see the comment there.
+      await prisma.payment.create({
+        data: {
+          userId: ctx.user.id,
+          amount: BigInt(plan.price * 100),
+          status: "Pending",
+          method: "Razorpay",
+          gateway: "razorpay",
+          razorpayOrderId: order.id,
+          description: `${plan.name} boost — ${property.title}`,
+          metadata: { planId: plan.id, propertyId: property.id, boostTier: plan.boostTier },
+        },
+      });
+
+      return {
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        keyId,
+        planId: plan.id,
+        prefill: { name: ctx.user.name, email: ctx.user.email, contact: ctx.user.phone ?? "" },
+      };
+    }),
+
+  verifyBoostPayment: protectedProcedure
+    .input(
+      z.object({
+        razorpayOrderId: safeString(200, 1),
+        razorpayPaymentId: safeString(200, 1),
+        razorpaySignature: safeString(200, 1),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Same integrity gate as verifyPayment: verify the HMAC when a secret is
+      // configured, and fail closed in production when one isn't.
+      const secret = process.env.RAZORPAY_KEY_SECRET;
+      if (secret) {
+        const expected = createHmac("sha256", secret)
+          .update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`)
+          .digest("hex");
+        const a = Buffer.from(expected);
+        const b = Buffer.from(input.razorpaySignature);
+        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Payment verification failed." });
+        }
+      } else if (process.env.NODE_ENV === "production") {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Payment gateway not configured." });
+      }
+
+      // Reject duplicate/replayed payment IDs even if the signature checks out.
+      const existingPayment = await prisma.payment.findFirst({
+        where: { razorpayId: input.razorpayPaymentId },
+      });
+      if (existingPayment) {
+        throw new TRPCError({ code: "CONFLICT", message: "Payment already processed." });
+      }
+
+      // Bind BOTH the plan and the property to the order we recorded in
+      // createBoostOrder — never trust client input. The signature only covers
+      // orderId|paymentId, so a client could otherwise pay for Bronze and replay
+      // the valid signature naming Gold, or name a listing they don't own.
+      const pendingOrder = await prisma.payment.findFirst({
+        where: { razorpayOrderId: input.razorpayOrderId, userId: ctx.user.id, gateway: "razorpay" },
+      });
+      if (!pendingOrder) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found." });
+
+      const meta = (pendingOrder.metadata ?? {}) as { planId?: string; propertyId?: string };
+      if (!meta.planId || !meta.propertyId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Order is missing boost information." });
+      }
+
+      const plan = await prisma.plan.findUnique({ where: { id: meta.planId } });
+      if (!plan || plan.type !== "boost" || !isBoostTier(plan.boostTier)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Boost plan not found." });
+      }
+      const tier = plan.boostTier;
+
+      const property = await prisma.property.findFirst({
+        where: { id: meta.propertyId, deletedAt: null },
+        select: { id: true, title: true, slug: true, ownerId: true, boostTier: true, boostExpiry: true },
+      });
+      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+
+      const isAdmin = ["admin", "super-admin"].includes(ctx.user.role);
+      if (property.ownerId !== ctx.user.id && !isAdmin) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can only boost your own listing." });
+      }
+
+      // Re-boosting stacks: extend from whichever is later (now, current expiry),
+      // and keep the stronger of the two tiers rather than silently downgrading
+      // someone who buys Bronze while a Gold boost is still running.
+      const now = new Date();
+      const activeUntil =
+        property.boostExpiry && property.boostExpiry > now ? property.boostExpiry : now;
+      const expiry = new Date(activeUntil.getTime() + plan.validity * 86_400_000);
+
+      const stillRunning = property.boostExpiry != null && property.boostExpiry > now;
+      const keepExisting =
+        stillRunning &&
+        isBoostTier(property.boostTier) &&
+        BOOST_TIERS[property.boostTier].score > BOOST_TIERS[tier].score;
+      const nextTier: BoostTier = keepExisting ? (property.boostTier as BoostTier) : tier;
+
+      await prisma.$transaction([
+        prisma.property.update({
+          where: { id: property.id },
+          data: {
+            boostTier: nextTier,
+            boostScore: BOOST_TIERS[nextTier].score,
+            boostExpiry: expiry,
+          },
+        }),
+        prisma.payment.upsert({
+          where: { razorpayOrderId: input.razorpayOrderId },
+          update: { status: "Success", razorpayId: input.razorpayPaymentId },
+          create: {
+            userId: ctx.user.id,
+            amount: BigInt(plan.price * 100),
+            status: "Success",
+            method: "Razorpay",
+            gateway: "razorpay",
+            razorpayId: input.razorpayPaymentId,
+            razorpayOrderId: input.razorpayOrderId,
+            description: `${plan.name} boost — ${property.title}`,
+            metadata: { planId: plan.id, propertyId: property.id, boostTier: nextTier },
+          },
+        }),
+      ]);
+
+      await notify({
+        userId: property.ownerId,
+        type: "payment_success",
+        title: "Boost is live",
+        actionUrl: `/properties/${property.slug}`,
+        content: `"${property.title}" is boosted until ${expiry.toLocaleDateString("en-IN")}.`,
+      });
+
+      return { propertyId: property.id, boostTier: nextTier, boostExpiry: expiry.toISOString() };
+    }),
+
   createPlan: adminProcedure
     .input(
       z.object({
@@ -817,9 +1029,15 @@ export const subscriptionsRouter = router({
         features: highlightsSchema,
         popular: z.boolean().default(false),
         type: planTypeSchema,
+        boostTier: boostTierSchema.optional(),
       }),
     )
     .mutation(async ({ input }) => {
+      // A boost plan is useless without a tier — it would sell a listing zero
+      // priority. Reject rather than create a dud SKU.
+      if (input.type === "boost" && !input.boostTier) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A boost plan needs a tier." });
+      }
       return prisma.plan.create({ data: input });
     }),
 
@@ -836,6 +1054,7 @@ export const subscriptionsRouter = router({
         features: highlightsSchema.optional(),
         popular: z.boolean().optional(),
         active: z.boolean().optional(),
+        boostTier: boostTierSchema.optional(),
       }),
     )
     .mutation(async ({ input }) => {

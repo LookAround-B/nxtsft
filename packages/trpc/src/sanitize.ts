@@ -239,7 +239,10 @@ export const alertFrequencySchema = z.enum(["daily", "weekly", "instant"]);
 export const passwordComplexitySchema = z.enum(["low", "medium", "high"]);
 
 /** Plan type enum */
-export const planTypeSchema = z.enum(["seeker", "owner-rent", "owner-sell", "designer", "decor"]);
+export const planTypeSchema = z.enum(["seeker", "owner-rent", "owner-sell", "designer", "decor", "boost"]);
+
+/** Listing-boost tier granted by a type:"boost" plan. */
+export const boostTierSchema = z.enum(["bronze", "silver", "gold"]);
 
 /** Safe amenities array: short strings, limited count */
 export const amenitiesSchema = z.array(safeString(100)).max(30).default([]);

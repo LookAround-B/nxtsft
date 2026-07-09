@@ -180,12 +180,23 @@ model Property {
   featured   Boolean @default(false)
   matchScore Int?
 
+  // Paid boost ("pay to jump the queue"). boostScore is denormalised from
+  // boostTier (see BOOST_TIERS in @nxtsft/shared) so search can ORDER BY an
+  // indexed int. Postgres can't compute it live — a generated column may not
+  // call now() — so sweepExpiredBoosts() zeroes lapsed rows on read. The UI
+  // reads boostExpiry directly, so a missed sweep can never show a live tag.
+  boostTier   String? // bronze | silver | gold — null when not boosted
+  boostExpiry DateTime?
+  boostScore  Int     @default(0) // gold=100, silver=70, bronze=40, none=0
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   @@index([ownerId])
   @@index([agentId])
+  @@index([boostScore])
+  @@index([boostExpiry])
   @@index([type])
   @@index([purpose])
   @@index([status])
@@ -729,8 +740,11 @@ model Plan {
   tagline    String
   features   String[]
   popular    Boolean  @default(false)
-  type       String // seeker | owner-rent | owner-sell
+  type       String // seeker | owner-rent | owner-sell | designer | decor | boost
   active     Boolean  @default(true)
+
+  // Only meaningful on type "boost": which tier this SKU grants.
+  boostTier String? // bronze | silver | gold
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

@@ -284,7 +284,6 @@ export function CareersContent() {
               [
                 { id: "impact", label: "Our Impact" },
                 { id: "teams", label: "Our Teams" },
-                { id: "leadership", label: "Leadership" },
               ] as { id: Tab; label: string }[]
             ).map(({ id, label }) => (
               <button
