@@ -42,13 +42,23 @@ export function OverviewDashboard({ userEmail }: { userEmail: string }) {
           value={favoritesQ.data ? String(favoritesQ.data.length) : "—"}
           sub="from your shortlist"
         />
-        <Link href="/user-portal#credits" className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+        {/* Same-page hash tab: Next's Link navigates via pushState, which fires
+            neither hashchange nor popstate, so useActiveHash would never update.
+            Set the hash directly, exactly as PortalShell's sidebar nav does. */}
+        <a
+          href="/user-portal#credits"
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.hash = "credits";
+          }}
+          className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
           <StatCard
             label="Contact Unlocks Used"
             value={unlocksUsedQ.data !== undefined ? String(unlocksUsedQ.data) : "—"}
             sub="view unlocked contacts →"
           />
-        </Link>
+        </a>
         <StatCard
           label="Credits Remaining"
           value={String(credits)}
