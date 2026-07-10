@@ -18,6 +18,8 @@ import {
   X,
   Sparkles,
   MapPin,
+  ShieldCheck,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -160,6 +162,10 @@ export default function ListPropertyPage() {
   const quotaQ = trpc.subscriptions.sellerListingQuota.useQuery(undefined, {
     enabled: !!submitted && session?.role === "home-seller",
   });
+  // LA-343: does this seller's active plan (≥₹4,999) include the verified
+  // badge set? Drives the live-vs-grayed badge preview in step 4.
+  const badgesQ = trpc.subscriptions.mySellerBadges.useQuery(undefined, { enabled: !!session });
+  const hasBadges = badgesQ.data?.active ?? false;
   // LA-330: hide property types an admin has deactivated. Form labels map to
   // schema types via DB_TYPE_MAP; a type is available unless its mapped schema
   // type is in the disabled set.
@@ -1232,6 +1238,55 @@ export default function ListPropertyPage() {
                   </div>
                   {errors.listerPhone && (
                     <p className="mt-1 text-xs text-rose-500">{errors.listerPhone}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* LA-343: how the listing will appear — badge preview drives
+                  the ₹4,999 upgrade decision before submission. */}
+              <div className="mt-8">
+                <h2 className="font-display text-base font-bold text-navy">Your Listing Preview</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This is how your listing appears to buyers.
+                </p>
+                <div className="mt-3 rounded-2xl border border-border bg-white p-4 shadow-sm">
+                  <div
+                    className={`flex flex-wrap items-center gap-1.5 ${hasBadges ? "" : "opacity-40 grayscale"}`}
+                    title={hasBadges ? undefined : "Included with plans of ₹4,999 and above"}
+                  >
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
+                      <ShieldCheck size={12} strokeWidth={2.5} /> Verified Owner
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-navy px-2.5 py-1 text-[11px] font-bold text-white">
+                      <Globe size={12} strokeWidth={2.5} /> NRI Trusted
+                    </span>
+                  </div>
+                  <div className="mt-3">
+                    <div className="font-display text-sm font-bold text-navy">
+                      {data.title || "Your property title"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {[data.locality, data.city].filter(Boolean).join(", ") || "Locality, City"}
+                    </div>
+                    {data.price && (
+                      <div className="mt-1 font-display text-sm font-black text-navy">
+                        ₹{Number(data.price).toLocaleString("en-IN")}
+                      </div>
+                    )}
+                  </div>
+                  {hasBadges ? (
+                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                      <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />
+                      Your plan includes the Verified Owner + NRI Trusted badges — they go live with
+                      this listing.
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      Badges shown grayed — they unlock with a plan of ₹4,999 or above.{" "}
+                      <Link href="/pricing" className="font-bold text-accent hover:underline">
+                        View plans
+                      </Link>
+                    </div>
                   )}
                 </div>
               </div>

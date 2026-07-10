@@ -8,6 +8,7 @@ import {
   Award, ArrowLeft, Clock, TrendingUp, Building2, CheckCircle2,
 } from "lucide-react";
 import { trpcClient } from "@/lib/trpcClient";
+import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { useAuth } from "@/lib/auth";
 
 type AgentRow = {
@@ -212,6 +213,7 @@ export default function AgentProfileClient() {
                           fill
                           className="object-cover transition group-hover:scale-[1.02]"
                         />
+                        <WatermarkOverlay />
                         <span className="absolute left-2 top-2 rounded-full bg-navy/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                           For {p.purpose}
                         </span>

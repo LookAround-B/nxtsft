@@ -15,6 +15,7 @@ import {
   cursorSchema,
   limitSchema,
 } from "../sanitize";
+import { hasSellerBadges } from "../badges";
 import { generatePayUHash, PAYU_BASE_URL } from "../payu";
 import { BOOST_TIERS, isBoostTier, type BoostTier } from "@nxtsft/shared/constants";
 
@@ -737,6 +738,12 @@ export const subscriptionsRouter = router({
       orderBy: { createdAt: "desc" },
     });
     return sub ? { ...sub, amount: Number(sub.amount) } : null;
+  }),
+
+  // Verified badge entitlement for the signed-in seller (LA-343). Powers the
+  // badge preview on the list-property page.
+  mySellerBadges: protectedProcedure.query(async ({ ctx }) => {
+    return { active: await hasSellerBadges(ctx.user.id) };
   }),
 
   // Seller listing quota — how many listings the seller's active plan allows vs

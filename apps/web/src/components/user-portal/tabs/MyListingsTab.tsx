@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { useRouter } from "next/navigation";
 import { Building2, Eye, Clock, Pencil, Camera, Check, Coins, Rocket } from "lucide-react";
 import { toast } from "sonner";
@@ -454,6 +455,7 @@ export function MyListingsTab() {
                 <div key={p.id} className="overflow-hidden rounded-lg border border-border">
                   <div className="relative h-40 w-full">
                     <Image src={img} alt={p.title} fill className="object-cover" />
+                    <WatermarkOverlay />
                   </div>
                   <div className="p-4">
                     <div className="flex items-start justify-between gap-2">

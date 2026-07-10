@@ -291,8 +291,23 @@ model Lead {
   notes    String?
   value    Int? // expected deal value in rupees
 
-  // Assignment
+  // Assignment (LA-342): two-level — admin assigns to a supervisor, the
+  // supervisor reassigns to a sales rep. Plain userId strings like
+  // assignedToId; every hop is also recorded in AssignmentHistory.
   assignedToId String? // sales rep userId
+  supervisorId String? // supervisor userId
+  assignedAt   DateTime?
+
+  // Sales pipeline (LA-342): payment-link selling by the sales rep.
+  plan          String? // plan name quoted to the customer
+  amount        Int? // quoted amount in rupees
+  paymentStatus String    @default("Pending") // Pending | Paid | Failed
+  paymentId     String? // gateway payment id once paid
+  paymentLink   String? // Razorpay payment-link URL sent to the customer
+  paymentDate   DateTime?
+  expiryDate    DateTime? // auto-listing validity end (set on payment)
+  lastCallAt    DateTime?
+  lastCallRemark String?
 
   visitScheduled DateTime?
   visitCompleted DateTime?
@@ -305,7 +320,24 @@ model Lead {
   @@index([propertyId])
   @@index([userId])
   @@index([assignedToId])
+  @@index([supervisorId])
   @@index([status])
+  @@index([paymentStatus])
+}
+
+// Every lead assignment hop (LA-342): admin → supervisor and
+// supervisor → sales rep. Append-only audit of who moved which leads where.
+model AssignmentHistory {
+  id           String   @id @default(cuid())
+  leadIds      String[] // lead ids moved in this action (bulk-safe)
+  fromRole     String // super-admin | admin | supervisor
+  toRole       String // supervisor | sales
+  assignedById String // acting userId
+  assignedToId String // receiving userId
+  createdAt    DateTime @default(now())
+
+  @@index([assignedToId])
+  @@index([createdAt])
 }
 
 // Commission entries auto-created when a lead is marked Converted.

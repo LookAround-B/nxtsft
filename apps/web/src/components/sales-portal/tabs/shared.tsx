@@ -35,6 +35,13 @@ export type DbLead = {
   createdAt: string;
   updatedAt: string;
   property: { id: string; title: string; slug: string } | null;
+  // LA-342 payment-link pipeline fields
+  plan?: string | null;
+  amount?: number | null;
+  paymentStatus?: string;
+  paymentLink?: string | null;
+  lastCallAt?: string | null;
+  lastCallRemark?: string | null;
 };
 
 /** Extract the most recent note line from the appended notes string. */

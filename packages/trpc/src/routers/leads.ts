@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
+import { notify } from "../notify";
+import { createRazorpayPaymentLink } from "../razorpayLinks";
 import { router, protectedProcedure, staffProcedure, adminProcedure, generalRateLimit } from "../server";
 import {
   cuidSchema,
@@ -195,7 +197,7 @@ export const leadsRouter = router({
   // Assign a lead to a sales rep (admin only)
   assign: adminProcedure
     .input(z.object({ id: cuidSchema, assignedToId: cuidSchema }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const lead = await prisma.lead.findUnique({ where: { id: input.id } });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
 
@@ -207,7 +209,17 @@ export const leadsRouter = router({
 
       const updated = await prisma.lead.update({
         where: { id: input.id },
-        data: { assignedToId: input.assignedToId, status: "New" },
+        data: { assignedToId: input.assignedToId, status: "New", assignedAt: new Date() },
+      });
+
+      await prisma.assignmentHistory.create({
+        data: {
+          leadIds: [input.id],
+          fromRole: ctx.user.role,
+          toRole: "sales",
+          assignedById: ctx.user.id,
+          assignedToId: input.assignedToId,
+        },
       });
 
       await prisma.notification.create({
@@ -374,7 +386,17 @@ export const leadsRouter = router({
 
       await prisma.lead.updateMany({
         where: { id: { in: input.leadIds } },
-        data: { assignedToId: input.assignedToId, status: "New" },
+        data: { assignedToId: input.assignedToId, status: "New", assignedAt: new Date() },
+      });
+
+      await prisma.assignmentHistory.create({
+        data: {
+          leadIds: input.leadIds,
+          fromRole: ctx.user.role,
+          toRole: "sales",
+          assignedById: ctx.user.id,
+          assignedToId: input.assignedToId,
+        },
       });
 
       await prisma.notification.create({
@@ -388,6 +410,218 @@ export const leadsRouter = router({
       });
 
       return { ok: true };
+    }),
+
+  // ── LA-342: two-level assignment + payment-link pipeline ─────────────────
+
+  // Active supervisors for the admin assign dropdown.
+  supervisors: adminProcedure.query(async () => {
+    return prisma.user.findMany({
+      where: { role: "supervisor", active: true },
+      select: { id: true, name: true, city: true },
+      orderBy: { name: "asc" },
+    });
+  }),
+
+  // Leads not yet routed to any supervisor (admin's assignment queue).
+  unassigned: adminProcedure
+    .input(z.object({ cursor: cursorSchema, limit: limitSchema }))
+    .query(async ({ input }) => {
+      const items = await prisma.lead.findMany({
+        where: { supervisorId: null, status: { notIn: ["Converted", "Lost"] } },
+        include: {
+          property: { select: { id: true, title: true, slug: true } },
+          user: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: input.limit + 1,
+        ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+      });
+      const hasMore = items.length > input.limit;
+      const page = hasMore ? items.slice(0, input.limit) : items;
+      return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
+    }),
+
+  // Admin routes leads (bulk or single) to a supervisor — first assignment hop.
+  assignToSupervisor: adminProcedure
+    .input(z.object({ leadIds: z.array(cuidSchema).min(1).max(500), supervisorId: cuidSchema }))
+    .mutation(async ({ input, ctx }) => {
+      const supervisor = await prisma.user.findUnique({ where: { id: input.supervisorId } });
+      if (!supervisor || supervisor.role !== "supervisor") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Assignee must be a supervisor." });
+      }
+
+      await prisma.lead.updateMany({
+        where: { id: { in: input.leadIds } },
+        data: { supervisorId: input.supervisorId, assignedAt: new Date() },
+      });
+
+      await prisma.assignmentHistory.create({
+        data: {
+          leadIds: input.leadIds,
+          fromRole: ctx.user.role,
+          toRole: "supervisor",
+          assignedById: ctx.user.id,
+          assignedToId: input.supervisorId,
+        },
+      });
+
+      await notify({
+        userId: input.supervisorId,
+        type: "lead_update",
+        title: `${input.leadIds.length} lead${input.leadIds.length === 1 ? "" : "s"} routed to your team`,
+        content: "Reassign them to your sales reps from the supervisor portal.",
+        actionUrl: "/supervisor-portal",
+      });
+
+      return { ok: true, count: input.leadIds.length };
+    }),
+
+  // Sales rep logs a call attempt on a lead.
+  recordCall: staffProcedure
+    .input(z.object({ id: cuidSchema, remark: safeString(1000, 1) }))
+    .mutation(async ({ input, ctx }) => {
+      const lead = await prisma.lead.findUnique({ where: { id: input.id } });
+      if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
+      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      await prisma.salesActivity.create({
+        data: {
+          salesRepId: ctx.user.id,
+          type: "call",
+          leadId: lead.id,
+          action: `Called ${lead.name}`,
+          outcome: input.remark,
+        },
+      });
+
+      return prisma.lead.update({
+        where: { id: input.id },
+        data: { lastCallAt: new Date(), lastCallRemark: input.remark },
+      });
+    }),
+
+  // Sales rep sends a Razorpay payment link to the lead's customer. The
+  // webhook (api/razorpay/webhook) completes the sale: marks the lead Paid →
+  // Listed and applies the ₹500 commission rule.
+  createPaymentLink: staffProcedure
+    .input(
+      z.object({
+        leadId: cuidSchema,
+        amount: z.coerce.number().int().min(1).max(10_000_000), // rupees
+        plan: safeString(100, 1),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const lead = await prisma.lead.findUnique({ where: { id: input.leadId } });
+      if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
+      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (lead.paymentStatus === "Paid") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This lead has already paid." });
+      }
+
+      // The rep who sends the link earns any commission — falls back to the
+      // acting user when the lead was never formally assigned.
+      const salesRepId = lead.assignedToId ?? ctx.user.id;
+
+      const link = await createRazorpayPaymentLink({
+        amountRupees: input.amount,
+        description: `NxtSft ${input.plan} — ${lead.name}`,
+        customer: { name: lead.name, contact: lead.phone, email: lead.email ?? undefined },
+        notes: { lead_id: lead.id, salesrep_id: salesRepId, plan: input.plan },
+      });
+
+      return prisma.lead.update({
+        where: { id: input.leadId },
+        data: {
+          plan: input.plan,
+          amount: input.amount,
+          paymentLink: link.shortUrl,
+          paymentStatus: "Pending",
+          status: "Payment Pending",
+        },
+      });
+    }),
+
+  // Role-scoped flat rows for the CSV export button (client renders the file
+  // via lib/download-csv). Sales = own, supervisor = own team, admin = all.
+  exportRows: staffProcedure
+    .input(
+      z.object({
+        from: datetimeSchema.optional(),
+        to: datetimeSchema.optional(),
+        status: leadStatusSchema.optional(),
+        paymentStatus: z.enum(["Pending", "Paid", "Failed"]).optional(),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      const where: NonNullable<Parameters<typeof prisma.lead.findMany>[0]>["where"] = {};
+      if (ctx.user.role === "sales") where.assignedToId = ctx.user.id;
+      if (ctx.user.role === "supervisor") {
+        // Team scope: leads routed to this supervisor plus anything already
+        // with one of their attributed reps (User.supervisorId).
+        const reps = await prisma.user.findMany({
+          where: { supervisorId: ctx.user.id, role: "sales" },
+          select: { id: true },
+        });
+        where.OR = [
+          { supervisorId: ctx.user.id },
+          ...(reps.length ? [{ assignedToId: { in: reps.map((r) => r.id) } }] : []),
+        ];
+      }
+      if (input.status) where.status = input.status;
+      if (input.paymentStatus) where.paymentStatus = input.paymentStatus;
+      if (input.from || input.to) {
+        where.createdAt = {
+          ...(input.from ? { gte: new Date(input.from) } : {}),
+          ...(input.to ? { lte: new Date(input.to) } : {}),
+        };
+      }
+
+      const leads = await prisma.lead.findMany({
+        where,
+        include: { property: { select: { title: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 5000,
+      });
+
+      // Resolve assignee names in one pass.
+      const userIds = [
+        ...new Set(leads.flatMap((l) => [l.assignedToId, l.supervisorId]).filter((v): v is string => !!v)),
+      ];
+      const users = await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } });
+      const nameById = new Map(users.map((u) => [u.id, u.name]));
+
+      return leads.map((l) => ({
+        leadId: l.id,
+        name: l.name,
+        phone: l.phone,
+        email: l.email ?? "",
+        city: l.city ?? "",
+        source: l.source ?? "",
+        interest: l.interest ?? "",
+        property: l.property?.title ?? "",
+        status: l.status,
+        plan: l.plan ?? "",
+        amount: l.amount ?? "",
+        paymentStatus: l.paymentStatus,
+        paymentId: l.paymentId ?? "",
+        paymentDate: l.paymentDate?.toISOString() ?? "",
+        expiryDate: l.expiryDate?.toISOString() ?? "",
+        supervisor: (l.supervisorId && nameById.get(l.supervisorId)) || "",
+        salesRep: (l.assignedToId && nameById.get(l.assignedToId)) || "",
+        assignedAt: l.assignedAt?.toISOString() ?? "",
+        lastCallAt: l.lastCallAt?.toISOString() ?? "",
+        lastCallRemark: l.lastCallRemark ?? "",
+        visitScheduled: l.visitScheduled?.toISOString() ?? "",
+        visitCompleted: l.visitCompleted?.toISOString() ?? "",
+        expectedValue: l.value ?? "",
+        submittedAt: l.createdAt.toISOString(),
+      }));
     }),
 
   stats: staffProcedure.query(async ({ ctx }) => {

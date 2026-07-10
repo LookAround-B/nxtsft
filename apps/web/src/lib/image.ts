@@ -5,7 +5,7 @@
  * upload pipeline would do before pushing to object storage.
  *
  * `watermark: true` stamps the NxtSft brand mark onto the image before
- * encoding — mandatory for listing photos (LA-298) so downloaded/scraped
+
  * images stay attributed. Off by default: avatars, KYC documents and referral
  * proofs must not be branded.
  */
@@ -34,23 +34,29 @@ export async function compressImage(
 }
 
 /**
- * "NxtSft.com" bottom-right, sized relative to the image. White fill with a
- * dark shadow keeps it legible on both bright skies and dark interiors.
+ * "NxtSft.com" centered, scaled so the text spans ~50% of the image width
+ * (NoBroker-style prominence). Semi-transparent white with a dark shadow
+ * keeps it legible on both bright skies and dark interiors without hiding
+ * the photo behind it.
  */
 function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  const fontSize = Math.max(14, Math.round(width * 0.035));
-  const pad = Math.round(fontSize * 0.75);
+  const text = "NxtSft.com";
 
   ctx.save();
+  // Measure at a reference size, then scale the font so the text fills the
+  // target fraction of the image width regardless of aspect ratio.
+  ctx.font = "700 100px Arial, sans-serif";
+  const measured = ctx.measureText(text).width;
+  const fontSize = Math.max(24, Math.round((width * 0.495 * 100) / measured));
+
   ctx.font = `700 ${fontSize}px Arial, sans-serif`;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "bottom";
-  ctx.globalAlpha = 0.75;
-  ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
-  ctx.shadowBlur = fontSize * 0.25;
-  ctx.shadowOffsetY = 1;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.globalAlpha = 0.55;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+  ctx.shadowBlur = fontSize * 0.15;
   ctx.fillStyle = "#ffffff";
-  ctx.fillText("NxtSft.com", width - pad, height - pad);
+  ctx.fillText(text, width / 2, height / 2);
   ctx.restore();
 }
 

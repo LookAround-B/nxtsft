@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { BuyCreditsLabel } from "@/components/pricing/BuyCreditsLabel";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
@@ -20,6 +21,7 @@ import {
   Building2,
   Coins,
   ShieldCheck,
+  Globe,
   Star,
   Share2,
   Maximize2,
@@ -100,6 +102,8 @@ type FullProperty = {
   owner: { id: string; name: string; email: string; avatar: string | null } | null;
   /** Per-listing seller-name override; falls back to owner.name when null. */
   ownerName: string | null;
+  /** LA-343: owner holds an active ≥₹4,999 plan — show the verified badge set. */
+  sellerBadges?: boolean;
 };
 
 type SimilarProperty = {
@@ -314,6 +318,19 @@ function ContactCard({
           </div>
         </div>
       </div>
+
+      {/* Verified badge set (LA-343) — only for owners on an active ≥₹4,999
+          plan. Same chip style as the agent-profile RERA badge. */}
+      {property.sellerBadges && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
+            <ShieldCheck size={12} strokeWidth={2.5} /> Verified Owner
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-navy px-2.5 py-1 text-[11px] font-bold text-white">
+            <Globe size={12} strokeWidth={2.5} /> NRI Trusted
+          </span>
+        </div>
+      )}
 
       {/* Credit info */}
       {!phone && (
@@ -574,6 +591,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                     sizes="(max-width: 1024px) 100vw, 67vw"
                     priority
                   />
+                  <WatermarkOverlay />
                   <span className="absolute bottom-3 right-3 hidden items-center gap-1.5 rounded-full bg-navy/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm sm:flex">
                     <Maximize2 size={13} /> View gallery
                   </span>

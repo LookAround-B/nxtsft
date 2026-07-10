@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BOOST_TIERS, boostIsActive, isBoostTier } from "@nxtsft/shared/constants";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { TrustBadges } from "@/components/site/TrustBadges";
 import {
   Search,
@@ -96,6 +97,7 @@ function PropertyCard({ p }: { p: PropertyItem }) {
           className="object-cover transition-transform duration-300 group-hover:scale-105"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
+        <WatermarkOverlay />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
         {images.length > 1 && (

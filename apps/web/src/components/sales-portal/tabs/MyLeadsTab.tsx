@@ -24,10 +24,14 @@ function waHref(phone: string) {
 
 export function MyLeadsTab() {
   const [filter, setFilter] = useState<"All" | "Hot" | "Warm" | "Cold">("All");
-  // Which lead has its Note / Schedule panel open, and the in-progress input.
-  const [openAction, setOpenAction] = useState<{ id: string; kind: "note" | "schedule" } | null>(null);
+  // Which lead has its Note / Schedule / Payment / Call panel open, and the
+  // in-progress input.
+  const [openAction, setOpenAction] = useState<{ id: string; kind: "note" | "schedule" | "payment" | "call" } | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [visitAt, setVisitAt] = useState("");
+  const [planDraft, setPlanDraft] = useState("");
+  const [amountDraft, setAmountDraft] = useState("");
+  const [callRemark, setCallRemark] = useState("");
 
   const utils = trpc.useUtils();
   const leadsQ = trpc.leads.list.useQuery({
@@ -56,10 +60,39 @@ export function MyLeadsTab() {
     onError: (e) => toast.error(e.message),
   });
 
-  function toggle(id: string, kind: "note" | "schedule") {
+  const createLink = trpc.leads.createPaymentLink.useMutation({
+    onSuccess: (lead) => {
+      utils.leads.list.invalidate();
+      if (lead.paymentLink) {
+        navigator.clipboard?.writeText(lead.paymentLink).catch(() => null);
+        toast.success("Payment link created and copied — send it on WhatsApp.");
+      } else {
+        toast.success("Payment link created.");
+      }
+      setOpenAction(null);
+      setPlanDraft("");
+      setAmountDraft("");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const recordCall = trpc.leads.recordCall.useMutation({
+    onSuccess: () => {
+      utils.leads.list.invalidate();
+      toast.success("Call logged");
+      setOpenAction(null);
+      setCallRemark("");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function toggle(id: string, kind: "note" | "schedule" | "payment" | "call") {
     setOpenAction((prev) => (prev?.id === id && prev.kind === kind ? null : { id, kind }));
     setNoteDraft("");
     setVisitAt("");
+    setPlanDraft("");
+    setAmountDraft("");
+    setCallRemark("");
   }
 
   const hotCount = items.filter((l) => l.status === "Hot").length;
@@ -78,6 +111,12 @@ export function MyLeadsTab() {
   return (
     <>
       <Head t="My Leads" s="Your active queue — call, WhatsApp or annotate." />
+
+      {/* LA-342 commission rule banner */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-800">
+        Note: ₹500 commission applicable only on a customer&apos;s 1st payment of ₹4,999 or more.
+        No commission on renewals, boosts or smaller plans.
+      </div>
 
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <StatCard label="My Open Leads" value={String(items.length)} sub="assigned to you" />
@@ -182,8 +221,44 @@ export function MyLeadsTab() {
                   >
                     <Calendar size={12} /> Schedule Visit
                   </button>
+                  <button
+                    onClick={() => toggle(l.id, "call")}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"
+                  >
+                    Log Call
+                  </button>
+                  {l.paymentStatus !== "Paid" && (
+                    <button
+                      onClick={() => toggle(l.id, "payment")}
+                      className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                    >
+                      ₹ Payment Link
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Payment pipeline state */}
+              {l.paymentStatus === "Paid" ? (
+                <div className="mt-2 text-[11px] font-semibold text-emerald-600">
+                  ✓ Paid{l.plan ? ` — ${l.plan}` : ""}{l.amount ? ` (₹${l.amount.toLocaleString("en-IN")})` : ""} · listing live
+                </div>
+              ) : l.paymentLink ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  <span className="font-semibold text-amber-600">Payment pending</span>
+                  <a href={l.paymentLink} target="_blank" rel="noopener noreferrer" className="text-accent underline">
+                    {l.paymentLink}
+                  </a>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(l.paymentLink!).then(() => toast.success("Link copied"));
+                    }}
+                    className="rounded border border-border px-2 py-0.5 font-semibold hover:bg-muted"
+                  >
+                    Copy
+                  </button>
+                </div>
+              ) : null}
 
               {openAction?.id === l.id && openAction.kind === "note" && (
                 <div className="mt-3 flex items-center gap-2">
@@ -201,6 +276,60 @@ export function MyLeadsTab() {
                   <button
                     onClick={() => addNote.mutate({ id: l.id, note: noteDraft.trim() })}
                     disabled={!noteDraft.trim() || addNote.isPending}
+                    className="shrink-0 rounded-md bg-navy px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                  >
+                    Save
+                  </button>
+                </div>
+              )}
+
+              {openAction?.id === l.id && openAction.kind === "payment" && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Plan name (e.g. Silver ₹4,999)"
+                    value={planDraft}
+                    onChange={(e) => setPlanDraft(e.target.value)}
+                    className="min-w-0 flex-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Amount ₹"
+                    value={amountDraft}
+                    onChange={(e) => setAmountDraft(e.target.value)}
+                    className="w-28 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <button
+                    onClick={() =>
+                      createLink.mutate({ leadId: l.id, plan: planDraft.trim(), amount: Number(amountDraft) })
+                    }
+                    disabled={!planDraft.trim() || !amountDraft || Number(amountDraft) <= 0 || createLink.isPending}
+                    className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                  >
+                    {createLink.isPending ? "Creating…" : "Create & send link"}
+                  </button>
+                </div>
+              )}
+
+              {openAction?.id === l.id && openAction.kind === "call" && (
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Call outcome — e.g. interested, call back tomorrow"
+                    value={callRemark}
+                    onChange={(e) => setCallRemark(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && callRemark.trim())
+                        recordCall.mutate({ id: l.id, remark: callRemark.trim() });
+                    }}
+                    className="min-w-0 flex-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <button
+                    onClick={() => recordCall.mutate({ id: l.id, remark: callRemark.trim() })}
+                    disabled={!callRemark.trim() || recordCall.isPending}
                     className="shrink-0 rounded-md bg-navy px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
                   >
                     Save

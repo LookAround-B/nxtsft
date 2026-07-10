@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import Link from "next/link";
 import { Star as StarIcon, ChevronRight, ArrowRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -103,6 +104,7 @@ export function FeaturedProperties() {
                           fill
                           className="object-cover transition duration-500 group-hover:scale-105"
                         />
+                        <WatermarkOverlay />
                         <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-md bg-gold px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-navy shadow">
                           <StarIcon size={7} className="fill-current" /> Featured
                         </span>

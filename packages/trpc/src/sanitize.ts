@@ -211,8 +211,11 @@ export const propertyStatusSchema = z.enum(["Active", "Pending", "Sold", "Rented
 /** Furnishing enum */
 export const furnishingSchema = z.enum(["Furnished", "Semi-Furnished", "Unfurnished"]);
 
-/** Lead status enum */
-export const leadStatusSchema = z.enum(["Hot", "Warm", "Cold", "New", "Converted", "Lost"]);
+/** Lead status enum — pipeline stages added by the payment-link flow (LA-342) */
+export const leadStatusSchema = z.enum([
+  "Hot", "Warm", "Cold", "New", "Converted", "Lost",
+  "Payment Pending", "Paid", "Listed", "Expired",
+]);
 
 /** Lead source enum */
 export const leadSourceSchema = z.enum(["Portal", "WhatsApp", "Referral", "Direct"]);

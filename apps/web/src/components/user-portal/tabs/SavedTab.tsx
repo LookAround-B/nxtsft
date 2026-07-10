@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { Heart, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge, Section } from "@/components/portal/PortalShell";
@@ -128,6 +129,7 @@ export function SavedTab() {
                 <Link href={`/properties/${p.slug ?? p.id}`}>
                   <div className="relative aspect-[4/3]">
                     <Image src={img} alt="" fill className="object-cover" />
+                    <WatermarkOverlay />
                   </div>
                 </Link>
                 <div className="p-3">

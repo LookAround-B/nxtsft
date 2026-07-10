@@ -151,6 +151,9 @@ export const authRouter = router({
         phone: phoneSchema,
         password: passwordSchema,
         city: geoTextSchema,
+        // LA-341: "Get updates on WhatsApp" consent — required by Meta before
+        // any template message may be sent to the number.
+        waOptIn: z.boolean().optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -173,6 +176,7 @@ export const authRouter = router({
           city: input.city,
           role: "user",
           passwordHash,
+          ...(input.waOptIn ? { metadata: { waOptIn: true } } : {}),
         },
       });
 
@@ -207,6 +211,8 @@ export const authRouter = router({
         password: passwordSchema,
         city: geoTextSchema,
         applyAs: z.enum(["seller", "agent"]).optional(),
+        // LA-341: WhatsApp updates consent (see register above).
+        waOptIn: z.boolean().optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -231,9 +237,14 @@ export const authRouter = router({
           role: isAgent ? "agent" : "home-seller",
           passwordHash,
           verified: false,
-          ...(isAgent && {
-            slug: await uniqueAgentSlug(input.name),
-            metadata: defaultAgentMetadata(input.name, input.city),
+          ...(isAgent && { slug: await uniqueAgentSlug(input.name) }),
+          // Agent directory metadata and the WA consent flag share the same
+          // Json column — merge rather than overwrite.
+          ...((isAgent || input.waOptIn) && {
+            metadata: {
+              ...(isAgent ? defaultAgentMetadata(input.name, input.city) : {}),
+              ...(input.waOptIn ? { waOptIn: true } : {}),
+            },
           }),
         },
       });

@@ -25,6 +25,7 @@ import {
 } from "../sanitize";
 import prisma from "@nxtsft/db";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
+import { hasSellerBadges } from "../badges";
 import { sweepExpiredBoosts } from "../boostSweep";
 import { notify, notifyCredit } from "../notify";
 import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server";
@@ -412,7 +413,11 @@ export const propertiesRouter = router({
       // Increment view count without blocking the response
       prisma.property.update({ where: { id: property.id }, data: { views: { increment: 1 } } }).catch(() => null);
 
-      return serializeProperty(property);
+      // Verified badge set (LA-343): shown when the owner holds an active
+      // subscription of ₹4,999 or more.
+      const sellerBadges = await hasSellerBadges(property.ownerId);
+
+      return serializeProperty({ ...property, sellerBadges });
     }),
 
   // Create a new property listing (authenticated owners)

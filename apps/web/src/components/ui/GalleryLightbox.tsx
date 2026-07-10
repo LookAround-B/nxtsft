@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 
 type GalleryLightboxProps = {
@@ -148,6 +149,7 @@ export function GalleryLightbox({
             }}
             priority
           />
+          <WatermarkOverlay />
         </div>
 
         {images.length > 1 && (

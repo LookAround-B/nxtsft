@@ -34,6 +34,7 @@ export default function RegisterPage() {
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [waOptIn, setWaOptIn] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [sellerPending, setSellerPending] = useState(false);
@@ -67,11 +68,11 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       if (regType === "buyer") {
-        const s = await register(form.name.trim(), form.email.trim(), form.phone.replace(/\s/g, ""), form.password, form.city);
+        const s = await register(form.name.trim(), form.email.trim(), form.phone.replace(/\s/g, ""), form.password, form.city, waOptIn);
         toast.success(`Welcome to NxtSft, ${s.name.split(" ")[0]}! You have 1 free credit.`);
         router.push(ROLE_META[s.role].portal);
       } else {
-        await registerSeller(form.name.trim(), form.email.trim(), form.phone.replace(/\s/g, ""), form.password, form.city, isAgent ? "agent" : "seller");
+        await registerSeller(form.name.trim(), form.email.trim(), form.phone.replace(/\s/g, ""), form.password, form.city, isAgent ? "agent" : "seller", waOptIn);
         setSellerPending(true);
       }
     } catch (err) {
@@ -313,6 +314,22 @@ export default function RegisterPage() {
                 </span>
               </label>
               {errors.agreed && <p className="mt-1 text-xs text-rose-500">{errors.agreed}</p>}
+            </div>
+
+            {/* WhatsApp opt-in (LA-341) — Meta requires explicit consent before
+                any template message can be sent to this number. */}
+            <div>
+              <label className="flex cursor-pointer items-start gap-3">
+                <div className="relative mt-0.5 shrink-0">
+                  <input type="checkbox" checked={waOptIn} onChange={(e) => setWaOptIn(e.target.checked)} className="sr-only" />
+                  <div className={`flex h-5 w-5 items-center justify-center rounded border-2 transition ${waOptIn ? "border-emerald-500 bg-emerald-500" : "border-border bg-white"}`}>
+                    {waOptIn && <CheckCircle2 size={12} className="text-white" strokeWidth={3} />}
+                  </div>
+                </div>
+                <span className="text-sm leading-relaxed text-foreground/80">
+                  Get updates on WhatsApp — listing status, offers and buyer leads.
+                </span>
+              </label>
             </div>
 
             <button

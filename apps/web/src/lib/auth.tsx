@@ -150,8 +150,8 @@ interface Ctx {
   signInStaff: (email: string, password: string) => Promise<Session>;
   signInWithGoogle: (credential: string) => Promise<Session>;
   signOut: () => Promise<void>;
-  register: (name: string, email: string, phone: string, password: string, city?: string) => Promise<Session>;
-  registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent") => Promise<void>;
+  register: (name: string, email: string, phone: string, password: string, city?: string, waOptIn?: boolean) => Promise<Session>;
+  registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent", waOptIn?: boolean) => Promise<void>;
   updateProfile: (name: string, phone: string) => Promise<void>;
   updateAvatar: (url: string) => Promise<void>;
   addCredits: (n: number) => void;
@@ -330,7 +330,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     phone: string,
     password: string,
-    city = "India"
+    city = "India",
+    waOptIn?: boolean,
   ): Promise<Session> {
     const { token, user } = await makeTRPC().auth.register.mutate({
       name,
@@ -338,6 +339,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       phone,
       password,
       city,
+      waOptIn,
     });
     await syncSessionCookie(token);
     const s = toSession(user);
@@ -352,8 +354,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     city: string,
     applyAs: "seller" | "agent" = "seller",
+    waOptIn?: boolean,
   ): Promise<void> {
-    await makeTRPC().auth.registerSeller.mutate({ name, email, phone, password, city, applyAs });
+    await makeTRPC().auth.registerSeller.mutate({ name, email, phone, password, city, applyAs, waOptIn });
     // No session — applicant must wait for admin approval
   }
 

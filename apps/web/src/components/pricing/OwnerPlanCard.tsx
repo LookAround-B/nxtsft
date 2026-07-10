@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Globe, ShieldCheck } from "lucide-react";
 
 // Owner plans come from the DB (prisma.plan, type "owner-rent" | "owner-sell")
 // and share the seeker plan row shape.
@@ -38,6 +38,19 @@ export function OwnerPlanCard({ plan, onBuy }: { plan: OwnerPlan; onBuy: (p: Own
         <span className="font-display text-3xl font-black text-navy">{plan.priceLabel}</span>
         <span className="text-xs text-muted-foreground">/ {plan.validity} days</span>
       </div>
+
+      {/* Verified badge set — included on every plan of ₹4,999 or more (LA-343) */}
+      {plan.price >= 4999 && (
+        <div className="mt-4 flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
+            <ShieldCheck size={12} strokeWidth={2.5} /> Verified Owner
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-navy px-2.5 py-1 text-[11px] font-bold text-white">
+            <Globe size={12} strokeWidth={2.5} /> NRI Trusted
+          </span>
+          <span className="w-full text-[11px] text-muted-foreground">badges included on profile + listings</span>
+        </div>
+      )}
 
       <ul className="mt-5 flex-1 space-y-2.5">
         {plan.features.map((f: string) => (
