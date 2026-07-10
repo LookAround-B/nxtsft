@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BOOST_TIERS, boostIsActive, isBoostTier } from "@nxtsft/shared/constants";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { TrustBadges } from "@/components/site/TrustBadges";
 import {
   Search,
   SlidersHorizontal,
@@ -459,6 +460,8 @@ function PropertiesInner() {
             {city ? ` in ${city}` : ""}
           </h1>
         </div>
+
+        <TrustBadges className="mb-6" />
 
         {/* Loading skeleton */}
         {query.isLoading && <CardGridSkeleton count={6} />}

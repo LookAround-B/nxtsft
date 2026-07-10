@@ -5,6 +5,7 @@ import { LinkPreview } from "@/components/ui/LinkPreview";
 import { trpc } from "@/lib/trpc";
 import { DailyVisitorsCount } from "./DailyVisitorsCount";
 import { MapLinkPreview } from "@/components/ui/MapLinkPreview";
+import { TrustBadges } from "./TrustBadges";
 import { OFFICE_COORDS, OFFICE_MAPS_URL } from "@/lib/map";
 
 const FOOTER_LINKS = {
@@ -133,6 +134,8 @@ export function SiteFooter() {
 
       {/* ── Main: brand + link columns ── */}
       <div className="relative z-10 mx-auto max-w-7xl px-4 pt-14 pb-10 sm:px-6">
+        <TrustBadges className="mb-12 border-b border-white/10 pb-10" />
+
         <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-4">

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { HeroSection } from "@/components/home/HeroSection";
 import { PressBand } from "@/components/home/PressBand";
+import { TrustBand } from "@/components/site/TrustBadges";
 import { StatsBand } from "@/components/home/StatsBand";
 import { FeaturedProperties } from "@/components/home/FeaturedProperties";
 import { KPIBand } from "@/components/home/KPIBand";
@@ -38,6 +39,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen" style={{ background: "#F4F5F7" }}>
       <HeroSection />
+      <TrustBand />
       <PressBand />
       <StatsBand />
       <FeaturedProperties />
