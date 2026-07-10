@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { keepPreviousData } from "@tanstack/react-query";
-import { Search, Building2, MapPin, CheckCircle2, X } from "lucide-react";
+import { Search, Building2, MapPin, CheckCircle2, X, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Pagination } from "@/components/ui/pagination";
@@ -158,9 +158,15 @@ function BuilderCard({ builder: b }: { builder: BuilderItem }) {
       </div>
 
       <div className="flex items-center justify-between border-t border-border pt-3">
-        <span className="text-xs text-muted-foreground">
-          {b._count.projects} project{b._count.projects !== 1 ? "s" : ""}
-        </span>
+        {b._count.projects === 0 ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
+            <Sparkles size={10} /> Projects coming soon
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            {b._count.projects} project{b._count.projects !== 1 ? "s" : ""}
+          </span>
+        )}
         {b.projectType && (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-navy">
             {b.projectType}

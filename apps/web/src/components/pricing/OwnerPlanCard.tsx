@@ -57,7 +57,7 @@ export function OwnerPlanCard({ plan, onBuy }: { plan: OwnerPlan; onBuy: (p: Own
               : "bg-navy text-white hover:opacity-90"
           }`}
       >
-        Get {plan.name}
+        Get Activated Now
       </button>
     </div>
   );

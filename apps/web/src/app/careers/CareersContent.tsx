@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Code2,
@@ -19,7 +20,7 @@ import {
 } from "lucide-react";
 
 /* ── Scroll-reveal ──────────────────────────────────────────── */
-function useScrollReveal() {
+function useScrollReveal(key?: unknown) {
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>("[data-reveal]:not([data-visible])");
     if (!els.length) return;
@@ -35,7 +36,9 @@ function useScrollReveal() {
     );
     els.forEach((el) => obs.observe(el));
     return () => obs.disconnect();
-  }, []);
+    // Re-observe when `key` changes: tab switches mount fresh [data-reveal]
+    // nodes that the previous observer never saw, leaving them at opacity 0.
+  }, [key]);
 }
 
 /* ── City skyline ────────────────────────────────────────────── */
@@ -205,8 +208,30 @@ const VALUES = [
   },
 ];
 
-/* ── Photo placeholder ───────────────────────────────────────── */
-function PhotoPlaceholder({ className = "" }: { className?: string }) {
+/* ── Team photos (Cloudflare R2, public bucket) ──────────────── */
+const R2 = "https://pub-f4a95c3ec2954aabb9bd91fa3fdf4846.r2.dev";
+const teamPhoto = (n: number) => `${R2}/team/team${n}.png`;
+const TEAM_PHOTOS = Array.from({ length: 18 }, (_, i) => i + 1);
+
+/* ── Photo ───────────────────────────────────────────────────── */
+function PhotoPlaceholder({
+  className = "",
+  src,
+  alt = "",
+  sizes = "(min-width: 768px) 33vw, 100vw",
+}: {
+  className?: string;
+  src?: string;
+  alt?: string;
+  sizes?: string;
+}) {
+  if (src) {
+    return (
+      <div className={`relative overflow-hidden rounded-2xl bg-secondary/30 ${className}`}>
+        <Image src={src} alt={alt} fill sizes={sizes} className="object-cover" />
+      </div>
+    );
+  }
   return (
     <div
       className={`relative flex items-end justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-secondary/30 ${className}`}
@@ -224,8 +249,8 @@ type Tab = "impact" | "teams" | "leadership";
 
 /* ── Main ────────────────────────────────────────────────────── */
 export function CareersContent() {
-  useScrollReveal();
   const [tab, setTab] = useState<Tab>("impact");
+  useScrollReveal(tab);
 
   return (
     <div className="min-h-screen bg-background">
@@ -516,12 +541,22 @@ export function CareersContent() {
                 </h2>
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <PhotoPlaceholder className="col-span-2 aspect-[16/9]" />
-                <PhotoPlaceholder className="aspect-square" />
-                <PhotoPlaceholder className="aspect-square" />
-                <PhotoPlaceholder className="aspect-square" />
-                <PhotoPlaceholder className="aspect-square" />
-                <PhotoPlaceholder className="col-span-2 aspect-[16/9]" />
+                {TEAM_PHOTOS.map((n, i) => {
+                  const wide = i === 0 || i === TEAM_PHOTOS.length - 1;
+                  return (
+                    <PhotoPlaceholder
+                      key={n}
+                      className={wide ? "col-span-2 aspect-[16/9]" : "aspect-square"}
+                      src={teamPhoto(n)}
+                      alt="Life at NxtSft.com"
+                      sizes={
+                        wide
+                          ? "(min-width: 768px) 50vw, 100vw"
+                          : "(min-width: 768px) 25vw, 50vw"
+                      }
+                    />
+                  );
+                })}
               </div>
             </div>
           </section>

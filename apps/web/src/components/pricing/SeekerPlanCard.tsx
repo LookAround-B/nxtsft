@@ -64,7 +64,7 @@ export function SeekerPlanCard({
               : "bg-navy text-white hover:opacity-90"
           }`}
       >
-        Get Plan — {plan.priceLabel}
+        Get Activated Now
       </button>
     </div>
   );

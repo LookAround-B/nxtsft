@@ -2,7 +2,7 @@
 import Link from "next/link";
 import {
   Building2, MapPin, Globe, CheckCircle2, Calendar,
-  ArrowLeft, IndianRupee, Maximize2, Home,
+  ArrowLeft, IndianRupee, Maximize2, Sparkles,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 const STATUS_COLOR: Record<string, string> = {
@@ -47,6 +47,7 @@ export default function BuilderProfileClient({ slug }: { slug: string }) {
   const ongoing   = builder.projects.filter((p) => p.status === "Ongoing");
   const upcoming  = builder.projects.filter((p) => p.status === "Upcoming");
   const completed = builder.projects.filter((p) => p.status === "Completed");
+  const noProjects = builder.projects.length === 0;
 
   return (
     <>
@@ -93,28 +94,53 @@ export default function BuilderProfileClient({ slug }: { slug: string }) {
                 )}
               </div>
               {/* Stats */}
-              <div className="flex gap-4">
-                {[
-                  { label: "Total Projects", value: builder._count.projects },
-                  { label: "Ongoing",        value: ongoing.length },
-                  { label: "Completed",      value: completed.length },
-                ].map(({ label, value }) => (
-                  <div key={label} className="rounded-xl border border-border bg-secondary/40 px-4 py-3 text-center">
-                    <div className="font-display text-xl font-black text-navy">{value}</div>
-                    <div className="text-[10px] text-muted-foreground">{label}</div>
+              {noProjects ? (
+                <div className="flex items-center gap-2 rounded-xl border border-accent/20 bg-accent/5 px-4 py-3">
+                  <Sparkles size={16} className="shrink-0 text-accent" />
+                  <div>
+                    <div className="text-sm font-semibold text-navy">Projects coming soon</div>
+                    <div className="text-[10px] text-muted-foreground">We&apos;re verifying this builder&apos;s portfolio</div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div className="flex gap-4">
+                  {[
+                    { label: "Total Projects", value: builder._count.projects },
+                    { label: "Ongoing",        value: ongoing.length },
+                    { label: "Completed",      value: completed.length },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="rounded-xl border border-border bg-secondary/40 px-4 py-3 text-center">
+                      <div className="font-display text-xl font-black text-navy">{value}</div>
+                      <div className="text-[10px] text-muted-foreground">{label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Projects */}
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-          {builder.projects.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border py-16 text-center">
-              <Home size={32} className="mx-auto mb-3 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">No projects listed yet for this builder.</p>
+          {noProjects ? (
+            <div className="rounded-2xl border border-dashed border-accent/30 bg-accent/5 px-6 py-16 text-center">
+              <Sparkles size={32} className="mx-auto mb-3 text-accent" />
+              <h2 className="font-display text-lg font-bold text-navy">Projects coming soon</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                We&apos;re verifying {builder.companyName}&apos;s projects and RERA details. In the meantime, explore
+                thousands of verified properties{builder.city ? ` in ${builder.city}` : ""} on NxtSft.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <Link
+                  href={builder.city ? `/properties?city=${encodeURIComponent(builder.city)}` : "/properties"}
+                  className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  Browse properties{builder.city ? ` in ${builder.city}` : ""}
+                </Link>
+                <Link href="/builders" className="rounded-full border border-border px-5 py-2 text-sm font-semibold text-navy hover:border-accent hover:text-accent">
+                  See other builders
+                </Link>
+              </div>
             </div>
           ) : (
             <>
