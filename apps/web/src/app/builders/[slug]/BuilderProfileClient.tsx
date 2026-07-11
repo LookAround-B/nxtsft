@@ -127,16 +127,9 @@ export default function BuilderProfileClient({ slug }: { slug: string }) {
               <Sparkles size={32} className="mx-auto mb-3 text-accent" />
               <h2 className="font-display text-lg font-bold text-navy">Projects coming soon</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                We&apos;re verifying {builder.companyName}&apos;s projects and RERA details. In the meantime, explore
-                thousands of verified properties{builder.city ? ` in ${builder.city}` : ""} on NxtSft.
+                We&apos;re verifying {builder.companyName}&apos;s projects and RERA details. Please check back soon.
               </p>
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                <Link
-                  href={builder.city ? `/properties?city=${encodeURIComponent(builder.city)}` : "/properties"}
-                  className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
-                >
-                  Browse properties{builder.city ? ` in ${builder.city}` : ""}
-                </Link>
                 <Link href="/builders" className="rounded-full border border-border px-5 py-2 text-sm font-semibold text-navy hover:border-accent hover:text-accent">
                   See other builders
                 </Link>

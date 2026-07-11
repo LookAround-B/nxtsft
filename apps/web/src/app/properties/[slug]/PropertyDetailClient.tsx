@@ -25,6 +25,7 @@ import {
   Star,
   Share2,
   Maximize2,
+  ImageOff,
   Eye,
   Flame,
   Users,
@@ -38,6 +39,7 @@ import { PropertyEngagement } from "@/components/PropertyEngagement";
 import { PropertyReport } from "@/components/PropertyReport";
 import { PropertyMapWrapper as PropertyMap } from "@/components/map/PropertyMapWrapper";
 import { GalleryLightbox } from "@/components/ui/GalleryLightbox";
+import { PhotoUnavailable } from "@/components/ui/PhotoUnavailable";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { trpc } from "@/lib/trpc";
 import { formatArea } from "@/lib/area";
@@ -549,6 +551,25 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
       ? property.images
       : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80"];
 
+  // LA-345: when an owner has uploaded only a photo or two, append a single
+  // "Photo not uploaded" slide after the real ones so the gallery reads as
+  // finite (the carousel stops there — no loop-around). Listings with a full
+  // set (3+) are considered complete and get no placeholder.
+  const MIN_GALLERY_PHOTOS = 3;
+  const showPhotoPlaceholder =
+    property.images.length >= 1 && property.images.length < MIN_GALLERY_PHOTOS;
+  const totalSlides = images.length + (showPhotoPlaceholder ? 1 : 0);
+  const placeholderIndex = showPhotoPlaceholder ? images.length : -1;
+  const onPlaceholder = activeImage === placeholderIndex;
+  const goPrev = () =>
+    setActiveImage((i) =>
+      showPhotoPlaceholder ? Math.max(0, i - 1) : (i - 1 + images.length) % images.length,
+    );
+  const goNext = () =>
+    setActiveImage((i) =>
+      showPhotoPlaceholder ? Math.min(totalSlides - 1, i + 1) : (i + 1) % images.length,
+    );
+
   return (
     <div className="min-h-screen bg-[oklch(0.97_0.01_260)]">
       {/* Breadcrumb */}
@@ -577,44 +598,52 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
             {/* Gallery */}
             <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
               <div className="relative h-72 sm:h-96">
-                <button
-                  type="button"
-                  aria-label="Open full-screen gallery"
-                  onClick={() => setLightboxOpen(true)}
-                  className="group absolute inset-0 cursor-zoom-in"
-                >
-                  <SafeImage
-                    src={images[activeImage] ?? images[0] ?? ""}
-                    alt={property.title}
-                    fill
-                    className="object-cover transition group-hover:brightness-95"
-                    sizes="(max-width: 1024px) 100vw, 67vw"
-                    priority
-                  />
-                  <WatermarkOverlay />
-                  <span className="absolute bottom-3 right-3 hidden items-center gap-1.5 rounded-full bg-navy/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm sm:flex">
-                    <Maximize2 size={13} /> View gallery
-                  </span>
-                </button>
+                {onPlaceholder ? (
+                  <div className="absolute inset-0">
+                    <PhotoUnavailable />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label="Open full-screen gallery"
+                    onClick={() => setLightboxOpen(true)}
+                    className="group absolute inset-0 cursor-zoom-in"
+                  >
+                    <SafeImage
+                      src={images[activeImage] ?? images[0] ?? ""}
+                      alt={property.title}
+                      fill
+                      className="object-cover transition group-hover:brightness-95"
+                      sizes="(max-width: 1024px) 100vw, 67vw"
+                      priority
+                    />
+                    <WatermarkOverlay />
+                    <span className="absolute bottom-3 right-3 hidden items-center gap-1.5 rounded-full bg-navy/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm sm:flex">
+                      <Maximize2 size={13} /> View gallery
+                    </span>
+                  </button>
+                )}
                 {/* Carousel arrows */}
-                {images.length > 1 && (
+                {totalSlides > 1 && (
                   <>
                     <button
                       aria-label="Previous image"
-                      onClick={() => setActiveImage((i) => (i - 1 + images.length) % images.length)}
-                      className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy shadow transition hover:bg-white"
+                      onClick={goPrev}
+                      disabled={showPhotoPlaceholder && activeImage === 0}
+                      className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy shadow transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <ChevronLeft size={18} />
                     </button>
                     <button
                       aria-label="Next image"
-                      onClick={() => setActiveImage((i) => (i + 1) % images.length)}
-                      className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy shadow transition hover:bg-white"
+                      onClick={goNext}
+                      disabled={showPhotoPlaceholder && activeImage === totalSlides - 1}
+                      className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy shadow transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <ChevronRight size={18} />
                     </button>
                     <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-                      {images.map((_, i) => (
+                      {Array.from({ length: totalSlides }).map((_, i) => (
                         <span
                           key={i}
                           className={`h-2 rounded-full transition-all ${i === activeImage ? "w-5 bg-white" : "w-2 bg-white/60"}`}
@@ -663,7 +692,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
               </div>
 
               {/* Thumbnail strip */}
-              {images.length > 1 && (
+              {totalSlides > 1 && (
                 <div className="flex gap-2 overflow-x-auto p-3">
                   {images.map((img, i) => (
                     <button
@@ -674,6 +703,15 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                       <SafeImage src={img} alt="" fill className="object-cover" sizes="96px" />
                     </button>
                   ))}
+                  {showPhotoPlaceholder && (
+                    <button
+                      onClick={() => setActiveImage(placeholderIndex)}
+                      aria-label="Photo not uploaded"
+                      className={`relative flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 bg-secondary/40 transition ${activeImage === placeholderIndex ? "border-accent" : "border-transparent"}`}
+                    >
+                      <ImageOff size={20} className="text-muted-foreground/50" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -683,6 +721,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
               index={activeImage}
               open={lightboxOpen}
               title={property.title}
+              trailingPlaceholder={showPhotoPlaceholder}
               onClose={() => setLightboxOpen(false)}
               onIndexChange={setActiveImage}
             />
