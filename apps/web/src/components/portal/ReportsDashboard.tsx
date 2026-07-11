@@ -261,6 +261,15 @@ export function ReportsDashboard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [snapData, filters]);
 
+  const fListings = useMemo(() =>
+    (snapData?.listings ?? []).filter((l) => {
+      if (filters.city !== "All" && l.city !== filters.city) return false;
+      if (filters.state !== "All" && l.state !== filters.state) return false;
+      return true;
+    }),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [snapData, filters]);
+
   const fTickets = useMemo(() =>
     (snapData?.tickets ?? []).filter((t) => {
       if (filters.city !== "All" && t.city !== filters.city) return false;
@@ -717,6 +726,72 @@ export function ReportsDashboard({
                   </td>
                   <td className="max-w-[200px] truncate text-xs text-muted-foreground" title={u.latestComment}>
                     {u.latestComment}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table></div>
+        )}
+      </RptSection>
+
+      {/* ── Property Listings ──────────────────────────────────── */}
+      <RptSection
+        title="Property Listings"
+        count={fListings.length}
+        onExport={() =>
+          dlCSV(
+            "property-listings.csv",
+            ["ID", "Title", "Owner", "City", "State", "Type", "Purpose", "Status", "Price (₹)", "RERA", "Builder", "Listed On"],
+            fListings.map((l) => [
+              l.id, l.title, l.owner, l.city, l.state, l.type, l.purpose, l.status, l.price, l.rera, l.builder, l.listedOn,
+            ]),
+          )
+        }
+      >
+        {fListings.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            No listings match the selected filters.
+          </p>
+        ) : (
+          <div className="overflow-x-auto"><table className="portal-table">
+            <thead>
+              <tr>
+                <th className="py-2">ID</th>
+                <th>Title</th>
+                <th>Owner</th>
+                <th>City</th>
+                <th>Type</th>
+                <th>Purpose</th>
+                <th>Price</th>
+                <th>RERA</th>
+                <th>Listed On</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fListings.map((l, i) => (
+                <tr key={`${l.id}-${i}`}>
+                  <td className="font-mono text-xs">{l.id}</td>
+                  <td className="font-semibold text-navy">{l.title}</td>
+                  <td className="text-xs">{l.owner}</td>
+                  <td className="text-xs">{l.city}</td>
+                  <td className="text-xs">{l.type}</td>
+                  <td className="text-xs">{l.purpose}</td>
+                  <td className="font-mono text-xs">{fmtINR(l.price)}</td>
+                  <td className="font-mono text-[11px]">{l.rera}</td>
+                  <td className="font-mono text-xs">{l.listedOn}</td>
+                  <td>
+                    <Badge
+                      tone={
+                        l.status === "Active"
+                          ? "success"
+                          : l.status === "Sold" || l.status === "Rented"
+                            ? "new"
+                            : "default"
+                      }
+                    >
+                      {l.status}
+                    </Badge>
                   </td>
                 </tr>
               ))}

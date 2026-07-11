@@ -68,7 +68,7 @@ export const reportsRouter = router({
       }
 
       // ── Core data — run in parallel ──────────────────────────
-      const [dbUsers, dbSubs, dbVisitsRaw, dbLeadsAll, dbCommissions, dbCampaigns] =
+      const [dbUsers, dbSubs, dbVisitsRaw, dbLeadsAll, dbCommissions, dbCampaigns, dbListings] =
         await Promise.all([
           prisma.user.findMany({
             where: {
@@ -81,7 +81,7 @@ export const reportsRouter = router({
               role: true, city: true, state: true, verified: true, joined: true,
             },
             orderBy: { joined: "desc" },
-            take: 500,
+            take: 5000,
           }),
 
           prisma.subscription.findMany({
@@ -140,6 +140,34 @@ export const reportsRouter = router({
                 orderBy: { createdAt: "desc" },
                 take: 100,
               }),
+
+          // Property listings created in range — admin-level. Sales reps aren't
+          // listing-scoped, so an empty `id in ()` predicate returns none for
+          // them (keeps a single, consistently-typed query). Backs the Listings
+          // report section + CSV export.
+          prisma.property.findMany({
+            where: {
+              deletedAt: null,
+              createdAt: { gte: from, lte: to },
+              ...(isSales ? { id: { in: [] } } : {}),
+            },
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              type: true,
+              purpose: true,
+              status: true,
+              price: true,
+              rera: true,
+              builder: true,
+              createdAt: true,
+              owner: { select: { name: true } },
+              location: { select: { city: true, state: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 2000,
+          }),
         ]);
 
       // ── Staff lookup (sales + supervisors with role) ─────────
@@ -375,6 +403,23 @@ export const reportsRouter = router({
         createdAt: c.createdAt.toISOString().slice(0, 10),
       }));
 
+      // ── Shape listings ────────────────────────────────────────
+      const listings = dbListings.map((p) => ({
+        id: p.id.slice(-6).toUpperCase(),
+        slug: p.slug,
+        title: p.title,
+        owner: p.owner?.name ?? "—",
+        city: p.location?.city ?? "—",
+        state: p.location?.state ?? "—",
+        type: p.type,
+        purpose: p.purpose,
+        status: p.status,
+        price: Math.round(Number(p.price)), // BigInt rupees → number
+        rera: p.rera || "—",
+        builder: p.builder || "—",
+        listedOn: p.createdAt.toISOString().slice(0, 10),
+      }));
+
       // ── Shape campaigns ───────────────────────────────────────
       const campaigns = dbCampaigns.map((c) => ({
         // Last 6 chars, not first 6: cuids (and the seed ids like "seed-camp-01")
@@ -454,6 +499,7 @@ export const reportsRouter = router({
       return {
         users,
         subscriptions,
+        listings,
         siteVisits,
         agentRegs,
         tickets,
