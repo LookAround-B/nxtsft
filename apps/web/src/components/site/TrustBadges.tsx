@@ -1,5 +1,5 @@
 "use client";
-import { ShieldCheck, BadgeCheck, IndianRupee, Lock } from "lucide-react";
+import { ShieldCheck, BadgeCheck, IndianRupee, Lock, Globe, ClipboardCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -15,6 +15,8 @@ type Badge = { id: string; Icon: LucideIcon; top: string; bottom: string };
 const BADGES: Badge[] = [
   { id: "rera", Icon: ShieldCheck, top: "RERA Verified", bottom: "Every Listing Checked" },
   { id: "owner", Icon: BadgeCheck, top: "Verified Owners", bottom: "Identity Confirmed" },
+  { id: "listings", Icon: ClipboardCheck, top: "Verified Listings", bottom: "Genuine & Active" },
+  { id: "nri", Icon: Globe, top: "NRI Trusted", bottom: "Global Clients" },
   { id: "commission", Icon: IndianRupee, top: "Zero Commission", bottom: "No Brokerage Fees" },
   { id: "payments", Icon: Lock, top: "Secure Payments", bottom: "Encrypted Checkout" },
 ];
@@ -39,7 +41,7 @@ function TrustMedallion({ id, Icon, top, bottom }: Badge) {
       <div className="coin-tilt">
         <svg
           viewBox="0 0 140 140"
-          className="h-32 w-[7.4rem] shrink-0 sm:h-36 sm:w-[8.3rem]"
+          className="h-24 w-[5.5rem] shrink-0 sm:h-28 sm:w-[6.4rem] md:h-32 md:w-[7.4rem]"
           role="img"
           aria-label={`${top} — ${bottom}`}
         >
@@ -229,23 +231,12 @@ function TrustMedallion({ id, Icon, top, bottom }: Badge) {
 export function TrustBadges({ className = "" }: { className?: string }) {
   return (
     <ul
-      className={`flex flex-wrap items-start justify-center gap-x-7 gap-y-6 sm:gap-x-12 ${className}`}
+      className={`mx-auto grid max-w-md grid-cols-3 place-items-center gap-x-2 gap-y-5 sm:max-w-xl sm:gap-x-6 md:max-w-none md:grid-cols-6 md:gap-x-4 ${className}`}
       aria-label="Trust and safety"
     >
       {BADGES.map((badge) => (
         <TrustMedallion key={badge.id} {...badge} />
       ))}
     </ul>
-  );
-}
-
-/** Full-width band — used between the hero and the press marquee. */
-export function TrustBand() {
-  return (
-    <section className="border-y border-border bg-white">
-      <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6">
-        <TrustBadges />
-      </div>
-    </section>
   );
 }
