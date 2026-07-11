@@ -1,6 +1,7 @@
 "use client";
 import {
   LayoutDashboard,
+  Activity,
   Users,
   Settings2,
   BarChart3,
@@ -47,6 +48,7 @@ import { UsersTab } from "@/components/sa-portal/tabs/UsersTab";
 import { TeamsTab } from "@/components/sa-portal/tabs/TeamsTab";
 import { ConfigTab } from "@/components/sa-portal/tabs/ConfigTab";
 import { AnalyticsTab } from "@/components/sa-portal/tabs/AnalyticsTab";
+import { UserActivityTab } from "@/components/sa-portal/tabs/UserActivityTab";
 import { AuditTab } from "@/components/sa-portal/tabs/AuditTab";
 import { AITab } from "@/components/sa-portal/tabs/AITab";
 import { NotifyTab } from "@/components/sa-portal/tabs/NotifyTab";
@@ -92,6 +94,7 @@ import { BulkListingsTab } from "@/components/admin-portal/tabs/BulkListingsTab"
 const makeNav = (b?: BadgeCounts) => [
   // ── Overview ─────────────────────────────────────────────────────────
   { label: "Command Dashboard", to: "/sa-portal",           icon: <LayoutDashboard size={14} />, group: "Overview" },
+  { label: "User Activity",     to: "/sa-portal#activity",  icon: <Activity size={14} /> },
   { label: "Global Analytics",  to: "/sa-portal#analytics", icon: <BarChart3 size={14} /> },
   { label: "Operations",        to: "/sa-portal#operations",icon: <LayoutGrid size={14} /> },
 
@@ -151,6 +154,8 @@ function renderTab(hash: string) {
       return <TeamsTab />;
     case "config":
       return <ConfigTab />;
+    case "activity":
+      return <UserActivityTab />;
     case "analytics":
       return <AnalyticsTab />;
     case "audit":

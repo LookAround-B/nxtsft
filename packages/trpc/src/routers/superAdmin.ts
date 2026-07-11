@@ -43,6 +43,20 @@ const platformConfigSchema = z.object({
 
 type PlatformConfig = z.infer<typeof platformConfigSchema>;
 
+// ── End-user activity monitor (LA / chairman ask) ──────────────────────────
+// "Super admin should see everything an end-user is doing" — who signed up,
+// who's logging in, who's listing, who's showing buying intent, who's just
+// browsing. These helpers back `activityStats` / `activityFeed`, which unify
+// real events across User / AuditLog / PropertyView / Lead / SiteVisit /
+// Property, scoped to consumer (non-staff) users and classified by intent.
+const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+const windowDaysSchema = z.union([z.literal(1), z.literal(7), z.literal(30)]).default(7);
+const activityKindSchema = z.enum(["all", "signup", "login", "browsing", "buying", "listing"]);
+
+function activitySince(days: number): Date {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
 export const superAdminRouter = router({
   stats: superAdminProcedure.query(async () => {
     const [
@@ -73,6 +87,393 @@ export const superAdminRouter = router({
       })),
     };
   }),
+
+  // Summary tiles for the User Activity monitor: how many end-users signed up,
+  // logged in, are just browsing, are showing buying intent, and how many
+  // listings went up — all within the selected window. "Just browsing" is a
+  // viewer with no unlock / enquiry / visit (i.e. looking, not (yet) buying).
+  activityStats: superAdminProcedure
+    .input(z.object({ windowDays: windowDaysSchema }))
+    .query(async ({ input }) => {
+      const since = activitySince(input.windowDays);
+
+      const [newSignups, newListings, loginGroups, viewGroups, unlockGroups, leadGroups, visitGroups] =
+        await Promise.all([
+          prisma.user.count({ where: { role: { notIn: STAFF_ROLES }, joined: { gte: since } } }),
+          prisma.property.count({ where: { deletedAt: null, createdAt: { gte: since } } }),
+          prisma.auditLog.groupBy({
+            by: ["userId"],
+            where: { action: "auth.login", createdAt: { gte: since }, userId: { not: null } },
+          }),
+          prisma.propertyView.groupBy({
+            by: ["userId"],
+            where: { userId: { not: null }, createdAt: { gte: since } },
+          }),
+          prisma.propertyView.groupBy({
+            by: ["userId"],
+            where: { userId: { not: null }, contactUnlocked: true, createdAt: { gte: since } },
+          }),
+          prisma.lead.groupBy({ by: ["userId"], where: { createdAt: { gte: since } } }),
+          prisma.siteVisit.groupBy({ by: ["userId"], where: { createdAt: { gte: since } } }),
+        ]);
+
+      // Resolve every referenced user's role once, then keep only consumers.
+      const allIds = new Set<string>();
+      for (const groups of [loginGroups, viewGroups, unlockGroups, leadGroups, visitGroups]) {
+        for (const g of groups) if (g.userId) allIds.add(g.userId);
+      }
+      const users = await prisma.user.findMany({
+        where: { id: { in: [...allIds] } },
+        select: { id: true, role: true },
+      });
+      const consumer = new Set(users.filter((u) => !STAFF_ROLES.includes(u.role)).map((u) => u.id));
+      const consumerIds = (groups: { userId: string | null }[]) =>
+        new Set(groups.map((g) => g.userId).filter((id): id is string => !!id && consumer.has(id)));
+
+      const loginUsers = consumerIds(loginGroups);
+      const viewers = consumerIds(viewGroups);
+      const intent = new Set<string>([
+        ...consumerIds(unlockGroups),
+        ...consumerIds(leadGroups),
+        ...consumerIds(visitGroups),
+      ]);
+      let browsing = 0;
+      for (const id of viewers) if (!intent.has(id)) browsing++;
+
+      return {
+        windowDays: input.windowDays,
+        newSignups,
+        logins: loginUsers.size,
+        browsing,
+        buyingIntent: intent.size,
+        newListings,
+      };
+    }),
+
+  // Unified, chronological, intent-classified feed of what end-users are doing.
+  // Merges recent rows from each source, resolves users/properties in batch,
+  // drops staff activity, and returns the most recent `limit` events.
+  activityFeed: superAdminProcedure
+    .input(
+      z.object({
+        windowDays: windowDaysSchema,
+        kind: activityKindSchema.default("all"),
+        search: safeString(80).optional(),
+        limit: z.number().int().min(1).max(200).default(60),
+      }),
+    )
+    .query(async ({ input }) => {
+      const since = activitySince(input.windowDays);
+      const { kind, limit } = input;
+      const search = input.search?.trim();
+      const want = (k: string) => kind === "all" || kind === k;
+
+      // Resolve a search term to a bounded set of matching user ids up front,
+      // so every source can filter on it uniformly.
+      let searchIds: string[] | null = null;
+      if (search) {
+        const us = await prisma.user.findMany({
+          where: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+            ],
+          },
+          select: { id: true },
+          take: 300,
+        });
+        searchIds = us.map((u) => u.id);
+        if (searchIds.length === 0) return { windowDays: input.windowDays, items: [] };
+      }
+
+      type Kind = "signup" | "login" | "browsing" | "buying" | "listing";
+      type Ev = {
+        id: string;
+        at: Date;
+        kind: Kind;
+        action: string;
+        userId: string;
+        user: { id: string; name: string; email: string; role: string } | null;
+        propertyId: string | null;
+        target: { title: string; slug: string } | null;
+        meta: string | null;
+      };
+      const events: Ev[] = [];
+      const userInSearch = (id: string) => !searchIds || searchIds.includes(id);
+
+      const tasks: Promise<void>[] = [];
+
+      // 1) Signups — the users themselves; role already scoped to consumers.
+      if (want("signup")) {
+        tasks.push(
+          prisma.user
+            .findMany({
+              where: {
+                role: { notIn: STAFF_ROLES },
+                joined: { gte: since },
+                ...(searchIds ? { id: { in: searchIds } } : {}),
+              },
+              select: { id: true, name: true, email: true, role: true, joined: true, city: true },
+              orderBy: { joined: "desc" },
+              take: limit,
+            })
+            .then((rows) => {
+              for (const u of rows) {
+                events.push({
+                  id: `signup:${u.id}`,
+                  at: u.joined,
+                  kind: "signup",
+                  action:
+                    u.role === "home-seller"
+                      ? "Signed up as a property owner"
+                      : u.role === "agent"
+                        ? "Signed up as an agent"
+                        : "Signed up",
+                  userId: u.id,
+                  user: { id: u.id, name: u.name, email: u.email, role: u.role },
+                  propertyId: null,
+                  target: null,
+                  meta: u.city || null,
+                });
+              }
+            }),
+        );
+      }
+
+      // 2) Logins — from the audit trail; user resolved in batch below.
+      if (want("login")) {
+        tasks.push(
+          prisma.auditLog
+            .findMany({
+              where: {
+                action: "auth.login",
+                createdAt: { gte: since },
+                userId: searchIds ? { in: searchIds } : { not: null },
+              },
+              select: { id: true, userId: true, createdAt: true },
+              orderBy: { createdAt: "desc" },
+              take: limit * 2,
+            })
+            .then((rows) => {
+              for (const r of rows) {
+                if (!r.userId) continue;
+                events.push({
+                  id: `login:${r.id}`,
+                  at: r.createdAt,
+                  kind: "login",
+                  action: "Logged in",
+                  userId: r.userId,
+                  user: null,
+                  propertyId: null,
+                  target: null,
+                  meta: null,
+                });
+              }
+            }),
+        );
+      }
+
+      // 3) Listings created — the "is he listing?" signal, keyed to the owner.
+      if (want("listing")) {
+        tasks.push(
+          prisma.property
+            .findMany({
+              where: {
+                deletedAt: null,
+                createdAt: { gte: since },
+                ...(searchIds ? { ownerId: { in: searchIds } } : {}),
+              },
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+                ownerId: true,
+                createdAt: true,
+                location: { select: { city: true } },
+              },
+              orderBy: { createdAt: "desc" },
+              take: limit,
+            })
+            .then((rows) => {
+              for (const p of rows) {
+                events.push({
+                  id: `listing:${p.id}`,
+                  at: p.createdAt,
+                  kind: "listing",
+                  action: "Listed a property",
+                  userId: p.ownerId,
+                  user: null,
+                  propertyId: p.id,
+                  target: { title: p.title, slug: p.slug },
+                  meta: p.location?.city || null,
+                });
+              }
+            }),
+        );
+      }
+
+      // 4) Property views — "just browsing" (no unlock) vs buying (unlocked).
+      if (want("browsing")) {
+        tasks.push(
+          prisma.propertyView
+            .findMany({
+              where: {
+                userId: searchIds ? { in: searchIds } : { not: null },
+                contactUnlocked: false,
+                createdAt: { gte: since },
+              },
+              select: { id: true, userId: true, propertyId: true, durationSec: true, createdAt: true },
+              orderBy: { createdAt: "desc" },
+              take: limit,
+            })
+            .then((rows) => {
+              for (const v of rows) {
+                if (!v.userId) continue;
+                events.push({
+                  id: `view:${v.id}`,
+                  at: v.createdAt,
+                  kind: "browsing",
+                  action: "Viewed a property",
+                  userId: v.userId,
+                  user: null,
+                  propertyId: v.propertyId,
+                  target: null,
+                  meta: v.durationSec ? `${v.durationSec}s on page` : null,
+                });
+              }
+            }),
+        );
+      }
+
+      // 5) Buying intent — unlocked a contact, sent an enquiry, or booked a visit.
+      if (want("buying")) {
+        tasks.push(
+          prisma.propertyView
+            .findMany({
+              where: {
+                userId: searchIds ? { in: searchIds } : { not: null },
+                contactUnlocked: true,
+                createdAt: { gte: since },
+              },
+              select: { id: true, userId: true, propertyId: true, createdAt: true },
+              orderBy: { createdAt: "desc" },
+              take: limit,
+            })
+            .then((rows) => {
+              for (const v of rows) {
+                if (!v.userId) continue;
+                events.push({
+                  id: `unlock:${v.id}`,
+                  at: v.createdAt,
+                  kind: "buying",
+                  action: "Unlocked owner contact",
+                  userId: v.userId,
+                  user: null,
+                  propertyId: v.propertyId,
+                  target: null,
+                  meta: null,
+                });
+              }
+            }),
+        );
+        tasks.push(
+          prisma.lead
+            .findMany({
+              where: { createdAt: { gte: since }, ...(searchIds ? { userId: { in: searchIds } } : {}) },
+              select: { id: true, userId: true, propertyId: true, interest: true, createdAt: true },
+              orderBy: { createdAt: "desc" },
+              take: limit,
+            })
+            .then((rows) => {
+              for (const l of rows) {
+                events.push({
+                  id: `lead:${l.id}`,
+                  at: l.createdAt,
+                  kind: "buying",
+                  action: "Sent an enquiry",
+                  userId: l.userId,
+                  user: null,
+                  propertyId: l.propertyId,
+                  target: null,
+                  meta: l.interest || null,
+                });
+              }
+            }),
+        );
+        tasks.push(
+          prisma.siteVisit
+            .findMany({
+              where: { createdAt: { gte: since }, ...(searchIds ? { userId: { in: searchIds } } : {}) },
+              select: { id: true, userId: true, propertyId: true, createdAt: true },
+              orderBy: { createdAt: "desc" },
+              take: limit,
+            })
+            .then((rows) => {
+              for (const s of rows) {
+                events.push({
+                  id: `visit:${s.id}`,
+                  at: s.createdAt,
+                  kind: "buying",
+                  action: "Booked a site visit",
+                  userId: s.userId,
+                  user: null,
+                  propertyId: s.propertyId,
+                  target: null,
+                  meta: null,
+                });
+              }
+            }),
+        );
+      }
+
+      await Promise.all(tasks);
+
+      // Batch-resolve users (for events without one) and property targets.
+      const needUserIds = [...new Set(events.filter((e) => !e.user).map((e) => e.userId))];
+      const needPropIds = [...new Set(events.filter((e) => !e.target && e.propertyId).map((e) => e.propertyId as string))];
+      const [users, properties] = await Promise.all([
+        needUserIds.length
+          ? prisma.user.findMany({
+              where: { id: { in: needUserIds } },
+              select: { id: true, name: true, email: true, role: true },
+            })
+          : Promise.resolve([]),
+        needPropIds.length
+          ? prisma.property.findMany({
+              where: { id: { in: needPropIds } },
+              select: { id: true, title: true, slug: true },
+            })
+          : Promise.resolve([]),
+      ]);
+      const userById = new Map(users.map((u) => [u.id, u]));
+      const propById = new Map(properties.map((p) => [p.id, p]));
+
+      for (const e of events) {
+        if (!e.user) e.user = userById.get(e.userId) ?? null;
+        if (!e.target && e.propertyId) {
+          const p = propById.get(e.propertyId);
+          if (p) e.target = { title: p.title, slug: p.slug };
+        }
+      }
+
+      // Keep only end-user (consumer) activity; drop anything by staff or with
+      // an unresolvable user, then return the most recent `limit` events.
+      const items = events
+        .filter((e) => e.user && !STAFF_ROLES.includes(e.user.role) && userInSearch(e.userId))
+        .sort((a, b) => b.at.getTime() - a.at.getTime())
+        .slice(0, limit)
+        .map((e) => ({
+          id: e.id,
+          at: e.at.toISOString(),
+          kind: e.kind,
+          action: e.action,
+          user: e.user,
+          target: e.target,
+          meta: e.meta,
+        }));
+
+      return { windowDays: input.windowDays, items };
+    }),
 
   systemHealth: superAdminProcedure.query(async () => {
     // Return realistic diagnostic health parameters
