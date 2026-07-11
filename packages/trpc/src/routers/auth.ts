@@ -77,6 +77,41 @@ async function logFailedLogin(email: string, userId?: string) {
   }
 }
 
+// Every new consumer becomes a follow-up lead for admin (boss ask). A Lead
+// requires a phone, so this only fires once we have one — immediately for
+// password sign-ups, and after the Google phone-capture step. Idempotent:
+// one "Signup" lead per user, and never blocks the sign-up itself.
+async function createSignupLead(user: {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+}): Promise<void> {
+  if (!user.phone) return;
+  try {
+    const existing = await prisma.lead.findFirst({
+      where: { userId: user.id, source: "Signup" },
+      select: { id: true },
+    });
+    if (existing) return;
+    await prisma.lead.create({
+      data: {
+        userId: user.id,
+        name: user.name,
+        phone: user.phone,
+        email: user.email ?? undefined,
+        city: user.city ?? undefined,
+        source: "Signup",
+        status: "New",
+        interest: "New sign-up — follow up",
+      },
+    });
+  } catch {
+    // best-effort — a lead failure must never fail registration
+  }
+}
+
 function sessionExpiry() {
   const d = new Date();
   d.setDate(d.getDate() + SESSION_TTL_DAYS);
@@ -189,6 +224,9 @@ export const authRouter = router({
         content: "Your account is ready. Start exploring properties.",
         actionUrl: "/properties",
       });
+
+      // Every new user is a follow-up lead for admin (has phone here).
+      await createSignupLead(user);
 
       const token = await createSession(user.id);
 
@@ -412,7 +450,26 @@ export const authRouter = router({
 
       await logSignIn(user.id);
       const freshUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-      return { token, user: safeUser(freshUser) };
+      // Google gives us no phone; the client must collect one (via completePhone)
+      // so the user is reachable and becomes a follow-up lead.
+      return { token, user: safeUser(freshUser), needsPhone: !freshUser.phone };
+    }),
+
+  // Collect a mobile number after Google sign-up (Google returns none). Sets the
+  // phone and creates the follow-up signup-lead now that we can reach them.
+  completePhone: protectedProcedure
+    .input(z.object({ phone: phoneSchema }))
+    .mutation(async ({ input, ctx }) => {
+      const existingPhone = await prisma.user.findUnique({ where: { phone: input.phone } });
+      if (existingPhone && existingPhone.id !== ctx.user.id) {
+        throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
+      }
+      const user = await prisma.user.update({
+        where: { id: ctx.user.id },
+        data: { phone: input.phone },
+      });
+      await createSignupLead(user);
+      return safeUser(user);
     }),
 
   logout: protectedProcedure.mutation(async ({ ctx }) => {

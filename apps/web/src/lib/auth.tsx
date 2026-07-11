@@ -148,7 +148,8 @@ interface Ctx {
   sessionChecked: boolean;
   signIn: (email: string, password: string) => Promise<Session>;
   signInStaff: (email: string, password: string) => Promise<Session>;
-  signInWithGoogle: (credential: string) => Promise<Session>;
+  signInWithGoogle: (credential: string) => Promise<{ session: Session; needsPhone: boolean }>;
+  completePhone: (phone: string) => Promise<void>;
   signOut: () => Promise<void>;
   register: (name: string, email: string, phone: string, password: string, city?: string, waOptIn?: boolean) => Promise<Session>;
   registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent", waOptIn?: boolean) => Promise<void>;
@@ -304,12 +305,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return s;
   }
 
-  async function signInWithGoogle(credential: string): Promise<Session> {
-    const { token, user } = await makeTRPC().auth.googleSignIn.mutate({ credential });
+  async function signInWithGoogle(credential: string): Promise<{ session: Session; needsPhone: boolean }> {
+    const { token, user, needsPhone } = await makeTRPC().auth.googleSignIn.mutate({ credential });
     await syncSessionCookie(token);
     const s = toSession(user);
     persist(s, user.credits);
-    return s;
+    return { session: s, needsPhone: needsPhone ?? false };
+  }
+
+  // Save a mobile number captured right after Google sign-up.
+  async function completePhone(phone: string): Promise<void> {
+    const user = await makeTRPC().auth.completePhone.mutate({ phone });
+    const s = toSession(user);
+    persist(s, user.credits);
   }
 
   async function signOut(): Promise<void> {
@@ -411,6 +419,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signInStaff,
         signInWithGoogle,
+        completePhone,
         signOut,
         register,
         registerSeller,

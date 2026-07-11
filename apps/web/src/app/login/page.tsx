@@ -18,9 +18,12 @@ export default function LoginPage() {
 }
 
 function LoginPageContent() {
-  const { session, sessionChecked, signIn, signInWithGoogle, signOut } = useAuth();
+  const { session, sessionChecked, signIn, signInWithGoogle, completePhone, signOut } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Google sign-up returns no phone; hold the auto-redirect while we collect one.
+  const [needPhone, setNeedPhone] = useState(false);
 
   // Middleware sometimes lands a still-signed-in user here because the
   // nxtsft_session cookie silently expired/was cleared while their
@@ -30,16 +33,19 @@ function LoginPageContent() {
   // check confirms the session is still good, send them straight back instead
   // of making them notice the banner below and click "Sign in" again.
   useEffect(() => {
-    if (sessionChecked && session) {
+    if (sessionChecked && session && !needPhone) {
       router.replace(searchParams.get("redirect") || ROLE_META[session.role].portal);
     }
-  }, [sessionChecked, session, searchParams, router]);
+  }, [sessionChecked, session, searchParams, router, needPhone]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [phone, setPhone] = useState("");
+  const [phoneErr, setPhoneErr] = useState("");
+  const [phoneSaving, setPhoneSaving] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,8 +74,13 @@ function LoginPageContent() {
     setError("");
     setLoading(true);
     try {
-      const s = await signInWithGoogle(credential);
+      const { session: s, needsPhone } = await signInWithGoogle(credential);
       toast.success(`Welcome, ${s.name.split(" ")[0]}!`);
+      if (needsPhone) {
+        // Collect a mobile number before entering the app.
+        setNeedPhone(true);
+        return;
+      }
       router.push(ROLE_META[s.role].portal);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Google sign-in failed.");
@@ -78,8 +89,64 @@ function LoginPageContent() {
     }
   };
 
+  const submitPhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const p = phone.replace(/\s/g, "");
+    if (!/^[0-9]{10}$/.test(p)) {
+      setPhoneErr("Enter a valid 10-digit mobile number.");
+      return;
+    }
+    setPhoneErr("");
+    setPhoneSaving(true);
+    try {
+      await completePhone(p);
+      setNeedPhone(false);
+      router.push(searchParams.get("redirect") || "/user-portal");
+    } catch (err) {
+      setPhoneErr(err instanceof Error ? err.message : "Could not save your number. Try again.");
+    } finally {
+      setPhoneSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Phone capture — required after Google sign-up so every new user is reachable */}
+      {needPhone && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="font-display text-xl font-bold text-navy">One last step</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add your mobile number so our team can reach you about properties.
+            </p>
+            <form onSubmit={submitPhone} className="mt-5">
+              <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                Mobile Number
+              </label>
+              <div className="mt-1.5 flex items-center rounded-xl border border-input bg-background px-3 focus-within:border-accent">
+                <span className="text-sm text-muted-foreground">+91</span>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  autoFocus
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="10-digit number"
+                  className="w-full bg-transparent px-2 py-2.5 text-sm outline-none"
+                />
+              </div>
+              {phoneErr && <p className="mt-2 text-xs font-medium text-red-500">{phoneErr}</p>}
+              <button
+                type="submit"
+                disabled={phoneSaving}
+                className="mt-4 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+              >
+                {phoneSaving ? "Saving…" : "Continue"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 sm:py-16 lg:grid-cols-2">
         {/* Left decorative panel */}
         <div className="hidden animate-fade-up flex-col justify-between rounded-3xl bg-gradient-to-br from-navy via-navy-deep to-accent p-10 text-white lg:flex">
