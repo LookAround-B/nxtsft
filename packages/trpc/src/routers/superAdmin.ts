@@ -193,7 +193,7 @@ export const superAdminRouter = router({
         kind: Kind;
         action: string;
         userId: string;
-        user: { id: string; name: string; email: string; role: string } | null;
+        user: { id: string; name: string; email: string; phone: string | null; role: string } | null;
         propertyId: string | null;
         target: { title: string; slug: string } | null;
         meta: string | null;
@@ -213,7 +213,7 @@ export const superAdminRouter = router({
                 joined: { gte: since },
                 ...(searchIds ? { id: { in: searchIds } } : {}),
               },
-              select: { id: true, name: true, email: true, role: true, joined: true, city: true },
+              select: { id: true, name: true, email: true, phone: true, role: true, joined: true, city: true },
               orderBy: { joined: "desc" },
               take: limit,
             })
@@ -230,7 +230,7 @@ export const superAdminRouter = router({
                         ? "Signed up as an agent"
                         : "Signed up",
                   userId: u.id,
-                  user: { id: u.id, name: u.name, email: u.email, role: u.role },
+                  user: { id: u.id, name: u.name, email: u.email, phone: u.phone, role: u.role },
                   propertyId: null,
                   target: null,
                   meta: u.city || null,
@@ -435,7 +435,7 @@ export const superAdminRouter = router({
         needUserIds.length
           ? prisma.user.findMany({
               where: { id: { in: needUserIds } },
-              select: { id: true, name: true, email: true, role: true },
+              select: { id: true, name: true, email: true, phone: true, role: true },
             })
           : Promise.resolve([]),
         needPropIds.length

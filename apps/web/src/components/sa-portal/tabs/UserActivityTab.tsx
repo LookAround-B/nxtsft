@@ -4,7 +4,7 @@ import Link from "next/link";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { TabHeader } from "./shared";
 import { trpc } from "@/lib/trpc";
-import { UserPlus, LogIn, Eye, Flame, Building2, Search, type LucideIcon } from "lucide-react";
+import { UserPlus, LogIn, Eye, Flame, Building2, Search, Phone, type LucideIcon } from "lucide-react";
 
 // The chairman's ask: super admin should see everything an end-user is doing —
 // who signed up, who's logging in, who's listing, who's showing buying intent,
@@ -215,11 +215,23 @@ export function UserActivityTab() {
                       )}
                       {ev.meta && <span className="text-muted-foreground/70"> · {ev.meta}</span>}
                     </div>
-                    {ev.user?.email && (
-                      <div className="truncate text-[11px] text-muted-foreground/60">
-                        {ev.user.email}
-                      </div>
-                    )}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+                      {ev.user?.phone && ev.user.phone !== "—" ? (
+                        <a
+                          href={`tel:${ev.user.phone}`}
+                          className="flex items-center gap-1 font-semibold text-accent hover:underline"
+                        >
+                          <Phone size={11} /> {ev.user.phone}
+                        </a>
+                      ) : (
+                        <span className="flex items-center gap-1 text-muted-foreground/50">
+                          <Phone size={11} /> no phone
+                        </span>
+                      )}
+                      {ev.user?.email && (
+                        <span className="truncate text-muted-foreground/60">{ev.user.email}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                     {timeAgo(ev.at)}

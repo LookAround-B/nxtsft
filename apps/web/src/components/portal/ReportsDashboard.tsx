@@ -703,7 +703,7 @@ export function ReportsDashboard({
           <div className="overflow-x-auto"><table className="portal-table">
             <thead>
               <tr>
-                <th className="py-2">ID</th><th>Name</th><th>Job Category</th><th>Category</th><th>City</th>
+                <th className="py-2">ID</th><th>Name</th><th>Phone</th><th>Job Category</th><th>Category</th><th>City</th>
                 <th>State</th><th>Builder</th><th>Supervisor</th><th>Sales</th>
                 <th>Registered</th><th>Status</th><th>Latest Comment</th>
               </tr>
@@ -713,6 +713,13 @@ export function ReportsDashboard({
                 <tr key={`${u.id}-${i}`}>
                   <td className="font-mono text-xs">{u.id}</td>
                   <td><div className="font-semibold text-navy">{u.name}</div><div className="text-[10px] text-muted-foreground">{u.email}</div></td>
+                  <td className="text-xs">
+                    {u.phone && u.phone !== "—" ? (
+                      <a href={`tel:${u.phone}`} className="font-medium text-accent hover:underline">{u.phone}</a>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="text-xs">{u.jobCategory}</td>
                   <td className="text-xs">{u.category}</td>
                   <td className="text-xs">{u.city}</td>

@@ -73,8 +73,8 @@ export function UsersTab() {
             onClick={() =>
               downloadCSV(
                 "users.csv",
-                ["ID", "Name", "Email", "Role", "City", "Verified"],
-                users.map((u) => [u.id, u.name, u.email, SA_ROLE_LABEL[u.role] ?? u.role, u.city, u.verified ? "Yes" : "No"]),
+                ["ID", "Name", "Email", "Phone", "Role", "City", "Verified"],
+                users.map((u) => [u.id, u.name, u.email, u.phone || "—", SA_ROLE_LABEL[u.role] ?? u.role, u.city, u.verified ? "Yes" : "No"]),
               )
             }
             className="text-xs font-semibold text-accent hover:underline"
@@ -139,6 +139,7 @@ export function UsersTab() {
                 <tr>
                   <th className="py-2">Name</th>
                   <th>Email</th>
+                  <th>Phone</th>
                   <th>Role</th>
                   <th>City</th>
                   <th>Joined</th>
@@ -151,6 +152,13 @@ export function UsersTab() {
                   <tr key={u.id}>
                     <td className="font-semibold text-navy">{u.name}</td>
                     <td className="text-xs text-muted-foreground">{u.email}</td>
+                    <td className="text-xs">
+                      {u.phone && u.phone !== "—" ? (
+                        <a href={`tel:${u.phone}`} className="font-medium text-accent hover:underline">{u.phone}</a>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td>
                       <Select
                         value={u.role}
