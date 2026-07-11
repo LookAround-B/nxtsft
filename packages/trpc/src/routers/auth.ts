@@ -431,18 +431,23 @@ export const authRouter = router({
       }
 
       if (isNewUser) {
-        await grantCredits(user.id, 1, "welcome");
+        // Welcome credit is deferred to the phone-capture step ("update mobile
+        // number to unlock 1 credit") so it doubles as an incentive to give us
+        // a reachable number. See completePhone.
         await notify({
           userId: user.id,
           type: "welcome",
           title: "Welcome to NxtSft 🎉",
-          content: "Your account is ready. Start exploring properties.",
+          content: "Add your mobile number to unlock your free credit and start exploring.",
           actionUrl: "/properties",
         });
       } else if (
         CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) &&
-        user.credits === 0
+        user.credits === 0 &&
+        !!user.phone
       ) {
+        // Re-engagement top-up only for reachable users — don't let someone skip
+        // the phone step and still collect credits.
         await grantCredits(user.id, 3, "demo");
       }
 
@@ -468,8 +473,27 @@ export const authRouter = router({
         where: { id: ctx.user.id },
         data: { phone: input.phone },
       });
+
+      // "Update mobile number to unlock 1 credit" — grant the welcome credit now,
+      // once, as the reward for giving us a reachable number.
+      const alreadyWelcomed = await prisma.creditTransaction.findFirst({
+        where: { userId: user.id, reason: "welcome" },
+        select: { id: true },
+      });
+      if (!alreadyWelcomed) {
+        await grantCredits(user.id, 1, "welcome");
+        await notify({
+          userId: user.id,
+          type: "welcome",
+          title: "1 free credit unlocked 🎉",
+          content: "Thanks for adding your number — use your credit to unlock an owner contact.",
+          actionUrl: "/properties",
+        });
+      }
+
       await createSignupLead(user);
-      return safeUser(user);
+      const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      return safeUser(fresh);
     }),
 
   logout: protectedProcedure.mutation(async ({ ctx }) => {

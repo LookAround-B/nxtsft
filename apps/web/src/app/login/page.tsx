@@ -115,9 +115,10 @@ function LoginPageContent() {
       {needPhone && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="font-display text-xl font-bold text-navy">One last step</h2>
+            <h2 className="font-display text-xl font-bold text-navy">Unlock 1 free credit 🎉</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Add your mobile number so our team can reach you about properties.
+              Update your mobile number to unlock 1 free credit — and let our team reach you about
+              properties.
             </p>
             <form onSubmit={submitPhone} className="mt-5">
               <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -141,7 +142,7 @@ function LoginPageContent() {
                 disabled={phoneSaving}
                 className="mt-4 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
               >
-                {phoneSaving ? "Saving…" : "Continue"}
+                {phoneSaving ? "Unlocking…" : "Unlock 1 credit"}
               </button>
             </form>
           </div>
