@@ -474,14 +474,15 @@ export const authRouter = router({
         data: { phone: input.phone },
       });
 
-      // "Update mobile number to unlock 1 credit" — grant the welcome credit now,
-      // once, as the reward for giving us a reachable number.
-      const alreadyWelcomed = await prisma.creditTransaction.findFirst({
-        where: { userId: user.id, reason: "welcome" },
+      // "Update mobile number to unlock 1 credit" — auto-credit 1 promotion
+      // credit (the ₹99 home-buyer credit) to the wallet, once, as the reward
+      // for giving us a reachable number.
+      const alreadyRewarded = await prisma.creditTransaction.findFirst({
+        where: { userId: user.id, reason: "promotion" },
         select: { id: true },
       });
-      if (!alreadyWelcomed) {
-        await grantCredits(user.id, 1, "welcome");
+      if (!alreadyRewarded) {
+        await grantCredits(user.id, 1, "promotion");
         await notify({
           userId: user.id,
           type: "welcome",
