@@ -8,27 +8,13 @@ import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { openRazorpayCheckout } from "@/lib/razorpay";
-import { walletLedger, disputes } from "@/data/static";
 import { Head } from "./shared";
-
-const myLedger = walletLedger;
-const myDisputes = disputes;
 
 const unlockKindLabel: Record<"property" | "designer" | "decor", string> = {
   property: "Property",
   designer: "Interiors",
   decor: "Decor",
 };
-
-// Static credit usage timeline (last 5 unlock events)
-const creditTimeline = [
-  { date: "2026-05-18", action: "Unlocked Marina Heights contact", tokens: -1 },
-  { date: "2026-05-16", action: "Unlocked Skyline Residences contact", tokens: -1 },
-  { date: "2026-05-19", action: "Refund: Dispute resolved (Marina)", tokens: +1 },
-  { date: "2026-05-15", action: "Basic plan purchased", tokens: +6 },
-  { date: "2026-05-10", action: "Trial credits granted (signup bonus)", tokens: +1 },
-];
-
 
 export function CreditsTab() {
   const { session, credits, refreshCredits } = useAuth();
@@ -142,9 +128,9 @@ export function CreditsTab() {
           sub={`${unlockedQ.data?.length ?? 0} contacts unlocked`}
         />
         <StatCard
-          label="Disputes Filed"
-          value={String(myDisputes.length)}
-          sub={`${myDisputes.filter((d) => d.status === "Resolved").length} resolved`}
+          label="Contacts Unlocked"
+          value={String(unlockedQ.data?.length ?? 0)}
+          sub="via credits"
         />
       </div>
 
@@ -301,51 +287,6 @@ export function CreditsTab() {
             )}
           </div>
         </div>
-      </Section>
-
-      {/* Token Ledger */}
-      <Section title="Token Ledger">
-        {myLedger.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No ledger entries yet.</p>
-        ) : (
-          <div className="divide-y divide-border">
-            {myLedger.map((entry) => {
-              const isCredit = entry.type === "credit";
-              const isRefund = entry.type === "refund";
-              const badgeClass = isCredit
-                ? "bg-emerald-100 text-emerald-700"
-                : isRefund
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-accent/10 text-accent";
-              const badgeLabel = isCredit ? "Credit" : isRefund ? "Refund" : "Debit";
-              return (
-                <div key={entry.id} className="flex items-center justify-between py-3 gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-navy truncate">
-                      {entry.description}
-                    </div>
-                    <div className="font-mono text-[10px] text-muted-foreground mt-0.5">
-                      {entry.date}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${badgeClass}`}
-                    >
-                      {badgeLabel}
-                    </span>
-                    <span
-                      className={`font-mono text-sm font-bold ${isCredit || isRefund ? "text-emerald-600" : "text-accent"}`}
-                    >
-                      {isCredit || isRefund ? `+${entry.amount}` : `-${entry.amount}`} token
-                      {entry.amount !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </Section>
 
       {/* Unlocked Contacts — real backend data (property / designer / decor) */}

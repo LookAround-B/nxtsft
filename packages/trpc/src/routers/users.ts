@@ -653,6 +653,10 @@ export const usersRouter = router({
         ])
       : [0, 0, 0, 0];
 
+    const me = await prisma.user.findUnique({
+      where: { id: ctx.user.id },
+      select: { kycStatus: true },
+    });
     return {
       activeListings: myProps.filter((p) => p.status === "Active").length,
       pendingListings: myProps.filter((p) => p.status === "Pending").length,
@@ -660,6 +664,35 @@ export const usersRouter = router({
       newLeadsThisWeek,
       visitsBooked,
       upcomingVisits,
+      kycStatus: me?.kycStatus ?? "none",
+    };
+  }),
+
+  // Real buyer (home-buyer) profile counts — replaces the old hardcoded demo
+  // stats so a brand-new user sees zeros, not fabricated numbers.
+  buyerStats: protectedProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const [shortlisted, siteVisits, upcomingVisits, me] = await Promise.all([
+      prisma.favorite.count({ where: { userId: ctx.user.id } }),
+      prisma.siteVisit.count({ where: { userId: ctx.user.id } }),
+      prisma.siteVisit.count({
+        where: {
+          userId: ctx.user.id,
+          scheduledAt: { gte: now },
+          status: { in: ["Scheduled", "Rescheduled"] },
+        },
+      }),
+      prisma.user.findUnique({
+        where: { id: ctx.user.id },
+        select: { credits: true, kycStatus: true },
+      }),
+    ]);
+    return {
+      shortlisted,
+      siteVisits,
+      upcomingVisits,
+      credits: me?.credits ?? 0,
+      kycStatus: me?.kycStatus ?? "none",
     };
   }),
 

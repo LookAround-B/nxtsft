@@ -234,6 +234,10 @@ export default function ProfilePage() {
   const sellerStatsQ = trpc.users.sellerStats.useQuery(undefined, {
     enabled: session?.role === "home-seller",
   });
+  // Real counts for the buyer stat cards — no more fabricated demo numbers.
+  const buyerStatsQ = trpc.users.buyerStats.useQuery(undefined, {
+    enabled: session?.role === "user",
+  });
   const updatePrefs = trpc.users.updateNotificationPrefs.useMutation({
     onError: (e: { message: string }) => toast.error(e.message),
   });
@@ -294,9 +298,16 @@ export default function ProfilePage() {
   const meta = ROLE_META[session.role];
   const actions = roleActions[session.role];
 
-  // Home-sellers get live counts wired to their listings, with each card linking
-  // to the matching portal page. Every other role keeps its static demo stats.
+  // Home-sellers and home-buyers get live counts wired to real data, with each
+  // card linking to the matching portal page. Staff roles keep demo stats.
   const s = sellerStatsQ.data;
+  const b = buyerStatsQ.data;
+  const kycView: Record<string, { value: string; sub: string }> = {
+    none: { value: "Not started", sub: "Upload your documents" },
+    pending: { value: "Pending", sub: "Under review" },
+    verified: { value: "Verified", sub: "All docs OK" },
+    rejected: { value: "Rejected", sub: "Re-upload needed" },
+  };
   const stats: Array<{ label: string; value: string; sub?: string; to?: string }> =
     session.role === "home-seller"
       ? [
@@ -318,9 +329,41 @@ export default function ProfilePage() {
             sub: s?.newLeadsThisWeek ? `${s.newLeadsThisWeek} new this week` : "No new this week",
             to: "/user-portal#leads",
           },
-          { label: "KYC", value: "Verified", sub: "All docs OK" },
+          {
+            label: "KYC",
+            value: (kycView[s?.kycStatus ?? "none"] ?? kycView.none).value,
+            sub: (kycView[s?.kycStatus ?? "none"] ?? kycView.none).sub,
+            to: "/user-portal#kyc",
+          },
         ]
-      : roleStats[session.role];
+      : session.role === "user"
+        ? [
+            {
+              label: "Shortlisted",
+              value: String(b?.shortlisted ?? 0),
+              sub: (b?.shortlisted ?? 0) === 0 ? "None saved yet" : "saved",
+              to: "/user-portal#saved",
+            },
+            {
+              label: "Site Visits",
+              value: String(b?.siteVisits ?? 0),
+              sub: b?.upcomingVisits ? `${b.upcomingVisits} upcoming` : "None upcoming",
+              to: "/user-portal#visits",
+            },
+            {
+              label: "Credits",
+              value: String(b?.credits ?? 0),
+              sub: (b?.credits ?? 0) === 0 ? "Top up to unlock" : "ready to use",
+              to: "/user-portal#credits",
+            },
+            {
+              label: "KYC",
+              value: (kycView[b?.kycStatus ?? "none"] ?? kycView.none).value,
+              sub: (kycView[b?.kycStatus ?? "none"] ?? kycView.none).sub,
+              to: "/user-portal#kyc",
+            },
+          ]
+        : roleStats[session.role];
 
   const saveProfile = async () => {
     const newName = name.trim() || session!.name;
