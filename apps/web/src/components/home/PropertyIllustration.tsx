@@ -205,7 +205,7 @@ export function PropertyIllustration({ className = "" }: { className?: string })
       <div className="absolute bottom-14 -left-5 animate-float-r rounded-xl border border-border bg-white px-3 py-1.5 shadow-lg">
         <div className="flex items-center gap-1.5 text-xs">
           <span className="text-amber-400">★</span>
-          <span className="font-semibold text-navy">Top Rated</span>
+          <span className="font-semibold text-navy">4.8 Rating</span>
         </div>
       </div>
       <div

@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { trpc } from "@/lib/trpc";
 import {
   ShieldCheck, Users, BarChart2, Zap, Home, Search,
   Building2, IndianRupee, CheckCircle2, MessageCircle,
@@ -106,6 +105,13 @@ const NAV_SECTIONS = [
   { id: "team",     label: "Our Team" },
   { id: "faq",      label: "FAQs" },
   { id: "contact",  label: "Contact Us" },
+];
+
+const STATS = [
+  { raw: "50K+", label: "Active Listings" },
+  { raw: "30+",  label: "Cities" },
+  { raw: "₹0",   label: "Brokerage for Buyers" },
+  { raw: "100%", label: "RERA-Verified" },
 ];
 
 const VALUES = [
@@ -229,16 +235,6 @@ export function AboutContent() {
   useScrollReveal();
   const [activeSection, setActiveSection] = useState("about");
 
-  // Live DB counts for the stats band. Value-props (₹0, 100%) stay static.
-  const stats = trpc.users.platformStats.useQuery().data;
-  const nf = (n: number) => n.toLocaleString("en-IN");
-  const STATS = [
-    { raw: stats ? nf(stats.listings) : "—", label: "Active Listings" },
-    { raw: stats ? nf(stats.cities) : "—", label: "Cities" },
-    { raw: "₹0", label: "Brokerage for Buyers" },
-    { raw: "100%", label: "RERA-Verified" },
-  ];
-
   /* Track which section is in view for the sticky nav */
   useEffect(() => {
     const sectionEls = NAV_SECTIONS.map(({ id }) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
@@ -289,7 +285,7 @@ export function AboutContent() {
             className="mt-7 flex flex-wrap gap-2.5"
             style={{ transitionDelay: "240ms" }}
           >
-            {["Zero Commission", "RERA-Verified", "AI-Matched", "Direct Owner Connect"].map((chip) => (
+            {["Zero Commission", "RERA-Verified", "AI-Matched", "10,000+ Homes"].map((chip) => (
               <span
                 key={chip}
                 className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-semibold text-white/85 backdrop-blur-sm"
@@ -430,7 +426,7 @@ export function AboutContent() {
               </p>
               <p>
                 Today, NxtSft.com serves buyers, renters, sellers, developers and agents across
-                India with RERA-verified listings, AI-powered matching, and a commitment that
+                30+ cities with RERA-verified listings, AI-powered matching, and a commitment that
                 is simple: <strong className="text-navy">no buyer ever pays brokerage on our platform</strong>.
               </p>
             </div>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { MapPin, ExternalLink, Instagram, Youtube, Facebook, Twitter, Linkedin } from "lucide-react";
 import { LinkPreview } from "@/components/ui/LinkPreview";
 import { trpc } from "@/lib/trpc";
+import { DailyVisitorsCount } from "./DailyVisitorsCount";
 import { MapLinkPreview } from "@/components/ui/MapLinkPreview";
 import { TrustBadges } from "./TrustBadges";
 import { OFFICE_COORDS, OFFICE_MAPS_URL } from "@/lib/map";
@@ -231,6 +232,10 @@ export function SiteFooter() {
           </div>
         </div>
 
+        {/* Daily visitors ticker (GOL-292) */}
+        <div className="mt-10 flex justify-center">
+          <DailyVisitorsCount />
+        </div>
       </div>
 
       {/* ── Contact strip ── */}

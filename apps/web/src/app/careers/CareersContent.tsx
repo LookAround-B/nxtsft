@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { trpc } from "@/lib/trpc";
 import Link from "next/link";
 import {
   Code2,
@@ -179,6 +178,13 @@ const LEADERSHIP = [
   { name: "Chief Financial Officer", title: "Finance, Legal & Compliance" },
 ];
 
+const IMPACT_STATS = [
+  { value: "50K+", label: "Properties Listed" },
+  { value: "30+", label: "Cities Covered" },
+  { value: "500+", label: "Verified Builders" },
+  { value: "₹1T+", label: "Property Value Managed" },
+];
+
 const VALUES = [
   {
     Icon: ShieldCheck,
@@ -245,16 +251,6 @@ type Tab = "impact" | "teams" | "leadership";
 export function CareersContent() {
   const [tab, setTab] = useState<Tab>("impact");
   useScrollReveal(tab);
-
-  // Live DB counts — no fabricated figures.
-  const stats = trpc.users.platformStats.useQuery().data;
-  const nf = (n: number) => n.toLocaleString("en-IN");
-  const IMPACT_STATS = [
-    { value: stats ? nf(stats.listings) : "—", label: "Properties Listed" },
-    { value: stats ? nf(stats.cities) : "—", label: "Cities Covered" },
-    { value: stats ? nf(stats.agents) : "—", label: "Verified Agents" },
-    { value: stats && stats.avgRating > 0 ? `${stats.avgRating.toFixed(1)}★` : "—", label: "Avg Rating" },
-  ];
 
   return (
     <div className="min-h-screen bg-background">

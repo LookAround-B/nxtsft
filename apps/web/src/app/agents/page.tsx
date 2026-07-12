@@ -27,7 +27,6 @@ import {
 import { ownerSlug } from "@/data/static";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { trpc } from "@/lib/trpc";
 import { trpcClient } from "@/lib/trpcClient";
 
 type Agent = {
@@ -217,15 +216,6 @@ export default function AgentsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const statsQ = trpc.users.platformStats.useQuery();
-
-  // Real hero counters — live DB counts, "—" until they load.
-  const nf = (n: number) => n.toLocaleString("en-IN");
-  const heroStats: [string, string][] = [
-    [statsQ.data ? nf(statsQ.data.agents) : "—", "Verified Agents"],
-    [statsQ.data ? nf(statsQ.data.listings) : "—", "Live Listings"],
-    [statsQ.data ? nf(statsQ.data.cities) : "—", "Cities Covered"],
-  ];
 
   // Fetch agents from DB via tRPC
   useEffect(() => {
@@ -435,7 +425,12 @@ export default function AgentsPage() {
 
           {/* Stats */}
           <div className="mt-10 flex flex-wrap justify-center gap-8">
-            {heroStats.map(([v, l]) => (
+            {[
+              ["500+", "Verified Agents"],
+              ["10,000+", "Happy Clients"],
+              ["₹5,000 Cr+", "Transacted"],
+              ["25+", "Cities Active"],
+            ].map(([v, l]) => (
               <div key={l} className="text-center">
                 <div className="font-display text-2xl font-black text-white">{v}</div>
                 <div className="mt-0.5 text-[11px] uppercase tracking-wider text-white/50">{l}</div>

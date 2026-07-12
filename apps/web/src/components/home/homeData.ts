@@ -42,12 +42,28 @@ export const HERO_IMAGES = [
 ];
 
 export const ROTATING_STATS = [
-  "Trusted by Home Buyers Across India",
-  "Only RERA-Verified Properties",
+  "Trusted by 1 Lakh+ Happy Customers",
+  "10,000+ RERA-Verified Properties",
   "Zero Commission — Save Lakhs",
-  "Direct Owner Connect — No Brokers",
+  "Covering 50+ Cities Across India",
   "AI-Matched Listings for Every Budget",
   "Dedicated Relationship Manager Support",
+];
+
+export const KPI_BAND = [
+  { num: 10000, prefix: "", suffix: "+", decimals: 0, l: "Verified Properties" },
+  { num: 50, prefix: "", suffix: "+", decimals: 0, l: "Cities Covered" },
+  { num: 4.8, prefix: "", suffix: " ★", decimals: 1, l: "Average Rating" },
+  { num: 1, prefix: "", suffix: " Lakh+", decimals: 0, l: "Happy Customers" },
+  { num: 0, prefix: "₹", suffix: "", decimals: 0, l: "Commission Fee" },
+  { num: 100, prefix: "", suffix: "%", decimals: 0, l: "RERA Verified" },
+];
+
+export const TOP_STATS_DATA = [
+  { num: 10, suffix: "K+", l: "Properties" },
+  { num: 2, suffix: "K+", l: "Projects" },
+  { num: 50, suffix: "+", l: "Cities" },
+  { num: 100, suffix: "K+", l: "Customers" },
 ];
 
 export const PROPERTY_TABS = ["All", "Apartments", "Villas", "Commercial", "Plots", "PG"];
