@@ -52,7 +52,7 @@ import { UserActivityTab } from "@/components/sa-portal/tabs/UserActivityTab";
 import { AuditTab } from "@/components/sa-portal/tabs/AuditTab";
 import { AITab } from "@/components/sa-portal/tabs/AITab";
 import { NotifyTab } from "@/components/sa-portal/tabs/NotifyTab";
-import { CMSTab } from "@/components/sa-portal/tabs/CMSTab";
+// CMSTab import removed — Content CMS is hidden until phase 2 (see nav array below).
 import { SecurityTab } from "@/components/sa-portal/tabs/SecurityTab";
 import { BillingTab } from "@/components/sa-portal/tabs/BillingTab";
 import { PermissionsTab } from "@/components/sa-portal/tabs/PermissionsTab";
@@ -140,7 +140,9 @@ const makeNav = (b?: BadgeCounts) => [
   { label: "All Teams",        to: "/sa-portal#teams",       icon: <Users2 size={14} /> },
   { label: "Role Permissions", to: "/sa-portal#permissions", icon: <Shield size={14} /> },
   { label: "Notifications",    to: "/sa-portal#notify",      icon: <Bell size={14} /> },
-  { label: "Content CMS",      to: "/sa-portal#cms",         icon: <FileText size={14} /> },
+  // Content CMS hidden until phase 2 — authoring UI exists but published pages
+  // aren't rendered publicly yet. Re-add this nav item + the "cms" case below
+  // (and the CMSTab import) to restore it.
   { label: "AI Model Control", to: "/sa-portal#ai",          icon: <Cpu size={14} /> },
   { label: "Security Console", to: "/sa-portal#sec",         icon: <Shield size={14} /> },
   { label: "Platform Config",  to: "/sa-portal#config",      icon: <Settings2 size={14} /> },
@@ -164,8 +166,6 @@ function renderTab(hash: string) {
       return <AITab />;
     case "notify":
       return <NotifyTab />;
-    case "cms":
-      return <CMSTab />;
     case "sec":
       return <SecurityTab />;
     case "bill":
