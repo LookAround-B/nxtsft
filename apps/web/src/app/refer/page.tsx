@@ -53,17 +53,17 @@ const EARN_PATHS = [
   {
     icon: Camera,
     tag: "Spot & Submit a Board",
-    reward: "₹50",
+    reward: "₹100",
     rewardNote: "per verified board",
     color: "from-emerald-500 to-emerald-600",
     bgLight: "bg-emerald-50 border-emerald-200",
     tagColor: "bg-emerald-100 text-emerald-700",
-    desc: 'See a "For Sale" or "To Let" board in your neighbourhood? Click a photo and submit it. If the owner is not already on NxtSft.com and agrees to list, you earn ₹50 instantly.',
+    desc: 'See a "For Sale" or "To Let" board in your neighbourhood? Click a photo and submit it. If the owner is not already on NxtSft.com and agrees to list, you earn ₹100 instantly.',
     steps: [
       'Spot a "For Sale" or "To Let" sign board anywhere in your city.',
       "Photograph the board clearly and note the address.",
       "Submit via the app or the form below. We'll reach out to the owner.",
-      "Earn ₹50 once the owner lists and the property is published.",
+      "Earn ₹100 once the owner lists and the property is published.",
     ],
   },
 ];
@@ -84,7 +84,7 @@ const REWARD_TIERS = [
   },
   {
     label: "Board photo submission",
-    amount: "₹50",
+    amount: "₹100",
     condition: "Per verified & listed board",
     highlight: false,
   },
@@ -460,7 +460,7 @@ export default function ReferPage() {
                 {[
                   ["₹500", "per buyer deal"],
                   ["₹120", "per listing"],
-                  ["₹50", "per board photo"],
+                  ["₹100", "per board photo"],
                   ["No cap", "on earnings"],
                 ].map(([v, l]) => (
                   <div key={l}>
