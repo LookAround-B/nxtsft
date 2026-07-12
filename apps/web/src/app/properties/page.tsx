@@ -84,12 +84,44 @@ function PropertyCard({ p }: { p: PropertyItem }) {
     setActive((i) => (i + dir + images.length) % images.length);
   };
 
+  // Swipe support for touch devices (the arrows are hover-only on desktop).
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const didSwipe = useRef(false);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStart.current = t ? { x: t.clientX, y: t.clientY } : null;
+    didSwipe.current = false;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const start = touchStart.current;
+    const t = e.changedTouches[0];
+    touchStart.current = null;
+    if (!start || !t || images.length <= 1) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    // Only act on a mostly-horizontal swipe; leave vertical scrolling alone.
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+      didSwipe.current = true; // suppress the card's navigation for this gesture
+      setActive((i) => (i + (dx < 0 ? 1 : -1) + images.length) % images.length);
+    }
+  };
+
   return (
     <Link
       href={`/properties/${p.slug}`}
+      onClick={(e) => {
+        if (didSwipe.current) {
+          e.preventDefault();
+          didSwipe.current = false;
+        }
+      }}
       className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
     >
-      <div className="relative h-48 overflow-hidden bg-secondary">
+      <div
+        className="relative h-48 overflow-hidden bg-secondary"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
         <SafeImage
           src={images[active] ?? images[0]!}
           alt={p.title}
@@ -106,7 +138,7 @@ function PropertyCard({ p }: { p: PropertyItem }) {
               type="button"
               aria-label="Previous image"
               onClick={(e) => step(e, -1)}
-              className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy opacity-0 shadow transition group-hover:opacity-100 hover:bg-white"
+              className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy opacity-100 shadow transition md:opacity-0 md:group-hover:opacity-100 hover:bg-white"
             >
               <ChevronLeft size={16} />
             </button>
@@ -114,7 +146,7 @@ function PropertyCard({ p }: { p: PropertyItem }) {
               type="button"
               aria-label="Next image"
               onClick={(e) => step(e, 1)}
-              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy opacity-0 shadow transition group-hover:opacity-100 hover:bg-white"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-navy opacity-100 shadow transition md:opacity-0 md:group-hover:opacity-100 hover:bg-white"
             >
               <ChevronRight size={16} />
             </button>
