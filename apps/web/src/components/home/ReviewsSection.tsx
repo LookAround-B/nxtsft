@@ -2,6 +2,7 @@
 
 import { REVIEWS } from "@/components/home/homeData";
 import { Eyebrow } from "@/components/home/Eyebrow";
+import { trpc } from "@/lib/trpc";
 
 // Marquee glides one full set-width left, then loops. The track holds two copies
 // of REVIEWS, so -50% lands exactly on the start of the second copy — seamless.
@@ -61,6 +62,7 @@ function ReviewCard({ r }: { r: Review }) {
 }
 
 export function ReviewsSection() {
+  const stats = trpc.users.platformStats.useQuery().data;
   return (
     <section className="px-4 py-12 sm:px-6">
       <style>{marqueeStyle}</style>
@@ -72,10 +74,16 @@ export function ReviewsSection() {
             What People Say About Us
           </h2>
           <div className="mt-4 flex items-center gap-3">
-            <span className="font-display text-4xl font-black text-navy">4.8</span>
+            <span className="font-display text-4xl font-black text-navy">
+              {stats && stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "—"}
+            </span>
             <div>
-              <Stars n={5} />
-              <span className="text-sm text-muted-foreground font-medium">Based on 10,000+ reviews</span>
+              <Stars n={stats && stats.avgRating > 0 ? Math.round(stats.avgRating) : 5} />
+              <span className="text-sm text-muted-foreground font-medium">
+                {stats
+                  ? `Based on ${stats.reviews.toLocaleString("en-IN")} review${stats.reviews !== 1 ? "s" : ""}`
+                  : "Verified customer reviews"}
+              </span>
             </div>
           </div>
         </div>

@@ -766,9 +766,11 @@ export const usersRouter = router({
   // Real platform counters for the public /agents hero. Everything here is a
   // live DB count — no fixtures — so the numbers can only ever be truthful.
   platformStats: publicProcedure.query(async () => {
-    const [agents, listings, cityRows] = await Promise.all([
+    const [agents, listings, reviews, ratingAgg, cityRows] = await Promise.all([
       prisma.user.count({ where: { role: "agent", active: true, verified: true } }),
       prisma.property.count({ where: { deletedAt: null, status: "Active" } }),
+      prisma.review.count(),
+      prisma.review.aggregate({ _avg: { rating: true } }),
       prisma.property.findMany({
         where: { deletedAt: null, status: "Active" },
         select: { location: { select: { city: true } } },
@@ -777,7 +779,10 @@ export const usersRouter = router({
     const cities = new Set(
       cityRows.map((r) => r.location?.city?.trim().toLowerCase()).filter(Boolean),
     ).size;
-    return { agents, listings, cities };
+    const avgRating = ratingAgg._avg.rating
+      ? Math.round(ratingAgg._avg.rating * 10) / 10
+      : 0;
+    return { agents, listings, cities, reviews, avgRating };
   }),
 
   getAgent: publicProcedure

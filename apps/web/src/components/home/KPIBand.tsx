@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { KPI_BAND } from "@/components/home/homeData";
+import { trpc } from "@/lib/trpc";
 import { CitySkySVG } from "@/components/home/CitySkySVG";
 
 function KpiBandStat({
@@ -75,12 +75,24 @@ function KpiBandStat({
 }
 
 export function KPIBand() {
+  const { data } = trpc.users.platformStats.useQuery();
+
+  // Live DB counts + genuine value-props. No fabricated figures.
+  const cards = [
+    { num: data?.listings ?? 0, prefix: "", suffix: "", decimals: 0, l: "Verified Listings" },
+    { num: data?.cities ?? 0, prefix: "", suffix: "", decimals: 0, l: "Cities Covered" },
+    { num: data?.agents ?? 0, prefix: "", suffix: "", decimals: 0, l: "Verified Agents" },
+    { num: data?.avgRating ?? 0, prefix: "", suffix: " ★", decimals: 1, l: "Average Rating" },
+    { num: 0, prefix: "₹", suffix: "", decimals: 0, l: "Commission Fee" },
+    { num: 100, prefix: "", suffix: "%", decimals: 0, l: "RERA Verified" },
+  ];
+
   return (
     <section className="relative overflow-hidden bg-navy px-4 py-8 sm:px-6">
       <CitySkySVG />
       <div className="relative z-10 mx-auto max-w-7xl">
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6 lg:gap-0 lg:divide-x lg:divide-white/10">
-          {KPI_BAND.map((s, i) => (
+          {cards.map((s, i) => (
             <KpiBandStat key={s.l} {...s} delay={i * 80} />
           ))}
         </div>

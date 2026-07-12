@@ -42,6 +42,9 @@ export function HeroSection() {
   const configured = (heroConfig.data as { images?: string[] } | null)?.images;
   const heroImages = configured && configured.length > 0 ? configured : HERO_IMAGES;
 
+  // Real trust-badge numbers (live DB counts).
+  const stats = trpc.users.platformStats.useQuery().data;
+
   useEffect(() => {
     const id = setInterval(() => {
       setFade(false);
@@ -86,12 +89,18 @@ export function HeroSection() {
       <HeroBlobs />
 
       <div className="relative z-10 mx-auto max-w-4xl px-4 pb-14 pt-10 text-center sm:px-6 sm:pb-18 sm:pt-16">
-        {/* trust badge */}
+        {/* trust badge — live counts */}
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-bold backdrop-blur-sm">
-          <span className="text-amber-400">★</span>
-          <span className="text-white">4.8</span>
-          <span className="mx-0.5 text-white/30">·</span>
-          <span className="text-white/85">1 Lakh+ Verified Customers</span>
+          {stats && stats.avgRating > 0 && (
+            <>
+              <span className="text-amber-400">★</span>
+              <span className="text-white">{stats.avgRating.toFixed(1)}</span>
+              <span className="mx-0.5 text-white/30">·</span>
+            </>
+          )}
+          <span className="text-white/85">
+            {stats ? `${stats.listings.toLocaleString("en-IN")} Verified Listings` : "Verified Listings"}
+          </span>
         </div>
 
         <h1 className="font-display text-3xl font-black leading-[1.1] tracking-tight text-white sm:text-5xl md:text-[3.75rem]">

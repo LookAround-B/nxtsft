@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { TOP_STATS_DATA } from "@/components/home/homeData";
+import { trpc } from "@/lib/trpc";
 
 function useCountUp(target: number, duration = 1600, active = false) {
   const [value, setValue] = useState(0);
@@ -70,10 +70,20 @@ function AnimatedStatCard({
 }
 
 export function StatsBand() {
+  const { data } = trpc.users.platformStats.useQuery();
+
+  // Live DB counts only — no fabricated figures.
+  const cards = [
+    { num: data?.listings ?? 0, suffix: "", l: "Listings" },
+    { num: data?.cities ?? 0, suffix: "", l: "Cities" },
+    { num: data?.agents ?? 0, suffix: "", l: "Agents" },
+    { num: data?.reviews ?? 0, suffix: "", l: "Reviews" },
+  ];
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {TOP_STATS_DATA.map((s, i) => (
+        {cards.map((s, i) => (
           <AnimatedStatCard key={s.l} {...s} delay={i * 70} />
         ))}
       </div>
