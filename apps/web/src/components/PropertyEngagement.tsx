@@ -26,7 +26,7 @@ function Stat({ icon, value, label, tone }: { icon: React.ReactNode; value: numb
         {icon}
         {value.toLocaleString("en-IN")}
       </span>
-      <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="mt-0.5 text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
     </div>
   );
 }

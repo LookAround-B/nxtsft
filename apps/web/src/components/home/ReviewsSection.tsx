@@ -12,7 +12,7 @@ const marqueeStyle = `
     to { transform: translateX(-50%); }
   }
   .review-marquee {
-    animation: review-marquee 90s linear infinite;
+    animation: review-marquee 40s linear infinite;
   }
   .review-marquee:hover {
     animation-play-state: paused;
