@@ -66,7 +66,7 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[oklch(0.97_0.01_260)] text-foreground">
+    <div className="flex h-[100dvh] overflow-hidden bg-[oklch(0.97_0.01_260)] text-foreground">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -78,7 +78,7 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-40 flex h-screen flex-shrink-0 flex-col
+          fixed inset-y-0 left-0 z-40 flex h-[100dvh] flex-shrink-0 flex-col
           bg-navy-deep text-white shadow-2xl
           transition-all duration-300 ease-out
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
@@ -106,7 +106,7 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3">
+        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
           {nav.map((n, idx) => {
             const [navPath, navHash = ""] = n.to.split("#");
             const active = navPath === pathname && navHash === currentHash;
@@ -277,8 +277,13 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
           </div>
         </header>
 
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-10">
+        {/* Content — scroll is locked while the mobile drawer is open so only
+            the sidebar scrolls, not the dashboard behind it. */}
+        <main
+          className={`flex-1 px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-10 ${
+            sidebarOpen ? "overflow-hidden" : "overflow-y-auto"
+          }`}
+        >
           <div
             key={currentHash}
             className="mx-auto w-full max-w-7xl animate-fade-up animate-scale-in transition-all duration-300"
