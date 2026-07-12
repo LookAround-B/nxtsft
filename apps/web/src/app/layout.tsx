@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Preloader } from "@/components/site/Preloader";
 import { SiteChrome } from "@/components/site/SiteChrome";
 import { ListPropertyPopup } from "@/components/site/ListPropertyPopup";
+import { PhoneGate } from "@/components/site/PhoneGate";
 import { WhatsAppChatButton } from "@/components/site/WhatsAppChatButton";
 import { CookieBanner } from "@/components/site/CookieBanner";
 import { PWARegister } from "@/components/PWARegister";
@@ -114,6 +115,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SiteChrome>{children}</SiteChrome>
             <BottomNav />
             <ListPropertyPopup />
+            <PhoneGate />
             <WhatsAppChatButton />
             <CookieBanner />
             <Toaster richColors position="top-right" />
