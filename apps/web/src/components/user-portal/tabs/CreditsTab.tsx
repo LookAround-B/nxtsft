@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
@@ -212,10 +213,18 @@ export function CreditsTab() {
         </div>
       </Section>
 
-      {/* Top Up Modal */}
-      {showTopUp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+      {/* Top Up Modal — portaled to <body> so `fixed` centres on the viewport,
+          not the transformed portal content wrapper (animate-* holds a transform). */}
+      {showTopUp && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setShowTopUp(false)}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-display text-lg font-bold text-navy">Top Up Credits</h3>
               <button
@@ -252,7 +261,8 @@ export function CreditsTab() {
                 ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Credit Usage Timeline */}
