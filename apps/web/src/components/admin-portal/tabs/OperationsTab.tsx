@@ -1,7 +1,6 @@
 "use client";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
-import { activities, teamMembers } from "@/data/static";
 import type { BadgeCounts } from "./shared";
 import {
   ShieldCheck,
@@ -9,7 +8,6 @@ import {
   UserCheck,
   Inbox,
   ArrowRight,
-  Crown,
   TrendingUp,
   TrendingDown,
   Users,
@@ -39,15 +37,6 @@ function getDateStr() {
     year: "numeric",
   });
 }
-
-const activityBorder = (user: string) => {
-  if (user === "System") return "border-l-amber-500";
-  if (user.startsWith("Priya")) return "border-l-emerald-500";
-  if (user.startsWith("Karan")) return "border-l-blue-500";
-  if (user.startsWith("Anita")) return "border-l-purple-500";
-  if (user.startsWith("Devansh")) return "border-l-rose-500";
-  return "border-l-accent";
-};
 
 /* ─── Sub-components ─────────────────────────────────────────────────── */
 
@@ -278,67 +267,6 @@ function FunnelBar({
   );
 }
 
-/* Sales leaderboard row */
-function LeaderboardRow({
-  rank,
-  name,
-  city,
-  closedMTD,
-  conversion,
-  achieved,
-}: {
-  rank: number;
-  name: string;
-  city: string;
-  closedMTD: number;
-  conversion: number;
-  achieved: number;
-}) {
-  const isFirst = rank === 1;
-  return (
-    <div
-      className={`flex items-center gap-3 rounded-xl p-3 transition-colors ${isFirst ? "bg-gold/5" : "hover:bg-secondary/40"}`}
-    >
-      {/* Rank */}
-      <div
-        className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-black ${
-          isFirst
-            ? "bg-gold text-navy"
-            : rank === 2
-              ? "bg-slate-100 text-slate-600"
-              : "bg-secondary text-muted-foreground"
-        }`}
-      >
-        {isFirst ? <Crown size={14} /> : rank}
-      </div>
-
-      {/* Name + bar */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-1">
-          <span className="truncate text-sm font-semibold text-navy">{name}</span>
-          <span className="shrink-0 text-xs font-bold text-emerald-600">{closedMTD} closed</span>
-        </div>
-        <div className="mt-1.5 flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
-            <div
-              className={`h-1.5 rounded-full transition-all duration-700 ${isFirst ? "bg-gold" : "bg-accent"}`}
-              style={{ width: `${achieved}%` }}
-            />
-          </div>
-          <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
-            {achieved}% target
-          </span>
-        </div>
-      </div>
-
-      {/* Conversion */}
-      <div className="shrink-0 text-right">
-        <div className="text-xs font-bold text-navy">{conversion}%</div>
-        <div className="text-[10px] text-muted-foreground">conv.</div>
-      </div>
-    </div>
-  );
-}
 
 /* Inline card shell (no mt-6 so it plays well with space-y-6) */
 function Card({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
@@ -361,7 +289,6 @@ export function OperationsTab() {
   const actionItems = makeActionItems(badgesQ.data);
 
   // Sort leaderboard by closedMTD desc
-  const leaderboard = [...teamMembers].sort((a, b) => b.closedMTD - a.closedMTD);
 
   return (
     <div className="space-y-6">
@@ -401,8 +328,8 @@ export function OperationsTab() {
             <KpiCard
               label="Total Revenue"
               value={s ? fmtRevenue(s.totalRevenue) : "…"}
-              sub="+8% vs last month"
-              trend="up"
+              sub="payments received"
+              trend="neutral"
               icon={<TrendingUp size={15} />}
             />
             <KpiCard
@@ -427,71 +354,38 @@ export function OperationsTab() {
             />
           </div>
 
-          {/* Conversion Funnel */}
-          <Card title="Conversion Funnel — This Month">
-            <div className="space-y-3 py-1">
-              <FunnelBar label="Leads"     count={412} max={412} color="bg-blue-500" />
-              <FunnelBar label="Qualified" count={198} max={412} color="bg-violet-500" pct="48%" />
-              <FunnelBar label="Site Visit"count={87}  max={412} color="bg-amber-500" pct="44%" />
-              <FunnelBar label="Closed"    count={23}  max={412} color="bg-emerald-500" pct="26%" />
-            </div>
-            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 border-t border-border pt-3 text-[11px] text-muted-foreground">
-              <span>Qualify rate: <strong className="text-navy">48%</strong></span>
-              <span>Visit rate: <strong className="text-navy">44%</strong></span>
-              <span>Close rate: <strong className="text-navy">26%</strong></span>
-              <span>Overall: <strong className="text-emerald-600">5.6%</strong></span>
-            </div>
+          {/* Conversion Funnel — real lead stages */}
+          <Card title="Conversion Funnel">
+            {(() => {
+              const leadsN = s?.totalLeads ?? 0;
+              const qualified = (s?.hotLeads ?? 0) + (s?.warmLeads ?? 0);
+              const visits = s?.siteVisitsCount ?? 0;
+              const closed = s?.convertedLeads ?? 0;
+              const max = Math.max(1, leadsN);
+              const pct = (a: number, b: number) => (b > 0 ? `${Math.round((a / b) * 100)}%` : "0%");
+              return (
+                <>
+                  <div className="space-y-3 py-1">
+                    <FunnelBar label="Leads" count={leadsN} max={max} color="bg-blue-500" />
+                    <FunnelBar label="Qualified" count={qualified} max={max} color="bg-violet-500" pct={pct(qualified, leadsN)} />
+                    <FunnelBar label="Site Visit" count={visits} max={max} color="bg-amber-500" pct={pct(visits, leadsN)} />
+                    <FunnelBar label="Closed" count={closed} max={max} color="bg-emerald-500" pct={pct(closed, leadsN)} />
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 border-t border-border pt-3 text-[11px] text-muted-foreground">
+                    <span>Qualify rate: <strong className="text-navy">{pct(qualified, leadsN)}</strong></span>
+                    <span>Visit rate: <strong className="text-navy">{pct(visits, qualified)}</strong></span>
+                    <span>Close rate: <strong className="text-navy">{pct(closed, visits)}</strong></span>
+                    <span>Overall: <strong className="text-emerald-600">{pct(closed, leadsN)}</strong></span>
+                  </div>
+                </>
+              );
+            })()}
           </Card>
 
-          {/* Sales Leaderboard */}
-          <Card
-            title="Sales Team — This Month"
-            action={
-              <button
-                onClick={() => (window.location.hash = "team")}
-                className="text-xs font-semibold text-accent hover:underline"
-              >
-                View All →
-              </button>
-            }
-          >
-            <div className="space-y-1">
-              {leaderboard.map((m, i) => (
-                <LeaderboardRow
-                  key={m.id}
-                  rank={i + 1}
-                  name={m.name}
-                  city={m.city}
-                  closedMTD={m.closedMTD}
-                  conversion={m.conversion}
-                  achieved={m.achieved}
-                />
-              ))}
-            </div>
-          </Card>
         </div>
 
-        {/* ── Right column: Activity + Quick Actions ─────────────────── */}
+        {/* ── Right column: Quick Actions ────────────────────────────── */}
         <div className="space-y-6 lg:col-span-2">
-
-          {/* Live Activity Stream */}
-          <Card title="Live Activity Stream">
-            <div>
-              {activities.map((a, i) => (
-                <div
-                  key={i}
-                  className={`border-b border-border py-3 pl-3 last:border-0 border-l-4 ${activityBorder(a.user)}`}
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-navy">{a.user}</span>
-                    <span className="font-mono text-muted-foreground">{a.ts}</span>
-                  </div>
-                  <div className="mt-0.5 text-sm">{a.action}</div>
-                  <div className="text-xs text-muted-foreground">{a.outcome}</div>
-                </div>
-              ))}
-            </div>
-          </Card>
 
           {/* Quick Actions */}
           <Card title="Quick Actions">

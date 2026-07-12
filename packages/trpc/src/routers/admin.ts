@@ -70,6 +70,9 @@ export const adminRouter = router({
       activeListings,
       totalLeads,
       hotLeads,
+      warmLeads,
+      convertedLeads,
+      siteVisitsCount,
       totalRevenue,
     ] = await Promise.all([
       prisma.user.count(),
@@ -77,6 +80,9 @@ export const adminRouter = router({
       prisma.property.count({ where: { status: "Active", deletedAt: null } }),
       prisma.lead.count(),
       prisma.lead.count({ where: { status: "Hot" } }),
+      prisma.lead.count({ where: { status: "Warm" } }),
+      prisma.lead.count({ where: { status: "Converted" } }),
+      prisma.siteVisit.count(),
       prisma.payment.aggregate({ where: { status: "Success" }, _sum: { amount: true } }),
     ]);
 
@@ -86,6 +92,9 @@ export const adminRouter = router({
       activeListings,
       totalLeads,
       hotLeads,
+      warmLeads,
+      convertedLeads,
+      siteVisitsCount,
       totalRevenue: Number(totalRevenue._sum.amount ?? 0) / 100, // convert paise to rupees
     };
   }),
