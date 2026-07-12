@@ -20,10 +20,9 @@ export function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 md:hidden">
-      {/* Safe-area spacer */}
-      <div className="h-[env(safe-area-inset-bottom)] bg-white/95" />
-
-      <div className="border-t border-border/60 bg-white/95 backdrop-blur-xl">
+      {/* Bar padded for the home-indicator safe area at the BOTTOM (not a strip
+          above it), so no white border appears on top of the nav. */}
+      <div className="border-t border-border/60 bg-white/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
         <ul className="mx-auto grid max-w-sm grid-cols-5 px-2 py-1">
           {items.map(({ href, label, Icon }) => {
             const active = pathname === href || (href !== "/" && pathname.startsWith(href));
