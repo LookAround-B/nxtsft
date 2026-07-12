@@ -278,6 +278,9 @@ export default function PricingPage() {
               Secure payment via Razorpay · No subscription, no hidden charges · Listings go live
               within 24 hrs of verification
             </p>
+            <p className="mt-2 text-center text-[11px] font-medium text-muted-foreground">
+              *All prices are inclusive of GST.
+            </p>
           </section>
 
           <PlanChooser
@@ -320,6 +323,9 @@ export default function PricingPage() {
             <p className="mt-8 text-center text-xs text-muted-foreground">
               Secure payment via Razorpay · One-time only, no recurring charges · Dispute refund
               within 24 hrs
+            </p>
+            <p className="mt-2 text-center text-[11px] font-medium text-muted-foreground">
+              *All prices are inclusive of GST.
             </p>
           </section>
 

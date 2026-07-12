@@ -38,6 +38,7 @@ export function OwnerPlanCard({ plan, onBuy }: { plan: OwnerPlan; onBuy: (p: Own
         <span className="font-display text-3xl font-black text-navy">{plan.priceLabel}</span>
         <span className="text-xs text-muted-foreground">/ {plan.validity} days</span>
       </div>
+      <div className="mt-0.5 text-[11px] font-medium text-muted-foreground">(inclusive GST*)</div>
 
       {/* Verified badge set — included on every plan of ₹4,999 or more (LA-343) */}
       {plan.price >= 4999 && (

@@ -152,6 +152,7 @@ function BoostModal({
                 )}
                 <div className="font-display text-base font-bold text-navy">{plan.name}</div>
                 <div className="mt-1 font-display text-2xl font-black text-navy">{plan.priceLabel}</div>
+                <div className="text-[11px] font-medium text-muted-foreground">(inclusive GST*)</div>
                 <p className="mt-1 text-xs text-muted-foreground">{plan.tagline}</p>
                 <ul className="mt-3 space-y-1.5">
                   {plan.features.map((f) => (

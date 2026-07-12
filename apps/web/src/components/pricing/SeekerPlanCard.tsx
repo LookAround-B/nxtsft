@@ -45,6 +45,7 @@ export function SeekerPlanCard({
         </span>
       </div>
       <div className="mt-1 text-xs text-muted-foreground">Valid for {plan.validity} days</div>
+      <div className="mt-0.5 text-[11px] font-medium text-muted-foreground">(inclusive GST*)</div>
 
       <ul className="mt-5 flex-1 space-y-2.5">
         {plan.features.map((f: string) => (
