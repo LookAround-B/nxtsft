@@ -130,17 +130,19 @@ function SimilarProperties({ slug, type }: { slug: string; type: string }) {
           <Link
             key={p.id}
             href={`/properties/${p.slug}`}
-            className="group flex items-center gap-3 rounded-xl border border-border p-3 transition hover:border-accent/40 hover:shadow-sm"
+            className="group flex min-w-0 items-center gap-3 rounded-xl border border-border p-3 transition hover:border-accent/40 hover:shadow-sm"
           >
             <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
               <SafeImage src={p.images[0] ?? ""} alt={p.title} fill sizes="56px" className="object-cover" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-bold text-navy group-hover:text-accent">{p.title}</div>
-              <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                <MapPin size={10} />
-                {p.location?.city}
-                {p.bhk ? ` · ${p.bhk}` : ""}
+              <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                <MapPin size={10} className="shrink-0" />
+                <span className="truncate">
+                  {p.location?.city}
+                  {p.bhk ? ` · ${p.bhk}` : ""}
+                </span>
               </div>
               <div className="text-xs font-semibold text-accent">{formatPrice(p.price)}</div>
             </div>
