@@ -114,7 +114,7 @@ export function SellerLeadsTab() {
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       {l.phone && (
-                        <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1 hover:text-accent hover:underline">
+                        <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1 font-semibold text-accent hover:underline">
                           <Phone size={11} /> {l.phone}
                         </a>
                       )}
