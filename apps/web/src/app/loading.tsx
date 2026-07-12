@@ -47,7 +47,6 @@ export default function Loading() {
   if (is("/properties")) return <PropertiesPageLoadingPreset />;
   if (pathname.startsWith("/agents/")) return <DetailPageLoadingPreset />;
   if (is("/agents")) return <AgentsPageLoadingPreset />;
-  if (pathname.startsWith("/owners/")) return <DetailPageLoadingPreset />;
 
   // Documents
   if (is("/terms")) return <DocumentPageLoadingPreset />;

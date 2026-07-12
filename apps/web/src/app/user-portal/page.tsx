@@ -99,12 +99,12 @@ export default function UserPortal() {
       nav={nav}
       basePath="/user-portal"
     >
-      {renderTab(h, session.email)}
+      {renderTab(h)}
     </PortalShell>
   );
 }
 
-function renderTab(h: string, userEmail: string) {
+function renderTab(h: string) {
   switch (h) {
     case "saved":   return <SavedTab />;
     case "mylist":  return <MyListingsTab />;
@@ -120,6 +120,6 @@ function renderTab(h: string, userEmail: string) {
     case "profile": return <ProfileTab />;
     case "alerts":  return <SearchAlertsTab />;
     case "refer":   return <ReferTab />;
-    default:        return <OverviewDashboard userEmail={userEmail} />;
+    default:        return <OverviewDashboard />;
   }
 }

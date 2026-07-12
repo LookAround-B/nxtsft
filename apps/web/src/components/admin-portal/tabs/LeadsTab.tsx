@@ -6,7 +6,6 @@ import { Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
 import { TableSkeleton } from "@/components/ui/skeleton";
-import { leads } from "@/data/static";
 import { PageHead } from "./PageHead";
 
 export function LeadsTab() {
@@ -215,7 +214,13 @@ export function LeadsTab() {
               </tr>
             </thead>
             <tbody>
-              {dbLeads.length > 0 ? dbLeads.map((l) => (
+              {dbLeadsQ.isLoading ? null : dbLeads.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                    No leads found.
+                  </td>
+                </tr>
+              ) : dbLeads.map((l) => (
                 <tr key={l.id}>
                   <td className="font-mono text-[11px]">{l.id.slice(0, 8)}…</td>
                   <td>
@@ -261,27 +266,6 @@ export function LeadsTab() {
                       ))}
                     </select>
                   </td>
-                </tr>
-              )) : (leads.filter((l) => filter === "All" || l.status === filter)).map((l) => (
-                <tr key={l.id}>
-                  <td className="font-mono text-xs">{l.id}</td>
-                  <td>
-                    <div className="font-semibold text-navy">{l.name}</div>
-                    <div className="text-xs text-muted-foreground">{l.phone}</div>
-                  </td>
-                  <td className="text-xs">{l.interest}</td>
-                  <td>
-                    <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-navy">
-                      {l.source}
-                    </span>
-                  </td>
-                  <td>
-                    <Badge tone={l.status.toLowerCase() as "hot" | "warm" | "cold" | "new"}>
-                      {l.status}
-                    </Badge>
-                  </td>
-                  <td className="text-xs text-muted-foreground">{l.lastActivity}</td>
-                  <td className="text-xs">{l.owner}</td>
                 </tr>
               ))}
             </tbody>

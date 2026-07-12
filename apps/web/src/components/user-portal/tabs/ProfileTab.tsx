@@ -13,12 +13,13 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { propertyViews } from "@/data/static";
+import { type FeaturedProp } from "@/components/home/homeData";
 import { Head, DEMO_USER } from "./shared";
 
 export function ProfileTab() {
   const { session, updateProfile } = useAuth();
   const updateProfileMutation = trpc.users.updateProfile.useMutation();
+  const favoritesQ = trpc.users.favorites.useQuery(undefined, { enabled: !!session });
   const [name, setName] = useState(session?.name ?? DEMO_USER.name);
   const [phone, setPhone] = useState(session?.phone ?? DEMO_USER.phone);
   const [city, setCity] = useState(DEMO_USER.city);
@@ -42,17 +43,19 @@ export function ProfileTab() {
   const [confPwd, setConfPwd] = useState("");
 
   const handleDownloadCSV = () => {
-    const myViews = propertyViews.filter(
-      (v) => v.userEmail === (session?.email ?? DEMO_USER.email),
-    );
-    const header = ["ID", "Property", "City", "Date", "Duration (sec)", "Contact Unlocked"];
-    const rows = myViews.map((v) => [
-      v.id,
-      `"${v.propertyTitle}"`,
-      v.city,
-      v.ts,
-      v.durationSec,
-      v.contactUnlocked,
+    const saved = (favoritesQ.data ?? []) as unknown as FeaturedProp[];
+    if (saved.length === 0) {
+      toast.error("No saved properties to export yet.");
+      return;
+    }
+    const header = ["ID", "Property", "Type", "Locality", "City", "Price"];
+    const rows = saved.map((p) => [
+      p.id,
+      `"${p.title}"`,
+      p.type ?? "",
+      p.location?.locality ?? "",
+      p.location?.city ?? "",
+      p.price,
     ]);
     const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -294,7 +297,7 @@ export function ProfileTab() {
       {/* Download data */}
       <Section title="Data & Privacy">
         <p className="mb-3 text-sm text-muted-foreground">
-          Download a CSV of all properties you have viewed on NxtSft.com Home.
+          Download a CSV of the properties you have saved on NxtSft.com Home.
         </p>
         <button
           onClick={handleDownloadCSV}
