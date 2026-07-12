@@ -149,7 +149,7 @@ interface Ctx {
   signIn: (email: string, password: string) => Promise<Session>;
   signInStaff: (email: string, password: string) => Promise<Session>;
   signInWithGoogle: (credential: string) => Promise<{ session: Session; needsPhone: boolean }>;
-  completePhone: (phone: string) => Promise<void>;
+  completePhone: (phone: string, applyAs?: "buyer" | "seller") => Promise<{ pendingApproval: boolean }>;
   signOut: () => Promise<void>;
   register: (name: string, email: string, phone: string, password: string, city?: string, waOptIn?: boolean) => Promise<Session>;
   registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent", waOptIn?: boolean) => Promise<void>;
@@ -313,11 +313,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { session: s, needsPhone: needsPhone ?? false };
   }
 
-  // Save a mobile number captured right after Google sign-up.
-  async function completePhone(phone: string): Promise<void> {
-    const user = await makeTRPC().auth.completePhone.mutate({ phone });
-    const s = toSession(user);
-    persist(s, user.credits);
+  // Save a mobile number + chosen role captured right after Google sign-up.
+  // Sellers come back as pending approval (no session) — the caller handles that.
+  async function completePhone(
+    phone: string,
+    applyAs: "buyer" | "seller" = "buyer",
+  ): Promise<{ pendingApproval: boolean }> {
+    const res = await makeTRPC().auth.completePhone.mutate({ phone, applyAs });
+    if (!res.pendingApproval) {
+      const s = toSession(res.user);
+      persist(s, res.user.credits);
+    }
+    return { pendingApproval: res.pendingApproval };
   }
 
   async function signOut(): Promise<void> {

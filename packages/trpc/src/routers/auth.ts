@@ -430,6 +430,16 @@ export const authRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "This account has been deactivated." });
       }
 
+      // A returning user who chose "sell" after Google sign-up is a pending
+      // home-seller — keep them blocked until an admin approves, same rule as
+      // password login, so re-signing-in with Google can't bypass approval.
+      if ((user.role === "home-seller" || user.role === "agent") && !user.verified) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Your account is pending approval. You'll be notified once an admin approves it.",
+        });
+      }
+
       if (isNewUser) {
         // Welcome credit is deferred to the phone-capture step ("update mobile
         // number to unlock 1 credit") so it doubles as an incentive to give us
@@ -463,20 +473,63 @@ export const authRouter = router({
   // Collect a mobile number after Google sign-up (Google returns none). Sets the
   // phone and creates the follow-up signup-lead now that we can reach them.
   completePhone: protectedProcedure
-    .input(z.object({ phone: phoneSchema }))
+    .input(
+      z.object({
+        phone: phoneSchema,
+        // Role the user chose after Google sign-up (Google can't ask up-front).
+        applyAs: z.enum(["buyer", "seller"]).default("buyer"),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       const existingPhone = await prisma.user.findUnique({ where: { phone: input.phone } });
       if (existingPhone && existingPhone.id !== ctx.user.id) {
         throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
       }
+
+      // Seller path: convert this Google buyer into a pending home-seller — the
+      // same admin-approval queue as the /register seller flow. They're signed
+      // out and must wait for approval (login + googleSignIn block unverified
+      // sellers), so no promotion credit and no active session.
+      if (input.applyAs === "seller") {
+        const seller = await prisma.user.update({
+          where: { id: ctx.user.id },
+          data: { phone: input.phone, role: "home-seller", verified: false },
+        });
+        await createSignupLead(seller);
+        await notify({
+          userId: seller.id,
+          type: "welcome",
+          title: "Account created",
+          content:
+            "Your Home Seller account is pending admin approval. We'll notify you once it's approved.",
+        });
+        const admins = await prisma.user.findMany({
+          where: { role: { in: ["admin", "super-admin"] } },
+          select: { id: true, role: true },
+        });
+        if (admins.length > 0) {
+          await prisma.notification.createMany({
+            data: admins.map((a) => ({
+              userId: a.id,
+              type: "seller_approval",
+              title: "New Home Seller pending approval",
+              content: `${seller.name} (${seller.email}) signed up with Google and is awaiting account approval.`,
+              actionUrl: `${portalBase(a.role)}#seller-approvals`,
+            })),
+          });
+        }
+        // Invalidate every session — an unverified seller must not stay logged in.
+        await prisma.session.deleteMany({ where: { userId: seller.id } });
+        return { pendingApproval: true as const, user: safeUser(seller) };
+      }
+
+      // Buyer path: set phone, then "update mobile number to unlock 1 credit" —
+      // auto-credit 1 promotion credit (the ₹99 home-buyer credit) to the
+      // wallet, once, as the reward for giving us a reachable number.
       const user = await prisma.user.update({
         where: { id: ctx.user.id },
         data: { phone: input.phone },
       });
-
-      // "Update mobile number to unlock 1 credit" — auto-credit 1 promotion
-      // credit (the ₹99 home-buyer credit) to the wallet, once, as the reward
-      // for giving us a reachable number.
       const alreadyRewarded = await prisma.creditTransaction.findFirst({
         where: { userId: user.id, reason: "promotion" },
         select: { id: true },
@@ -494,7 +547,7 @@ export const authRouter = router({
 
       await createSignupLead(user);
       const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-      return safeUser(fresh);
+      return { pendingApproval: false as const, user: safeUser(fresh) };
     }),
 
   logout: protectedProcedure.mutation(async ({ ctx }) => {

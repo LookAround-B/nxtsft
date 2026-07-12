@@ -46,6 +46,8 @@ function LoginPageContent() {
   const [phone, setPhone] = useState("");
   const [phoneErr, setPhoneErr] = useState("");
   const [phoneSaving, setPhoneSaving] = useState(false);
+  const [applyAs, setApplyAs] = useState<"buyer" | "seller">("buyer");
+  const [sellerPending, setSellerPending] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,8 +101,15 @@ function LoginPageContent() {
     setPhoneErr("");
     setPhoneSaving(true);
     try {
-      await completePhone(p);
+      const { pendingApproval } = await completePhone(p, applyAs);
       setNeedPhone(false);
+      if (pendingApproval) {
+        // Seller — server invalidated the session; clear it locally and show
+        // the pending-approval screen instead of entering the app.
+        await signOut();
+        setSellerPending(true);
+        return;
+      }
       router.push(searchParams.get("redirect") || "/user-portal");
     } catch (err) {
       setPhoneErr(err instanceof Error ? err.message : "Could not save your number. Try again.");
@@ -111,16 +120,34 @@ function LoginPageContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Phone capture — required after Google sign-up so every new user is reachable */}
-      {needPhone && (
+      {/* After Google sign-up: pick role + capture phone (Google can't ask up-front) */}
+      {needPhone && !sellerPending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="font-display text-xl font-bold text-navy">Unlock 1 free credit 🎉</h2>
+            <h2 className="font-display text-xl font-bold text-navy">Complete your profile</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Update your mobile number to unlock 1 free credit — and let our team reach you about
-              properties.
+              Tell us what you&apos;re here for and add your mobile number.
             </p>
-            <form onSubmit={submitPhone} className="mt-5">
+
+            {/* Role choice */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {([["buyer", "I'm buying"], ["seller", "I'm selling"]] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setApplyAs(val)}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
+                    applyAs === val
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border text-navy hover:border-accent/40"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={submitPhone} className="mt-4">
               <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                 Mobile Number
               </label>
@@ -136,15 +163,46 @@ function LoginPageContent() {
                   className="w-full bg-transparent px-2 py-2.5 text-sm outline-none"
                 />
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {applyAs === "buyer"
+                  ? "🎉 Get 1 free credit to unlock an owner contact."
+                  : "Our team reviews new sellers before your listings go live."}
+              </p>
               {phoneErr && <p className="mt-2 text-xs font-medium text-red-500">{phoneErr}</p>}
               <button
                 type="submit"
                 disabled={phoneSaving}
                 className="mt-4 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
               >
-                {phoneSaving ? "Unlocking…" : "Unlock 1 credit"}
+                {phoneSaving
+                  ? "Please wait…"
+                  : applyAs === "buyer"
+                    ? "Unlock 1 credit"
+                    : "Submit for approval"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Seller chose "I'm selling" — pending admin approval */}
+      {sellerPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-2xl">
+              ⏳
+            </div>
+            <h2 className="mt-4 font-display text-xl font-bold text-navy">Application submitted</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your Home Seller account is pending admin approval. We&apos;ll notify you once it&apos;s
+              approved — usually within 1–2 business days.
+            </p>
+            <Link
+              href="/"
+              className="mt-5 inline-block rounded-xl bg-navy px-6 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+            >
+              Back to home
+            </Link>
           </div>
         </div>
       )}
