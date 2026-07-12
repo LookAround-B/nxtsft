@@ -93,9 +93,9 @@ function LoginPageContent() {
 
   const submitPhone = async (e: React.FormEvent) => {
     e.preventDefault();
-    const p = phone.replace(/\s/g, "");
-    if (!/^[0-9]{10}$/.test(p)) {
-      setPhoneErr("Enter a valid 10-digit mobile number.");
+    const p = phone.replace(/\D/g, "");
+    if (!/^[6-9]\d{9}$/.test(p)) {
+      setPhoneErr("Enter a valid 10-digit Indian mobile number.");
       return;
     }
     setPhoneErr("");
@@ -156,9 +156,10 @@ function LoginPageContent() {
                 <input
                   type="tel"
                   inputMode="numeric"
+                  maxLength={10}
                   autoFocus
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                   placeholder="10-digit number"
                   className="w-full bg-transparent px-2 py-2.5 text-sm outline-none"
                 />

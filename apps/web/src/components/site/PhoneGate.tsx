@@ -39,8 +39,8 @@ export function PhoneGate() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const p = phone.replace(/\D/g, "");
-    if (p.length !== 10) {
-      setErr("Enter a valid 10-digit mobile number.");
+    if (!/^[6-9]\d{9}$/.test(p)) {
+      setErr("Enter a valid 10-digit Indian mobile number.");
       return;
     }
     setErr("");
@@ -73,9 +73,10 @@ export function PhoneGate() {
             <input
               type="tel"
               inputMode="numeric"
+              maxLength={10}
               autoFocus
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
               placeholder="10-digit number"
               className="w-full bg-transparent px-2 py-2.5 text-sm outline-none"
             />
