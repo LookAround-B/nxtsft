@@ -625,28 +625,22 @@ export const leadsRouter = router({
     }),
 
   stats: staffProcedure.query(async ({ ctx }) => {
-    const isSales = ctx.user.role === "sales";
-    const where: any = {};
-    if (isSales) where.assignedToId = ctx.user.id;
+    const where: { assignedToId?: string } = {};
+    if (ctx.user.role === "sales") where.assignedToId = ctx.user.id;
 
-    const [total, hot, warm, cold, newLeads, converted, lost] = await Promise.all([
-      prisma.lead.count({ where }),
-      prisma.lead.count({ where: { ...where, status: "Hot" } }),
-      prisma.lead.count({ where: { ...where, status: "Warm" } }),
-      prisma.lead.count({ where: { ...where, status: "Cold" } }),
-      prisma.lead.count({ where: { ...where, status: "New" } }),
-      prisma.lead.count({ where: { ...where, status: "Converted" } }),
-      prisma.lead.count({ where: { ...where, status: "Lost" } }),
-    ]);
+    // One grouped query returns every status count in a single round trip; the
+    // total is just their sum. (7 separate counts were ~7× the VPS latency.)
+    const byStatus = await prisma.lead.groupBy({ by: ["status"], where, _count: { _all: true } });
+    const c = (s: string) => byStatus.find((g) => g.status === s)?._count._all ?? 0;
 
     return {
-      total,
-      hot,
-      warm,
-      cold,
-      new: newLeads,
-      converted,
-      lost,
+      total: byStatus.reduce((sum, g) => sum + g._count._all, 0),
+      hot: c("Hot"),
+      warm: c("Warm"),
+      cold: c("Cold"),
+      new: c("New"),
+      converted: c("Converted"),
+      lost: c("Lost"),
     };
   }),
 

@@ -57,16 +57,26 @@ function activitySince(days: number): Date {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
+// Global command-centre tiles — short per-instance cache (one DB connection means
+// these queries run serially; see packages/db/client.ts).
+type SaStats = {
+  usersCount: number; propertiesCount: number; activeSessionsCount: number;
+  totalRevenue: number; roleDistribution: { role: string; count: number }[];
+};
+let saStatsCache: { data: SaStats; expires: number } | null = null;
+const SA_STATS_TTL_MS = 30_000;
+
 export const superAdminRouter = router({
   stats: superAdminProcedure.query(async () => {
+    if (saStatsCache && saStatsCache.expires > Date.now()) {
+      return saStatsCache.data;
+    }
     const [
-      usersCount,
       propertiesCount,
       activeSessionsCount,
       totalPayments,
       roleDistribution,
     ] = await Promise.all([
-      prisma.user.count(),
       prisma.property.count({ where: { deletedAt: null } }),
       prisma.session.count({ where: { expiresAt: { gte: new Date() } } }),
       prisma.payment.aggregate({ where: { status: "Success" }, _sum: { amount: true } }),
@@ -76,7 +86,10 @@ export const superAdminRouter = router({
       }),
     ]);
 
-    return {
+    // Total users is just the sum of the role buckets — no extra count query.
+    const usersCount = roleDistribution.reduce((sum, d) => sum + d._count.id, 0);
+
+    const data: SaStats = {
       usersCount,
       propertiesCount,
       activeSessionsCount,
@@ -86,6 +99,8 @@ export const superAdminRouter = router({
         count: d._count.id,
       })),
     };
+    saStatsCache = { data, expires: Date.now() + SA_STATS_TTL_MS };
+    return data;
   }),
 
   // Summary tiles for the User Activity monitor: how many end-users signed up,

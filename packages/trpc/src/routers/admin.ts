@@ -61,42 +61,51 @@ const serializeBudget = <T extends { startingBudget: bigint | null }>(row: T) =>
   startingBudget: row.startingBudget != null ? Number(row.startingBudget) : null,
 });
 
+// The overview tiles are global (not per-admin) and change slowly, so a short
+// per-instance cache keeps them instant. The pool is capped at one connection
+// (see packages/db/client.ts), so every query here is a serial round trip to the
+// remote DB — caching avoids paying that on every dashboard refresh.
+type AdminStats = {
+  totalUsers: number; totalProperties: number; activeListings: number;
+  totalLeads: number; hotLeads: number; warmLeads: number; convertedLeads: number;
+  siteVisitsCount: number; totalRevenue: number;
+};
+let adminStatsCache: { data: AdminStats; expires: number } | null = null;
+const ADMIN_STATS_TTL_MS = 30_000;
+
 export const adminRouter = router({
   // Platform KPIs for the command dashboard
   stats: adminProcedure.query(async () => {
-    const [
-      totalUsers,
-      totalProperties,
-      activeListings,
-      totalLeads,
-      hotLeads,
-      warmLeads,
-      convertedLeads,
-      siteVisitsCount,
-      totalRevenue,
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.property.count({ where: { deletedAt: null } }),
-      prisma.property.count({ where: { status: "Active", deletedAt: null } }),
-      prisma.lead.count(),
-      prisma.lead.count({ where: { status: "Hot" } }),
-      prisma.lead.count({ where: { status: "Warm" } }),
-      prisma.lead.count({ where: { status: "Converted" } }),
-      prisma.siteVisit.count(),
-      prisma.payment.aggregate({ where: { status: "Success" }, _sum: { amount: true } }),
-    ]);
+    if (adminStatsCache && adminStatsCache.expires > Date.now()) {
+      return adminStatsCache.data;
+    }
+    // Grouped queries collapse the per-status property/lead counts into one round
+    // trip each — 9 serial-ish counts over the remote DB was the slow part.
+    const [totalUsers, propByStatus, leadByStatus, siteVisitsCount, totalRevenue] =
+      await Promise.all([
+        prisma.user.count(),
+        prisma.property.groupBy({ by: ["status"], where: { deletedAt: null }, _count: { _all: true } }),
+        prisma.lead.groupBy({ by: ["status"], _count: { _all: true } }),
+        prisma.siteVisit.count(),
+        prisma.payment.aggregate({ where: { status: "Success" }, _sum: { amount: true } }),
+      ]);
 
-    return {
+    const propCount = (s: string) => propByStatus.find((g) => g.status === s)?._count._all ?? 0;
+    const leadCount = (s: string) => leadByStatus.find((g) => g.status === s)?._count._all ?? 0;
+
+    const data: AdminStats = {
       totalUsers,
-      totalProperties,
-      activeListings,
-      totalLeads,
-      hotLeads,
-      warmLeads,
-      convertedLeads,
+      totalProperties: propByStatus.reduce((sum, g) => sum + g._count._all, 0),
+      activeListings: propCount("Active"),
+      totalLeads: leadByStatus.reduce((sum, g) => sum + g._count._all, 0),
+      hotLeads: leadCount("Hot"),
+      warmLeads: leadCount("Warm"),
+      convertedLeads: leadCount("Converted"),
       siteVisitsCount,
       totalRevenue: Number(totalRevenue._sum.amount ?? 0) / 100, // convert paise to rupees
     };
+    adminStatsCache = { data, expires: Date.now() + ADMIN_STATS_TTL_MS };
+    return data;
   }),
 
   // Live sidebar badge counts — one number per "needs action" queue.
