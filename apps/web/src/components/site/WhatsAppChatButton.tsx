@@ -31,7 +31,7 @@ export function WhatsAppChatButton() {
   if (pathname === "/boneyard") return null;
 
   return (
-    <div ref={ref} className="fixed bottom-24 right-4 z-[60] flex flex-col items-end sm:bottom-8 sm:right-6">
+    <div ref={ref} className="fixed bottom-24 left-4 z-[60] flex flex-col items-start sm:bottom-8 sm:left-6">
       {open && (
         <div className="mb-3 w-56 overflow-hidden rounded-2xl border border-border bg-white shadow-2xl">
           <div className="border-b border-border px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
