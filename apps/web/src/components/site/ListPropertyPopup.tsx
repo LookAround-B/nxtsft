@@ -68,7 +68,7 @@ export function ListPropertyPopup() {
             Ready to List?
           </h3>
           <p className="mb-6 text-sm leading-relaxed text-white/70">
-            List your property for free and reach 1 lakh+ verified buyers on NxtSft.com.
+            List your property for free and reach verified buyers on NxtSft.com.
           </p>
           <Link
             href="/list"

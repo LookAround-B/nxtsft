@@ -36,7 +36,7 @@ export function CTASection() {
               Ready to find your <span className="text-gradient-gold">perfect home?</span>
             </h2>
             <p className="mx-auto mt-3 max-w-md text-sm text-white/70 sm:mt-4 sm:text-base">
-              Join over 1 lakh buyers who discovered their dream home on NxtSft.com.
+              Join buyers across India who discovered their dream home on NxtSft.com.
             </p>
             <div className="mt-6 flex flex-col items-center gap-3 sm:mt-8 sm:flex-row sm:justify-center sm:gap-4">
               <Link
