@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Users, Shield } from "lucide-react";
 import { toast } from "sonner";
@@ -53,6 +53,13 @@ export default function PricingPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [ownerMode, setOwnerMode] = useState<"renting" | "selling">("renting");
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
+
+  // Deep-link the tab: /pricing#buyer opens Property Buyer, #seller opens Seller.
+  useEffect(() => {
+    const h = window.location.hash;
+    if (h === "#buyer") setActiveTab(1);
+    else if (h === "#seller") setActiveTab(0);
+  }, []);
 
   const seekerPlansQuery = trpc.subscriptions.plans.useQuery({ type: "seeker" });
   const ownerPlansQuery = trpc.subscriptions.plans.useQuery({

@@ -27,7 +27,10 @@ export function CreditsTab() {
   // Sellers buy owner-rent/owner-sell subscription plans, not per-contact
   // buyer credits — send them to /pricing (which has both plan types) rather
   // than this buyer-only credit top-up modal. LA-324.
-  const viewPlans = () => (isSeller ? router.push("/pricing") : setShowTopUp(true));
+  // Send users to the full plans page (all available plans), landing on the tab
+  // that matches their role. Buyers previously got a credit-only quick modal —
+  // the plan buttons now open every available plan, as before.
+  const viewPlans = () => router.push(isSeller ? "/pricing#seller" : "/pricing#buyer");
 
   const creditsQ = trpc.users.credits.useQuery();
   const plansQ = trpc.subscriptions.plans.useQuery({ type: "seeker" }, { enabled: !isSeller });
@@ -153,7 +156,7 @@ export function CreditsTab() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setShowTopUp(true)}
+                onClick={viewPlans}
                 className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
               >
                 Renew / Upgrade
