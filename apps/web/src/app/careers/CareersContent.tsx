@@ -179,7 +179,7 @@ const LEADERSHIP = [
 ];
 
 const IMPACT_STATS = [
-  { value: "50K+", label: "Properties Listed" },
+  { value: "10K+", label: "Properties Listed" },
   { value: "30+", label: "Cities Covered" },
   { value: "500+", label: "Verified Builders" },
   { value: "₹1T+", label: "Property Value Managed" },

@@ -108,7 +108,7 @@ const NAV_SECTIONS = [
 ];
 
 const STATS = [
-  { raw: "50K+", label: "Active Listings" },
+  { raw: "10K+", label: "Active Listings" },
   { raw: "30+",  label: "Cities" },
   { raw: "₹0",   label: "Brokerage for Buyers" },
   { raw: "100%", label: "RERA-Verified" },
