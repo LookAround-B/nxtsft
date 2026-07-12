@@ -187,7 +187,17 @@ export function ReferralsTab() {
                         {TYPE_LABEL[r.type] ?? r.type}
                       </span>
                     </td>
-                    <td className="px-3 py-3 max-w-[160px] truncate text-foreground/70">{r.customerName}</td>
+                    <td className="px-3 py-3 max-w-[180px]">
+                      <div className="truncate font-medium text-navy">{r.customerName}</div>
+                      {r.customerPhone && (
+                        <a
+                          href={`tel:${r.customerPhone}`}
+                          className="font-mono text-xs font-semibold text-accent hover:underline"
+                        >
+                          {r.customerPhone}
+                        </a>
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-muted-foreground">{r.location || "—"}</td>
                     <td className="px-3 py-3 text-center font-display font-bold text-navy">{fmt(r.rewardAmount)}</td>
                     <td className="px-3 py-3 text-center">
