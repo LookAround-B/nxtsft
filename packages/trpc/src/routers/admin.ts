@@ -1224,6 +1224,54 @@ export const adminRouter = router({
       };
     }),
 
+  // Real commission overview across all sales reps — replaces the old fully
+  // hardcoded Commissions tab (fake ₹6.42L / bank accounts). Amounts are in
+  // rupees (Commission.amount). Returns zeros when there are no commissions.
+  commissionsOverview: adminProcedure.query(async () => {
+    const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+    const commissions = await prisma.commission.findMany({
+      include: { salesRep: { select: { id: true, name: true, kycStatus: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    const amt = (c: (typeof commissions)[number]) => Number(c.amount);
+
+    const payable = commissions
+      .filter((c) => c.status === "pending")
+      .reduce((s, c) => s + amt(c), 0);
+    const onHold = commissions
+      .filter((c) => c.status === "pending" && c.salesRep.kycStatus !== "verified")
+      .reduce((s, c) => s + amt(c), 0);
+    const ytdPaid = commissions
+      .filter((c) => c.status === "cleared" && c.createdAt >= startOfYear)
+      .reduce((s, c) => s + amt(c), 0);
+
+    const byRep = new Map<
+      string,
+      { repId: string; name: string; kycVerified: boolean; closed: number; earned: number; pending: number }
+    >();
+    for (const c of commissions) {
+      const row = byRep.get(c.salesRepId) ?? {
+        repId: c.salesRepId,
+        name: c.salesRep.name,
+        kycVerified: c.salesRep.kycStatus === "verified",
+        closed: 0,
+        earned: 0,
+        pending: 0,
+      };
+      row.closed += 1;
+      row.earned += amt(c);
+      if (c.status === "pending") row.pending += amt(c);
+      byRep.set(c.salesRepId, row);
+    }
+
+    return {
+      payable,
+      onHold,
+      ytdPaid,
+      byRep: [...byRep.values()].sort((a, b) => b.earned - a.earned),
+    };
+  }),
+
   // Transaction history — all subscription/credit payments across gateways
   // (LA-331). Backs the admin Transactions tab: gateway/status/date filters,
   // search by payer email/name or gateway payment id, CSV export on the client.
