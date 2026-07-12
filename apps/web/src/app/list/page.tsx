@@ -1268,26 +1268,27 @@ export default function ListPropertyPage() {
                 </div>
               </div>
 
-              {/* LA-343: how the listing will appear — badge preview drives
-                  the ₹4,999 upgrade decision before submission. */}
+              {/* LA-343: the buyer-facing preview stays clean; the ₹4,999 badge
+                  upgrade prompt is a separate seller-only note below it. */}
               <div className="mt-8">
                 <h2 className="font-display text-base font-bold text-navy">Your Listing Preview</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  This is how your listing appears to buyers.
+                  This is exactly how your listing appears to buyers.
                 </p>
+                {/* Buyer preview — only what buyers actually see (badges show once
+                    the seller is on a plan that includes them). No seller notes. */}
                 <div className="mt-3 rounded-2xl border border-border bg-white p-4 shadow-sm">
-                  <div
-                    className={`flex flex-wrap items-center gap-1.5 ${hasBadges ? "" : "opacity-40 grayscale"}`}
-                    title={hasBadges ? undefined : "Included with plans of ₹4,999 and above"}
-                  >
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
-                      <ShieldCheck size={12} strokeWidth={2.5} /> Verified Owner
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-navy px-2.5 py-1 text-[11px] font-bold text-white">
-                      <Globe size={12} strokeWidth={2.5} /> NRI Trusted
-                    </span>
-                  </div>
-                  <div className="mt-3">
+                  {hasBadges && (
+                    <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
+                        <ShieldCheck size={12} strokeWidth={2.5} /> Verified Owner
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-navy px-2.5 py-1 text-[11px] font-bold text-white">
+                        <Globe size={12} strokeWidth={2.5} /> NRI Trusted
+                      </span>
+                    </div>
+                  )}
+                  <div>
                     <div className="font-display text-sm font-bold text-navy">
                       {data.title || "Your property title"}
                     </div>
@@ -1300,21 +1301,31 @@ export default function ListPropertyPage() {
                       </div>
                     )}
                   </div>
-                  {hasBadges ? (
-                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                      <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />
-                      Your plan includes the Verified Owner + NRI Trusted badges — they go live with
-                      this listing.
-                    </div>
-                  ) : (
-                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                      Badges shown grayed — they unlock with a plan of ₹4,999 or above.{" "}
-                      <Link href="/pricing" className="font-bold text-accent hover:underline">
-                        View plans
-                      </Link>
-                    </div>
-                  )}
                 </div>
+
+                {/* Seller-only note — kept out of the buyer preview above */}
+                {hasBadges ? (
+                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                    <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />
+                    Your plan includes the Verified Owner + NRI Trusted badges — they go live with
+                    this listing.
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                    <div className="mb-2 flex flex-wrap items-center gap-1.5 opacity-40 grayscale">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
+                        <ShieldCheck size={12} strokeWidth={2.5} /> Verified Owner
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-navy px-2.5 py-1 text-[11px] font-bold text-white">
+                        <Globe size={12} strokeWidth={2.5} /> NRI Trusted
+                      </span>
+                    </div>
+                    Upgrade to Premium ₹4,999 to activate trust badges.{" "}
+                    <Link href="/pricing" className="font-bold text-accent hover:underline">
+                      View plans
+                    </Link>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 rounded-xl border border-border bg-secondary/50 p-4 text-xs text-muted-foreground">
