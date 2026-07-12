@@ -41,6 +41,13 @@ const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   marketing: false,
 };
 
+// Per-instance cache for the public platformStats KPI counters. They change
+// slowly, so serving a ≤60s-stale copy keeps the homepage/agents cards instant
+// and off the DB on every visit.
+type PlatformStats = { agents: number; listings: number; cities: number; reviews: number; avgRating: number };
+let platformStatsCache: { data: PlatformStats; expires: number } | null = null;
+const PLATFORM_STATS_TTL_MS = 60_000;
+
 const notificationPrefsSchema = z.object({
   email: z.boolean(),
   whatsapp: z.boolean(),
@@ -766,23 +773,28 @@ export const usersRouter = router({
   // Real platform counters for the public /agents hero. Everything here is a
   // live DB count — no fixtures — so the numbers can only ever be truthful.
   platformStats: publicProcedure.query(async () => {
+    if (platformStatsCache && platformStatsCache.expires > Date.now()) {
+      return platformStatsCache.data;
+    }
     const [agents, listings, reviews, ratingAgg, cityRows] = await Promise.all([
       prisma.user.count({ where: { role: "agent", active: true, verified: true } }),
       prisma.property.count({ where: { deletedAt: null, status: "Active" } }),
       prisma.review.count(),
       prisma.review.aggregate({ _avg: { rating: true } }),
-      prisma.property.findMany({
-        where: { deletedAt: null, status: "Active" },
-        select: { location: { select: { city: true } } },
+      // Distinct cities via Location (~19 rows) instead of pulling every active
+      // property just to dedupe in JS — that was ~450ms + a full-table transfer.
+      prisma.location.findMany({
+        where: { property: { deletedAt: null, status: "Active" } },
+        select: { city: true },
+        distinct: ["city"],
       }),
     ]);
-    const cities = new Set(
-      cityRows.map((r) => r.location?.city?.trim().toLowerCase()).filter(Boolean),
-    ).size;
     const avgRating = ratingAgg._avg.rating
       ? Math.round(ratingAgg._avg.rating * 10) / 10
       : 0;
-    return { agents, listings, cities, reviews, avgRating };
+    const data: PlatformStats = { agents, listings, cities: cityRows.length, reviews, avgRating };
+    platformStatsCache = { data, expires: Date.now() + PLATFORM_STATS_TTL_MS };
+    return data;
   }),
 
   getAgent: publicProcedure
