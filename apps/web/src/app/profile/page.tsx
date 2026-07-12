@@ -227,7 +227,6 @@ export default function ProfilePage() {
     }
   }
 
-  const updateProfileMutation = trpc.users.updateProfile.useMutation();
   const activityQ = trpc.users.recentActivity.useQuery(undefined, { enabled: !!session });
   const prefsQ = trpc.users.notificationPrefs.useQuery(undefined, { enabled: !!session });
   // Real counts for the seller stat cards (buyers only fall back to static stats).
@@ -367,15 +366,22 @@ export default function ProfilePage() {
 
   const saveProfile = async () => {
     const newName = name.trim() || session!.name;
-    const newPhone = phone.trim() || session!.phone;
-    setEditing(false);
-    try {
-      await updateProfileMutation.mutateAsync({ name: newName, phone: newPhone });
-    } catch {
-      // local update still succeeds if server fails transiently
+    // The field displays "+91 9800000001"; the API expects a plain 10-digit
+    // number. Passing the +91 prefix/spaces was failing phoneSchema, so the
+    // update silently never saved (the old catch swallowed the error and still
+    // showed "Profile updated"). Strip to the last 10 digits and validate.
+    const p = phone.replace(/\D/g, "").slice(-10);
+    if (!/^[6-9]\d{9}$/.test(p)) {
+      toast.error("Enter a valid 10-digit mobile number.");
+      return;
     }
-    updateProfile(newName, newPhone);
-    toast.success("Profile updated");
+    try {
+      await updateProfile(newName, p); // updates the server and the local session
+      setEditing(false);
+      toast.success("Profile updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update profile. Try again.");
+    }
   };
 
   const togglePref = (key: keyof typeof prefs) => {
