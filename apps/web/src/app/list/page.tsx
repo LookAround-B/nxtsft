@@ -130,6 +130,13 @@ const DB_TYPE_MAP: Record<
   "PG / Co-living": "PG",
 };
 
+// Config + type label for auto-generated titles, without repeating the type
+// when the chosen config already names it (e.g. "Open Plot" + "Plot").
+function configLabel(bhk: string, type: string): string {
+  if (!bhk) return type;
+  return bhk.toLowerCase().includes(type.toLowerCase()) ? bhk : `${bhk} ${type}`;
+}
+
 function parseBedrooms(bhk: string): number {
   if (bhk.startsWith("4+")) return 4;
   const n = parseInt(bhk);
@@ -248,11 +255,29 @@ export default function ListPropertyPage() {
     if (data.bhk && data.propertyType && data.city && !data.title) {
       setData((d) => ({
         ...d,
-        title: `${data.bhk} ${data.propertyType} for ${data.purpose} in ${data.city}`,
+        title: `${configLabel(data.bhk, data.propertyType)} for ${data.purpose} in ${data.city}`,
       }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.bhk, data.propertyType, data.city, data.purpose]);
+
+  // Device / browser Back steps through the wizard instead of abandoning the
+  // form. Each "Next" pushes a history entry (see `next`); Back — in-app button
+  // or the phone's back — pops it, and this handler moves to the previous step.
+  useEffect(() => {
+    const onPop = () => {
+      setErrors({});
+      setStep((s) => (s > 1 ? s - 1 : s));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Scroll to the top on every step change so Back/Next visibly land on the new
+  // step rather than leaving the user parked at the bottom nav.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
 
   const set = <K extends keyof FormData>(k: K, v: FormData[K]) => {
     setData((d) => ({ ...d, [k]: v }));
@@ -307,12 +332,13 @@ export default function ListPropertyPage() {
     }
     setErrors({});
     if (step < 4) {
+      // Push a history entry so device/browser Back returns to this step.
+      window.history.pushState(null, "");
       setStep((s) => s + 1);
       return;
     }
     const title =
-      data.title.trim() ||
-      `${[data.bhk, data.propertyType].filter(Boolean).join(" ")} in ${data.city}`;
+      data.title.trim() || `${configLabel(data.bhk, data.propertyType)} in ${data.city}`;
 
     // Compress each photo (in submitted order — first is the cover) and upload it
     // to Cloudflare R2, keeping the returned public URL for the DB. If storage is
@@ -1304,10 +1330,7 @@ export default function ListPropertyPage() {
           {/* Navigation buttons */}
           <div className="mt-8 flex items-center justify-between gap-4">
             <button
-              onClick={() => {
-                setErrors({});
-                setStep((s) => s - 1);
-              }}
+              onClick={() => window.history.back()}
               disabled={step === 1}
               className="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm font-semibold text-foreground/70 transition hover:bg-secondary disabled:pointer-events-none disabled:opacity-30"
             >
