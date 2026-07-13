@@ -15,10 +15,14 @@ export function bhashConfigured(): boolean {
   return Boolean(process.env.BHASHSMS_USER && process.env.BHASHSMS_PASS);
 }
 
-/** Normalize to the 12-digit `91XXXXXXXXXX` form BhashSMS/WhatsApp expects. */
+/**
+ * BhashSMS's WhatsApp API wants the plain 10-digit number WITHOUT the 91
+ * country code — the note under every example in their WA API docs says so.
+ * Strip a leading country code if the caller passed a full number.
+ */
 function toWhatsAppNumber(to: string): string {
-  const digits = to.replace(/\D/g, "").slice(-12);
-  return digits.length === 10 ? `91${digits}` : digits;
+  const digits = to.replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;
 }
 
 export async function sendWhatsAppTemplate(opts: {
@@ -30,12 +34,15 @@ export async function sendWhatsAppTemplate(opts: {
   params?: string[];
   /** Optional document header (e.g. a PDF) — sets htype=document + url. */
   documentUrl?: string;
+  /** "auth" for Authentication OTP templates; "normal" (default) for utility. */
+  stype?: "normal" | "auth";
 }): Promise<BhashResult> {
   const user = process.env.BHASHSMS_USER;
   const pass = process.env.BHASHSMS_PASS;
-  // WhatsApp has no per-account sender ID — the API docs specify the fixed
-  // value "BhashSoftwareLab" for every customer. Leave BHASHSMS_SENDER unset;
-  // overriding it with anything else yields "Sender ID Does not Exist".
+  // Sender for Authentication OTP templates is the account's registered Sender
+  // ID ("BhashSoftwareLab" for this account, per BhashSMS). Utility/normal WA
+  // templates instead use "BUZWAP" per their docs — set BHASHSMS_SENDER if/when
+  // those go live. Kept env-configurable so changing it needs no redeploy.
   const sender = process.env.BHASHSMS_SENDER || "BhashSoftwareLab";
   if (!user || !pass) {
     console.log(`[bhashsms] not configured — skipped template "${opts.template}" to ${opts.to}`);
@@ -48,7 +55,7 @@ export async function sendWhatsAppTemplate(opts: {
     sender,
     text: opts.template,
     priority: "wa", // WhatsApp
-    stype: "normal",
+    stype: opts.stype ?? "normal",
     phone: toWhatsAppNumber(opts.to),
   });
   if (opts.params && opts.params.length > 0) {

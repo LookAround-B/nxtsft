@@ -432,7 +432,8 @@ export const authRouter = router({
       const code = generateOtp();
       await storeOtp(input.phone, code);
       const template = process.env.BHASHSMS_TEMPLATE_SIGNUP_OTP!;
-      const res = await sendWhatsAppTemplate({ to: input.phone, template, params: [code] });
+      // Authentication OTP templates must be sent with stype=auth (not "normal").
+      const res = await sendWhatsAppTemplate({ to: input.phone, template, params: [code], stype: "auth" });
       if (!res.sent) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
