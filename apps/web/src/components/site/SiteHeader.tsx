@@ -56,6 +56,7 @@ const NAV_ITEMS = [
   { to: "/pricing", label: "Pricing" },
   { to: "/refer", label: "Refer & Earn" },
   { to: "/about", label: "About" },
+  { to: "/careers", label: "Careers" },
   { to: "/contact", label: "Contact" },
 ];
 
