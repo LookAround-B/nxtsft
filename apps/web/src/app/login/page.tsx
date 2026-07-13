@@ -18,7 +18,7 @@ export default function LoginPage() {
 }
 
 function LoginPageContent() {
-  const { session, sessionChecked, signIn, signInWithGoogle, completePhone, signOut, requestOtp, loginWithOtp } =
+  const { session, sessionChecked, signIn, signInWithGoogle, completePhone, signOut, requestOtp, loginWithOtp, requestSignupOtp } =
     useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -59,13 +59,22 @@ function LoginPageContent() {
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [applyAs, setApplyAs] = useState<"buyer" | "seller">("buyer");
   const [sellerPending, setSellerPending] = useState(false);
+  // Google phone-capture OTP step (distinct from the login-OTP state above).
+  const [phoneOtpStep, setPhoneOtpStep] = useState<"phone" | "code">("phone");
+  const [phoneOtpCode, setPhoneOtpCode] = useState("");
+  const [phoneResendIn, setPhoneResendIn] = useState(0);
 
-  // Resend cooldown countdown.
+  // Resend cooldown countdowns (login OTP + Google phone-capture OTP).
   useEffect(() => {
     if (resendIn <= 0) return;
     const t = setTimeout(() => setResendIn((n) => n - 1), 1000);
     return () => clearTimeout(t);
   }, [resendIn]);
+  useEffect(() => {
+    if (phoneResendIn <= 0) return;
+    const t = setTimeout(() => setPhoneResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phoneResendIn]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +159,22 @@ function LoginPageContent() {
     }
   };
 
+  // Save the captured phone + role. `otp` present → server marks it verified.
+  const finishPhone = async (otp?: string) => {
+    const p = phone.replace(/\D/g, "");
+    const { pendingApproval } = await completePhone(p, applyAs, otp);
+    setNeedPhone(false);
+    if (pendingApproval) {
+      // Seller — server invalidated the session; clear it locally and show
+      // the pending-approval screen instead of entering the app.
+      await signOut();
+      setSellerPending(true);
+      return;
+    }
+    router.push(searchParams.get("redirect") || "/user-portal");
+  };
+
+  // Step 1: validate the number, then send a WhatsApp OTP to verify it.
   const submitPhone = async (e: React.FormEvent) => {
     e.preventDefault();
     const p = phone.replace(/\D/g, "");
@@ -160,18 +185,63 @@ function LoginPageContent() {
     setPhoneErr("");
     setPhoneSaving(true);
     try {
-      const { pendingApproval } = await completePhone(p, applyAs);
-      setNeedPhone(false);
-      if (pendingApproval) {
-        // Seller — server invalidated the session; clear it locally and show
-        // the pending-approval screen instead of entering the app.
-        await signOut();
-        setSellerPending(true);
+      await requestSignupOtp(p);
+      setPhoneOtpCode("");
+      setPhoneResendIn(30);
+      setPhoneOtpStep("code");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (/already registered/i.test(msg)) {
+        setPhoneErr(msg);
         return;
       }
-      router.push(searchParams.get("redirect") || "/user-portal");
+      // OTP unavailable / delivery down → save the number unverified.
+      try {
+        await finishPhone(undefined);
+      } catch (e2) {
+        setPhoneErr(e2 instanceof Error ? e2.message : "Could not save your number. Try again.");
+      }
+    } finally {
+      setPhoneSaving(false);
+    }
+  };
+
+  // Step 2: verify the OTP by saving the phone with it.
+  const verifyPhoneOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(phoneOtpCode)) {
+      setPhoneErr("Enter the 6-digit code.");
+      return;
+    }
+    setPhoneErr("");
+    setPhoneSaving(true);
+    try {
+      await finishPhone(phoneOtpCode);
     } catch (err) {
-      setPhoneErr(err instanceof Error ? err.message : "Could not save your number. Try again.");
+      setPhoneErr(err instanceof Error ? err.message : "Couldn't verify the code. Please try again.");
+    } finally {
+      setPhoneSaving(false);
+    }
+  };
+
+  const resendPhoneOtp = async () => {
+    if (phoneResendIn > 0) return;
+    setPhoneErr("");
+    try {
+      await requestSignupOtp(phone.replace(/\D/g, ""));
+      setPhoneResendIn(30);
+      toast.success("OTP resent to your WhatsApp.");
+    } catch (err) {
+      setPhoneErr(err instanceof Error ? err.message : "Couldn't resend the code.");
+    }
+  };
+
+  const skipPhoneOtp = async () => {
+    setPhoneSaving(true);
+    try {
+      await finishPhone(undefined);
+    } catch (err) {
+      setPhoneErr(err instanceof Error ? err.message : "Could not save your number.");
     } finally {
       setPhoneSaving(false);
     }
@@ -183,64 +253,125 @@ function LoginPageContent() {
       {needPhone && !sellerPending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="font-display text-xl font-bold text-navy">Complete your profile</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Tell us what you&apos;re here for and add your mobile number.
-            </p>
+            {phoneOtpStep === "phone" ? (
+              <>
+                <h2 className="font-display text-xl font-bold text-navy">Complete your profile</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Tell us what you&apos;re here for and add your mobile number.
+                </p>
 
-            {/* Role choice */}
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {([["buyer", "I'm buying"], ["seller", "I'm selling"]] as const).map(([val, label]) => (
+                {/* Role choice */}
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {([["buyer", "I'm buying"], ["seller", "I'm selling"]] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setApplyAs(val)}
+                      className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
+                        applyAs === val
+                          ? "border-accent bg-accent/10 text-accent"
+                          : "border-border text-navy hover:border-accent/40"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <form onSubmit={submitPhone} className="mt-4">
+                  <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Mobile Number
+                  </label>
+                  <div className="mt-1.5 flex items-center rounded-xl border border-input bg-background px-3 focus-within:border-accent">
+                    <span className="text-sm text-muted-foreground">+91</span>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      autoFocus
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      placeholder="10-digit number"
+                      className="w-full bg-transparent px-2 py-2.5 text-sm outline-none"
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {applyAs === "buyer"
+                      ? "🎉 Get 1 free credit to unlock an owner contact."
+                      : "Our team reviews new sellers before your listings go live."}
+                  </p>
+                  {phoneErr && <p className="mt-2 text-xs font-medium text-red-500">{phoneErr}</p>}
+                  <button
+                    type="submit"
+                    disabled={phoneSaving}
+                    className="mt-4 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                  >
+                    {phoneSaving ? "Sending code…" : "Send OTP"}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <h2 className="font-display text-xl font-bold text-navy">Verify your number</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Enter the 6-digit code sent to{" "}
+                  <strong className="text-navy">+91 {phone.replace(/\D/g, "")}</strong> on WhatsApp.
+                </p>
+
+                <form onSubmit={verifyPhoneOtp} className="mt-4">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    autoFocus
+                    value={phoneOtpCode}
+                    onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="6-digit code"
+                    className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-center text-lg font-bold tracking-[0.4em] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+                  />
+                  {phoneErr && <p className="mt-2 text-xs font-medium text-red-500">{phoneErr}</p>}
+                  <button
+                    type="submit"
+                    disabled={phoneSaving}
+                    className="mt-4 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                  >
+                    {phoneSaving
+                      ? "Verifying…"
+                      : applyAs === "buyer"
+                        ? "Verify & unlock 1 credit"
+                        : "Verify & submit for approval"}
+                  </button>
+                </form>
+
+                <div className="mt-3 flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={() => { setPhoneOtpStep("phone"); setPhoneErr(""); }}
+                    className="font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    ← Change number
+                  </button>
+                  <button
+                    type="button"
+                    disabled={phoneResendIn > 0}
+                    onClick={resendPhoneOtp}
+                    className="font-semibold text-accent hover:underline disabled:text-muted-foreground disabled:no-underline"
+                  >
+                    {phoneResendIn > 0 ? `Resend in ${phoneResendIn}s` : "Resend OTP"}
+                  </button>
+                </div>
+
                 <button
-                  key={val}
                   type="button"
-                  onClick={() => setApplyAs(val)}
-                  className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
-                    applyAs === val
-                      ? "border-accent bg-accent/10 text-accent"
-                      : "border-border text-navy hover:border-accent/40"
-                  }`}
+                  onClick={skipPhoneOtp}
+                  disabled={phoneSaving}
+                  className="mt-4 w-full text-center text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-60"
                 >
-                  {label}
+                  Didn&apos;t get the code? Continue without verifying
                 </button>
-              ))}
-            </div>
-
-            <form onSubmit={submitPhone} className="mt-4">
-              <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                Mobile Number
-              </label>
-              <div className="mt-1.5 flex items-center rounded-xl border border-input bg-background px-3 focus-within:border-accent">
-                <span className="text-sm text-muted-foreground">+91</span>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={10}
-                  autoFocus
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                  placeholder="10-digit number"
-                  className="w-full bg-transparent px-2 py-2.5 text-sm outline-none"
-                />
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {applyAs === "buyer"
-                  ? "🎉 Get 1 free credit to unlock an owner contact."
-                  : "Our team reviews new sellers before your listings go live."}
-              </p>
-              {phoneErr && <p className="mt-2 text-xs font-medium text-red-500">{phoneErr}</p>}
-              <button
-                type="submit"
-                disabled={phoneSaving}
-                className="mt-4 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
-              >
-                {phoneSaving
-                  ? "Please wait…"
-                  : applyAs === "buyer"
-                    ? "Unlock 1 credit"
-                    : "Submit for approval"}
-              </button>
-            </form>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -24,6 +24,7 @@ model User {
   verified   Boolean   @default(false)
   verifiedAt DateTime?
   kycStatus  String    @default("none") // none | pending | verified | rejected
+  phoneVerified Boolean @default(false) // true once the number passed a WhatsApp OTP (at signup)
   active     Boolean   @default(true) // false = deactivated by admin, blocked from signing in
 
   city       String

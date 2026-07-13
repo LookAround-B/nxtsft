@@ -16,7 +16,7 @@ type RegistrationType = "buyer" | "seller";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { session, signOut, register, registerSeller } = useAuth();
+  const { session, signOut, register, registerSeller, requestSignupOtp } = useAuth();
 
   const [regType, setRegType] = useState<RegistrationType>("buyer");
   // RERA agents/partners share the seller registration form + admin approval
@@ -39,6 +39,19 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [sellerPending, setSellerPending] = useState(false);
 
+  // WhatsApp OTP phone-verification step (shown after the form is filled).
+  const [otpStep, setOtpStep] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
   const set =
     (k: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -60,6 +73,28 @@ export default function RegisterPage() {
     return errs;
   };
 
+  // Create the account. `otp` present → server marks the phone verified;
+  // absent → phone stored unverified (fallback when OTP delivery is down).
+  const doRegister = async (otp?: string) => {
+    const phone = form.phone.replace(/\s/g, "");
+    if (regType === "buyer") {
+      const s = await register(form.name.trim(), form.email.trim(), phone, form.password, form.city, waOptIn, otp);
+      toast.success(`Welcome to NxtSft, ${s.name.split(" ")[0]}! You have 1 free credit.`);
+      router.push(ROLE_META[s.role].portal);
+    } else {
+      await registerSeller(form.name.trim(), form.email.trim(), phone, form.password, form.city, isAgent ? "agent" : "seller", waOptIn, otp);
+      setSellerPending(true);
+    }
+  };
+
+  const routeRegisterError = (err: unknown) => {
+    const msg = err instanceof Error ? err.message : "Registration failed. Please try again.";
+    if (msg.toLowerCase().includes("email")) setErrors({ email: msg });
+    else if (msg.toLowerCase().includes("phone") || msg.toLowerCase().includes("mobile")) setErrors({ phone: msg });
+    else toast.error(msg);
+  };
+
+  // Step 1: validate the form, then send a WhatsApp OTP to verify the number.
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
@@ -67,21 +102,76 @@ export default function RegisterPage() {
     setErrors({});
     setLoading(true);
     try {
-      if (regType === "buyer") {
-        const s = await register(form.name.trim(), form.email.trim(), form.phone.replace(/\s/g, ""), form.password, form.city, waOptIn);
-        toast.success(`Welcome to NxtSft, ${s.name.split(" ")[0]}! You have 1 free credit.`);
-        router.push(ROLE_META[s.role].portal);
-      } else {
-        await registerSeller(form.name.trim(), form.email.trim(), form.phone.replace(/\s/g, ""), form.password, form.city, isAgent ? "agent" : "seller", waOptIn);
-        setSellerPending(true);
-      }
+      await requestSignupOtp(form.phone.replace(/\s/g, ""), form.email.trim());
+      // Code on its way — collect it.
+      setOtpCode("");
+      setOtpError("");
+      setResendIn(30);
+      setOtpStep(true);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Registration failed. Please try again.";
-      if (msg.toLowerCase().includes("email")) setErrors({ email: msg });
-      else if (msg.toLowerCase().includes("phone")) setErrors({ phone: msg });
-      else toast.error(msg);
+      const msg = err instanceof Error ? err.message : "";
+      // Already-registered email/phone → surface on the form, don't proceed.
+      if (/already registered/i.test(msg)) {
+        routeRegisterError(err);
+        return;
+      }
+      // OTP unavailable / delivery failed → per policy, let signup proceed with
+      // the phone left unverified rather than block the user.
+      try {
+        await doRegister(undefined);
+        toast.info("We couldn't send a verification code — you're signed up; we'll verify your number later.");
+      } catch (regErr) {
+        routeRegisterError(regErr);
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Step 2: verify the entered OTP by creating the account with it.
+  const verifyAndRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(otpCode)) { setOtpError("Enter the 6-digit code."); return; }
+    setOtpError("");
+    setOtpVerifying(true);
+    try {
+      await doRegister(otpCode);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Couldn't verify the code. Please try again.";
+      // OTP-specific errors stay in the modal; anything else (rare race) closes it.
+      if (/otp|code|attempts|expired/i.test(msg)) {
+        setOtpError(msg);
+      } else {
+        setOtpStep(false);
+        routeRegisterError(err);
+      }
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    if (resendIn > 0) return;
+    setOtpError("");
+    try {
+      await requestSignupOtp(form.phone.replace(/\s/g, ""), form.email.trim());
+      setResendIn(30);
+      toast.success("OTP resent to your WhatsApp.");
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Couldn't resend the code.");
+    }
+  };
+
+  // Escape hatch: register without verifying (number flagged unverified).
+  const skipOtp = async () => {
+    setOtpVerifying(true);
+    try {
+      await doRegister(undefined);
+    } catch (err) {
+      routeRegisterError(err);
+      setOtpStep(false);
+    } finally {
+      setOtpVerifying(false);
     }
   };
 
@@ -117,6 +207,69 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* WhatsApp OTP verification — shown after the form is filled & valid */}
+      {otpStep && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="font-display text-xl font-bold text-navy">Verify your number</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Enter the 6-digit code we sent to{" "}
+              <strong className="text-navy">+91 {form.phone.replace(/\s/g, "")}</strong> on WhatsApp.
+            </p>
+
+            <form onSubmit={verifyAndRegister} className="mt-4">
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                autoFocus
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="6-digit code"
+                className="w-full rounded-xl border border-input bg-background px-3.5 py-3 text-center text-lg font-bold tracking-[0.4em] outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+              />
+              {otpError && <p className="mt-2 text-xs font-medium text-rose-500">{otpError}</p>}
+
+              <button
+                type="submit"
+                disabled={otpVerifying}
+                className="mt-4 w-full rounded-xl bg-accent py-3 font-display text-sm font-bold text-white transition hover:opacity-95 disabled:opacity-60"
+              >
+                {otpVerifying ? "Verifying…" : "Verify & create account"}
+              </button>
+            </form>
+
+            <div className="mt-3 flex items-center justify-between text-xs">
+              <button
+                type="button"
+                onClick={() => { setOtpStep(false); setOtpError(""); }}
+                className="font-semibold text-muted-foreground hover:text-foreground"
+              >
+                ← Change details
+              </button>
+              <button
+                type="button"
+                disabled={resendIn > 0}
+                onClick={resendOtp}
+                className="font-semibold text-accent hover:underline disabled:text-muted-foreground disabled:no-underline"
+              >
+                {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend OTP"}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={skipOtp}
+              disabled={otpVerifying}
+              className="mt-4 w-full text-center text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-60"
+            >
+              Didn&apos;t get the code? Continue without verifying
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 sm:py-16 lg:grid-cols-2">
         {/* Left decorative panel */}
         <div className="hidden animate-fade-up flex-col justify-between rounded-3xl bg-gradient-to-br from-navy via-navy-deep to-accent p-10 text-white lg:flex">
@@ -340,7 +493,7 @@ export default function RegisterPage() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  {regType === "buyer" ? "Creating account…" : "Submitting application…"}
+                  Sending code…
                 </span>
               ) : (
                 regType === "buyer" ? "Create Account →" : "Submit Application →"

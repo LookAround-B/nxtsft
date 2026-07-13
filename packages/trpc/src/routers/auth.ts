@@ -177,6 +177,27 @@ async function grantCredits(userId: string, amount: number, reason: string) {
   await notifyCredit({ userId, type: "credit", amount, reason });
 }
 
+/**
+ * Resolve a signup's phone-verification state from an optional OTP code.
+ * - A code is supplied → it must be valid (throws on wrong/expired), returns true.
+ * - No code → returns false (unverified). This is the graceful fallback for when
+ *   WhatsApp/OTP delivery is down: signup still proceeds, phone flagged unverified.
+ */
+async function resolveSignupPhoneVerified(phone: string, code?: string): Promise<boolean> {
+  if (!code) return false;
+  const result = await verifyOtp(phone, code);
+  if (!result.ok) {
+    const message =
+      result.reason === "expired"
+        ? "This OTP has expired — request a new one."
+        : result.reason === "too_many_attempts"
+          ? "Too many incorrect attempts — request a new OTP."
+          : "Incorrect OTP. Please check and try again.";
+    throw new TRPCError({ code: "UNAUTHORIZED", message });
+  }
+  return true;
+}
+
 export const authRouter = router({
   // Public registration for home buyers (role: user)
   register: publicProcedure
@@ -191,6 +212,9 @@ export const authRouter = router({
         // LA-341: "Get updates on WhatsApp" consent — required by Meta before
         // any template message may be sent to the number.
         waOptIn: z.boolean().optional(),
+        // WhatsApp OTP verifying the phone. Omitted → phone stored unverified
+        // (fallback when OTP delivery is down).
+        otp: z.string().regex(/^\d{6}$/).optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -204,6 +228,7 @@ export const authRouter = router({
       if (existingPhone)
         throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
 
+      const phoneVerified = await resolveSignupPhoneVerified(input.phone, input.otp);
       const passwordHash = await bcrypt.hash(input.password, 12);
       const user = await prisma.user.create({
         data: {
@@ -213,6 +238,7 @@ export const authRouter = router({
           city: input.city,
           role: "user",
           passwordHash,
+          phoneVerified,
           ...(input.waOptIn ? { metadata: { waOptIn: true } } : {}),
         },
       });
@@ -253,6 +279,8 @@ export const authRouter = router({
         applyAs: z.enum(["seller", "agent"]).optional(),
         // LA-341: WhatsApp updates consent (see register above).
         waOptIn: z.boolean().optional(),
+        // WhatsApp OTP verifying the phone (see register above).
+        otp: z.string().regex(/^\d{6}$/).optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -266,6 +294,7 @@ export const authRouter = router({
       if (existingPhone)
         throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
 
+      const phoneVerified = await resolveSignupPhoneVerified(input.phone, input.otp);
       const isAgent = input.applyAs === "agent";
       const passwordHash = await bcrypt.hash(input.password, 12);
       const applicant = await prisma.user.create({
@@ -277,6 +306,7 @@ export const authRouter = router({
           role: isAgent ? "agent" : "home-seller",
           passwordHash,
           verified: false,
+          phoneVerified,
           ...(isAgent && { slug: await uniqueAgentSlug(input.name) }),
           // Agent directory metadata and the WA consent flag share the same
           // Json column — merge rather than overwrite.
@@ -476,6 +506,38 @@ export const authRouter = router({
       return { token, user: safeUser(freshUser) };
     }),
 
+  // Send an OTP to verify a NEW number at signup. Unlike requestOtp (login), this
+  // requires the number to be UNregistered and rejects taken email/phone up front.
+  // Throws if OTP is disabled or delivery fails, so the client can fall back to
+  // registering the number unverified.
+  requestSignupOtp: publicProcedure
+    .use(authRateLimit)
+    .input(z.object({ phone: phoneSchema, email: emailSchema.optional() }))
+    .mutation(async ({ input }) => {
+      if (!isSignupOtpEnabled()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "OTP verification isn't available right now." });
+      }
+      const [existingPhone, existingEmail] = await Promise.all([
+        prisma.user.findUnique({ where: { phone: input.phone } }),
+        input.email ? prisma.user.findUnique({ where: { email: input.email } }) : Promise.resolve(null),
+      ]);
+      if (existingPhone) {
+        throw new TRPCError({ code: "CONFLICT", message: "This mobile number is already registered. Try logging in instead." });
+      }
+      if (existingEmail) {
+        throw new TRPCError({ code: "CONFLICT", message: "This email is already registered. Try logging in instead." });
+      }
+
+      const code = generateOtp();
+      await storeOtp(input.phone, code);
+      const template = process.env.BHASHSMS_TEMPLATE_SIGNUP_OTP!;
+      const res = await sendWhatsAppTemplate({ to: input.phone, template, params: [code], stype: "auth" });
+      if (!res.sent) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Couldn't send the OTP right now. Please try again." });
+      }
+      return { ok: true };
+    }),
+
   // Sign in / sign up with a Google ID token (consumer role: user)
   googleSignIn: publicProcedure
     .use(authRateLimit)
@@ -555,6 +617,8 @@ export const authRouter = router({
         phone: phoneSchema,
         // Role the user chose after Google sign-up (Google can't ask up-front).
         applyAs: z.enum(["buyer", "seller"]).default("buyer"),
+        // WhatsApp OTP verifying the phone (see register above).
+        otp: z.string().regex(/^\d{6}$/).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -563,6 +627,8 @@ export const authRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "Phone already registered." });
       }
 
+      const phoneVerified = await resolveSignupPhoneVerified(input.phone, input.otp);
+
       // Seller path: convert this Google buyer into a pending home-seller — the
       // same admin-approval queue as the /register seller flow. They're signed
       // out and must wait for approval (login + googleSignIn block unverified
@@ -570,7 +636,7 @@ export const authRouter = router({
       if (input.applyAs === "seller") {
         const seller = await prisma.user.update({
           where: { id: ctx.user.id },
-          data: { phone: input.phone, role: "home-seller", verified: false },
+          data: { phone: input.phone, role: "home-seller", verified: false, phoneVerified },
         });
         await createSignupLead(seller);
         await notify({
@@ -605,7 +671,7 @@ export const authRouter = router({
       // wallet, once, as the reward for giving us a reachable number.
       const user = await prisma.user.update({
         where: { id: ctx.user.id },
-        data: { phone: input.phone },
+        data: { phone: input.phone, phoneVerified },
       });
       const alreadyRewarded = await prisma.creditTransaction.findFirst({
         where: { userId: user.id, reason: "promotion" },

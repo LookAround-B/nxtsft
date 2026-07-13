@@ -150,11 +150,13 @@ interface Ctx {
   signInStaff: (email: string, password: string) => Promise<Session>;
   requestOtp: (phone: string) => Promise<void>;
   loginWithOtp: (phone: string, code: string) => Promise<Session>;
+  // Signup phone verification: send an OTP to a NOT-yet-registered number.
+  requestSignupOtp: (phone: string, email?: string) => Promise<void>;
   signInWithGoogle: (credential: string) => Promise<{ session: Session; needsPhone: boolean }>;
-  completePhone: (phone: string, applyAs?: "buyer" | "seller") => Promise<{ pendingApproval: boolean }>;
+  completePhone: (phone: string, applyAs?: "buyer" | "seller", otp?: string) => Promise<{ pendingApproval: boolean }>;
   signOut: () => Promise<void>;
-  register: (name: string, email: string, phone: string, password: string, city?: string, waOptIn?: boolean) => Promise<Session>;
-  registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent", waOptIn?: boolean) => Promise<void>;
+  register: (name: string, email: string, phone: string, password: string, city?: string, waOptIn?: boolean, otp?: string) => Promise<Session>;
+  registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent", waOptIn?: boolean, otp?: string) => Promise<void>;
   updateProfile: (name: string, phone: string) => Promise<void>;
   updateAvatar: (url: string) => Promise<void>;
   addCredits: (n: number) => void;
@@ -312,6 +314,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await makeTRPC().auth.requestOtp.mutate({ phone });
   }
 
+  // Send a WhatsApp OTP to verify a NEW number at signup (rejects taken numbers).
+  async function requestSignupOtp(phone: string, email?: string): Promise<void> {
+    await makeTRPC().auth.requestSignupOtp.mutate({ phone, email });
+  }
+
   // Verify the OTP and sign in — same session handling as password login.
   async function loginWithOtp(phone: string, code: string): Promise<Session> {
     const { token, user } = await makeTRPC().auth.loginWithOtp.mutate({ phone, code });
@@ -334,8 +341,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function completePhone(
     phone: string,
     applyAs: "buyer" | "seller" = "buyer",
+    otp?: string,
   ): Promise<{ pendingApproval: boolean }> {
-    const res = await makeTRPC().auth.completePhone.mutate({ phone, applyAs });
+    const res = await makeTRPC().auth.completePhone.mutate({ phone, applyAs, otp });
     if (!res.pendingApproval) {
       const s = toSession(res.user);
       persist(s, res.user.credits);
@@ -363,6 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     city = "India",
     waOptIn?: boolean,
+    otp?: string,
   ): Promise<Session> {
     const { token, user } = await makeTRPC().auth.register.mutate({
       name,
@@ -371,6 +380,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       city,
       waOptIn,
+      otp,
     });
     await syncSessionCookie(token);
     const s = toSession(user);
@@ -386,8 +396,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     city: string,
     applyAs: "seller" | "agent" = "seller",
     waOptIn?: boolean,
+    otp?: string,
   ): Promise<void> {
-    await makeTRPC().auth.registerSeller.mutate({ name, email, phone, password, city, applyAs, waOptIn });
+    await makeTRPC().auth.registerSeller.mutate({ name, email, phone, password, city, applyAs, waOptIn, otp });
     // No session — applicant must wait for admin approval
   }
 
@@ -443,6 +454,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInStaff,
         requestOtp,
         loginWithOtp,
+        requestSignupOtp,
         signInWithGoogle,
         completePhone,
         signOut,
