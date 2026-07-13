@@ -395,6 +395,9 @@ export default function RegisterPage() {
                   className={`min-w-0 flex-1 rounded-r-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.phone ? "border-rose-400" : "border-input"}`}
                 />
               </div>
+              <p className="mt-1 text-xs font-medium text-amber-600">
+                ⚠ Enter your WhatsApp number only — we&apos;ll send a verification code there.
+              </p>
               {errors.phone && <p className="mt-1 text-xs text-rose-500">{errors.phone}</p>}
             </div>
 

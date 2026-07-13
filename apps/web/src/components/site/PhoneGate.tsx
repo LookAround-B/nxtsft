@@ -154,6 +154,9 @@ export function PhoneGate() {
                 />
               </div>
               <p className="mt-2 text-xs text-muted-foreground">🎉 Get 1 free credit to unlock an owner contact.</p>
+              <p className="mt-1 text-xs font-medium text-amber-600">
+                ⚠ Enter your WhatsApp number only — the code is sent on WhatsApp.
+              </p>
               {err && <p className="mt-2 text-xs font-medium text-red-500">{err}</p>}
               <button
                 type="submit"

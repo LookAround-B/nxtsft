@@ -300,6 +300,9 @@ function LoginPageContent() {
                       ? "🎉 Get 1 free credit to unlock an owner contact."
                       : "Our team reviews new sellers before your listings go live."}
                   </p>
+                  <p className="mt-1 text-xs font-medium text-amber-600">
+                    ⚠ Enter your WhatsApp number only — the code is sent on WhatsApp.
+                  </p>
                   {phoneErr && <p className="mt-2 text-xs font-medium text-red-500">{phoneErr}</p>}
                   <button
                     type="submit"
@@ -479,7 +482,7 @@ function LoginPageContent() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  We&apos;ll send a one-time code to this number on WhatsApp.
+                  We&apos;ll send a one-time code to this number on WhatsApp — enter your WhatsApp number.
                 </p>
 
                 {otpError && (

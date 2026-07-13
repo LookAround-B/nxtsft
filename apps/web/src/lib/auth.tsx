@@ -21,6 +21,8 @@ export interface Session {
   initials: string;
   city: string;
   phone: string;
+  /** True once the number passed a WhatsApp OTP. Drives the verify banner. */
+  phoneVerified: boolean;
   joined: string;
   /** Hosted profile photo; null falls back to rendering `initials`. */
   avatar: string | null;
@@ -152,6 +154,10 @@ interface Ctx {
   loginWithOtp: (phone: string, code: string) => Promise<Session>;
   // Signup phone verification: send an OTP to a NOT-yet-registered number.
   requestSignupOtp: (phone: string, email?: string) => Promise<void>;
+  // Logged-in phone verification (banner): send/verify OTP for the current user's
+  // own (or a new, unowned) WhatsApp number.
+  requestMyPhoneOtp: (phone: string) => Promise<void>;
+  verifyMyPhone: (phone: string, code: string) => Promise<Session>;
   signInWithGoogle: (credential: string) => Promise<{ session: Session; needsPhone: boolean }>;
   completePhone: (phone: string, applyAs?: "buyer" | "seller", otp?: string) => Promise<{ pendingApproval: boolean }>;
   signOut: () => Promise<void>;
@@ -196,6 +202,7 @@ type SafeUser = {
   name: string;
   email: string;
   phone: string | null;
+  phoneVerified?: boolean;
   city: string;
   credits: number;
   joined: Date | string;
@@ -211,6 +218,7 @@ function toSession(user: SafeUser): Session {
     initials: toInitials(user.name),
     city: user.city || "India",
     phone: user.phone ? (user.phone.startsWith("+") ? user.phone : `+91 ${user.phone}`) : "",
+    phoneVerified: user.phoneVerified ?? false,
     joined: formatJoined(user.joined),
     avatar: user.avatar ?? null,
   };
@@ -317,6 +325,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Send a WhatsApp OTP to verify a NEW number at signup (rejects taken numbers).
   async function requestSignupOtp(phone: string, email?: string): Promise<void> {
     await makeTRPC().auth.requestSignupOtp.mutate({ phone, email });
+  }
+
+  // Logged-in user: send an OTP to verify their own / a new WhatsApp number.
+  async function requestMyPhoneOtp(phone: string): Promise<void> {
+    await makeTRPC().auth.requestMyPhoneOtp.mutate({ phone });
+  }
+
+  // Logged-in user: verify the OTP → number marked verified; refresh the session.
+  async function verifyMyPhone(phone: string, code: string): Promise<Session> {
+    const { user } = await makeTRPC().auth.verifyMyPhone.mutate({ phone, code });
+    const s = toSession(user);
+    persist(s, user.credits);
+    return s;
   }
 
   // Verify the OTP and sign in — same session handling as password login.
@@ -455,6 +476,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         requestOtp,
         loginWithOtp,
         requestSignupOtp,
+        requestMyPhoneOtp,
+        verifyMyPhone,
         signInWithGoogle,
         completePhone,
         signOut,

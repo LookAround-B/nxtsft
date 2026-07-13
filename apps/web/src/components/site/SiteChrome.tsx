@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { InstallBanner } from "@/components/site/InstallBanner";
+import { VerifyPhoneBanner } from "@/components/site/VerifyPhoneBanner";
 
 // Routes that render their own shell (PortalShell / bare auth) — no public chrome.
 const NO_CHROME_PREFIXES = [
@@ -26,6 +27,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
   return (
     <>
       <InstallBanner />
+      <VerifyPhoneBanner />
       <SiteHeader />
       {children}
       <SiteFooter />

@@ -151,6 +151,7 @@ function safeUser(user: {
   avatar: string | null;
   role: string;
   verified: boolean;
+  phoneVerified: boolean;
   city: string;
   credits: number;
   joined: Date;
@@ -163,6 +164,7 @@ function safeUser(user: {
     avatar: user.avatar,
     role: user.role,
     verified: user.verified,
+    phoneVerified: user.phoneVerified,
     city: user.city,
     credits: user.credits,
     joined: user.joined,
@@ -691,6 +693,68 @@ export const authRouter = router({
       await createSignupLead(user);
       const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
       return { pendingApproval: false as const, user: safeUser(fresh) };
+    }),
+
+  // A logged-in user verifies (and may correct) their WhatsApp number to earn the
+  // verified badge. Unlike requestSignupOtp, this ALLOWS the user's own current
+  // number — it only rejects a number registered to a DIFFERENT account.
+  requestMyPhoneOtp: protectedProcedure
+    .use(authRateLimit)
+    .input(z.object({ phone: phoneSchema }))
+    .mutation(async ({ input, ctx }) => {
+      if (!isSignupOtpEnabled()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "OTP verification isn't available right now." });
+      }
+      const owner = await prisma.user.findUnique({ where: { phone: input.phone } });
+      if (owner && owner.id !== ctx.user.id) {
+        throw new TRPCError({ code: "CONFLICT", message: "This mobile number is already registered to another account." });
+      }
+      const code = generateOtp();
+      await storeOtp(input.phone, code);
+      const template = process.env.BHASHSMS_TEMPLATE_SIGNUP_OTP!;
+      const res = await sendWhatsAppTemplate({ to: input.phone, template, params: [code], stype: "auth" });
+      if (!res.sent) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Couldn't send the OTP right now. Please try again." });
+      }
+      return { ok: true };
+    }),
+
+  // Verify the OTP → mark the current user's phone verified (updating the number
+  // if they corrected it to their WhatsApp one). Grants the one-time promotion
+  // credit if they had no number before (mirrors completePhone).
+  verifyMyPhone: protectedProcedure
+    .input(z.object({ phone: phoneSchema, code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code") }))
+    .mutation(async ({ input, ctx }) => {
+      const owner = await prisma.user.findUnique({ where: { phone: input.phone } });
+      if (owner && owner.id !== ctx.user.id) {
+        throw new TRPCError({ code: "CONFLICT", message: "This mobile number is already registered to another account." });
+      }
+      const result = await verifyOtp(input.phone, input.code);
+      if (!result.ok) {
+        const message =
+          result.reason === "expired"
+            ? "This OTP has expired — request a new one."
+            : result.reason === "too_many_attempts"
+              ? "Too many incorrect attempts — request a new OTP."
+              : "Incorrect OTP. Please check and try again.";
+        throw new TRPCError({ code: "UNAUTHORIZED", message });
+      }
+
+      const me = await prisma.user.findUniqueOrThrow({ where: { id: ctx.user.id }, select: { phone: true } });
+      const hadNoPhone = !me.phone;
+      const user = await prisma.user.update({
+        where: { id: ctx.user.id },
+        data: { phone: input.phone, phoneVerified: true },
+      });
+      if (hadNoPhone) {
+        const alreadyRewarded = await prisma.creditTransaction.findFirst({
+          where: { userId: user.id, reason: "promotion" },
+          select: { id: true },
+        });
+        if (!alreadyRewarded) await grantCredits(user.id, 1, "promotion");
+      }
+      const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      return { user: safeUser(fresh) };
     }),
 
   logout: protectedProcedure.mutation(async ({ ctx }) => {
