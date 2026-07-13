@@ -8,11 +8,24 @@ import { boostIsActive } from "@nxtsft/shared/constants";
 import { keepPreviousData } from "@tanstack/react-query";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { parseLatLng } from "@/lib/map";
 import { getPendingListings, updateListingStatus as persistListingStatus } from "@/lib/listings";
 import { PageHead } from "./PageHead";
+
+// Property-type filter options — values match the DB `type` column exactly.
+const LISTING_TYPE_OPTIONS = [
+  { value: "Apartment", label: "Apartment" },
+  { value: "Villa", label: "Villa" },
+  { value: "Plot", label: "Plot" },
+  { value: "Office", label: "Commercial / Office" },
+  { value: "Studio", label: "Studio" },
+  { value: "Bungalow", label: "Bungalow" },
+  { value: "PG", label: "PG / Co-living" },
+];
+type ListingStatusFilter = "" | "Pending" | "Active" | "Inactive" | "Sold" | "Rented";
 
 // Authority labels shown before the registration number (mirrors the /list form).
 const RERA_LABELS = ["RERA", "TS RERA", "KA RERA", "TN RERA", "MahaRERA", "GujRERA", "HMDA", "DTCP", "BDA", "CMDA", "Others"];
@@ -299,8 +312,19 @@ function EditRequestsSection() {
 
 export function ListingsTab() {
   const [page, setPage] = useState(1);
+  const [typeFilter, setTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ListingStatusFilter>("");
+  // Reset to the first page whenever a filter changes.
+  useEffect(() => {
+    setPage(1);
+  }, [typeFilter, statusFilter]);
   const dbListingsQ = trpc.admin.properties.list.useQuery(
-    { page, limit: 18 },
+    {
+      page,
+      limit: 18,
+      type: typeFilter || undefined,
+      status: statusFilter || undefined,
+    },
     { placeholderData: keepPreviousData },
   );
   const totalPages = dbListingsQ.data?.totalPages ?? 1;
@@ -530,7 +554,42 @@ export function ListingsTab() {
         />
       </div>
       <EditRequestsSection />
-      <Section title={dbListingsQ.data ? `All Submissions (${dbListingsQ.data.total} live in library)` : "All Submissions"}>
+      <Section
+        title={dbListingsQ.data ? `All Submissions (${dbListingsQ.data.total} live in library)` : "All Submissions"}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={typeFilter || "__all"} onValueChange={(v) => setTypeFilter(v === "__all" ? "" : v)}>
+              <SelectTrigger size="sm" className="min-w-[9.5rem]">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">All types</SelectItem>
+                {LISTING_TYPE_OPTIONS.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={statusFilter || "__all"}
+              onValueChange={(v) => setStatusFilter(v === "__all" ? "" : (v as ListingStatusFilter))}
+            >
+              <SelectTrigger size="sm" className="min-w-[9rem]">
+                <SelectValue placeholder="All status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">All status</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Active">Approved (live)</SelectItem>
+                <SelectItem value="Inactive">Rejected / inactive</SelectItem>
+                <SelectItem value="Sold">Sold</SelectItem>
+                <SelectItem value="Rented">Rented</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        }
+      >
         {dbListingsQ.isLoading ? (
           <TableSkeleton rows={6} cols={2} />
         ) : items.length === 0 ? (
