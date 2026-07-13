@@ -45,6 +45,7 @@ const safeUserSelect = {
   avatar: true,
   role: true,
   verified: true,
+  phoneVerified: true,
   active: true,
   city: true,
   credits: true,
@@ -193,16 +194,18 @@ export const adminRouter = router({
           role: roleSchema.optional(),
           search: searchSchema.optional(),
           city: geoTextSchema.optional(),
+          phoneVerified: z.boolean().optional(),
           cursor: cursorSchema,
           limit: limitSchema,
         }),
       )
       .query(async ({ input }) => {
-        const { cursor, limit, role, search, city } = input;
+        const { cursor, limit, role, search, city, phoneVerified } = input;
 
         const where: NonNullable<Parameters<typeof prisma.user.findMany>[0]>["where"] = {};
         if (role) where.role = role;
         if (city) where.city = { contains: city, mode: "insensitive" };
+        if (phoneVerified !== undefined) where.phoneVerified = phoneVerified;
         if (search) {
           where.OR = [
             { name: { contains: search, mode: "insensitive" } },

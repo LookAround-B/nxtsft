@@ -15,6 +15,7 @@ type AdminUser = {
   role: string;
   city: string;
   verified: boolean;
+  phoneVerified: boolean;
   credits: number;
   joined: string;
   lastActive: string;
@@ -35,9 +36,11 @@ const SA_ROLE_LABEL: Record<string, string> = {
 export function UsersTab() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [phoneFilter, setPhoneFilter] = useState<"" | "verified" | "unverified">("");
   const usersQ = trpc.admin.users.list.useQuery({
     search: search || undefined,
     role: roleFilter ? (roleFilter as (typeof SA_ROLES)[number]) : undefined,
+    phoneVerified: phoneFilter === "" ? undefined : phoneFilter === "verified",
     limit: 100,
   });
   const users = (usersQ.data?.items ?? []) as unknown as AdminUser[];
@@ -73,8 +76,8 @@ export function UsersTab() {
             onClick={() =>
               downloadCSV(
                 "users.csv",
-                ["ID", "Name", "Email", "Phone", "Role", "City", "Verified"],
-                users.map((u) => [u.id, u.name, u.email, u.phone || "—", SA_ROLE_LABEL[u.role] ?? u.role, u.city, u.verified ? "Yes" : "No"]),
+                ["ID", "Name", "Email", "Phone", "Phone Verified", "Role", "City", "Verified"],
+                users.map((u) => [u.id, u.name, u.email, u.phone || "—", u.phoneVerified ? "Yes" : "No", SA_ROLE_LABEL[u.role] ?? u.role, u.city, u.verified ? "Yes" : "No"]),
               )
             }
             className="text-xs font-semibold text-accent hover:underline"
@@ -113,6 +116,16 @@ export function UsersTab() {
               <SelectContent>
                 <SelectItem value="__all">All roles</SelectItem>
                 {SA_ROLES.map((r) => <SelectItem key={r} value={r}>{SA_ROLE_LABEL[r]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={phoneFilter || "__all"} onValueChange={(v) => setPhoneFilter(v === "__all" ? "" : (v as "verified" | "unverified"))}>
+              <SelectTrigger size="sm" className="min-w-[9rem]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">Any phone status</SelectItem>
+                <SelectItem value="verified">Phone verified</SelectItem>
+                <SelectItem value="unverified">Phone unverified</SelectItem>
               </SelectContent>
             </Select>
             <button
@@ -154,7 +167,24 @@ export function UsersTab() {
                     <td className="text-xs text-muted-foreground">{u.email}</td>
                     <td className="text-xs">
                       {u.phone && u.phone !== "—" ? (
-                        <a href={`tel:${u.phone}`} className="font-medium text-accent hover:underline">{u.phone}</a>
+                        <div className="flex items-center gap-1.5">
+                          <a href={`tel:${u.phone}`} className="font-medium text-accent hover:underline">{u.phone}</a>
+                          {u.phoneVerified ? (
+                            <span
+                              title="Number verified via WhatsApp OTP"
+                              className="inline-flex items-center rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600"
+                            >
+                              ✓ OTP
+                            </span>
+                          ) : (
+                            <span
+                              title="Number not yet verified via OTP"
+                              className="inline-flex items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-600"
+                            >
+                              unverified
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
