@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Briefcase, Eye, Phone, Mail, MapPin, Sofa, ShieldCheck, IndianRupee } from "lucide-react";
+import { Briefcase, Eye, Phone, Mail, MapPin, Sofa, ShieldCheck, IndianRupee, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Badge, Section } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -154,6 +154,16 @@ function ListingPlanSection({ planType }: { planType: "designer" | "decor" }) {
             </span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{plan.tagline}</p>
+          {plan.features.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {plan.features.map((f) => (
+                <li key={f} className="flex items-start gap-1.5 text-xs text-foreground">
+                  <Check size={12} className="mt-0.5 shrink-0 text-emerald-500" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          )}
           <button
             onClick={handleSubscribe}
             disabled={buying}
