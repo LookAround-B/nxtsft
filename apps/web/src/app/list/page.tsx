@@ -25,7 +25,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { submitListing, type ListerType, type PendingListing } from "@/lib/listings";
 import { trpc } from "@/lib/trpc";
-import { validateRera } from "@/lib/rera";
 import { parseLatLng } from "@/lib/map";
 import { AMENITIES } from "@/data/amenities";
 import {
@@ -306,13 +305,8 @@ export default function ListPropertyPage() {
     }
     if (s === 3) {
       if (!data.description.trim()) e.description = "Add a brief description";
-      // RERA is optional — not every property (pre-RERA resales, small plots,
-      // pending approvals) has a number yet. Only check the format if the
-      // seller actually entered something.
-      if (data.rera.trim()) {
-        const reraError = validateRera(data.rera, data.city, data.reraLabel);
-        if (reraError) e.rera = reraError;
-      }
+      // RERA is optional free text — not every property has a number yet, and
+      // the exact state format is hard to match. Accept anything (or blank).
     }
     if (s === 4) {
       if (!data.listerName.trim()) e.listerName = "Enter your full name";

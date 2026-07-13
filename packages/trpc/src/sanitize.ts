@@ -145,10 +145,12 @@ export const safeUrlSchema = z
 export const safeUrlArraySchema = z.array(safeUrlSchema).max(20).default([]);
 
 /** RERA registration number */
+// RERA is optional free text — sellers often can't match the exact state
+// format, so we only cap length and block unsafe characters (no format check).
 export const reraSchema = z
   .string()
   .max(50)
-  .regex(/^[a-zA-Z0-9\/\-]+$/, "Invalid RERA registration number format");
+  .regex(/^[a-zA-Z0-9\s/\-.,()]*$/, "RERA can only contain letters, numbers and basic punctuation");
 
 /** Indian ZIP code */
 export const zipCodeSchema = z

@@ -7,7 +7,6 @@ import { ArrowLeft, Check, MapPin, Clock, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
-import { validateRera } from "@/lib/rera";
 import { parseLatLng } from "@/lib/map";
 import { AMENITIES } from "@/data/amenities";
 import { ImageUploader, type UploadImage } from "@/components/ui/ImageUploader";
@@ -185,10 +184,7 @@ export default function EditListingPage() {
     if (!form.description.trim()) e.description = "Add a brief description";
     if (!form.price || Number(form.price) <= 0) e.price = "Enter a valid price";
     if (!form.area || Number(form.area) <= 0) e.area = "Enter a valid area";
-    if (form.rera.trim() && property?.location?.city) {
-      const reraError = validateRera(form.rera, property.location.city, form.reraLabel);
-      if (reraError) e.rera = reraError;
-    }
+    // RERA is optional free text — no state-format enforcement, blank is fine.
     setErrors(e);
     return Object.keys(e).length === 0;
   };
