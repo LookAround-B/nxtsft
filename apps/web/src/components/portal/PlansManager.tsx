@@ -272,11 +272,13 @@ function usePlanGroup(type: PlanType) {
     deletePlan.mutate({ id }, { onSuccess: () => toast.success("Plan deactivated") });
 
   const add = (name: string) =>
+    // Created as a draft (inactive) with a valid placeholder price — the server
+    // rejects price 0, and a new plan shouldn't go live until it's configured.
     createPlan.mutate(
       {
         name,
-        price: 0,
-        priceLabel: "₹0",
+        price: 999,
+        priceLabel: "₹999",
         credits: 0,
         validity: 30,
         tagline: "New plan",
@@ -284,7 +286,10 @@ function usePlanGroup(type: PlanType) {
         popular: false,
         type,
       },
-      { onSuccess: () => toast.success(`"${name}" created — edit to configure`) },
+      {
+        onSuccess: () =>
+          toast.success(`"${name}" created as a draft — edit its price & details, then activate it.`),
+      },
     );
 
   return { plans, isLoading: plansQ.isLoading, save, toggle, remove, add };

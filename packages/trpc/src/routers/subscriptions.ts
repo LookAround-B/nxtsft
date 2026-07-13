@@ -1045,7 +1045,9 @@ export const subscriptionsRouter = router({
       if (input.type === "boost" && !input.boostTier) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A boost plan needs a tier." });
       }
-      return prisma.plan.create({ data: input });
+      // New plans start as drafts — the admin edits price/details, then flips it
+      // active. Prevents a half-configured plan showing on the live pricing page.
+      return prisma.plan.create({ data: { ...input, active: false } });
     }),
 
   updatePlan: adminProcedure
