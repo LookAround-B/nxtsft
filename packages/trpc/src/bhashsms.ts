@@ -33,6 +33,9 @@ export async function sendWhatsAppTemplate(opts: {
 }): Promise<BhashResult> {
   const user = process.env.BHASHSMS_USER;
   const pass = process.env.BHASHSMS_PASS;
+  // WhatsApp has no per-account sender ID — the API docs specify the fixed
+  // value "BhashSoftwareLab" for every customer. Leave BHASHSMS_SENDER unset;
+  // overriding it with anything else yields "Sender ID Does not Exist".
   const sender = process.env.BHASHSMS_SENDER || "BhashSoftwareLab";
   if (!user || !pass) {
     console.log(`[bhashsms] not configured — skipped template "${opts.template}" to ${opts.to}`);
