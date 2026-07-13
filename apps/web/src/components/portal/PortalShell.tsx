@@ -6,6 +6,7 @@ import { Menu, X, ChevronLeft, PanelLeftClose, PanelLeftOpen, LogOut } from "luc
 import { useActiveHash } from "@/lib/use-active-hash";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell } from "@/components/NotificationBell";
+import { VerifyPhoneBanner } from "@/components/site/VerifyPhoneBanner";
 
 export interface PortalNav {
   label: string;
@@ -215,6 +216,8 @@ export function PortalShell({ brand, role, accent = "red", user, nav, basePath, 
 
       {/* Main */}
       <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Verify-WhatsApp nudge (self-gates to unverified end-users) */}
+        <VerifyPhoneBanner />
         {/* Header */}
         <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-white/95 px-4 py-3 shadow-sm sm:px-6 transition-shadow duration-200">
           <div className="flex items-center gap-3">

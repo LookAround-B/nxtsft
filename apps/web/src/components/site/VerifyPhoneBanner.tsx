@@ -105,7 +105,7 @@ export function VerifyPhoneBanner() {
 
   return (
     <>
-      <div className="flex items-center gap-3 border-b border-amber-300/50 bg-amber-50 px-4 py-2 sm:px-6">
+      <div className="flex shrink-0 items-center gap-3 border-b border-amber-300/50 bg-amber-50 px-4 py-2 sm:px-6">
         <ShieldCheck size={18} className="shrink-0 text-amber-600" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-amber-900">
