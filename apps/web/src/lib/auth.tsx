@@ -148,6 +148,8 @@ interface Ctx {
   sessionChecked: boolean;
   signIn: (email: string, password: string) => Promise<Session>;
   signInStaff: (email: string, password: string) => Promise<Session>;
+  requestOtp: (phone: string) => Promise<void>;
+  loginWithOtp: (phone: string, code: string) => Promise<Session>;
   signInWithGoogle: (credential: string) => Promise<{ session: Session; needsPhone: boolean }>;
   completePhone: (phone: string, applyAs?: "buyer" | "seller") => Promise<{ pendingApproval: boolean }>;
   signOut: () => Promise<void>;
@@ -305,6 +307,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return s;
   }
 
+  // Send a WhatsApp OTP to a registered mobile number.
+  async function requestOtp(phone: string): Promise<void> {
+    await makeTRPC().auth.requestOtp.mutate({ phone });
+  }
+
+  // Verify the OTP and sign in — same session handling as password login.
+  async function loginWithOtp(phone: string, code: string): Promise<Session> {
+    const { token, user } = await makeTRPC().auth.loginWithOtp.mutate({ phone, code });
+    await syncSessionCookie(token);
+    const s = toSession(user);
+    persist(s, user.credits);
+    return s;
+  }
+
   async function signInWithGoogle(credential: string): Promise<{ session: Session; needsPhone: boolean }> {
     const { token, user, needsPhone } = await makeTRPC().auth.googleSignIn.mutate({ credential });
     await syncSessionCookie(token);
@@ -425,6 +441,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionChecked,
         signIn,
         signInStaff,
+        requestOtp,
+        loginWithOtp,
         signInWithGoogle,
         completePhone,
         signOut,

@@ -15,6 +15,8 @@ import prisma from "@nxtsft/db";
 import { hashToken } from "@nxtsft/shared";
 import { notify, notifyCredit, portalBase } from "../notify";
 import { uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
+import { generateOtp, storeOtp, verifyOtp, isSignupOtpEnabled } from "../otp";
+import { sendWhatsAppTemplate } from "../bhashsms";
 import {
   router,
   publicProcedure,
@@ -397,6 +399,80 @@ export const authRouter = router({
 
       await logSignIn(user.id);
       return { token, user: safeUser(user) };
+    }),
+
+  // ── WhatsApp OTP login ─────────────────────────────────────────────────────
+  // OTP is the primary login for everyone (consumers + staff); email+password
+  // stays as a fallback. requestOtp finds the account by phone, generates a code,
+  // stores it (Redis, 5-min TTL) and sends it via the approved BhashSMS template.
+  requestOtp: publicProcedure
+    .use(authRateLimit)
+    .input(z.object({ phone: phoneSchema }))
+    .mutation(async ({ input }) => {
+      if (!isSignupOtpEnabled()) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "OTP login isn't available right now — please use email & password.",
+        });
+      }
+      const user = await prisma.user.findUnique({ where: { phone: input.phone } });
+      if (!user) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No account is registered with this mobile number." });
+      }
+      if (!user.active) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This account has been deactivated." });
+      }
+      if ((user.role === "home-seller" || user.role === "agent") && !user.verified) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Your account is pending approval. You'll be notified once an admin approves it.",
+        });
+      }
+
+      const code = generateOtp();
+      await storeOtp(input.phone, code);
+      const template = process.env.BHASHSMS_TEMPLATE_SIGNUP_OTP!;
+      const res = await sendWhatsAppTemplate({ to: input.phone, template, params: [code] });
+      if (!res.sent) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Couldn't send the OTP right now. Please try again or use email & password.",
+        });
+      }
+      return { ok: true };
+    }),
+
+  // Verify the OTP and issue a session — same session machinery as password login.
+  loginWithOtp: publicProcedure
+    .use(authRateLimit)
+    .input(z.object({ phone: phoneSchema, code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code") }))
+    .mutation(async ({ input }) => {
+      const result = await verifyOtp(input.phone, input.code);
+      if (!result.ok) {
+        const message =
+          result.reason === "expired"
+            ? "This OTP has expired — request a new one."
+            : result.reason === "too_many_attempts"
+              ? "Too many incorrect attempts — request a new OTP."
+              : "Incorrect OTP. Please check and try again.";
+        throw new TRPCError({ code: "UNAUTHORIZED", message });
+      }
+
+      const user = await prisma.user.findUnique({ where: { phone: input.phone } });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "No account found for this number." });
+      if (!user.active) throw new TRPCError({ code: "FORBIDDEN", message: "This account has been deactivated." });
+      if ((user.role === "home-seller" || user.role === "agent") && !user.verified) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Your account is pending approval." });
+      }
+
+      if (CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) && user.credits === 0) {
+        await grantCredits(user.id, 3, "demo");
+      }
+
+      const token = await createSession(user.id);
+      await logSignIn(user.id);
+      const freshUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      return { token, user: safeUser(freshUser) };
     }),
 
   // Sign in / sign up with a Google ID token (consumer role: user)

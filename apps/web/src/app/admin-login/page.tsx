@@ -97,7 +97,7 @@ export default function AdminLoginPage() {
 }
 
 function AdminLoginPageContent() {
-  const { session, sessionChecked, signInStaff } = useAuth();
+  const { session, sessionChecked, signInStaff, requestOtp, loginWithOtp } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -118,9 +118,67 @@ function AdminLoginPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Password stays the default here so staff can never be locked out if
+  // WhatsApp/OTP delivery is down; OTP is offered as an alternative.
+  const [authMode, setAuthMode] = useState<"password" | "otp">("password");
+  const [otpPhone, setOtpPhone] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpStep, setOtpStep] = useState<"phone" | "code">("phone");
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
   const selectRole = (r: AdminRole) => {
     setSelected(r);
     setError("");
+  };
+
+  const sendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const p = otpPhone.replace(/\D/g, "");
+    if (!/^[6-9]\d{9}$/.test(p)) {
+      setOtpError("Enter a valid 10-digit Indian mobile number.");
+      return;
+    }
+    setOtpError("");
+    setOtpSending(true);
+    try {
+      await requestOtp(p);
+      setOtpStep("code");
+      setOtpCode("");
+      setResendIn(30);
+      toast.success("OTP sent to your WhatsApp.");
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Couldn't send the OTP. Please try again.");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const verifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(otpCode)) {
+      setOtpError("Enter the 6-digit code.");
+      return;
+    }
+    setOtpError("");
+    setOtpVerifying(true);
+    try {
+      const s = await loginWithOtp(otpPhone.replace(/\D/g, ""), otpCode);
+      toast.success(`Welcome, ${s.name.split(" ")[0]}!`);
+      router.push(searchParams.get("redirect") || ROLE_META[s.role].portal);
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Couldn't verify the code. Please try again.");
+    } finally {
+      setOtpVerifying(false);
+    }
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -247,104 +305,233 @@ function AdminLoginPageContent() {
               <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                 2. Sign in
               </p>
-              <form
-                onSubmit={submit}
+              <div
                 className={`rounded-2xl border-2 bg-white p-6 shadow-sm transition-all duration-300 ${
                   active ? `${active.borderAccent}` : "border-border"
                 }`}
               >
-                {/* Selected role pill */}
-                {active ? (
-                  <div
-                    className={`mb-5 flex items-center gap-2.5 rounded-xl bg-gradient-to-r p-3 text-white ${active.accent}`}
-                  >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20">
-                      {active.icon}
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
-                        Signing in as
-                      </div>
-                      <div className="font-display text-sm font-bold">
-                        {ROLE_META[active.role].label}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mb-5 flex items-center gap-2.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3 text-muted-foreground">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-border/40">
-                      <Shield size={16} />
-                    </div>
-                    <span className="text-sm">No role selected yet</span>
-                  </div>
-                )}
-
-                {/* Email */}
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={selected ? ROLE_META[selected].demoEmail : "Select a role first"}
-                  className="mt-1.5 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                  disabled={!selected}
-                />
-
-                {/* Password */}
-                <label className="mt-4 block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Password
-                </label>
-                <div className="relative mt-1.5">
-                  <input
-                    type={showPass ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-xl border border-input bg-background px-3 py-2.5 pr-10 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                    disabled={!selected}
-                  />
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setShowPass((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
+                {/* Auth-method toggle */}
+                <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-secondary/60 p-1">
+                  {(["password", "otp"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => {
+                        setAuthMode(m);
+                        setError("");
+                        setOtpError("");
+                      }}
+                      className={`rounded-lg py-2 text-xs font-bold transition ${
+                        authMode === m
+                          ? "bg-white text-navy shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {m === "password" ? "Password" : "WhatsApp OTP"}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Error */}
-                {error && <p className="mt-3 text-xs font-medium text-red-500">{error}</p>}
+                {authMode === "password" ? (
+                  <form onSubmit={submit}>
+                    {/* Selected role pill */}
+                    {active ? (
+                      <div
+                        className={`mb-5 flex items-center gap-2.5 rounded-xl bg-gradient-to-r p-3 text-white ${active.accent}`}
+                      >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20">
+                          {active.icon}
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
+                            Signing in as
+                          </div>
+                          <div className="font-display text-sm font-bold">
+                            {ROLE_META[active.role].label}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mb-5 flex items-center gap-2.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3 text-muted-foreground">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-border/40">
+                          <Shield size={16} />
+                        </div>
+                        <span className="text-sm">No role selected yet</span>
+                      </div>
+                    )}
 
-                {/* Submit */}
-                <button
-                  type="submit"
-                  disabled={loading || !selected}
-                  className={`
-                    mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-display text-sm font-bold text-white
-                    shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md
-                    disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50
-                    ${active ? `bg-gradient-to-r ${active.accent} shadow-sm` : "bg-navy"}
-                  `}
-                >
-                  {loading ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      Signing in…
-                    </>
-                  ) : (
-                    <>
-                      Sign in to {selected ? ROLE_META[selected].portalName : "Portal"}
-                      <ChevronRight size={16} />
-                    </>
-                  )}
-                </button>
+                    {/* Email */}
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder={selected ? ROLE_META[selected].demoEmail : "Select a role first"}
+                      className="mt-1.5 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      disabled={!selected}
+                    />
 
-                <p className="mt-4 rounded-lg bg-secondary/60 px-3 py-2 text-center text-[11px] text-muted-foreground">
-                  Select your role and enter your credentials to sign in.
-                </p>
-              </form>
+                    {/* Password */}
+                    <label className="mt-4 block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Password
+                    </label>
+                    <div className="relative mt-1.5">
+                      <input
+                        type={showPass ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 pr-10 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                        disabled={!selected}
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setShowPass((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+
+                    {/* Error */}
+                    {error && <p className="mt-3 text-xs font-medium text-red-500">{error}</p>}
+
+                    {/* Submit */}
+                    <button
+                      type="submit"
+                      disabled={loading || !selected}
+                      className={`
+                        mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-display text-sm font-bold text-white
+                        shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md
+                        disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50
+                        ${active ? `bg-gradient-to-r ${active.accent} shadow-sm` : "bg-navy"}
+                      `}
+                    >
+                      {loading ? (
+                        <>
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          Signing in…
+                        </>
+                      ) : (
+                        <>
+                          Sign in to {selected ? ROLE_META[selected].portalName : "Portal"}
+                          <ChevronRight size={16} />
+                        </>
+                      )}
+                    </button>
+
+                    <p className="mt-4 rounded-lg bg-secondary/60 px-3 py-2 text-center text-[11px] text-muted-foreground">
+                      Select your role and enter your credentials to sign in.
+                    </p>
+                  </form>
+                ) : otpStep === "phone" ? (
+                  <form onSubmit={sendOtp}>
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Registered Mobile Number
+                    </label>
+                    <div className="mt-1.5 flex items-center rounded-xl border border-input bg-background px-3 transition focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
+                      <span className="text-sm text-muted-foreground">+91</span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        maxLength={10}
+                        value={otpPhone}
+                        onChange={(e) => setOtpPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                        placeholder="10-digit number"
+                        className="w-full bg-transparent px-2 py-2.5 text-sm outline-none"
+                      />
+                    </div>
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      A one-time code goes to your account&apos;s WhatsApp number — no role selection
+                      needed.
+                    </p>
+
+                    {otpError && <p className="mt-3 text-xs font-medium text-red-500">{otpError}</p>}
+
+                    <button
+                      type="submit"
+                      disabled={otpSending}
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-navy py-3 font-display text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {otpSending ? (
+                        <>
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          Sending OTP…
+                        </>
+                      ) : (
+                        <>
+                          Send OTP
+                          <ChevronRight size={16} />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={verifyOtp}>
+                    <p className="text-sm text-muted-foreground">
+                      Enter the 6-digit code sent to{" "}
+                      <strong className="text-navy">+91 {otpPhone}</strong> on WhatsApp.
+                    </p>
+
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      autoFocus
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="6-digit code"
+                      className="mt-4 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-center text-lg font-bold tracking-[0.4em] transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    />
+
+                    {otpError && <p className="mt-3 text-xs font-medium text-red-500">{otpError}</p>}
+
+                    <button
+                      type="submit"
+                      disabled={otpVerifying}
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-navy py-3 font-display text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {otpVerifying ? (
+                        <>
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          Verifying…
+                        </>
+                      ) : (
+                        <>
+                          Verify &amp; sign in
+                          <ChevronRight size={16} />
+                        </>
+                      )}
+                    </button>
+
+                    <div className="mt-3 flex items-center justify-between text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpStep("phone");
+                          setOtpCode("");
+                          setOtpError("");
+                        }}
+                        className="font-semibold text-muted-foreground hover:text-foreground"
+                      >
+                        ← Change number
+                      </button>
+                      <button
+                        type="button"
+                        disabled={resendIn > 0 || otpSending}
+                        onClick={() => sendOtp({ preventDefault: () => {} } as React.FormEvent)}
+                        className="font-semibold text-accent hover:underline disabled:text-muted-foreground disabled:no-underline"
+                      >
+                        {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend OTP"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
             </div>
           </div>
         </div>

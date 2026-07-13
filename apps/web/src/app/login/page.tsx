@@ -18,7 +18,8 @@ export default function LoginPage() {
 }
 
 function LoginPageContent() {
-  const { session, sessionChecked, signIn, signInWithGoogle, completePhone, signOut } = useAuth();
+  const { session, sessionChecked, signIn, signInWithGoogle, completePhone, signOut, requestOtp, loginWithOtp } =
+    useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -38,6 +39,16 @@ function LoginPageContent() {
     }
   }, [sessionChecked, session, searchParams, router, needPhone]);
 
+  // OTP is the primary way in; email + password stays as a fallback.
+  const [mode, setMode] = useState<"otp" | "password">("otp");
+  const [otpPhone, setOtpPhone] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpStep, setOtpStep] = useState<"phone" | "code">("phone");
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [resendIn, setResendIn] = useState(0);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -48,6 +59,13 @@ function LoginPageContent() {
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [applyAs, setApplyAs] = useState<"buyer" | "seller">("buyer");
   const [sellerPending, setSellerPending] = useState(false);
+
+  // Resend cooldown countdown.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +83,47 @@ function LoginPageContent() {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const sendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const p = otpPhone.replace(/\D/g, "");
+    if (!/^[6-9]\d{9}$/.test(p)) {
+      setOtpError("Enter a valid 10-digit Indian mobile number.");
+      return;
+    }
+    setOtpError("");
+    setOtpSending(true);
+    try {
+      await requestOtp(p);
+      setOtpStep("code");
+      setOtpCode("");
+      setResendIn(30);
+      toast.success("OTP sent to your WhatsApp.");
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Couldn't send the OTP. Please try again.");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const verifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(otpCode)) {
+      setOtpError("Enter the 6-digit code.");
+      return;
+    }
+    setOtpError("");
+    setOtpVerifying(true);
+    try {
+      const s = await loginWithOtp(otpPhone.replace(/\D/g, ""), otpCode);
+      toast.success(`Welcome back, ${s.name.split(" ")[0]}!`);
+      router.push(searchParams.get("redirect") || ROLE_META[s.role].portal);
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Couldn't verify the code. Please try again.");
+    } finally {
+      setOtpVerifying(false);
     }
   };
 
@@ -264,78 +323,219 @@ function LoginPageContent() {
             Find your next home — zero commission, RERA-verified.
           </p>
 
-          <form
-            onSubmit={submit}
-            noValidate
-            className="mt-6 rounded-2xl border border-border bg-white p-6 shadow-sm"
-          >
-            {/* Email */}
-            <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              autoComplete="email"
-              className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-            />
-
-            {/* Password */}
-            <label className="mt-4 block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-              Password
-            </label>
-            <div className="relative mt-1.5">
-              <input
-                type={showPass ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-                className="w-full rounded-xl border border-input bg-background px-3.5 py-3 pr-11 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-              />
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => setShowPass((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
+          {mode === "otp" ? (
+            /* Primary: sign in with a WhatsApp OTP */
+            otpStep === "phone" ? (
+              <form
+                onSubmit={sendOtp}
+                noValidate
+                className="mt-6 rounded-2xl border border-border bg-white p-6 shadow-sm"
               >
-                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
+                <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Mobile Number
+                </label>
+                <div className="mt-1.5 flex items-center rounded-xl border border-input bg-background px-3.5 transition focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25">
+                  <span className="text-sm text-muted-foreground">+91</span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={10}
+                    value={otpPhone}
+                    onChange={(e) => setOtpPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    placeholder="10-digit number"
+                    className="w-full bg-transparent px-2 py-3 text-sm outline-none"
+                  />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  We&apos;ll send a one-time code to this number on WhatsApp.
+                </p>
 
-            <div className="mt-3 flex items-center justify-end">
-              <button
-                type="button"
-                className="text-xs font-semibold text-accent hover:underline"
-                onClick={() => toast.info("Password reset coming soon.")}
+                {otpError && (
+                  <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
+                    {otpError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={otpSending}
+                  className="mt-4 w-full rounded-xl bg-accent py-3.5 font-display text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-60"
+                >
+                  {otpSending ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Sending OTP…
+                    </span>
+                  ) : (
+                    "Send OTP →"
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("password");
+                    setOtpError("");
+                  }}
+                  className="mt-3 w-full text-center text-xs font-semibold text-accent hover:underline"
+                >
+                  Use email &amp; password instead
+                </button>
+              </form>
+            ) : (
+              <form
+                onSubmit={verifyOtp}
+                noValidate
+                className="mt-6 rounded-2xl border border-border bg-white p-6 shadow-sm"
               >
-                Forgot password?
-              </button>
-            </div>
+                <p className="text-sm text-muted-foreground">
+                  Enter the 6-digit code sent to{" "}
+                  <strong className="text-navy">+91 {otpPhone}</strong> on WhatsApp.
+                </p>
 
-            {error && (
-              <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
-                {error}
-              </p>
-            )}
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  autoFocus
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="6-digit code"
+                  className="mt-4 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-center text-lg font-bold tracking-[0.4em] transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                />
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-4 w-full rounded-xl bg-accent py-3.5 font-display text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-60"
+                {otpError && (
+                  <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
+                    {otpError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={otpVerifying}
+                  className="mt-4 w-full rounded-xl bg-accent py-3.5 font-display text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-60"
+                >
+                  {otpVerifying ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Verifying…
+                    </span>
+                  ) : (
+                    "Verify & sign in →"
+                  )}
+                </button>
+
+                <div className="mt-3 flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpStep("phone");
+                      setOtpCode("");
+                      setOtpError("");
+                    }}
+                    className="font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    ← Change number
+                  </button>
+                  <button
+                    type="button"
+                    disabled={resendIn > 0 || otpSending}
+                    onClick={() => sendOtp({ preventDefault: () => {} } as React.FormEvent)}
+                    className="font-semibold text-accent hover:underline disabled:text-muted-foreground disabled:no-underline"
+                  >
+                    {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend OTP"}
+                  </button>
+                </div>
+              </form>
+            )
+          ) : (
+            /* Fallback: email + password */
+            <form
+              onSubmit={submit}
+              noValidate
+              className="mt-6 rounded-2xl border border-border bg-white p-6 shadow-sm"
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  Signing in…
-                </span>
-              ) : (
-                "Sign in →"
+              {/* Email */}
+              <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                autoComplete="email"
+                className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+              />
+
+              {/* Password */}
+              <label className="mt-4 block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                Password
+              </label>
+              <div className="relative mt-1.5">
+                <input
+                  type={showPass ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  className="w-full rounded-xl border border-input bg-background px-3.5 py-3 pr-11 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPass((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
+                >
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+
+              <div className="mt-3 flex items-center justify-end">
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-accent hover:underline"
+                  onClick={() => toast.info("Password reset coming soon.")}
+                >
+                  Forgot password?
+                </button>
+              </div>
+
+              {error && (
+                <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
+                  {error}
+                </p>
               )}
-            </button>
-          </form>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-4 w-full rounded-xl bg-accent py-3.5 font-display text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-60"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Signing in…
+                  </span>
+                ) : (
+                  "Sign in →"
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("otp");
+                  setError("");
+                }}
+                className="mt-3 w-full text-center text-xs font-semibold text-accent hover:underline"
+              >
+                Sign in with a WhatsApp OTP instead
+              </button>
+            </form>
+          )}
 
           {GOOGLE_ENABLED && (
             <>
