@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell } from "@/components/NotificationBell";
+import { InstallAppButton } from "@/components/site/InstallAppButton";
 
 const PROPERTY_TYPES = [
   { label: "Apartments", Icon: Building2, type: "Apartment" },
@@ -246,6 +247,9 @@ export function SiteHeader() {
               </Link>
             )}
 
+            {/* PWA install — renders only when the app is installable */}
+            <InstallAppButton />
+
             <Link
               href="/properties"
               className="rounded-lg bg-accent px-3 py-2 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90 sm:px-4"
@@ -359,6 +363,11 @@ export function SiteHeader() {
             </nav>
 
             <div className="mt-3 border-t border-border pt-3">
+              {/* Install the app (renders only when installable) */}
+              <InstallAppButton
+                compact={false}
+                className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-white transition hover:bg-navy/90"
+              />
               {(!session || session.role === "home-seller") && (
                 <Link
                   href="/list"
