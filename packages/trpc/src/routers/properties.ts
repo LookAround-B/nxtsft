@@ -706,7 +706,17 @@ export const propertiesRouter = router({
       }
 
       const priceUpdate = price !== undefined ? { price: BigInt(price) } : {};
-      const sqftUpdate = price !== undefined && area !== undefined ? { pricePerSqft: Math.round(price / area) } : {};
+      // BUG FIX: `area` was destructured out of `rest` but never written back, so
+      // area edits silently didn't persist. Write it, and keep pricePerSqft in
+      // sync whenever price OR area changes (using the existing value for the one
+      // that wasn't edited).
+      const areaUpdate = area !== undefined ? { area } : {};
+      const effPrice = price !== undefined ? price : Number(property.price);
+      const effArea = area !== undefined ? area : property.area;
+      const sqftUpdate =
+        (price !== undefined || area !== undefined) && effArea > 0
+          ? { pricePerSqft: Math.round(effPrice / effArea) }
+          : {};
 
       // The seller-name override is admin-only: an owner who could set it would
       // be able to show someone else's name on their own listing. Ignore it
@@ -726,7 +736,7 @@ export const propertiesRouter = router({
 
       const updated = await prisma.property.update({
         where: { id },
-        data: { ...rest, ...priceUpdate, ...sqftUpdate, ...locationUpdate, ...ownerNameUpdate },
+        data: { ...rest, ...priceUpdate, ...sqftUpdate, ...areaUpdate, ...locationUpdate, ...ownerNameUpdate },
         include: propertyInclude,
       });
 
