@@ -14,7 +14,7 @@ const EXTENSION: Record<string, string> = {
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const CONTENT_TYPE = z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
-const FOLDER = z.enum(["properties", "avatars", "kyc", "site", "referrals", "interiors", "decor"]);
+const FOLDER = z.enum(["properties", "avatars", "kyc", "site", "referrals", "interiors", "decor", "bulk-photos"]);
 
 // Confirm the decoded bytes actually start with the magic number for the
 // declared content type. The client-supplied `contentType` is untrusted — a

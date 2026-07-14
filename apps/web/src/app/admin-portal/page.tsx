@@ -61,6 +61,7 @@ import { ReviewsTab } from "@/components/admin-portal/tabs/ReviewsTab";
 import { InteriorsTab } from "@/components/admin-portal/tabs/InteriorsTab";
 import { DecorTab } from "@/components/admin-portal/tabs/DecorTab";
 import { BulkListingsTab } from "@/components/admin-portal/tabs/BulkListingsTab";
+import { BulkPhotosTab } from "@/components/admin-portal/tabs/BulkPhotosTab";
 import { AgentsTab } from "@/components/admin-portal/tabs/AgentsTab";
 import { EscalationsTab } from "@/components/admin-portal/tabs/EscalationsTab";
 
@@ -106,6 +107,7 @@ const makeNav = (b?: BadgeCounts) => [
   { label: "Push Notifications",to: "/admin-portal#push",        icon: <BellRing size={14} /> },
   { label: "Home Page Content",to: "/admin-portal#site-content", icon: <ImageIcon size={14} /> },
   { label: "Bulk Listings",    to: "/admin-portal#bulk-listings",icon: <UploadCloud size={14} /> },
+  { label: "Bulk Photos",      to: "/admin-portal#bulk-photos",  icon: <ImageIcon size={14} /> },
   { label: "Dev Tools",        to: "/admin-portal#dev",          icon: <Building size={14} /> },
 ];
 
@@ -139,6 +141,7 @@ function renderTab(hash: string) {
     case "interiors":     return <InteriorsTab />;
     case "decor":         return <DecorTab />;
     case "bulk-listings": return <BulkListingsTab />;
+    case "bulk-photos":   return <BulkPhotosTab />;
     default:              return <OperationsTab />;
   }
 }

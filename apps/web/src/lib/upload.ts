@@ -17,7 +17,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 type UploadFolder =
-  | "properties" | "avatars" | "kyc" | "site" | "referrals" | "interiors" | "decor";
+  | "properties" | "avatars" | "kyc" | "site" | "referrals" | "interiors" | "decor" | "bulk-photos";
 
 /**
  * Uploads photos straight to R2 via presigned PUT URLs, bypassing the tRPC

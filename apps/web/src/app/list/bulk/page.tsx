@@ -333,6 +333,13 @@ export default function BulkListPage() {
             Amenities / Image URLs / PG lists. If you leave <strong>Image URLs</strong> blank, a
             default cover for the property type is used automatically.
           </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Prefer to prepare photos separately?{" "}
+            <Link href="/list/photos" className="font-semibold text-accent underline underline-offset-2">
+              Bulk-upload photos and get their URLs
+            </Link>{" "}
+            to paste into the Image URLs column.
+          </p>
         </div>
 
         <div className="mt-5 rounded-2xl border border-border bg-white p-6 shadow-sm">
