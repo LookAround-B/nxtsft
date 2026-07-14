@@ -155,7 +155,7 @@ const WHATSAPP_STEPS = [
   { n: "04", title: "Receive verified enquiries", desc: "All enquiries routed directly to your WhatsApp or phone. No broker intermediary, ever." },
 ];
 
-const R2 = "https://pub-f4a95c3ec2954aabb9bd91fa3fdf4846.r2.dev";
+const R2 = process.env.R2_PUBLIC_URL;
 
 const LEADERSHIP = [
   { name: "Shankar RVS",   role: "Founder & CEO",             img: `${R2}/leadership-imgs/ShankarRVS.png` },

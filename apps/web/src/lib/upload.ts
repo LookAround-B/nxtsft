@@ -2,9 +2,18 @@
 import { trpc } from "@/lib/trpc";
 import { compressImage } from "@/lib/image";
 
-/** Convert a data URL (e.g. from compressImage) to a Blob for direct upload. */
-async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
-  return (await fetch(dataUrl)).blob();
+/**
+ * Convert a data URL (e.g. from compressImage) to a Blob for direct upload.
+ * Decodes the base64 by hand — `fetch(dataUrl)` is blocked by the CSP
+ * `connect-src` directive, which doesn't (and shouldn't) allow `data:`.
+ */
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [head, b64 = ""] = dataUrl.split(",");
+  const mime = head.match(/data:(.*?);base64/)?.[1] ?? "image/jpeg";
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
 }
 
 type UploadFolder =

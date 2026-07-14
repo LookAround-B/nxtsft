@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -12,19 +12,19 @@ import {
   ArrowLeft,
   CheckCircle2,
   AlertTriangle,
-  Copy,
-  Plus,
-  Trash2,
-  Images,
+  ImagePlus,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { normalizeBulkImportMatrix, type BulkImportMatrix } from "@/lib/bulk-import";
 import { trpc } from "@/lib/trpc";
-import { validateBulkImportFile } from "@/lib/file-validation";
+import { validateBulkImportFile, validateImageFile } from "@/lib/file-validation";
 import { parseLatLng } from "@/lib/map";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
-import { ImageUploader, type UploadImage } from "@/components/ui/ImageUploader";
 import { usePresignUploader } from "@/lib/upload";
+
+const MAX_PHOTOS_PER_ROW = 10;
+const imageCount = (s: string | undefined) =>
+  s ? s.split(",").map((x) => x.trim()).filter(Boolean).length : 0;
 
 // Single source of truth for the bulk template. List order = template column
 // order = preview order. Headers, required set, header-matching, the parser and
@@ -170,123 +170,6 @@ function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows:
   return { rows };
 }
 
-type PhotoGroup = { id: string; images: UploadImage[]; urls: string; busy: boolean };
-
-/**
- * Turns photos into hosted Image URLs for the CSV. Each group = one property:
- * upload its photos (straight to R2 via presigned PUT — no bytes through our
- * API), get back a comma-separated URL string to paste into that row's
- * "Image URLs" cell. Only shown when storage is configured.
- */
-function ImageUrlGenerator() {
-  const { upload } = usePresignUploader();
-  const [groups, setGroups] = useState<PhotoGroup[]>([
-    { id: crypto.randomUUID(), images: [], urls: "", busy: false },
-  ]);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const patch = (id: string, next: Partial<PhotoGroup>) =>
-    setGroups((gs) => gs.map((g) => (g.id === id ? { ...g, ...next } : g)));
-
-  const runUpload = async (id: string) => {
-    const g = groups.find((x) => x.id === id);
-    if (!g || g.images.length === 0 || g.busy) return;
-    patch(id, { busy: true });
-    try {
-      const urls = await upload(g.images.map((i) => i.file), "properties");
-      patch(id, { urls: urls.join(", "), busy: false });
-      toast.success(`${urls.length} photo(s) uploaded`);
-    } catch {
-      patch(id, { busy: false });
-      toast.error("Upload failed — check your connection and try again.");
-    }
-  };
-
-  const copy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedId(id);
-      toast.success("Image URLs copied");
-      setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 1500);
-    });
-  };
-
-  return (
-    <div className="mt-5 rounded-2xl border border-border bg-white p-6 shadow-sm">
-      <div className="flex items-center gap-2">
-        <Images size={18} className="text-accent" />
-        <h2 className="font-display text-base font-bold text-navy">
-          2 · Generate image URLs from photos <span className="font-normal text-muted-foreground">(optional)</span>
-        </h2>
-      </div>
-      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-        No hosted photo links yet? Add one group per property below, upload its photos, then
-        copy the generated URLs into that row&apos;s <strong>Image URLs</strong> cell. Photos are
-        compressed and watermarked automatically.
-      </p>
-
-      <div className="mt-4 space-y-4">
-        {groups.map((g, i) => (
-          <div key={g.id} className="rounded-xl border border-border bg-secondary/20 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm font-bold text-navy">Property {i + 1}</span>
-              {groups.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setGroups((gs) => gs.filter((x) => x.id !== g.id))}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground transition hover:text-rose-500"
-                >
-                  <Trash2 size={13} /> Remove
-                </button>
-              )}
-            </div>
-
-            <ImageUploader images={g.images} onChange={(next) => patch(g.id, { images: next, urls: "" })} max={10} />
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => runUpload(g.id)}
-                disabled={g.images.length === 0 || g.busy}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-accent-foreground transition hover:opacity-90 disabled:opacity-50"
-              >
-                {g.busy ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
-                {g.busy ? "Uploading…" : `Upload ${g.images.length || ""} photo(s)`.trim()}
-              </button>
-            </div>
-
-            {g.urls && (
-              <div className="mt-3 rounded-lg border border-border bg-white p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Image URLs — paste into row {i + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => copy(g.id, g.urls)}
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
-                  >
-                    {copiedId === g.id ? <Check size={12} /> : <Copy size={12} />}
-                    {copiedId === g.id ? "Copied" : "Copy"}
-                  </button>
-                </div>
-                <p className="mt-2 break-all font-mono text-[11px] leading-relaxed text-foreground/70">{g.urls}</p>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setGroups((gs) => [...gs, { id: crypto.randomUUID(), images: [], urls: "", busy: false }])}
-        className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
-      >
-        <Plus size={14} /> Add another property
-      </button>
-    </div>
-  );
-}
-
 export default function BulkListPage() {
   const { session } = useAuth();
   const [parsed, setParsed] = useState<Row[] | null>(null);
@@ -297,6 +180,60 @@ export default function BulkListPage() {
 
   const bulkMut = trpc.properties.bulkCreate.useMutation();
   const storage = trpc.media.storageStatus.useQuery();
+  const canPhotos = !!storage.data?.configured;
+
+  // Per-row photo attach: one hidden file input, reused for whichever row's
+  // "Add photos" was clicked. Photos upload straight to R2 (presigned PUT) and
+  // their URLs are appended to that row's `images` cell — so the seller never
+  // touches the CSV's Image URLs column.
+  const { upload } = usePresignUploader();
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const activeRowRef = useRef<number | null>(null);
+  const [rowBusy, setRowBusy] = useState<number | null>(null);
+
+  const pickPhotos = (row: number) => {
+    activeRowRef.current = row;
+    photoInputRef.current?.click();
+  };
+
+  const onRowPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    const row = activeRowRef.current;
+    if (row === null || picked.length === 0 || !parsed) return;
+
+    const existingCount = imageCount(parsed[row]?.images);
+    const room = MAX_PHOTOS_PER_ROW - existingCount;
+    if (room <= 0) {
+      toast.error(`Up to ${MAX_PHOTOS_PER_ROW} photos per property.`);
+      return;
+    }
+    const valid: File[] = [];
+    for (const f of picked) {
+      if (valid.length >= room) { toast.error(`Only ${room} more photo(s) fit on this property.`); break; }
+      const err = validateImageFile(f);
+      if (err) { toast.error(`${f.name}: ${err.message}`); continue; }
+      valid.push(f);
+    }
+    if (!valid.length) return;
+
+    setRowBusy(row);
+    try {
+      const urls = await upload(valid, "properties");
+      setParsed((prev) => {
+        if (!prev) return prev;
+        const next = [...prev];
+        const merged = [next[row]?.images?.trim(), urls.join(", ")].filter(Boolean).join(", ");
+        next[row] = { ...next[row], images: merged };
+        return next;
+      });
+      toast.success(`${urls.length} photo(s) added to property ${row + 1}`);
+    } catch {
+      toast.error("Upload failed — check your connection and try again.");
+    } finally {
+      setRowBusy(null);
+    }
+  };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -373,9 +310,9 @@ export default function BulkListPage() {
 
         <h1 className="mt-4 font-display text-3xl font-black text-navy">Bulk upload properties</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Upload an Excel (.xlsx) or CSV file to list many properties at once. Listings are submitted
-          for admin review before going live. You can add photos to each listing afterward from{" "}
-          <Link href="/user-portal#listings" className="font-semibold text-accent underline underline-offset-2">My Listings</Link>.
+          Upload an Excel (.xlsx) or CSV file to list many properties at once, then attach photos to
+          each property right here — no need to host images yourself or fill the Image URLs column.
+          Listings are submitted for admin review before going live.
         </p>
 
         <div className="mt-8 rounded-2xl border border-border bg-white p-6 shadow-sm">
@@ -398,12 +335,8 @@ export default function BulkListPage() {
           </p>
         </div>
 
-        {storage.data?.configured && <ImageUrlGenerator />}
-
         <div className="mt-5 rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <h2 className="font-display text-base font-bold text-navy">
-            {storage.data?.configured ? "3" : "2"} · Upload your file
-          </h2>
+          <h2 className="font-display text-base font-bold text-navy">2 · Upload your file</h2>
           <div className="mt-4 rounded-xl border border-dashed border-border bg-secondary/20 p-5">
             <div className="flex flex-wrap items-center gap-3">
               <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition hover:opacity-90">
@@ -437,7 +370,7 @@ export default function BulkListPage() {
                     </button>
                     <button
                       onClick={submit}
-                      disabled={bulkMut.isPending}
+                      disabled={bulkMut.isPending || rowBusy !== null}
                       className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-bold text-accent-foreground disabled:opacity-60"
                     >
                       {bulkMut.isPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
@@ -445,34 +378,72 @@ export default function BulkListPage() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-3 overflow-x-auto">
+
+                {canPhotos && (
+                  <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                    Add photos to any property below — they&apos;re compressed, watermarked and
+                    attached automatically. No need to fill the Image URLs column. Rows left without
+                    photos use a default cover.
+                  </p>
+                )}
+
+                {/* Shared hidden input — reused for whichever row's Add button was clicked. */}
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={onRowPhotos}
+                />
+
+                <div className="mt-3 max-h-96 overflow-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    <thead className="sticky top-0 bg-white text-[11px] uppercase tracking-wide text-muted-foreground">
                       <tr>
+                        <th className="py-1 pr-3">#</th>
                         <th className="py-1 pr-4">Title</th>
                         <th className="py-1 pr-4">Type</th>
-                        <th className="py-1 pr-4">Purpose</th>
                         <th className="py-1 pr-4">Price</th>
                         <th className="py-1 pr-4">City</th>
-                        <th className="py-1 pr-4">RERA</th>
+                        {canPhotos && <th className="py-1 pr-2">Photos</th>}
                       </tr>
                     </thead>
                     <tbody>
-                      {parsed.slice(0, 5).map((r, i) => (
-                        <tr key={i} className="border-t border-border text-foreground/80">
-                          <td className="py-1 pr-4 font-medium text-navy">{r.title || "—"}</td>
-                          <td className="py-1 pr-4">{r.type || "—"}</td>
-                          <td className="py-1 pr-4">{r.purpose || "—"}</td>
-                          <td className="py-1 pr-4">{r.price || "—"}</td>
-                          <td className="py-1 pr-4">{r.city || "—"}</td>
-                          <td className="py-1 pr-4">{r.rera || "—"}</td>
-                        </tr>
-                      ))}
+                      {parsed.map((r, i) => {
+                        const count = imageCount(r.images);
+                        return (
+                          <tr key={i} className="border-t border-border text-foreground/80">
+                            <td className="py-1.5 pr-3 text-muted-foreground">{i + 1}</td>
+                            <td className="py-1.5 pr-4 font-medium text-navy">{r.title || "—"}</td>
+                            <td className="py-1.5 pr-4">{r.type || "—"}</td>
+                            <td className="py-1.5 pr-4">{r.price || "—"}</td>
+                            <td className="py-1.5 pr-4">{r.city || "—"}</td>
+                            {canPhotos && (
+                              <td className="py-1.5 pr-2">
+                                <button
+                                  type="button"
+                                  onClick={() => pickPhotos(i)}
+                                  disabled={rowBusy !== null}
+                                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold transition disabled:opacity-50
+                                    ${count > 0 ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-border bg-white text-navy hover:border-accent hover:text-accent"}`}
+                                >
+                                  {rowBusy === i ? (
+                                    <Loader2 size={12} className="animate-spin" />
+                                  ) : count > 0 ? (
+                                    <Check size={12} />
+                                  ) : (
+                                    <ImagePlus size={12} />
+                                  )}
+                                  {rowBusy === i ? "Uploading…" : count > 0 ? `${count} photo(s) · add more` : "Add photos"}
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
-                  {parsed.length > 5 && (
-                    <p className="mt-2 text-[11px] text-muted-foreground">…and {(parsed.length - 5).toLocaleString("en-IN")} more</p>
-                  )}
                 </div>
               </div>
             )}

@@ -81,7 +81,10 @@ function buildCsp(): string {
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https://images.unsplash.com https://*.r2.cloudflarecontent.com https://*.r2.dev https://api.mapbox.com https://*.razorpay.com" +
       r2ImgSrc,
-    "connect-src 'self' https://accounts.google.com https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https://*.razorpay.com https://lumberjack.razorpay.com https://cloudflareinsights.com",
+    // *.r2.cloudflarestorage.com: browser uploads photos straight to R2 via
+    // presigned PUT (packages/trpc/src/r2.ts) — the S3 API endpoint, not the
+    // public bucket domain. Without it the CSP blocks the upload fetch.
+    "connect-src 'self' https://accounts.google.com https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https://*.razorpay.com https://lumberjack.razorpay.com https://cloudflareinsights.com https://*.r2.cloudflarestorage.com",
     // Razorpay checkout renders its payment UI (cards, UPI, 3DS/OTP) in an iframe.
     "frame-src https://accounts.google.com https://api.razorpay.com https://checkout.razorpay.com",
     "frame-ancestors 'none'",
