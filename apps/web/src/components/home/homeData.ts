@@ -156,6 +156,39 @@ export const SERVICES: { Icon: LucideIcon; title: string; desc: string }[] = [
   },
 ];
 
+export const SELLER_SERVICES: { Icon: LucideIcon; title: string; desc: string }[] = [
+  {
+    Icon: Home,
+    title: "Free Property Listing",
+    desc: "List your property free with photos and full details.",
+  },
+  {
+    Icon: Users,
+    title: "Verified Buyer Leads",
+    desc: "Genuine, contact-verified buyer enquiries sent to you.",
+  },
+  {
+    Icon: TrendingUp,
+    title: "Boost Visibility",
+    desc: "Promote your listing to reach thousands more buyers.",
+  },
+  {
+    Icon: DollarSign,
+    title: "Zero Commission",
+    desc: "Sell directly to buyers. Keep 100% of your price.",
+  },
+  {
+    Icon: BarChart2,
+    title: "Listing Analytics",
+    desc: "Track views, enquiries and interest on your property.",
+  },
+  {
+    Icon: UserCheck,
+    title: "Dedicated Support",
+    desc: "Relationship manager for paperwork and closing.",
+  },
+];
+
 export const REVIEWS = [
   {
     name: "Rohan Mehta",

@@ -191,7 +191,7 @@ export const seekerFaqs: string[][] = [
   ],
   [
     "Why was my unlock rejected or showing an error?",
-    "This can happen if: (1) the listing was unpublished by the owner between your payment and the unlock attempt, (2) your session expired — try refreshing and unlocking again, or (3) there was a payment gateway error. In all cases, contact care@nxtsft.com and we will resolve it within 4 hours.",
+    "This can happen if: (1) the listing was unpublished by the owner between your payment and the unlock attempt, (2) your session expired — try refreshing and unlocking again, or (3) there was a payment gateway error. In all cases, contact support@nxtsft.com and we will resolve it within 4 hours.",
   ],
   [
     "Do unused credits expire?",
@@ -222,7 +222,7 @@ export const ownerFaqs: string[][] = [
   ],
   [
     "When will my listing go live after I purchase a plan?",
-    "Our team verifies and publishes listings within 24 hours of submission. Higher-tier plans are prioritised. You will receive a WhatsApp confirmation with your listing URL once it's live. If your listing is not published within 24 hours, contact care@nxtsft.com immediately.",
+    "Our team verifies and publishes listings within 24 hours of submission. Higher-tier plans are prioritised. You will receive a WhatsApp confirmation with your listing URL once it's live. If your listing is not published within 24 hours, contact support@nxtsft.com immediately.",
   ],
   [
     "Why was my listing rejected?",
@@ -246,7 +246,7 @@ export const ownerFaqs: string[][] = [
   ],
   [
     "Can I get a refund if my property gets rented through another channel?",
-    "Plans are non-refundable once activated and a listing goes live — similar to how classified ads work. If your property is rented before the plan expires, higher-tier plans let you redirect the remaining lead quota to another property you own. Contact care@nxtsft.com to reassign.",
+    "Plans are non-refundable once activated and a listing goes live — similar to how classified ads work. If your property is rented before the plan expires, higher-tier plans let you redirect the remaining lead quota to another property you own. Contact support@nxtsft.com to reassign.",
   ],
   [
     "Can I upgrade my plan mid-listing?",
@@ -293,7 +293,7 @@ export const ownerSellFaqs: string[][] = [
   ],
   [
     "Can I upgrade my plan or add more listings mid-month?",
-    "Yes. Upgrade at any time — unused days from your current plan are credited pro-rata. You can also top up listing slots by purchasing an add-on without changing your base plan. Contact care@nxtsft.com for add-on pricing.",
+    "Yes. Upgrade at any time — unused days from your current plan are credited pro-rata. You can also top up listing slots by purchasing an add-on without changing your base plan. Contact support@nxtsft.com for add-on pricing.",
   ],
   [
     "What happens if I don't sell within the plan validity?",

@@ -20,7 +20,7 @@ const CONTACTS: { label: string; value: string; icon: React.ReactNode; href?: st
   },
   {
     label: "Support",
-    value: "Mon–Sun, 8am–10pm IST · care@nxtsft.com",
+    value: "Mon–Sun, 8am–10pm IST · support@nxtsft.com",
     icon: <Clock size={18} />,
   },
   {

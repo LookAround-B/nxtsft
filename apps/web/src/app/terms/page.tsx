@@ -52,7 +52,7 @@ const SECTIONS = [
     title: "3. User Accounts",
     body: [
       "To access certain features of the Platform, you must create an account. You agree to provide accurate, current, and complete information during registration and to keep your account information updated at all times.",
-      "You are solely responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to notify us immediately at care@nxtsft.com of any unauthorised use of your account or any other security breach.",
+      "You are solely responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to notify us immediately at support@nxtsft.com of any unauthorised use of your account or any other security breach.",
       "NxtSft.com will not be liable for any loss or damage arising from your failure to protect your account credentials. You may not transfer or assign your account to any third party.",
       "We reserve the right to suspend or terminate your account if any information provided is found to be inaccurate, incomplete, or in violation of these Terms.",
     ],
@@ -165,7 +165,7 @@ const SECTIONS = [
     body: [
       "NxtSft.com may, in its sole discretion, suspend or terminate your access to the Platform at any time, with or without notice, for any reason, including but not limited to breach of these Terms.",
       "Upon termination, your right to use the Platform will immediately cease. Provisions of these Terms that by their nature should survive termination shall survive, including ownership provisions, warranty disclaimers, indemnity, and limitations of liability.",
-      "You may close your account at any time by contacting us at care@nxtsft.com.",
+      "You may close your account at any time by contacting us at support@nxtsft.com.",
     ],
   },
   {
@@ -224,7 +224,7 @@ const SECTIONS = [
     contact: {
       company: "NxtSft.com — " + PROPRIETOR_NAME + ", Proprietor",
       address: PROPRIETOR_ADDRESS,
-      email: "hello@nxtsft.com",
+      email: "info@nxtsft.com",
       support: "support@nxtsft.com",
     },
   },

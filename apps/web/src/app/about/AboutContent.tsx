@@ -178,10 +178,10 @@ const FAQS = [
 ];
 
 const CONTACTS = [
-  { Icon: Mail,  label: "General Enquiries", value: "hello@nxtsft.com",       href: "mailto:hello@nxtsft.com" },
-  { Icon: Mail,  label: "Buyer / Renter Support", value: "care@nxtsft.com",   href: "mailto:care@nxtsft.com" },
+  { Icon: Mail,  label: "General Enquiries", value: "info@nxtsft.com",       href: "mailto:info@nxtsft.com" },
+  { Icon: Mail,  label: "Buyer / Renter Support", value: "support@nxtsft.com",   href: "mailto:support@nxtsft.com" },
   { Icon: Mail,  label: "Owner / Developer Support", value: "list@nxtsft.com", href: "mailto:list@nxtsft.com" },
-  { Icon: Mail,  label: "Careers",            value: "careers@nxtsft.com",    href: "mailto:careers@nxtsft.com" },
+  { Icon: Mail,  label: "Careers",            value: "jobs@nxtsft.com",    href: "mailto:jobs@nxtsft.com" },
   { Icon: Mail,  label: "Partnerships",       value: "partners@nxtsft.com",   href: "mailto:partners@nxtsft.com" },
   { Icon: Globe, label: "Media & Press",      value: "press@nxtsft.com",      href: "mailto:press@nxtsft.com" },
 ];

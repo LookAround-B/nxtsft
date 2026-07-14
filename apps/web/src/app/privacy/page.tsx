@@ -123,7 +123,7 @@ const SECTIONS = [
     body: [
       "We implement industry-standard technical and organisational security measures to protect your personal data against unauthorised access, alteration, disclosure, or destruction. These include SSL/TLS encryption for data in transit, encrypted storage of sensitive data, role-based access controls, and regular security audits.",
       "While we take reasonable precautions, no method of transmission over the internet or electronic storage is 100% secure. We cannot guarantee absolute security of your data. In the event of a data breach that poses a risk to your rights, we will notify you and the appropriate authorities as required by law.",
-      "You are responsible for keeping your account credentials confidential. Report any suspected unauthorised access immediately to care@nxtsft.com.",
+      "You are responsible for keeping your account credentials confidential. Report any suspected unauthorised access immediately to support@nxtsft.com.",
     ],
   },
   {
@@ -158,7 +158,7 @@ const SECTIONS = [
     id: "children",
     title: "9. Children's Privacy",
     body: [
-      "The Platform is not directed at children under the age of 18. We do not knowingly collect personal data from minors. If you believe we have inadvertently collected information from a person under 18, please contact us at care@nxtsft.com and we will promptly delete such data.",
+      "The Platform is not directed at children under the age of 18. We do not knowingly collect personal data from minors. If you believe we have inadvertently collected information from a person under 18, please contact us at support@nxtsft.com and we will promptly delete such data.",
     ],
   },
   {
@@ -177,7 +177,7 @@ const SECTIONS = [
     contact: {
       name: "Grievance Officer — NxtSFT PropTech innovations  ",
       address: "Awfis, Kirloskar Business Park, Hebbal, Bengaluru, Karnataka 560024, India",
-      email: "hello@nxtsft.com",
+      email: "info@nxtsft.com",
       responseTime:
         "We aim to acknowledge complaints within 24 hours and resolve them within 30 days.",
     },

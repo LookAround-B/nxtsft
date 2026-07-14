@@ -1,8 +1,16 @@
-import { SERVICES } from "@/components/home/homeData";
+"use client";
+
+import { useState } from "react";
+import { SERVICES, SELLER_SERVICES } from "@/components/home/homeData";
 import { Eyebrow } from "@/components/home/Eyebrow";
 import { PropertyIllustration } from "@/components/home/PropertyIllustration";
 
+const TABS = ["For Buyers", "For Sellers"] as const;
+
 export function ServicesSection() {
+  const [tab, setTab] = useState(0);
+  const services = tab === 0 ? SERVICES : SELLER_SERVICES;
+
   return (
     <section className="px-4 py-5 sm:px-6">
       <div className="mx-auto max-w-7xl">
@@ -21,22 +29,29 @@ export function ServicesSection() {
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  {["For Buyers", "For Sellers"].map((t, i) => (
-                    <span
+                  {TABS.map((t, i) => (
+                    <button
                       key={t}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold
-                        ${i === 0 ? "border-transparent bg-navy text-white" : "border-border bg-white text-muted-foreground"}`}
+                      type="button"
+                      onClick={() => setTab(i)}
+                      aria-pressed={tab === i}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition
+                        ${tab === i ? "border-transparent bg-navy text-white" : "border-border bg-white text-muted-foreground hover:border-accent/40 hover:text-navy"}`}
                     >
                       {t}
-                    </span>
+                    </button>
                   ))}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {SERVICES.map(({ Icon, title, desc }, i) => (
+                {services.map(({ Icon, title, desc }, i) => (
                   <div
-                    key={title}
+                    // Key by index so the already-revealed DOM nodes are reused
+                    // across the buyer/seller toggle. Keying by title would mount
+                    // fresh nodes that the page's one-shot reveal observer never
+                    // marks visible, leaving toggled cards hidden.
+                    key={i}
                     data-reveal="scale"
                     className="group flex flex-col items-center rounded-2xl border border-border bg-secondary/30 p-4 text-center transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
                     style={{ transitionDelay: `${i * 60}ms` }}

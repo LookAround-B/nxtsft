@@ -288,7 +288,7 @@ export function CareersContent() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
-              href="mailto:careers@nxtsft.com"
+              href="mailto:jobs@nxtsft.com"
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 font-display text-sm font-bold text-white shadow-lg shadow-accent/40 transition hover:opacity-90"
             >
               <Mail size={15} /> Send us your CV
@@ -651,10 +651,10 @@ export function CareersContent() {
               </p>
               <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <a
-                  href="mailto:careers@nxtsft.com"
+                  href="mailto:jobs@nxtsft.com"
                   className="inline-flex items-center gap-2 rounded-xl bg-accent px-8 py-3 font-display text-sm font-bold text-white shadow-lg shadow-accent/40 transition hover:opacity-90"
                 >
-                  <Mail size={15} /> careers@nxtsft.com
+                  <Mail size={15} /> jobs@nxtsft.com
                 </a>
                 <Link
                   href="/about"

@@ -44,9 +44,9 @@ const FOOTER_LINKS = {
 };
 
 const CONTACTS = [
-  { role: "General", email: "hello@nxtsft.com" },
-  { role: "Support", email: "care@nxtsft.com" },
-  { role: "Careers", email: "careers@nxtsft.com" },
+  { role: "General", email: "info@nxtsft.com" },
+  { role: "Support", email: "support@nxtsft.com" },
+  { role: "Careers", email: "jobs@nxtsft.com" },
   { role: "Partnerships", email: "partners@nxtsft.com" },
 ];
 
