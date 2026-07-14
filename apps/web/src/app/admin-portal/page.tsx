@@ -7,6 +7,7 @@ import {
   Kanban,
   BellRing,
   Megaphone,
+  Send,
   Building,
   BarChart2,
   Wallet,
@@ -42,6 +43,7 @@ import { SubscriptionsTab } from "@/components/admin-portal/tabs/SubscriptionsTa
 import { ViewsTab } from "@/components/admin-portal/tabs/ViewsTab";
 import { AlertsTab } from "@/components/admin-portal/tabs/AlertsTab";
 import { MarketingTab } from "@/components/admin-portal/tabs/MarketingTab";
+import { WaBroadcastTab } from "@/components/admin-portal/tabs/WaBroadcastTab";
 import { DevTab } from "@/components/admin-portal/tabs/DevTab";
 import { ReportsTab } from "@/components/admin-portal/tabs/ReportsTab";
 import { AdminPlansTab } from "@/components/admin-portal/tabs/AdminPlansTab";
@@ -100,6 +102,7 @@ const makeNav = (b?: BadgeCounts) => [
   // ── Admin ─────────────────────────────────────────────────────────────
   { label: "Team Management",  to: "/admin-portal#team",         icon: <Users size={14} />,      group: "Admin" },
   { label: "Marketing",        to: "/admin-portal#marketing",    icon: <Megaphone size={14} /> },
+  { label: "WhatsApp Broadcast",to: "/admin-portal#broadcast",   icon: <Send size={14} /> },
   { label: "Push Notifications",to: "/admin-portal#push",        icon: <BellRing size={14} /> },
   { label: "Home Page Content",to: "/admin-portal#site-content", icon: <ImageIcon size={14} /> },
   { label: "Bulk Listings",    to: "/admin-portal#bulk-listings",icon: <UploadCloud size={14} /> },
@@ -119,6 +122,7 @@ function renderTab(hash: string) {
     case "alerts":        return <AlertsTab />;
     case "escalations":   return <EscalationsTab />;
     case "marketing":     return <MarketingTab />;
+    case "broadcast":     return <WaBroadcastTab />;
     case "dev":           return <DevTab />;
     case "reports":       return <ReportsTab />;
     case "plans":         return <AdminPlansTab />;
