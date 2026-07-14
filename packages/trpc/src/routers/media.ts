@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { router, protectedProcedure, publicProcedure } from "../server";
-import { uploadToR2, isR2Configured } from "../r2";
+import { uploadToR2, isR2Configured, presignUploadUrl, publicUrlFor } from "../r2";
 
 const EXTENSION: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -12,6 +12,9 @@ const EXTENSION: Record<string, string> = {
 };
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+
+const CONTENT_TYPE = z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+const FOLDER = z.enum(["properties", "avatars", "kyc", "site", "referrals", "interiors", "decor"]);
 
 // Confirm the decoded bytes actually start with the magic number for the
 // declared content type. The client-supplied `contentType` is untrusted — a
@@ -45,12 +48,43 @@ export const mediaRouter = router({
   // preview when storage isn't configured (e.g. local dev without creds).
   storageStatus: publicProcedure.query(() => ({ configured: isR2Configured() })),
 
+  // Presign PUT URLs so the browser uploads straight to R2, bypassing this
+  // function (no base64 round-trip). One call presigns a whole batch — used by
+  // the bulk photo→URL helper and the single-listing form. The client compresses
+  // + watermarks before PUTting, so bytes never traverse the API.
+  createUploadUrls: protectedProcedure
+    .input(
+      z.object({
+        files: z.array(z.object({ contentType: CONTENT_TYPE })).min(1).max(50),
+        folder: FOLDER.default("properties"),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      if (!isR2Configured()) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Image storage is not configured.",
+        });
+      }
+      const uploads = await Promise.all(
+        input.files.map(async (f) => {
+          const key = `${input.folder}/${ctx.user.id}/${randomUUID()}.${EXTENSION[f.contentType]}`;
+          return {
+            uploadUrl: await presignUploadUrl(key, f.contentType),
+            publicUrl: publicUrlFor(key),
+            key,
+          };
+        }),
+      );
+      return { uploads };
+    }),
+
   uploadImage: protectedProcedure
     .input(
       z.object({
-        contentType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]),
+        contentType: CONTENT_TYPE,
         data: z.string().min(1).max(8_000_000), // base64-encoded bytes
-        folder: z.enum(["properties", "avatars", "kyc", "site", "referrals", "interiors", "decor"]).default("properties"),
+        folder: FOLDER.default("properties"),
       }),
     )
     .mutation(async ({ input, ctx }) => {

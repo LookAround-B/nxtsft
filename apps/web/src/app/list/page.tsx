@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { ImageUploader, type UploadImage } from "@/components/ui/ImageUploader";
 import { compressImage } from "@/lib/image";
+import { usePresignUploader } from "@/lib/upload";
 import { AREA_UNITS, areaEquivalents, toSqft, type AreaUnit } from "@/lib/area";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Plot", "Commercial", "PG / Co-living", "Studio"];
@@ -159,7 +160,7 @@ type PickedProject = { id: string; name: string; builderName: string };
 export default function ListPropertyPage() {
   const { session } = useAuth();
   const createProperty = trpc.properties.create.useMutation();
-  const uploadImage = trpc.media.uploadImage.useMutation();
+  const { upload } = usePresignUploader();
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState<PendingListing | null>(null);
@@ -334,34 +335,30 @@ export default function ListPropertyPage() {
     const title =
       data.title.trim() || `${configLabel(data.bhk, data.propertyType)} in ${data.city}`;
 
-    // Compress each photo (in submitted order — first is the cover) and upload it
-    // to Cloudflare R2, keeping the returned public URL for the DB. If storage is
-    // unavailable we fall back to the compressed data URL so the local listing
-    // preview still works.
+    // Upload each photo (in submitted order — first is the cover) straight to
+    // Cloudflare R2 via presigned PUT — the browser talks to the bucket directly,
+    // so no image bytes travel through our API. Photos are compressed + watermarked
+    // inside upload(). If storage is unavailable we fall back to compressed data
+    // URLs so the local listing preview still works.
     setUploading(true);
-    const hostedImages: string[] = [];
-    const previewImages: string[] = [];
-    for (const img of images) {
-      const dataUrl = await compressImage(img.file, undefined, undefined, { watermark: true });
-      previewImages.push(dataUrl);
-      try {
-        const { url } = await uploadImage.mutateAsync({
-          contentType: "image/jpeg",
-          data: dataUrl.split(",")[1] ?? "",
-          folder: "properties",
-        });
-        hostedImages.push(url);
-      } catch {
-        // storage not configured / upload failed — skip from the hosted set
-      }
-    }
-    setUploading(false);
-    if (images.length > 0 && hostedImages.length === 0) {
-      toast.warning("Photos couldn't be uploaded to storage — saved to this listing only.");
+    let hostedImages: string[] = [];
+    try {
+      hostedImages = await upload(images.map((img) => img.file), "properties");
+    } catch {
+      hostedImages = [];
     }
 
-    // Prefer real R2 URLs; fall back to data URLs for the local demo record.
-    const listingImages = hostedImages.length ? hostedImages : previewImages;
+    // Prefer real R2 URLs; fall back to data URLs for the local demo record only
+    // when nothing could be hosted. The DB always gets hostedImages (never giant
+    // base64) — an empty set there makes the server use a default cover.
+    let listingImages = hostedImages;
+    if (images.length > 0 && hostedImages.length === 0) {
+      listingImages = await Promise.all(
+        images.map((img) => compressImage(img.file, undefined, undefined, { watermark: true })),
+      );
+      toast.warning("Photos couldn't be uploaded to storage — saved to this listing only.");
+    }
+    setUploading(false);
 
     // The app stores area in sqft everywhere (search, display, DB) — convert
     // the entered unit (sq. yards / acres are common for plots) at the point of

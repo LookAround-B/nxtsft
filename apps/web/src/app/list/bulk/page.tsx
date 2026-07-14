@@ -12,6 +12,10 @@ import {
   ArrowLeft,
   CheckCircle2,
   AlertTriangle,
+  Copy,
+  Plus,
+  Trash2,
+  Images,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { normalizeBulkImportMatrix, type BulkImportMatrix } from "@/lib/bulk-import";
@@ -19,6 +23,8 @@ import { trpc } from "@/lib/trpc";
 import { validateBulkImportFile } from "@/lib/file-validation";
 import { parseLatLng } from "@/lib/map";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
+import { ImageUploader, type UploadImage } from "@/components/ui/ImageUploader";
+import { usePresignUploader } from "@/lib/upload";
 
 // Single source of truth for the bulk template. List order = template column
 // order = preview order. Headers, required set, header-matching, the parser and
@@ -164,6 +170,123 @@ function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows:
   return { rows };
 }
 
+type PhotoGroup = { id: string; images: UploadImage[]; urls: string; busy: boolean };
+
+/**
+ * Turns photos into hosted Image URLs for the CSV. Each group = one property:
+ * upload its photos (straight to R2 via presigned PUT — no bytes through our
+ * API), get back a comma-separated URL string to paste into that row's
+ * "Image URLs" cell. Only shown when storage is configured.
+ */
+function ImageUrlGenerator() {
+  const { upload } = usePresignUploader();
+  const [groups, setGroups] = useState<PhotoGroup[]>([
+    { id: crypto.randomUUID(), images: [], urls: "", busy: false },
+  ]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const patch = (id: string, next: Partial<PhotoGroup>) =>
+    setGroups((gs) => gs.map((g) => (g.id === id ? { ...g, ...next } : g)));
+
+  const runUpload = async (id: string) => {
+    const g = groups.find((x) => x.id === id);
+    if (!g || g.images.length === 0 || g.busy) return;
+    patch(id, { busy: true });
+    try {
+      const urls = await upload(g.images.map((i) => i.file), "properties");
+      patch(id, { urls: urls.join(", "), busy: false });
+      toast.success(`${urls.length} photo(s) uploaded`);
+    } catch {
+      patch(id, { busy: false });
+      toast.error("Upload failed — check your connection and try again.");
+    }
+  };
+
+  const copy = (id: string, text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(id);
+      toast.success("Image URLs copied");
+      setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 1500);
+    });
+  };
+
+  return (
+    <div className="mt-5 rounded-2xl border border-border bg-white p-6 shadow-sm">
+      <div className="flex items-center gap-2">
+        <Images size={18} className="text-accent" />
+        <h2 className="font-display text-base font-bold text-navy">
+          2 · Generate image URLs from photos <span className="font-normal text-muted-foreground">(optional)</span>
+        </h2>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        No hosted photo links yet? Add one group per property below, upload its photos, then
+        copy the generated URLs into that row&apos;s <strong>Image URLs</strong> cell. Photos are
+        compressed and watermarked automatically.
+      </p>
+
+      <div className="mt-4 space-y-4">
+        {groups.map((g, i) => (
+          <div key={g.id} className="rounded-xl border border-border bg-secondary/20 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm font-bold text-navy">Property {i + 1}</span>
+              {groups.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setGroups((gs) => gs.filter((x) => x.id !== g.id))}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground transition hover:text-rose-500"
+                >
+                  <Trash2 size={13} /> Remove
+                </button>
+              )}
+            </div>
+
+            <ImageUploader images={g.images} onChange={(next) => patch(g.id, { images: next, urls: "" })} max={10} />
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => runUpload(g.id)}
+                disabled={g.images.length === 0 || g.busy}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-accent-foreground transition hover:opacity-90 disabled:opacity-50"
+              >
+                {g.busy ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                {g.busy ? "Uploading…" : `Upload ${g.images.length || ""} photo(s)`.trim()}
+              </button>
+            </div>
+
+            {g.urls && (
+              <div className="mt-3 rounded-lg border border-border bg-white p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Image URLs — paste into row {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copy(g.id, g.urls)}
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
+                  >
+                    {copiedId === g.id ? <Check size={12} /> : <Copy size={12} />}
+                    {copiedId === g.id ? "Copied" : "Copy"}
+                  </button>
+                </div>
+                <p className="mt-2 break-all font-mono text-[11px] leading-relaxed text-foreground/70">{g.urls}</p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setGroups((gs) => [...gs, { id: crypto.randomUUID(), images: [], urls: "", busy: false }])}
+        className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
+      >
+        <Plus size={14} /> Add another property
+      </button>
+    </div>
+  );
+}
+
 export default function BulkListPage() {
   const { session } = useAuth();
   const [parsed, setParsed] = useState<Row[] | null>(null);
@@ -173,6 +296,7 @@ export default function BulkListPage() {
   const [result, setResult] = useState<{ created: number; failed: number; errors: { row: number; message: string }[] } | null>(null);
 
   const bulkMut = trpc.properties.bulkCreate.useMutation();
+  const storage = trpc.media.storageStatus.useQuery();
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -274,8 +398,12 @@ export default function BulkListPage() {
           </p>
         </div>
 
+        {storage.data?.configured && <ImageUrlGenerator />}
+
         <div className="mt-5 rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <h2 className="font-display text-base font-bold text-navy">2 · Upload your file</h2>
+          <h2 className="font-display text-base font-bold text-navy">
+            {storage.data?.configured ? "3" : "2"} · Upload your file
+          </h2>
           <div className="mt-4 rounded-xl border border-dashed border-border bg-secondary/20 p-5">
             <div className="flex flex-wrap items-center gap-3">
               <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition hover:opacity-90">

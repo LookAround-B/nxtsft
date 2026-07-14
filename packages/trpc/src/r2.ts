@@ -49,5 +49,52 @@ export async function uploadToR2(
     throw new Error(`R2 upload failed (${res.status}): ${detail.slice(0, 200)}`);
   }
 
+  return publicUrlFor(key);
+}
+
+/** Public URL for an object key. */
+export function publicUrlFor(key: string): string {
   return `${publicUrl!.replace(/\/+$/, "")}/${key}`;
+}
+
+/**
+ * Presign a PUT URL so the browser can upload straight to R2, skipping the
+ * serverless function (no base64 round-trip through our API). Only the host is
+ * signed via SigV4 query params, so the client sets its own Content-Type on the
+ * PUT. Throws if storage isn't configured.
+ */
+export async function presignUploadUrl(
+  key: string,
+  contentType: string,
+  expiresSeconds = 300,
+): Promise<string> {
+  if (!isR2Configured()) throw new Error("R2 storage is not configured.");
+
+  const url = new URL(`${endpoint!.replace(/\/+$/, "")}/${bucket}/${key}`);
+  url.searchParams.set("X-Amz-Expires", String(expiresSeconds));
+  const signed = await getClient().sign(url.toString(), {
+    method: "PUT",
+    aws: { signQuery: true },
+  });
+  return signed.url;
+}
+
+/**
+ * Object key for one of our public URLs, or null if the URL isn't hosted on our
+ * bucket (external URL / default cover). Used to avoid deleting things we don't own.
+ */
+export function keyFromPublicUrl(url: string): string | null {
+  if (!publicUrl) return null;
+  const base = `${publicUrl.replace(/\/+$/, "")}/`;
+  return url.startsWith(base) ? url.slice(base.length) : null;
+}
+
+/** Delete an object from R2. No-ops (returns false) if storage isn't configured. */
+export async function deleteFromR2(key: string): Promise<boolean> {
+  if (!isR2Configured()) return false;
+
+  const url = `${endpoint!.replace(/\/+$/, "")}/${bucket}/${key}`;
+  const res = await getClient().fetch(url, { method: "DELETE" });
+  // R2 returns 204 on delete; 404 means it's already gone — both are fine.
+  return res.ok || res.status === 404;
 }
