@@ -177,7 +177,7 @@ const SECTIONS = [
     contact: {
       name: "Grievance Officer — NxtSFT PropTech innovations  ",
       address: "Awfis, Kirloskar Business Park, Hebbal, Bengaluru, Karnataka 560024, India",
-      email: "info@nxtsft.com",
+      email: "hello@nxtsft.com",
       responseTime:
         "We aim to acknowledge complaints within 24 hours and resolve them within 30 days.",
     },

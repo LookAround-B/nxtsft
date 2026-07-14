@@ -185,7 +185,7 @@ export default function FraudAdvisoryPage() {
               </div>
             </div>
             <a
-              href="mailto:info@nxtsft.com?subject=Fraud%20Report"
+              href="mailto:hello@nxtsft.com?subject=Fraud%20Report"
               className="shrink-0 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-red-700"
             >
               Report Fraud →
@@ -356,7 +356,7 @@ export default function FraudAdvisoryPage() {
               {
                 step: "02",
                 title: "Report to NxtSft.com",
-                desc: 'Email info@nxtsft.com with the subject line "Fraud Report". Include the listing URL, contact details of the suspected fraudster, and all supporting screenshots. Our Trust & Safety team will investigate within 24 hours.',
+                desc: 'Email hello@nxtsft.com with the subject line "Fraud Report". Include the listing URL, contact details of the suspected fraudster, and all supporting screenshots. Our Trust & Safety team will investigate within 24 hours.',
               },
               {
                 step: "03",
@@ -400,10 +400,10 @@ export default function FraudAdvisoryPage() {
           </p>
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
-              href="mailto:info@nxtsft.com?subject=Fraud%20Report"
+              href="mailto:hello@nxtsft.com?subject=Fraud%20Report"
               className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90"
             >
-              Email info@nxtsft.com
+              Email hello@nxtsft.com
             </a>
             <Link
               href="/contact"

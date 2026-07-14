@@ -224,7 +224,7 @@ const SECTIONS = [
     contact: {
       company: "NxtSft.com — " + PROPRIETOR_NAME + ", Proprietor",
       address: PROPRIETOR_ADDRESS,
-      email: "info@nxtsft.com",
+      email: "hello@nxtsft.com",
       support: "support@nxtsft.com",
     },
   },
