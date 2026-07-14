@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { notify } from "../notify";
+import { sendTemplateIfConfigured } from "../bhashsms";
 import { createRazorpayPaymentLink } from "../razorpayLinks";
 import { router, protectedProcedure, staffProcedure, adminProcedure, generalRateLimit } from "../server";
 import {
@@ -38,8 +39,12 @@ export const leadsRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
+      let property: { title: string; owner: { phone: string | null } | null } | null = null;
       if (input.propertyId) {
-        const property = await prisma.property.findFirst({ where: { id: input.propertyId, deletedAt: null } });
+        property = await prisma.property.findFirst({
+          where: { id: input.propertyId, deletedAt: null },
+          select: { title: true, owner: { select: { phone: true } } },
+        });
         if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
       }
 
@@ -60,6 +65,21 @@ export const leadsRouter = router({
           property: { select: { id: true, title: true, slug: true } },
         },
       });
+
+      // Best-effort WhatsApp: alert the owner of the new lead, ack the buyer.
+      // No-ops until the template env vars are set (see docs). Never awaited.
+      if (property) {
+        void sendTemplateIfConfigured(
+          "BHASHSMS_TEMPLATE_NEW_LEAD_ALERT",
+          property.owner?.phone,
+          [input.name, input.phone, property.title],
+        );
+        void sendTemplateIfConfigured(
+          "BHASHSMS_TEMPLATE_ENQUIRY_ACK",
+          input.phone,
+          [input.name, property.title],
+        );
+      }
 
       return lead;
     }),
@@ -258,7 +278,10 @@ export const leadsRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const lead = await prisma.lead.findUnique({ where: { id: input.leadId } });
+      const lead = await prisma.lead.findUnique({
+        where: { id: input.leadId },
+        include: { property: { select: { title: true } } },
+      });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
 
       if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
@@ -285,6 +308,18 @@ export const leadsRouter = router({
         where: { id: input.leadId },
         data: { visitScheduled: new Date(input.scheduledAt) },
       });
+
+      // Best-effort WhatsApp confirmation to the visitor (no-op until configured).
+      const whenText = new Date(input.scheduledAt).toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Asia/Kolkata",
+      });
+      void sendTemplateIfConfigured(
+        "BHASHSMS_TEMPLATE_VISIT_CONFIRMED",
+        lead.phone,
+        [lead.name, lead.property?.title ?? "your selected property", whenText],
+      );
 
       return visit;
     }),

@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import prisma from "@nxtsft/db";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 import { notify, notifyCredit } from "../notify";
+import { sendTemplateIfConfigured } from "../bhashsms";
 import { router, adminProcedure, superAdminProcedure } from "../server";
 import {
   cuidSchema,
@@ -435,6 +436,11 @@ export const adminRouter = router({
           });
         }
 
+        // Best-effort WhatsApp welcome to the newly approved seller/agent.
+        if (user.role === "home-seller" || user.role === "agent") {
+          void sendTemplateIfConfigured("BHASHSMS_TEMPLATE_SELLER_WELCOME", user.phone, [user.name]);
+        }
+
         return user;
       }),
   }),
@@ -502,7 +508,10 @@ export const adminRouter = router({
     approve: adminProcedure
       .input(z.object({ id: cuidSchema }))
       .mutation(async ({ input }) => {
-        const property = await prisma.property.findFirst({ where: { id: input.id, deletedAt: null } });
+        const property = await prisma.property.findFirst({
+          where: { id: input.id, deletedAt: null },
+          include: { owner: { select: { name: true, phone: true } } },
+        });
         if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
         if (!property.rera) {
           throw new TRPCError({ code: "PRECONDITION_FAILED", message: "RERA number required before approval." });
@@ -515,6 +524,12 @@ export const adminRouter = router({
           content: `"${property.title}" is now live and visible to buyers.`,
           actionUrl: `/properties/${property.slug}`,
         });
+        // Best-effort WhatsApp to the seller (no-op until configured).
+        void sendTemplateIfConfigured(
+          "BHASHSMS_TEMPLATE_LISTING_LIVE",
+          property.owner?.phone,
+          [property.ownerName ?? property.owner?.name ?? "there", property.title],
+        );
         return {
           ...updated,
           price: Number(updated.price),
