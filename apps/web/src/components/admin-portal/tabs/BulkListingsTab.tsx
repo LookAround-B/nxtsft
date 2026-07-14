@@ -303,6 +303,13 @@ export function BulkListingsTab() {
           rules as the seller bulk template: Type is one of Apartment · Villa · Studio · Office · Bungalow · Plot · PG,
           Purpose is Sale or Rent, Title needs at least 10 characters.
         </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Prefer to prepare photos separately?{" "}
+          <a href="#bulk-photos" className="font-semibold text-accent underline underline-offset-2">
+            Bulk-upload photos and get their URLs
+          </a>{" "}
+          to paste into the Image URLs column.
+        </p>
       </Section>
 
       <Section title="2 · Upload your file">
