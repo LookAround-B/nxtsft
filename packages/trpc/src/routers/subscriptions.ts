@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { notify } from "../notify";
+import { sendTemplateIfConfigured } from "../bhashsms";
 import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server";
 import {
   cuidSchema,
@@ -301,6 +302,13 @@ export const subscriptionsRouter = router({
         actionUrl: "/user-portal#credits",
         content: `${plan.name} — ${plan.credits} credits added to your wallet.`,
       });
+
+      // Best-effort WhatsApp receipt (no-op until configured).
+      void sendTemplateIfConfigured(
+        "BHASHSMS_TEMPLATE_PAYMENT_RECEIPT",
+        ctx.user.phone,
+        [plan.name, String(plan.credits), String(plan.price)],
+      );
 
       return { ok: true, credits: updated.credits, planName: plan.name };
     }),

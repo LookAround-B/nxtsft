@@ -1,5 +1,11 @@
 # WhatsApp Templates (LA-341 / LA-342)
 
+> ⚠️ **Outdated provider.** This documents the original Meta Cloud API plan
+> (`whatsapp.ts`, `WHATSAPP_ACCESS_TOKEN`). We now send via **BhashSMS** — see
+> **`whatsapp-bhashsms-templates.md`** for the current, wired transactional
+> templates. The marketing copy below is still useful reference for the
+> engagement/campaign templates.
+
 Submit these in **Meta Business → WhatsApp Manager → Message Templates**.
 Approval takes 24–48 h. Until `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID`
 are set in env, all senders in code are logged no-ops (`packages/trpc/src/whatsapp.ts`).

@@ -16,6 +16,31 @@ export function bhashConfigured(): boolean {
 }
 
 /**
+ * Fire-and-forget transactional WhatsApp send, gated on a per-template env var
+ * that holds the approved template name (e.g. BHASHSMS_TEMPLATE_NEW_LEAD_ALERT).
+ * No-ops silently when the env var is unset, the recipient has no number, or the
+ * send fails — so it can be dropped into any mutation WITHOUT risking the main
+ * flow. Utility templates only (stype defaults to "normal"). Callers should
+ * `void` it (don't await) so notifications never slow the user's request.
+ */
+export async function sendTemplateIfConfigured(
+  templateEnvKey: string,
+  to: string | null | undefined,
+  params: string[] = [],
+): Promise<void> {
+  const template = process.env[templateEnvKey];
+  if (!template || !to) return;
+  try {
+    const res = await sendWhatsAppTemplate({ to, template, params });
+    if (!res.sent) {
+      console.error(`[bhashsms] ${templateEnvKey} not delivered to ${to}: ${res.reason}`);
+    }
+  } catch (err) {
+    console.error(`[bhashsms] ${templateEnvKey} threw:`, err instanceof Error ? err.message : err);
+  }
+}
+
+/**
  * BhashSMS's WhatsApp API wants the plain 10-digit number WITHOUT the 91
  * country code — the note under every example in their WA API docs says so.
  * Strip a leading country code if the caller passed a full number.

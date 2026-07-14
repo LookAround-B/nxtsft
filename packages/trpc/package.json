@@ -11,7 +11,9 @@
     "./boostSweep": "./src/boostSweep.ts",
     "./salesCommission": "./src/salesCommission.ts",
     "./dailyLeadReport": "./src/dailyLeadReport.ts",
-    "./whatsapp": "./src/whatsapp.ts"
+    "./whatsapp": "./src/whatsapp.ts",
+    "./bhashsms": "./src/bhashsms.ts",
+    "./waBroadcast": "./src/waBroadcast.ts"
   },
   "dependencies": {
     "@nxtsft/db": "workspace:*",

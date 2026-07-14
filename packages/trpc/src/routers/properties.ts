@@ -28,6 +28,7 @@ import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 import { hasSellerBadges } from "../badges";
 import { sweepExpiredBoosts } from "../boostSweep";
 import { notify, notifyCredit } from "../notify";
+import { sendTemplateIfConfigured } from "../bhashsms";
 import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server";
 
 // Serialize BigInt price fields to number for JSON transport
@@ -938,6 +939,16 @@ export const propertiesRouter = router({
         content: "Someone unlocked your contact details.",
         actionUrl: "/user-portal#leads",
       });
+
+      // Best-effort WhatsApp: send the buyer the unlocked owner contact (no-op
+      // until configured). Only when the owner actually has a number to share.
+      if (property.owner.phone) {
+        void sendTemplateIfConfigured(
+          "BHASHSMS_TEMPLATE_CONTACT_UNLOCKED",
+          ctx.user.phone,
+          [property.title, property.ownerName ?? property.owner.name, property.owner.phone],
+        );
+      }
 
       return { phone: property.owner.phone, name: property.ownerName ?? property.owner.name };
     }),
