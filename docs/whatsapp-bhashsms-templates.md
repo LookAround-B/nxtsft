@@ -32,7 +32,7 @@ live only once its template is approved and its env var is set.
 | `BHASHSMS_TEMPLATE_PAYMENT_RECEIPT` | `payment_receipt` | Utility | `{{1}}` plan name, `{{2}}` credits, `{{3}}` amount (₹) | credits payment success → buyer |
 
 ### Suggested body wording (match the variable order above)
-- **seller_welcome** — `Hi {{1}}, welcome to NxtSft.com! Your account is approved — you can now log in and list your property. Zero commission, RERA-verified buyers.`
+- **seller_welcome** — `Hi {{1}}, your NxtSft.com account is approved. You can now log in and list your property.` (kept promo-free so it stays **Utility** — a promotional tail risks a Marketing reclassification)
 - **new_lead_alert** — `New enquiry on NxtSft.com! {{1}} ({{2}}) is interested in your listing "{{3}}". Respond fast to close the deal.`
 - **enquiry_ack** — `Hi {{1}}, we've received your enquiry for "{{2}}" on NxtSft.com. Our team will connect you with the owner shortly.`
 - **contact_unlocked** — `You unlocked the owner contact for "{{1}}" on NxtSft.com. Owner: {{2}}, {{3}}. Call now to schedule a visit!`
