@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import Link from "next/link";
-import { Star as StarIcon, ChevronRight, ArrowRight } from "lucide-react";
+import { Star as StarIcon, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Eyebrow } from "@/components/home/Eyebrow";
 import {
@@ -14,16 +14,26 @@ import {
   fmtPrice,
 } from "@/components/home/homeData";
 
+const PAGE_SIZE = 18;
+
 export function FeaturedProperties() {
   const [propTab, setPropTab] = useState("All");
-  const carouselRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(1);
 
   const featuredQ = trpc.properties.list.useQuery({
     featured: true,
     type: propTab !== "All" ? TAB_TYPE_MAP[propTab] : undefined,
-    limit: 12,
+    page,
+    limit: PAGE_SIZE,
   });
   const displayProps = (featuredQ.data?.items ?? []) as FeaturedProp[];
+  const totalPages = featuredQ.data?.totalPages ?? 1;
+
+  // Reset to first page whenever the type tab changes.
+  const selectTab = (t: string) => {
+    setPropTab(t);
+    setPage(1);
+  };
 
   // Re-run scroll reveal when dynamic cards mount after data loads
   useEffect(() => {
@@ -61,7 +71,7 @@ export function FeaturedProperties() {
             {PROPERTY_TABS.map((t) => (
               <button
                 key={t}
-                onClick={() => setPropTab(t)}
+                onClick={() => selectTab(t)}
                 className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition-all
                   ${propTab === t ? "border-transparent bg-navy text-white" : "border-border bg-white text-muted-foreground hover:border-accent/50"}`}
               >
@@ -71,12 +81,12 @@ export function FeaturedProperties() {
           </div>
 
           <div className="relative">
-            <div ref={carouselRef} className="no-scrollbar flex gap-4 overflow-x-auto pb-1">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {featuredQ.isLoading
-                ? Array.from({ length: 4 }).map((_, i) => (
+                ? Array.from({ length: 6 }).map((_, i) => (
                     <div
                       key={i}
-                      className="w-[255px] shrink-0 animate-pulse overflow-hidden rounded-xl border border-border bg-white"
+                      className="animate-pulse overflow-hidden rounded-xl border border-border bg-white"
                     >
                       <div className="aspect-[4/3] bg-secondary" />
                       <div className="space-y-2 p-3">
@@ -91,7 +101,7 @@ export function FeaturedProperties() {
                       key={p.id}
                       href={`/properties/${p.slug}`}
                       data-reveal="scale"
-                      className="group w-[255px] shrink-0 overflow-hidden rounded-xl border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                      className="group overflow-hidden rounded-xl border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
                       style={{ transitionDelay: `${i * 60}ms` }}
                     >
                       <div className="relative aspect-[4/3] overflow-hidden">
@@ -134,13 +144,36 @@ export function FeaturedProperties() {
                   ))}
             </div>
 
-            <button
-              onClick={() => carouselRef.current?.scrollBy({ left: 280, behavior: "smooth" })}
-              className="absolute -right-3 top-[40%] -translate-y-1/2 hidden h-9 w-9 items-center justify-center rounded-full bg-navy text-white shadow-lg transition hover:bg-navy/90 sm:flex"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            {!featuredQ.isLoading && displayProps.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No properties found.
+              </p>
+            )}
           </div>
+
+          {totalPages > 1 && (
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-navy shadow-sm transition hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-sm font-semibold text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-navy shadow-sm transition hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           <div className="mt-4 border-t border-border pt-4">
             <Link
