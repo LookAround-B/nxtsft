@@ -209,7 +209,7 @@ const VALUES = [
 ];
 
 /* ── Team photos (Cloudflare R2, public bucket) ──────────────── */
-const R2 = process.env.R2_PUBLIC_URL;
+const R2 = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
 const teamPhoto = (n: number) => `${R2}/team/team${n}.png`;
 const TEAM_PHOTOS = Array.from({ length: 18 }, (_, i) => i + 1);
 

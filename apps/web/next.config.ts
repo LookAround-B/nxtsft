@@ -101,6 +101,12 @@ const nextConfig: NextConfig = {
     // Host of baked (already-watermarked) uploads, so the display-time overlay
     // can skip them and not double-stamp. See WatermarkOverlay.
     NEXT_PUBLIC_R2_HOST: r2Host ?? "",
+    // Public bucket base URL for static site assets (leadership/team photos,
+    // category artwork) referenced from client components. R2_PUBLIC_URL is
+    // server-only, so re-export it under a NEXT_PUBLIC_ name for the browser
+    // bundle rather than duplicating the value as a separate ops env var.
+    NEXT_PUBLIC_R2_PUBLIC_URL:
+      process.env.R2_PUBLIC_URL || process.env.CLOUDFLARE_R2_PUBLIC_URL || "",
   },
   typescript: {
     tsconfigPath: "./tsconfig.json",

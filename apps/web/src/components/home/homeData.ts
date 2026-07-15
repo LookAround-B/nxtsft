@@ -31,7 +31,7 @@ const img = (id: string) =>
   `https://images.unsplash.com/${id}?w=1600&q=80&auto=format&fit=crop`;
 
 // Public Cloudflare R2 bucket base for site assets (category artwork, etc.).
-const R2 = process.env.R2_PUBLIC_URL;
+const R2 = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
 
 export const HERO_IMAGES = [
   img("photo-1600596542815-ffad4c1539a9"),
