@@ -31,8 +31,8 @@ type FieldDef = { key: FieldKey; header: string; required?: boolean; aliases?: s
 // that name without creating an account — the way to seed one project with many
 // owners. Give a phone and the row gets (or creates) its own owner account.
 const FIELDS: FieldDef[] = [
-  { key: "ownerName", header: "Owner Name", example: "Ramesh Kumar" },
-  { key: "ownerPhone", header: "Owner Mobile Number", aliases: ["owner phone", "owner mobile"], example: "9876500000" },
+  { key: "ownerName", header: "Owner Name", required: true, example: "Ramesh Kumar" },
+  { key: "ownerPhone", header: "Owner Mobile Number", required: true, aliases: ["owner phone", "owner mobile"], example: "9876500000" },
   { key: "ownerEmail", header: "Owner Email", aliases: ["email", "owner email id"], example: "" },
 
   { key: "title", header: "Title", required: true, example: "Spacious 3 BHK Apartment in Whitefield" },
@@ -57,7 +57,7 @@ const FIELDS: FieldDef[] = [
   { key: "rera", header: "RERA", aliases: ["rera number", "rera id"], example: "PRM/KA/RERA/1251/446/PR/12345" },
   { key: "city", header: "City", required: true, example: "Bengaluru" },
   { key: "state", header: "State", required: true, example: "Karnataka" },
-  { key: "locality", header: "Locality", required: true, example: "Whitefield" },
+  { key: "locality", header: "Locality", example: "Whitefield" },
   { key: "address", header: "Address", example: "12th Main, Whitefield" },
   { key: "zipCode", header: "Pincode", aliases: ["zipcode", "zip code", "pin code"], example: "560066" },
   { key: "latitude", header: "Latitude", example: "12.9698" },
@@ -296,12 +296,13 @@ export function BulkListingsTab() {
         }
       >
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Required: <strong>Owner Name, Owner Mobile Number, Title, Type, Purpose, Price, Area, City, State, Locality</strong>.
-          Owner Email is optional — leave it blank to auto-generate a placeholder. If the Owner Mobile Number matches an
-          existing account, that account is reused as the owner instead of creating a duplicate. Listings created here go
-          live immediately (no pending-review step), since they're admin-created. Every other column follows the same
-          rules as the seller bulk template: Type is one of Apartment · Villa · Studio · Office · Bungalow · Plot · PG,
-          Purpose is Sale or Rent, Title needs at least 10 characters.
+          Required: <strong>Owner Name, Owner Mobile Number, Title, Type, Purpose, Price, Area, City, State</strong>.
+          Owner Email and Locality are optional. Owner Email left blank auto-generates a placeholder. If the Owner Mobile
+          Number matches an existing account, that account is reused as the owner instead of creating a duplicate. Price
+          accepts worded amounts too — <strong>52.54 Lac</strong>, <strong>1.89 Cr</strong> or plain rupees. Listings
+          created here go live immediately (no pending-review step), since they're admin-created. Every other column
+          follows the same rules as the seller bulk template: Type is one of Apartment · Villa · Studio · Office ·
+          Bungalow · Plot · PG, Purpose is Sale or Rent, Title needs at least 10 characters.
         </p>
         <p className="mt-2 text-xs text-muted-foreground">
           Prefer to prepare photos separately?{" "}

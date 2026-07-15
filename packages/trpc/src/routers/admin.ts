@@ -564,6 +564,33 @@ export const adminRouter = router({
         };
         const bulkNum = <T extends z.ZodTypeAny>(schema: T) => z.preprocess(cleanNumeric, schema);
 
+        // Integer fields (price, area, room counts) routinely arrive as decimals
+        // from real spreadsheets — "1450.5" sqft, or Excel storing whole numbers
+        // as floats. Round rather than reject; sub-rupee / sub-sqft precision is
+        // noise here. Blank/junk still cleans to undefined so optionals stay optional.
+        const bulkInt = <T extends z.ZodTypeAny>(schema: T) =>
+          z.preprocess((v) => {
+            const c = cleanNumeric(v);
+            if (c === undefined) return undefined;
+            const n = Number(c);
+            return Number.isFinite(n) ? Math.round(n) : c;
+          }, schema);
+
+        // Prices in Indian listings arrive worded — "52.54 Lac", "1.89 Cr",
+        // "₹1,76,72,460" — not plain rupee integers. Parse the leading number,
+        // apply the lakh (×1e5) / crore (×1e7) multiplier, round to whole rupees.
+        // Unparseable junk becomes undefined so the row fails as "Required".
+        const parseBulkPrice = (v: unknown) => {
+          if (typeof v === "number") return Number.isFinite(v) ? Math.round(v) : undefined;
+          if (typeof v !== "string") return v;
+          const s = v.trim().toLowerCase();
+          const n = parseFloat(s.replace(/[^0-9.]/g, ""));
+          if (!Number.isFinite(n)) return undefined;
+          const mult = /\bcr\b|crore/.test(s) ? 1e7 : /\blac|\blakh/.test(s) ? 1e5 : 1;
+          return Math.round(n * mult);
+        };
+        const bulkPrice = z.preprocess(parseBulkPrice, z.number().int().positive().max(999_999_999_999));
+
         // External datasets use listing-style type names ("Highrise Apartment",
         // "Commercial Space") rather than our fixed enum — map the common ones;
         // anything else still falls through to propertyTypeSchema and fails loudly.
@@ -606,22 +633,22 @@ export const adminRouter = router({
           typeof v === "string" && ["", "-", "n/a", "na"].includes(v.trim().toLowerCase()) ? undefined : v;
 
         const rowSchema = z.object({
-          ownerName: z.preprocess(blankToUndefined, nameSchema.optional()),
-          ownerPhone: z.preprocess(blankToUndefined, bulkPhoneSchema.optional()),
+          ownerName: z.preprocess(blankToUndefined, nameSchema),
+          ownerPhone: z.preprocess(blankToUndefined, bulkPhoneSchema),
           ownerEmail: z.preprocess(blankToUndefined, emailSchema.optional()),
 
           title: safeString(200, 10),
           description: descriptionSchema.optional(),
           type: bulkTypeSchema,
           purpose: purposeSchema,
-          price: bulkNum(z.coerce.number().int().positive().max(999_999_999_999)),
-          area: bulkNum(z.coerce.number().int().positive().max(9_999_999)),
-          builtUpArea: bulkNum(z.coerce.number().int().positive().max(9_999_999).optional()),
+          price: bulkPrice,
+          area: bulkInt(z.coerce.number().int().positive().max(9_999_999)),
+          builtUpArea: bulkInt(z.coerce.number().int().positive().max(9_999_999).optional()),
           bhk: safeString(20).optional(),
-          bedrooms: bulkNum(z.coerce.number().int().min(0).max(50).default(0)),
-          bathrooms: bulkNum(z.coerce.number().int().min(0).max(50).default(0)),
-          balconies: bulkNum(z.coerce.number().int().min(0).max(50).optional()),
-          parking: bulkNum(z.coerce.number().int().min(0).max(50).optional()),
+          bedrooms: bulkInt(z.coerce.number().int().min(0).max(50).default(0)),
+          bathrooms: bulkInt(z.coerce.number().int().min(0).max(50).default(0)),
+          balconies: bulkInt(z.coerce.number().int().min(0).max(50).optional()),
+          parking: bulkInt(z.coerce.number().int().min(0).max(50).optional()),
           furnishing: bulkFurnishingSchema,
           facing: safeString(30).optional(),
           floors: safeString(20).optional(),
@@ -632,7 +659,7 @@ export const adminRouter = router({
           rera: reraSchema.optional(),
           city: geoTextSchema,
           state: geoTextSchema,
-          locality: geoTextSchema,
+          locality: geoTextSchema.optional(),
           address: safeString(500).optional(),
           zipCode: safeString(6).optional(),
           latitude: bulkNum(z.coerce.number().min(-90).max(90).optional()),
@@ -643,8 +670,8 @@ export const adminRouter = router({
           walkthroughVideoUrl: safeString(500).optional(),
           pgGender: z.enum(["Boys", "Girls", "Co-living"]).optional(),
           pgOccupancy: safeString(200).optional(),
-          pgAvailableBeds: bulkNum(z.coerce.number().int().min(0).max(9999).optional()),
-          pgDeposit: bulkNum(z.coerce.number().int().min(0).max(999_999_999_999).optional()),
+          pgAvailableBeds: bulkInt(z.coerce.number().int().min(0).max(9999).optional()),
+          pgDeposit: bulkInt(z.coerce.number().int().min(0).max(999_999_999_999).optional()),
           pgRoomTypes: safeString(200).optional(),
           pgHouseRules: safeString(2000).optional(),
           pgFood: safeString(30).optional(),
@@ -652,6 +679,31 @@ export const adminRouter = router({
 
         const errors: { row: number; message: string }[] = [];
         const createdListings: { id: string; slug: string; title: string }[] = [];
+
+        // Maps a schema field key back to the spreadsheet column header the admin
+        // sees, so a per-row error reads "Locality: Required" instead of a bare
+        // "Required". Mirrors the template columns in BulkListingsTab.tsx.
+        const FIELD_LABELS: Record<string, string> = {
+          ownerName: "Owner Name", ownerPhone: "Owner Mobile Number", ownerEmail: "Owner Email",
+          title: "Title", description: "Description", type: "Type", purpose: "Purpose",
+          price: "Price", area: "Area", builtUpArea: "Built-up Area", bhk: "BHK",
+          bedrooms: "Bedrooms", bathrooms: "Bathrooms", balconies: "Balconies", parking: "Parking",
+          furnishing: "Furnishing", facing: "Facing", floors: "Floors", age: "Age",
+          possession: "Possession", builder: "Builder", reraLabel: "RERA Authority", rera: "RERA",
+          city: "City", state: "State", locality: "Locality", address: "Address", zipCode: "Pincode",
+          latitude: "Latitude", longitude: "Longitude", amenities: "Amenities", images: "Image URLs",
+          virtualTourUrl: "Virtual Tour URL", walkthroughVideoUrl: "Walkthrough Video URL",
+          pgGender: "PG Gender", pgOccupancy: "PG Occupancy", pgAvailableBeds: "PG Available Beds",
+          pgDeposit: "PG Deposit", pgRoomTypes: "PG Room Types", pgHouseRules: "PG House Rules", pgFood: "PG Food",
+        };
+        const formatIssues = (err: z.ZodError) =>
+          err.issues
+            .map((iss) => {
+              const key = iss.path[0];
+              const label = typeof key === "string" ? FIELD_LABELS[key] ?? key : undefined;
+              return label ? `${label}: ${iss.message}` : iss.message;
+            })
+            .join("; ");
 
         // Phase 1 — parse + synchronous validation (RERA format etc). Cheap,
         // no DB calls, so this stays a plain loop.
@@ -661,7 +713,7 @@ export const adminRouter = router({
           const sheetRow = i + 2;
           const parsed = rowSchema.safeParse(input.rows[i]);
           if (!parsed.success) {
-            errors.push({ row: sheetRow, message: parsed.error.issues[0]?.message ?? "Invalid row" });
+            errors.push({ row: sheetRow, message: formatIssues(parsed.error) || "Invalid row" });
             continue;
           }
           try {
@@ -911,7 +963,9 @@ export const adminRouter = router({
                 propertyId: idBySlug.get(slug)!,
                 city: d.city,
                 state: d.state,
-                locality: d.locality,
+                // Locality is optional in the upload but the column is non-null;
+                // fall back to city so cards still show a location.
+                locality: d.locality ?? d.city,
                 address: d.address,
                 zipCode: d.zipCode,
                 latitude: d.latitude ?? 0,
