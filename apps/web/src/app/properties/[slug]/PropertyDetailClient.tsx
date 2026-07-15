@@ -619,10 +619,10 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                       sizes="(max-width: 1024px) 100vw, 67vw"
                       priority
                     />
-                    <WatermarkOverlay />
                     <span className="absolute bottom-3 right-3 hidden items-center gap-1.5 rounded-full bg-navy/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm sm:flex">
                       <Maximize2 size={13} /> View gallery
                     </span>
+                    <WatermarkOverlay src={images[activeImage] ?? images[0]} />
                   </button>
                 )}
                 {/* Carousel arrows */}

@@ -104,10 +104,10 @@ export function FeaturedProperties() {
                           fill
                           className="object-cover transition duration-500 group-hover:scale-105"
                         />
-                        <WatermarkOverlay />
                         <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-md bg-gold px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-navy shadow">
                           <StarIcon size={7} className="fill-current" /> Featured
                         </span>
+                        <WatermarkOverlay src={p.images[0]} />
                       </div>
                       <div className="p-3">
                         <div className="text-[10px] uppercase tracking-wider text-muted-foreground">

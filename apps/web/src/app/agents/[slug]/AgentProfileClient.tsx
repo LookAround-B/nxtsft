@@ -2,13 +2,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { useParams } from "next/navigation";
 import {
   Star, Phone, MessageCircle, Lock, ShieldCheck, MapPin, Globe,
   Award, ArrowLeft, Clock, TrendingUp, Building2, CheckCircle2,
 } from "lucide-react";
 import { trpcClient } from "@/lib/trpcClient";
-import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { useAuth } from "@/lib/auth";
 
 type AgentRow = {
@@ -213,10 +213,10 @@ export default function AgentProfileClient() {
                           fill
                           className="object-cover transition group-hover:scale-[1.02]"
                         />
-                        <WatermarkOverlay />
                         <span className="absolute left-2 top-2 rounded-full bg-navy/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                           For {p.purpose}
                         </span>
+                        <WatermarkOverlay src={p.images?.[0]} />
                       </div>
                       <div className="p-4">
                         <div className="truncate text-sm font-semibold text-navy">{p.title}</div>

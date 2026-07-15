@@ -39,6 +39,8 @@ type ListingItem = {
   priceLabel: string;
   bhk: string;
   status: "Pending" | "Approved" | "Rejected";
+  /** Public listing slug; present only for DB properties that have a live page. */
+  slug?: string;
   isUserSubmission?: boolean;
   isDbProperty?: boolean;
   rera?: string | null;
@@ -464,6 +466,7 @@ export function ListingsTab() {
   const dbItems: ListingItem[] = rawProps.map((p) => ({
     id: p.id,
     title: p.title,
+    slug: p.slug,
     image: p.images?.[0] ?? "",
     builder: p.ownerName ?? p.owner?.name ?? "",
     ownerName: p.ownerName,
@@ -635,7 +638,18 @@ export function ListingsTab() {
                       </span>
                     )}
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-navy">{it.title}</div>
+                  {it.slug ? (
+                    <Link
+                      href={`/properties/${it.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 block text-sm font-semibold text-navy hover:text-accent hover:underline"
+                    >
+                      {it.title}
+                    </Link>
+                  ) : (
+                    <div className="mt-1 text-sm font-semibold text-navy">{it.title}</div>
+                  )}
                   <div className="text-xs text-muted-foreground">{it.builder}</div>
                   <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
                     <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-navy">

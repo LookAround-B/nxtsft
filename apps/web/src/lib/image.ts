@@ -45,11 +45,11 @@ function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: num
   ctx.save();
   // Measure at a reference size, then scale the font so the text fills the
   // target fraction of the image width regardless of aspect ratio.
-  ctx.font = "700 100px Arial, sans-serif";
+  ctx.font = "500 100px Arial, sans-serif";
   const measured = ctx.measureText(text).width;
   const fontSize = Math.max(24, Math.round((width * 0.495 * 100) / measured));
 
-  ctx.font = `700 ${fontSize}px Arial, sans-serif`;
+  ctx.font = `500 ${fontSize}px Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.globalAlpha = 0.55;

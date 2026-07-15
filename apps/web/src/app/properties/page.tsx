@@ -129,8 +129,8 @@ function PropertyCard({ p }: { p: PropertyItem }) {
           className="object-cover transition-transform duration-300 group-hover:scale-105"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
-        <WatermarkOverlay />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+        <WatermarkOverlay src={images[active] ?? images[0]} />
 
         {images.length > 1 && (
           <>
