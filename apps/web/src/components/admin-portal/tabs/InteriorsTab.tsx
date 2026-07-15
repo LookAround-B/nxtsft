@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Sofa, PlusCircle, X, CheckCircle, XCircle, Trash2, Users } from "lucide-react";
+import { Sofa, PlusCircle, X, CheckCircle, XCircle, Trash2, Users, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard, Section } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -12,6 +12,9 @@ type DesignerRow = {
   phone: string; email: string | null; status: string; verified: boolean;
   projectsCompleted: number; yearsExperience: number | null;
   designStyles: string[]; createdAt: string;
+  description: string | null; website: string | null; workingHours: string | null;
+  startingBudget: number | null; servicesOffered: string[]; areasServed: string[];
+  portfolioImages: string[]; portfolioVideos: string[];
 };
 
 function splitList(s: string): string[] {
@@ -105,6 +108,106 @@ function CreateDesignerPanel({ onClose, onCreated }: { onClose: () => void; onCr
   );
 }
 
+// ─── Designer Detail Modal ─────────────────────────────────────────────────────
+function DesignerDetailModal({
+  designer, onClose, onSetStatus, onDelete, isMutating,
+}: {
+  designer: DesignerRow;
+  onClose: () => void;
+  onSetStatus: (status: "active" | "inactive") => void;
+  onDelete: () => void;
+  isMutating: boolean;
+}) {
+  const statusColor =
+    designer.status === "active" ? "bg-emerald-100 text-emerald-700"
+    : designer.status === "inactive" ? "bg-rose-100 text-rose-700"
+    : "bg-amber-100 text-amber-700";
+
+  const row = (label: string, value: React.ReactNode) =>
+    value ? (
+      <div className="grid grid-cols-3 gap-2 py-1.5 text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="col-span-2 text-navy">{value}</span>
+      </div>
+    ) : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div className="sticky top-0 flex items-center justify-between border-b border-border bg-white px-5 py-3">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-navy">{designer.companyName}</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusColor}`}>{designer.status}</span>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
+        </div>
+
+        <div className="divide-y divide-border px-5">
+          {row("City", [designer.city, designer.state].filter(Boolean).join(", "))}
+          {row("Phone", designer.phone)}
+          {row("Email", designer.email)}
+          {row("Website", designer.website)}
+          {row("Working hours", designer.workingHours)}
+          {row("Years experience", designer.yearsExperience)}
+          {row("Projects completed", designer.projectsCompleted)}
+          {row("Starting budget", designer.startingBudget ? `₹${designer.startingBudget.toLocaleString("en-IN")}` : null)}
+          {row("Design styles", designer.designStyles.join(", "))}
+          {row("Services offered", designer.servicesOffered.join(", "))}
+          {row("Areas served", designer.areasServed.join(", "))}
+        </div>
+
+        {designer.description && (
+          <div className="border-t border-border px-5 py-3">
+            <div className="mb-1 text-xs font-semibold text-muted-foreground">Description</div>
+            <p className="text-sm text-navy whitespace-pre-wrap">{designer.description}</p>
+          </div>
+        )}
+
+        {designer.portfolioImages.length > 0 && (
+          <div className="border-t border-border px-5 py-3">
+            <div className="mb-2 text-xs font-semibold text-muted-foreground">Portfolio images ({designer.portfolioImages.length})</div>
+            <div className="grid grid-cols-4 gap-2">
+              {designer.portfolioImages.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={i} src={src} alt="" className="aspect-square w-full rounded-lg object-cover" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-border bg-white px-5 py-3">
+          <button
+            onClick={onDelete}
+            disabled={isMutating}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-accent hover:text-accent disabled:opacity-40"
+          >
+            Delete
+          </button>
+          {designer.status !== "inactive" && (
+            <button
+              onClick={() => onSetStatus("inactive")}
+              disabled={isMutating}
+              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-40"
+            >
+              Reject
+            </button>
+          )}
+          {designer.status !== "active" && (
+            <button
+              onClick={() => onSetStatus("active")}
+              disabled={isMutating}
+              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-40"
+            >
+              Approve & publish
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Leads Panel ───────────────────────────────────────────────────────────────
 function LeadsPanel() {
   const leadsQ = trpc.admin.interiorDesigners.leads.useQuery({ limit: 50 });
@@ -144,6 +247,7 @@ function LeadsPanel() {
 export function InteriorsTab() {
   const [statusFilter, setStatusFilter] = useState<"pending" | "active" | "inactive" | undefined>("pending");
   const [showCreate, setShowCreate] = useState(false);
+  const [viewingId, setViewingId] = useState<string | null>(null);
 
   // limitSchema caps list inputs at 100 — anything higher fails validation with a 400.
   const listQ = trpc.admin.interiorDesigners.list.useQuery({ limit: 100, status: statusFilter });
@@ -157,14 +261,17 @@ export function InteriorsTab() {
     onSuccess: (_, vars) => {
       toast.success(vars.status === "active" ? "Designer approved — now live." : `Marked ${vars.status}.`);
       refetchAll();
+      setViewingId(null);
     },
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
   const deleteMutation = trpc.admin.interiorDesigners.delete.useMutation({
-    onSuccess: () => { toast.success("Listing deleted."); refetchAll(); },
+    onSuccess: () => { toast.success("Listing deleted."); refetchAll(); setViewingId(null); },
     onError: (e: { message: string }) => toast.error(e.message),
   });
+
+  const viewingDesigner = allItems.find((d) => d.id === viewingId) ?? null;
 
   const pendingCount = allItems.filter((d) => d.status === "pending").length;
   const activeCount = allItems.filter((d) => d.status === "active").length;
@@ -237,6 +344,13 @@ export function InteriorsTab() {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      onClick={() => setViewingId(d.id)}
+                      className="grid h-7 w-7 place-items-center rounded-lg border border-border text-muted-foreground transition hover:border-accent hover:text-accent"
+                      title="View full details"
+                    >
+                      <Eye size={13} />
+                    </button>
                     {d.status !== "active" && (
                       <button
                         onClick={() => setStatusMutation.mutate({ id: d.id, status: "active" })}
@@ -274,6 +388,16 @@ export function InteriorsTab() {
       </Section>
 
       <LeadsPanel />
+
+      {viewingDesigner && (
+        <DesignerDetailModal
+          designer={viewingDesigner}
+          onClose={() => setViewingId(null)}
+          onSetStatus={(status) => setStatusMutation.mutate({ id: viewingDesigner.id, status })}
+          onDelete={() => { if (confirm("Delete this listing?")) deleteMutation.mutate({ id: viewingDesigner.id }); }}
+          isMutating={setStatusMutation.isPending || deleteMutation.isPending}
+        />
+      )}
     </>
   );
 }
