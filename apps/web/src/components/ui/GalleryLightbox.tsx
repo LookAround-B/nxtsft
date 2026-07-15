@@ -170,7 +170,7 @@ export function GalleryLightbox({
               }}
               priority
             />
-            <WatermarkOverlay src={src} />
+            <WatermarkOverlay />
           </div>
         )}
 

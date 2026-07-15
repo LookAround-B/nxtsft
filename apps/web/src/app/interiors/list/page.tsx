@@ -143,7 +143,7 @@ export default function ListInteriorBusinessPage() {
     setUploading(true);
     const hostedImages: string[] = [];
     for (const img of images) {
-      const dataUrl = await compressImage(img.file, undefined, undefined, { watermark: true });
+      const dataUrl = await compressImage(img.file);
       try {
         const { url } = await uploadImage.mutateAsync({
           contentType: "image/jpeg",

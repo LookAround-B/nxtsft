@@ -354,7 +354,7 @@ export default function ListPropertyPage() {
     let listingImages = hostedImages;
     if (images.length > 0 && hostedImages.length === 0) {
       listingImages = await Promise.all(
-        images.map((img) => compressImage(img.file, undefined, undefined, { watermark: true })),
+        images.map((img) => compressImage(img.file)),
       );
       toast.warning("Photos couldn't be uploaded to storage — saved to this listing only.");
     }

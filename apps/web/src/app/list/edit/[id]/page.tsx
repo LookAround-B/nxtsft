@@ -202,7 +202,7 @@ export default function EditListingPage() {
     const uploaded: string[] = [];
     for (const img of newImages) {
       try {
-        const dataUrl = await compressImage(img.file, undefined, undefined, { watermark: true });
+        const dataUrl = await compressImage(img.file);
         const { url } = await uploadImage.mutateAsync({
           contentType: "image/jpeg",
           data: dataUrl.split(",")[1] ?? "",

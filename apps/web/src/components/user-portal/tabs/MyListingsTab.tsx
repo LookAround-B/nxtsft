@@ -456,7 +456,7 @@ export function MyListingsTab() {
                 <div key={p.id} className="overflow-hidden rounded-lg border border-border">
                   <div className="relative h-40 w-full">
                     <Image src={img} alt={p.title} fill className="object-cover" />
-                    <WatermarkOverlay src={img} />
+                    <WatermarkOverlay />
                   </div>
                   <div className="p-4">
                     <div className="flex items-start justify-between gap-2">
