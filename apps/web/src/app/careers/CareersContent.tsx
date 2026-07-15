@@ -175,7 +175,7 @@ const LEADERSHIP = [
   { name: "Chief Product Officer", title: "Product & Experience" },
   { name: "Chief Growth Officer", title: "Sales, Marketing & Expansion" },
   { name: "Chief People Officer", title: "Talent, Culture & L&D" },
-  { name: "Chief Financial Officer", title: "Finance, Legal & Compliance" },
+  { name: "Chief Legal Officer", title: "Finance, Legal & Compliance" },
 ];
 
 const IMPACT_STATS = [

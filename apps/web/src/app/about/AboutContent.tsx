@@ -163,7 +163,7 @@ const LEADERSHIP = [
   { name: "Ajinkya Soni",  role: "Chief Product Officer",      img: `${R2}/leadership-imgs/AjinkyaSoni.png` },
   { name: "Vijayasurya",   role: "Chief Sales Officer",        img: `${R2}/leadership-imgs/Vijayasurya.png` },
   { name: "Sarika Jain",   role: "Chief People Officer",       img: `${R2}/leadership-imgs/SarikaJain.png` },
-  { name: "Ranjita Singh", role: "Chief Financial Officer",    img: `${R2}/leadership-imgs/RanjitaSingh.png` },
+  { name: "Ranjita Singh", role: "Chief Legal Officer",    img: `${R2}/leadership-imgs/RanjitaSingh.png` },
 ];
 
 const FAQS = [
