@@ -443,6 +443,100 @@ export const adminRouter = router({
 
         return user;
       }),
+
+    // Super-admin only: permanently delete a user and everything tied to them.
+    // Built for testers resetting accounts — a hard delete that frees the
+    // email / phone / slug so the same person can register again. Requires the
+    // caller to re-type the target's email (server-side re-check) and refuses to
+    // delete yourself or another super-admin.
+    //
+    // Most child rows FK-block a user with the default Restrict rule (Property
+    // owner, Lead, Payment, Commission, SalesActivity, Review, Message, Ticket,
+    // Campaign, WaBroadcast, CmsPage, plus the user's Listings), and Session /
+    // SiteVisit / CreditTransaction carry a userId with no FK at all — so we
+    // clear those explicitly, in dependency order, before deleting the user.
+    // Everything marked Cascade (favorites, subscriptions, notifications, KYC
+    // docs, referrals, push subs, edit requests, review-helpful votes) or
+    // SetNull (supervisees, agent-marketed listings, property/designer/decor
+    // views, directory ownership, enquiry/escalation assignments) is handled by
+    // the DB when the user row goes. Note: bare staff-attribution columns with
+    // no FK (e.g. Lead.assignedToId, *.reviewedById) are left as-is — they only
+    // matter when deleting staff with operational history, not test consumers.
+    deleteAccount: superAdminProcedure
+      .input(z.object({ userId: cuidSchema, confirmEmail: emailSchema }))
+      .mutation(async ({ input, ctx }) => {
+        if (input.userId === ctx.user.id) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "You can't delete your own account." });
+        }
+        const target = await prisma.user.findUnique({
+          where: { id: input.userId },
+          select: { id: true, email: true, phone: true, name: true, role: true },
+        });
+        if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+        if (target.role === "super-admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Super-admin accounts can't be deleted here." });
+        }
+        if (input.confirmEmail.trim().toLowerCase() !== target.email.toLowerCase()) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Confirmation email doesn't match this account." });
+        }
+
+        await prisma.$transaction(
+          async (tx) => {
+            const [ownedProps, ownLeads] = await Promise.all([
+              tx.property.findMany({ where: { ownerId: target.id }, select: { id: true } }),
+              tx.lead.findMany({ where: { userId: target.id }, select: { id: true } }),
+            ]);
+            const propIds = ownedProps.map((p) => p.id);
+            const leadIds = ownLeads.map((l) => l.id);
+            const orProp = propIds.length ? [{ propertyId: { in: propIds } }] : [];
+
+            // Escalations FK-block the user's own leads — clear them first.
+            if (leadIds.length) await tx.escalation.deleteMany({ where: { leadId: { in: leadIds } } });
+
+            // Listings & Reviews FK-block both the user (createdBy / authorId)
+            // and the user's properties (propertyId) — clear from both angles.
+            await tx.listing.deleteMany({ where: { OR: [{ createdBy: target.id }, ...orProp] } });
+            await tx.review.deleteMany({ where: { OR: [{ authorId: target.id }, ...orProp] } });
+            // SiteVisit has no FK — remove the buyer's own visits and any visits
+            // booked to the user's listings.
+            await tx.siteVisit.deleteMany({ where: { OR: [{ userId: target.id }, ...orProp] } });
+
+            // Remaining Restrict-blocking direct references to the user.
+            await tx.lead.deleteMany({ where: { userId: target.id } });
+            await tx.message.deleteMany({ where: { senderId: target.id } });
+            await tx.payment.deleteMany({ where: { userId: target.id } });
+            await tx.ticket.deleteMany({ where: { userId: target.id } });
+            await tx.commission.deleteMany({ where: { salesRepId: target.id } });
+            await tx.salesActivity.deleteMany({ where: { salesRepId: target.id } });
+            await tx.campaign.deleteMany({ where: { createdById: target.id } });
+            await tx.waBroadcast.deleteMany({ where: { createdById: target.id } });
+            await tx.cmsPage.deleteMany({ where: { editorId: target.id } });
+            // No-FK userId columns — clear so nothing dangling references them.
+            await tx.creditTransaction.deleteMany({ where: { userId: target.id } });
+            await tx.session.deleteMany({ where: { userId: target.id } });
+
+            // The user's listings (cascades Location / PropertyView / Favorite /
+            // EditRequest; SetNulls other buyers' Lead.propertyId).
+            await tx.property.deleteMany({ where: { ownerId: target.id } });
+
+            // Finally the user — the DB cascades / SetNulls everything else.
+            await tx.user.delete({ where: { id: target.id } });
+
+            await tx.auditLog.create({
+              data: {
+                userId: ctx.user.id,
+                action: "user_deleted",
+                entity: "User",
+                entityId: target.id,
+                changes: { email: target.email, phone: target.phone, name: target.name, role: target.role },
+              },
+            });
+          },
+          { timeout: 20_000 },
+        );
+
+        return { ok: true, email: target.email, name: target.name };
+      }),
   }),
 
   // Property management for admin portal

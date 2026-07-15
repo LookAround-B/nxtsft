@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { keepPreviousData } from "@tanstack/react-query";
-import { Download, Upload, Loader2, FileSpreadsheet, Search, Check, X as XIcon, FileCode2, RefreshCw } from "lucide-react";
+import { Download, Upload, Loader2, FileSpreadsheet, Search, Check, X as XIcon, FileCode2, RefreshCw, Trash2, ShieldAlert } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
 import { normalizeBulkImportMatrix, type BulkImportMatrix } from "@/lib/bulk-import";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/lib/auth";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { validateBulkImportFile } from "@/lib/file-validation";
 import { builderRowSchema } from "@/lib/validation";
@@ -15,6 +16,12 @@ import { PageHead } from "./PageHead";
 type BuilderRow = {
   companyName: string; ownerName: string; mobile: string;
   projectType: string; developmentStatus: string; state: string; district: string; city: string;
+};
+
+// Shape returned by admin.users.list (safeUserSelect) — the fields the delete panel shows.
+type AdminUser = {
+  id: string; name: string; email: string; phone: string | null;
+  role: string; city: string; joined: string | Date;
 };
 
 const BUILDER_HEADERS = ["Project Name", "Owner Name", "Mobile Number", "Project Type", "Development Status", "State", "District", "City/Town"];
@@ -165,6 +172,41 @@ export function DevTab() {
   const [backfillRunning, setBackfillRunning] = useState(false);
 
   const [page, setPage] = useState(1);
+
+  // ── Danger zone: delete a user (super-admin only) ──────────────────────────
+  const { session } = useAuth();
+  const isSuperAdmin = session?.role === "super-admin";
+
+  const [userQuery, setUserQuery] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+  const [confirmEmail, setConfirmEmail] = useState("");
+
+  const usersQ = trpc.admin.users.list.useQuery(
+    { search: userSearch || undefined, limit: 10 },
+    { enabled: isSuperAdmin && userSearch.length > 0, placeholderData: keepPreviousData },
+  );
+  const deleteUserMut = trpc.admin.users.deleteAccount.useMutation();
+  const foundUsers = (usersQ.data?.items ?? []) as AdminUser[];
+
+  const confirmMatches =
+    !!deleteTarget && confirmEmail.trim().toLowerCase() === deleteTarget.email.toLowerCase();
+
+  const doDeleteUser = () => {
+    if (!deleteTarget || !confirmMatches) return;
+    deleteUserMut.mutate(
+      { userId: deleteTarget.id, confirmEmail: confirmEmail.trim() },
+      {
+        onSuccess: (res: { name: string }) => {
+          toast.success(`Deleted ${res.name}. Their email & phone are free to register again.`);
+          setDeleteTarget(null);
+          setConfirmEmail("");
+          void usersQ.refetch();
+        },
+        onError: (err: { message: string }) => toast.error(err.message),
+      },
+    );
+  };
 
   const listQ = trpc.builders.list.useQuery(
     { search: search || undefined, page, limit: 20 },
@@ -561,6 +603,129 @@ export function DevTab() {
           </>
         )}
       </Section>
+
+      {/* ── Danger zone: permanently delete a user (super-admin only) ── */}
+      {isSuperAdmin && (
+        <Section title="Delete a user — danger zone">
+          <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-5">
+            <p className="mb-3 text-xs text-rose-700">
+              <strong>Permanent.</strong> Deletes the account and everything tied to it — their
+              listings, leads, favorites, site visits, payments, reviews, KYC docs, tickets and
+              notifications. Frees the email &amp; phone so the person can register again. Built for
+              resetting test accounts. You can&apos;t delete your own account or another super-admin.
+            </p>
+            <form
+              onSubmit={(e) => { e.preventDefault(); setUserSearch(userQuery.trim()); }}
+              className="flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2"
+            >
+              <Search size={15} className="text-muted-foreground" />
+              <input
+                value={userQuery}
+                onChange={(e) => setUserQuery(e.target.value)}
+                placeholder="Search a user by name, email, or phone…"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+              {userQuery && (
+                <button type="button" onClick={() => { setUserQuery(""); setUserSearch(""); }}>
+                  <XIcon size={14} className="text-muted-foreground" />
+                </button>
+              )}
+            </form>
+
+            {userSearch && (
+              usersQ.isLoading ? (
+                <p className="mt-4 text-xs text-muted-foreground">Searching…</p>
+              ) : foundUsers.length === 0 ? (
+                <p className="mt-4 text-xs text-muted-foreground">No users match “{userSearch}”.</p>
+              ) : (
+                <div className="mt-4 overflow-x-auto rounded-lg border border-border bg-white">
+                  <table className="w-full text-left text-sm">
+                    <thead className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2">Name</th>
+                        <th className="px-3 py-2">Email</th>
+                        <th className="px-3 py-2">Phone</th>
+                        <th className="px-3 py-2">Role</th>
+                        <th className="px-3 py-2">Joined</th>
+                        <th className="px-3 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {foundUsers.map((u) => (
+                        <tr key={u.id} className="border-t border-border">
+                          <td className="px-3 py-2 font-semibold text-navy">{u.name}</td>
+                          <td className="px-3 py-2 text-foreground/80">{u.email}</td>
+                          <td className="px-3 py-2 font-mono text-xs text-foreground/80">{u.phone ?? "—"}</td>
+                          <td className="px-3 py-2"><Badge tone="default">{u.role}</Badge></td>
+                          <td className="px-3 py-2 text-foreground/70">{new Date(u.joined).toLocaleDateString("en-IN")}</td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              onClick={() => { setDeleteTarget(u); setConfirmEmail(""); }}
+                              disabled={u.role === "super-admin"}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-rose-300 px-2.5 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-rose-600"
+                              title={u.role === "super-admin" ? "Super-admins can't be deleted here" : "Delete permanently"}
+                            >
+                              <Trash2 size={13} /> Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+          </div>
+        </Section>
+      )}
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
+          onClick={() => { if (!deleteUserMut.isPending) setDeleteTarget(null); }}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-rose-600">
+              <ShieldAlert size={14} /> Permanent deletion
+            </div>
+            <h3 className="font-display text-xl font-bold text-navy">Delete {deleteTarget.name}?</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              This wipes the account ({deleteTarget.role}) and all of its data — listings, leads,
+              favorites, visits, payments, reviews, KYC docs, tickets and notifications. It cannot be
+              undone. The email &amp; phone will be free to register again.
+            </p>
+            <div className="mt-4">
+              <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Type <span className="font-mono text-rose-600">{deleteTarget.email}</span> to confirm
+              </label>
+              <input
+                autoFocus
+                value={confirmEmail}
+                onChange={(e) => setConfirmEmail(e.target.value)}
+                placeholder={deleteTarget.email}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300/40"
+              />
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleteUserMut.isPending}
+                className="rounded-md border border-border px-4 py-2 text-xs font-semibold text-muted-foreground disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={doDeleteUser}
+                disabled={!confirmMatches || deleteUserMut.isPending}
+                className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deleteUserMut.isPending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                Delete permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
