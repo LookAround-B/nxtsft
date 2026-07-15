@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin, ImageIcon, User } from "lucide-react";
+import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin, ImageIcon, User, Eye } from "lucide-react";
 import { boostIsActive } from "@nxtsft/shared/constants";
 import { keepPreviousData } from "@tanstack/react-query";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
@@ -940,6 +940,16 @@ export function ListingsTab() {
                 >
                   Reject
                 </button>
+                {it.slug && (
+                  <Link
+                    href={`/properties/${it.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-xs font-semibold transition hover:bg-secondary"
+                  >
+                    <Eye size={11} /> View
+                  </Link>
+                )}
                 {it.isDbProperty && (
                   <Link
                     href={`/list/edit/${it.id}`}
