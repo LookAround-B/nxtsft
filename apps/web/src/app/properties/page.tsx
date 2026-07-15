@@ -130,7 +130,7 @@ function PropertyCard({ p }: { p: PropertyItem }) {
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-        <WatermarkOverlay />
+        <WatermarkOverlay src={images[active] ?? images[0]} />
 
         {images.length > 1 && (
           <>

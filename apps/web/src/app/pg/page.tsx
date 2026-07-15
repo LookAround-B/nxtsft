@@ -185,7 +185,7 @@ function PgCard({ pg: p }: { pg: PgItem }) {
       <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={cover} alt={p.title} className="h-full w-full object-cover transition group-hover:scale-105" />
-        <WatermarkOverlay />
+        <WatermarkOverlay src={cover} />
         {p.featured && (
           <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white">
             <CheckCircle2 size={10} /> Verified

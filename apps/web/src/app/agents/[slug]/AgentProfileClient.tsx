@@ -216,7 +216,7 @@ export default function AgentProfileClient() {
                         <span className="absolute left-2 top-2 rounded-full bg-navy/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                           For {p.purpose}
                         </span>
-                        <WatermarkOverlay />
+                        <WatermarkOverlay src={p.images?.[0]} />
                       </div>
                       <div className="p-4">
                         <div className="truncate text-sm font-semibold text-navy">{p.title}</div>

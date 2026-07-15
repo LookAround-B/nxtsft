@@ -34,7 +34,7 @@ export function usePresignUploader() {
 
     // Compress + watermark every photo up front (JPEG data URLs → Blobs).
     const blobs = await Promise.all(
-      files.map(async (file) => dataUrlToBlob(await compressImage(file))),
+      files.map(async (file) => dataUrlToBlob(await compressImage(file, undefined, undefined, { watermark: true }))),
     );
 
     // One call presigns the whole batch — no bytes traverse the API.

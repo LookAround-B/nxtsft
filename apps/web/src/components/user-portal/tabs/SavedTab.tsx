@@ -129,7 +129,7 @@ export function SavedTab() {
                 <Link href={`/properties/${p.slug ?? p.id}`}>
                   <div className="relative aspect-[4/3]">
                     <Image src={img} alt="" fill className="object-cover" />
-                    <WatermarkOverlay />
+                    <WatermarkOverlay src={img} />
                   </div>
                 </Link>
                 <div className="p-3">

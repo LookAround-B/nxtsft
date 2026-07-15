@@ -98,6 +98,9 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+    // Host of baked (already-watermarked) uploads, so the display-time overlay
+    // can skip them and not double-stamp. See WatermarkOverlay.
+    NEXT_PUBLIC_R2_HOST: r2Host ?? "",
   },
   typescript: {
     tsconfigPath: "./tsconfig.json",
