@@ -788,7 +788,7 @@ export const superAdminRouter = router({
       prisma.payment.findMany({
         take: 20,
         orderBy: { createdAt: "desc" },
-        include: { user: { select: { name: true } } },
+        include: { user: { select: { name: true, phone: true } } },
       }),
     ]);
 
@@ -802,6 +802,7 @@ export const superAdminRouter = router({
       recentPayments: recentPayments.map((p) => ({
         id: p.id,
         userName: p.user.name,
+        userPhone: p.user.phone,
         amount: Number(p.amount) / 100,
         status: p.status,
         method: p.method,

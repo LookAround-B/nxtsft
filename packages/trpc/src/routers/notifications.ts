@@ -2,6 +2,7 @@ import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, protectedProcedure } from "../server";
 import { cuidSchema, cursorSchema } from "../sanitize";
+import { sweepExpiredReadNotifications } from "../notificationSweep";
 
 export const notificationsRouter = router({
   list: protectedProcedure
@@ -13,6 +14,7 @@ export const notificationsRouter = router({
       }),
     )
     .query(async ({ input, ctx }) => {
+      await sweepExpiredReadNotifications();
       const { cursor, limit, unreadOnly } = input;
 
       const where: NonNullable<Parameters<typeof prisma.notification.findMany>[0]>["where"] = {

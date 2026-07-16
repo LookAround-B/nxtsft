@@ -16,6 +16,7 @@ type ViewRecord = {
   contactUnlocked: boolean;
   createdAt: string;
   viewer: string;
+  viewerPhone: string | null;
   property: {
     id: string; slug: string; title: string; bhk: string | null; price: number;
     images: string[]; location: { city: string; locality: string } | null;
@@ -306,10 +307,11 @@ export function ViewsTab() {
   const handleDownloadCSV = () => {
     downloadCSV(
       "property-views.csv",
-      ["ID", "Viewer", "Property", "City", "Viewed At", "Duration (s)", "Unlocked"],
+      ["ID", "Viewer", "Phone", "Property", "City", "Viewed At", "Duration (s)", "Unlocked"],
       views.map((v) => [
         v.id,
         v.viewer,
+        v.viewerPhone ?? "",
         v.property?.title ?? "",
         v.property?.location?.city ?? "",
         fmtWhen(v.createdAt),
@@ -376,6 +378,7 @@ export function ViewsTab() {
                 <thead>
                   <tr>
                     <th>Viewer</th>
+                    <th>Phone</th>
                     <th>Property</th>
                     <th>City</th>
                     <th>Viewed At</th>
@@ -387,6 +390,15 @@ export function ViewsTab() {
                   {filtered.map((v) => (
                     <tr key={v.id}>
                       <td className="font-semibold text-navy">{v.viewer}</td>
+                      <td className="text-sm">
+                        {v.viewerPhone ? (
+                          <a href={`tel:${v.viewerPhone}`} className="font-bold text-accent hover:underline">
+                            {v.viewerPhone}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="max-w-50">
                         {v.property ? (
                           <Link href={`/properties/${v.property.slug}`} className="block truncate text-sm font-medium text-navy hover:text-accent">

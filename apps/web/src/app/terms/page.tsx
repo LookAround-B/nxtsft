@@ -61,7 +61,7 @@ const SECTIONS = [
     id: "services",
     title: "4. Description of Services",
     body: [
-      'NxtSft.com is an online real estate marketplace that connects buyers, sellers, tenants, landlords, property developers, and real estate agents ("Parties"). Our Platform provides tools for searching and listing residential, commercial, and other real estate properties across India.',
+      'NxtSft.com is an online real estate marketplace that connects buyers, sellers, users, landlords, property developers, and real estate agents ("Parties"). Our Platform provides tools for searching and listing residential, commercial, and other real estate properties across India.',
       "NxtSft.com is an intermediary and facilitates communication between Parties. We do not own, sell, rent, or otherwise deal in properties listed on the Platform. We are not a real estate agent or advisor, and nothing on the Platform constitutes legal, financial, or investment advice.",
       "Property listings on the Platform are posted by sellers, developers, or agents and are subject to availability. NxtSft.com does not warrant the accuracy, completeness, or legality of any listing or the identity of any user.",
       "Certain features — including unlocking contact details, advanced search filters, and lead management tools — are available only to users with an active credit balance or subscription, as outlined on our Pricing page.",

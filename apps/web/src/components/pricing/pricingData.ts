@@ -218,7 +218,7 @@ export const seekerFaqs: string[][] = [
 export const ownerFaqs: string[][] = [
   [
     "What is the difference between the rental and selling plans?",
-    "Rental plans are designed for landlords seeking tenants — priced for faster turnover. Selling plans are for homeowners, agents, and developers selling properties — they carry higher lead quotas and longer validity because the sales cycle is longer. Both come in four tiers (Basic, Standard, Pro, Elite); the exact price, validity and inclusions of each tier are shown on the plan cards above.",
+    "Rental plans are designed for landlords seeking users — priced for faster turnover. Selling plans are for homeowners, agents, and developers selling properties — they carry higher lead quotas and longer validity because the sales cycle is longer. Both come in four tiers (Basic, Standard, Pro, Elite); the exact price, validity and inclusions of each tier are shown on the plan cards above.",
   ],
   [
     "When will my listing go live after I purchase a plan?",
@@ -238,11 +238,11 @@ export const ownerFaqs: string[][] = [
   ],
   [
     "Do I pay per lead, or is it a flat fee?",
-    "Flat fee. You pay once for the plan. Tenants and buyers pay NxtSft.com separately to unlock your contact. There are no commission or per-lead charges — you keep every rupee from your transaction. Our revenue model does not depend on your deal closing.",
+    "Flat fee. You pay once for the plan. Users and buyers pay NxtSft.com separately to unlock your contact. There are no commission or per-lead charges — you keep every rupee from your transaction. Our revenue model does not depend on your deal closing.",
   ],
   [
     "My plan expired before I found a tenant — what now?",
-    "You can renew or upgrade at any time. There is no penalty, and your original listing content is preserved — just reactivate it when you renew. If you are not finding tenants quickly, consider a longer-validity tier for more time and lead flow.",
+    "You can renew or upgrade at any time. There is no penalty, and your original listing content is preserved — just reactivate it when you renew. If you are not finding users quickly, consider a longer-validity tier for more time and lead flow.",
   ],
   [
     "Can I get a refund if my property gets rented through another channel?",
@@ -257,7 +257,7 @@ export const ownerFaqs: string[][] = [
     'To get the "Verified" badge, yes — you will need to share a utility bill or ownership document. Unverified listings are published but shown without the badge. We strongly recommend getting verified: verified listings receive 3× more unlocks on average than unverified ones.',
   ],
   [
-    "Will NxtSft.com agents help me find tenants?",
+    "Will NxtSft.com agents help me find users?",
     "On Standard and above, our team actively matches your listing to tenant searches and WhatsApp-alerts you on all new enquiries. On higher tiers, a dedicated manager and marketing support are included. If you want a fully hands-off experience, contact our team about managed letting services.",
   ],
   [

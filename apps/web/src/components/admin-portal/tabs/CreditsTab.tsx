@@ -85,6 +85,11 @@ function UsageSection() {
                   <span className="text-xs text-muted-foreground">
                     {item.buyer?.email}
                   </span>
+                  {item.buyer?.phone && (
+                    <span className="text-xs text-muted-foreground">
+                      {item.buyer.phone}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">

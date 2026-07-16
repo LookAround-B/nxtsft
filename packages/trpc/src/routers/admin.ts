@@ -1384,7 +1384,7 @@ export const adminRouter = router({
       const [users, properties] = await Promise.all([
         prisma.user.findMany({
           where: { id: { in: userIds } },
-          select: { id: true, name: true, email: true, credits: true },
+          select: { id: true, name: true, email: true, phone: true, credits: true },
         }),
         prisma.property.findMany({
           where: { id: { in: propertyIds } },

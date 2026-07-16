@@ -142,7 +142,19 @@ export function SellerApprovalsTab() {
                     <Badge tone={u.role === "agent" ? "new" : "cold"}>{roleLabel(u.role)}</Badge>
                     <Badge tone="success">Approved</Badge>
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">{u.email}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Mail size={11} /> {u.email}
+                    </span>
+                    {u.phone && (
+                      <a
+                        href={`tel:${u.phone}`}
+                        className="flex items-center gap-1 font-bold text-accent hover:underline"
+                      >
+                        <Phone size={11} /> {u.phone}
+                      </a>
+                    )}
+                  </div>
                 </div>
                 <span className="text-xs text-muted-foreground">{timeAgo(u.joined)}</span>
               </div>

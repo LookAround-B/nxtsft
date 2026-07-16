@@ -49,10 +49,11 @@ export function BillingTab() {
                 onClick={() =>
                   downloadCSV(
                     "payments.csv",
-                    ["ID", "Customer", "Amount", "Status", "Method", "Date"],
+                    ["ID", "Customer", "Phone", "Amount", "Status", "Method", "Date"],
                     payments.map((p) => [
                       p.id.slice(-8),
                       p.userName,
+                      p.userPhone ?? "",
                       fmtRupees(p.amount),
                       p.status,
                       p.method,
@@ -75,6 +76,7 @@ export function BillingTab() {
                     <tr>
                       <th className="py-2">ID</th>
                       <th>Customer</th>
+                      <th>Phone</th>
                       <th>Amount</th>
                       <th>Status</th>
                       <th>Method</th>
@@ -86,6 +88,15 @@ export function BillingTab() {
                       <tr key={p.id}>
                         <td className="font-mono text-xs">{p.id.slice(-8)}</td>
                         <td className="font-semibold text-navy">{p.userName}</td>
+                        <td className="text-sm">
+                          {p.userPhone ? (
+                            <a href={`tel:${p.userPhone}`} className="font-bold text-accent hover:underline">
+                              {p.userPhone}
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
                         <td className="font-mono text-sm">{fmtRupees(p.amount)}</td>
                         <td>
                           <Badge tone={p.status === "Success" ? "success" : p.status === "Failed" ? "hot" : "warm"}>

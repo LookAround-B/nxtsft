@@ -58,7 +58,7 @@ const SECTIONS = [
       "To create and manage your account and verify your identity.",
       "To display and facilitate property listings, searches, and transactions.",
       "To process payments and manage Credits on your account.",
-      "To connect buyers, tenants, sellers, landlords, and agents through the Platform.",
+      "To connect buyers, users, sellers, landlords, and agents through the Platform.",
       "To send transactional communications, including account alerts, booking confirmations, and receipts.",
       "To send promotional communications and property recommendations, where you have opted in.",
       "To analyse usage patterns and improve our services, features, and user experience.",

@@ -422,7 +422,7 @@ export function PlansManager({
         />
         <PlanGroup
           title="Owner Rental Plans"
-          description="Listing plans for landlords looking to find tenants."
+          description="Listing plans for landlords looking to find users."
           group={ownerRentalGroup}
         />
         <PlanGroup

@@ -45,7 +45,7 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 const roleActions: Record<Role, Array<{ label: string; to: string; Icon: LucideIcon }>> = {
   "super-admin": [
     { label: "Command Deck", to: "/sa-portal", Icon: Satellite },
-    { label: "Tenants", to: "/sa-portal", Icon: Building2 },
+    { label: "Users", to: "/sa-portal", Icon: Building2 },
     { label: "Billing", to: "/sa-portal#bill", Icon: CreditCard },
   ],
   admin: [

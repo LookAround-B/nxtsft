@@ -93,7 +93,7 @@ export const propertyViewsRouter = router({
       const rows = await prisma.propertyView.findMany({
         include: {
           ...viewWithProperty,
-          user: { select: { id: true, name: true, email: true } },
+          user: { select: { id: true, name: true, email: true, phone: true } },
         },
         orderBy: { createdAt: "desc" },
         take: input?.limit ?? 50,
@@ -110,6 +110,7 @@ export const propertyViewsRouter = router({
         contactUnlocked: v.contactUnlocked,
         createdAt: v.createdAt,
         viewer: v.user ? v.user.name : "Anonymous",
+        viewerPhone: v.user?.phone ?? null,
         property: v.property ? { ...v.property, price: Number(v.property.price) } : null,
       }));
 

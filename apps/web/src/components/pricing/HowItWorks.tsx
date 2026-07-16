@@ -29,7 +29,7 @@ function getSteps(forSeeker: boolean): Step[] {
     {
       step: "02",
       title: "Receive verified leads",
-      body: "Tenants or buyers unlock your contact using their credits. You receive their verified details instantly via WhatsApp.",
+      body: "Users or buyers unlock your contact using their credits. You receive their verified details instantly via WhatsApp.",
     },
     {
       step: "03",

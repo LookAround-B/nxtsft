@@ -140,7 +140,7 @@ const FAQS = [
   },
   {
     q: "Is there a limit on how much I can earn?",
-    a: "No cap on total earnings! You can refer as many owners, buyers, tenants, and agents as you like. The more you refer, the more you earn.",
+    a: "No cap on total earnings! You can refer as many owners, buyers, users, and agents as you like. The more you refer, the more you earn.",
   },
   {
     q: "Can I use my reward balance to buy Credits on NxtSft.com?",
@@ -450,7 +450,7 @@ export default function ReferPage() {
                 Earn real money.
               </h1>
               <p className="mt-5 text-base leading-relaxed text-white/70">
-                Share NxtSft.com with buyers, tenants, and property owners in your network — and
+                Share NxtSft.com with buyers, users, and property owners in your network — and
                 earn up to <strong className="text-white">₹500 per referral</strong>, paid directly
                 to your UPI or bank account.
               </p>

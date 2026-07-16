@@ -922,6 +922,7 @@ model Notification {
 
   @@index([userId])
   @@index([read])
+  @@index([read, readAt])
 }
 
 // Browser Web Push subscription (LA-332). One row per device/browser a user
