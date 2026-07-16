@@ -193,9 +193,9 @@ export function MyLeadsTab() {
                 <div className="flex flex-wrap gap-2">
                   <a
                     href={`tel:${l.phone}`}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white hover:opacity-90"
                   >
-                    <Phone size={12} /> Call
+                    <Phone size={12} /> {l.phone}
                   </a>
                   <a
                     href={waHref(l.phone)}

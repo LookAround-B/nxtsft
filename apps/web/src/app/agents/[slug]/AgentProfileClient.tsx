@@ -167,7 +167,7 @@ export default function AgentProfileClient() {
                 ) : hasPhone ? (
                   <>
                     <a href={telHref!} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90 sm:w-auto">
-                      <Phone size={15} /> Call Agent
+                      <Phone size={15} /> +91 {local10}
                     </a>
                     <a href={waHref!} target="_blank" rel="noopener noreferrer" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-emerald-500/25 transition hover:opacity-90 sm:w-auto">
                       <MessageCircle size={15} /> WhatsApp

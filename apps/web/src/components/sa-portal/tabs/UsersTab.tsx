@@ -168,7 +168,7 @@ export function UsersTab() {
                     <td className="text-xs">
                       {u.phone && u.phone !== "—" ? (
                         <div className="flex items-center gap-1.5">
-                          <a href={`tel:${u.phone}`} className="font-medium text-accent hover:underline">{u.phone}</a>
+                          <a href={`tel:${u.phone}`} className="font-bold text-accent hover:underline">{u.phone}</a>
                           {u.phoneVerified ? (
                             <span
                               title="Number verified via WhatsApp OTP"

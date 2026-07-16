@@ -192,7 +192,7 @@ export function ReferralsTab() {
                       {r.customerPhone && (
                         <a
                           href={`tel:${r.customerPhone}`}
-                          className="font-mono text-xs font-semibold text-accent hover:underline"
+                          className="font-mono text-xs font-bold text-accent hover:underline"
                         >
                           {r.customerPhone}
                         </a>

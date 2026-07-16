@@ -98,9 +98,12 @@ export function SellerApprovalsTab() {
                         <Mail size={11} /> {u.email}
                       </span>
                       {u.phone && (
-                        <span className="flex items-center gap-1">
+                        <a
+                          href={`tel:${u.phone}`}
+                          className="flex items-center gap-1 font-bold text-accent hover:underline"
+                        >
                           <Phone size={11} /> {u.phone}
-                        </span>
+                        </a>
                       )}
                       {u.city && (
                         <span className="flex items-center gap-1">

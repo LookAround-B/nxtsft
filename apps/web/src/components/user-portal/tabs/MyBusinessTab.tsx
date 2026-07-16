@@ -268,7 +268,7 @@ export function MyBusinessTab() {
                     <span className="text-sm font-semibold text-navy">{l.buyer?.name ?? "Unknown buyer"}</span>
                     <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       {l.buyer?.phone && (
-                        <a href={`tel:${l.buyer.phone}`} className="inline-flex items-center gap-1 hover:text-accent hover:underline"><Phone size={11} /> {l.buyer.phone}</a>
+                        <a href={`tel:${l.buyer.phone}`} className="inline-flex items-center gap-1 font-bold text-navy hover:text-accent hover:underline"><Phone size={11} /> {l.buyer.phone}</a>
                       )}
                       {l.buyer?.email && (
                         <span className="inline-flex items-center gap-1 truncate"><Mail size={11} /> {l.buyer.email}</span>

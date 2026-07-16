@@ -82,7 +82,7 @@ function EnquiryModal({
                 className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition hover:border-accent hover:bg-accent/5"
               >
                 <Phone size={14} className="shrink-0 text-emerald-500" />
-                <span className="text-navy">{enquiry.phone}</span>
+                <span className="font-bold text-navy">{enquiry.phone}</span>
               </a>
             )}
             {enquiry.city && (
@@ -219,7 +219,15 @@ export function EnquiriesTab() {
                     <td>
                       <Badge tone={e.source === "PG Media Package" ? "hot" : "default"}>{e.source}</Badge>
                     </td>
-                    <td className="text-xs">{e.phone ?? "—"}</td>
+                    <td className="text-xs">
+                      {e.phone ? (
+                        <a href={`tel:${e.phone}`} className="font-bold text-navy hover:text-accent hover:underline">
+                          {e.phone}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="text-xs">{e.city ?? "—"}</td>
                     <td className="max-w-xs text-xs text-muted-foreground">
                       <button

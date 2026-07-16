@@ -219,7 +219,7 @@ export function UserActivityTab() {
                       {ev.user?.phone && ev.user.phone !== "—" ? (
                         <a
                           href={`tel:${ev.user.phone}`}
-                          className="flex items-center gap-1 font-semibold text-accent hover:underline"
+                          className="flex items-center gap-1 font-bold text-accent hover:underline"
                         >
                           <Phone size={11} /> {ev.user.phone}
                         </a>
