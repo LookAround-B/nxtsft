@@ -14,7 +14,7 @@ import {
 } from "../sanitize";
 
 // Access level for a (role, feature) cell, ascending privilege.
-const accessLevelSchema = z.enum(["none", "read", "write", "admin"]);
+const accessLevelSchema = z.enum(["none", "read", "write"]);
 
 // matrix[roleKey][featureKey] = accessLevel. Keys are bounded to keep the
 // persisted JSON small; the frontend defines the canonical lists.

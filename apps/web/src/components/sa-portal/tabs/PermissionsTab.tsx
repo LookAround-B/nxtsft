@@ -8,14 +8,13 @@ import { trpc } from "@/lib/trpc";
 import { TabHeader } from "./shared";
 
 /* ── Access levels (ascending privilege) ─────────────────────────────────── */
-type Level = "none" | "read" | "write" | "admin";
-const LEVELS: Level[] = ["none", "read", "write", "admin"];
+type Level = "none" | "read" | "write";
+const LEVELS: Level[] = ["none", "read", "write"];
 
 const levelMeta: Record<Level, { label: string; cell: string; dot: string; can: string }> = {
   none: { label: "None", cell: "bg-secondary/50 text-muted-foreground border-border", dot: "bg-muted-foreground/40", can: "No access" },
   read: { label: "Read", cell: "bg-sky-100 text-sky-700 border-sky-200", dot: "bg-sky-500", can: "View only" },
-  write: { label: "Write", cell: "bg-amber-100 text-amber-700 border-amber-200", dot: "bg-amber-500", can: "Create & edit" },
-  admin: { label: "Admin", cell: "bg-emerald-100 text-emerald-700 border-emerald-200", dot: "bg-emerald-500", can: "Full control" },
+  write: { label: "Write", cell: "bg-emerald-100 text-emerald-700 border-emerald-200", dot: "bg-emerald-500", can: "Full access" },
 };
 
 /* ── Canonical roles (columns) — super-admin is implicit full access ──────── */
@@ -48,15 +47,20 @@ const FEATURE_GROUPS = [...new Set(FEATURES.map((f) => f.group))];
 
 type Matrix = Record<string, Record<string, Level>>;
 
-/* Sensible starting permissions per role. */
+/* All features enabled (full access) by default for every role, including
+   End User — the panel's bulk backend-role assignment (super-admin action)
+   excludes End User, but the default state itself is all-enabled for all. */
 function defaultMatrix(): Matrix {
+  const allWrite: Record<string, Level> = {};
+  for (const { key } of FEATURES) allWrite[key] = "write";
+
   const D: Record<string, Record<string, Level>> = {
-    admin: { listings: "admin", leads: "admin", crm: "admin", siteVisits: "write", subscriptions: "admin", marketing: "admin", reports: "admin", teams: "admin", users: "write", support: "write", config: "read", security: "read" },
-    supervisor: { listings: "read", leads: "write", crm: "write", siteVisits: "write", subscriptions: "read", marketing: "read", reports: "write", teams: "read", users: "none", support: "read", config: "none", security: "none" },
-    sales: { listings: "read", leads: "write", crm: "read", siteVisits: "write", subscriptions: "none", marketing: "none", reports: "read", teams: "none", users: "none", support: "none", config: "none", security: "none" },
-    "support-admin": { listings: "read", leads: "read", crm: "none", siteVisits: "none", subscriptions: "read", marketing: "none", reports: "read", teams: "none", users: "read", support: "admin", config: "none", security: "none" },
-    user: { listings: "read", leads: "none", crm: "none", siteVisits: "write", subscriptions: "read", marketing: "none", reports: "none", teams: "none", users: "none", support: "read", config: "none", security: "none" },
-    "home-seller": { listings: "read", leads: "none", crm: "none", siteVisits: "write", subscriptions: "read", marketing: "none", reports: "none", teams: "none", users: "none", support: "read", config: "none", security: "none" },
+    admin: { ...allWrite },
+    supervisor: { ...allWrite },
+    sales: { ...allWrite },
+    "support-admin": { ...allWrite },
+    "home-seller": { ...allWrite },
+    user: { ...allWrite },
   };
   return D;
 }
@@ -119,7 +123,7 @@ export function PermissionsTab() {
   /* Simulator: effective access for the selected role. */
   const sim = useMemo(() => {
     const role: Record<string, Level> = matrix[simRole] ?? {};
-    const counts: Record<Level, number> = { none: 0, read: 0, write: 0, admin: 0 };
+    const counts: Record<Level, number> = { none: 0, read: 0, write: 0 };
     for (const { key } of FEATURES) counts[role[key] ?? "none"]++;
     return { role, counts };
   }, [matrix, simRole]);
