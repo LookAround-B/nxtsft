@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { createContextFromToken } from "@nxtsft/trpc/server";
-import { signSessionCookie, SESSION_COOKIE_NAME } from "@nxtsft/shared";
+import { signSessionCookie, SESSION_COOKIE_NAME, sessionCookieOptions } from "@nxtsft/shared";
 
 // Node runtime: signSessionCookie uses node:crypto (HMAC), and this route
 // also needs the Prisma-backed createContextFromToken.
 export const runtime = "nodejs";
-
-const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // mirrors SESSION_TTL_DAYS in auth.ts
 
 // Called right after a successful auth.{login,loginStaff,googleSignIn,register}
 // mutation. Re-verifies the token against the DB itself (never trusts a
@@ -25,13 +23,7 @@ export async function POST(req: Request) {
   }
 
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(SESSION_COOKIE_NAME, signSessionCookie(token, user.role), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: COOKIE_MAX_AGE_SECONDS,
-  });
+  res.cookies.set(SESSION_COOKIE_NAME, signSessionCookie(token, user.role), sessionCookieOptions());
   return res;
 }
 

@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { verifySessionCookie, SESSION_COOKIE_NAME } from "@nxtsft/shared";
+import {
+  verifySessionCookie,
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from "@nxtsft/shared";
 import {
   HOME_FOR_ROLE,
   canAccess,
@@ -17,6 +21,11 @@ import {
  *  - No session           → redirect to the right login (staff → /admin-login).
  *  - Authenticated, role-gated portal not permitted → redirect to own home.
  *  - Authenticated user on a login page → redirect to own home.
+ *  - Authenticated, any request → cookie's maxAge is refreshed (sliding
+ *    expiry), so an active user never gets silently logged out by the fixed
+ *    TTL counting down from their original login. Mirrors the DB-side
+ *    renewal in createContextFromToken (packages/trpc/src/server.ts) so the
+ *    cookie and the real (tRPC-checked) session don't drift apart.
  *
  * Static assets and /api are excluded via `config.matcher`; API route handlers
  * enforce their own auth.
@@ -99,17 +108,29 @@ function nextWithCsp(_request: NextRequest): NextResponse {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const role = roleFromCookie(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+  const rawCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const role = roleFromCookie(rawCookie);
+
+  // Resets the cookie's clock on every authenticated request (sliding
+  // expiry) — cheap (just a response header, no DB hit), so applied
+  // unconditionally whenever there's a valid session, regardless of which
+  // branch below produces the response.
+  const withRenewedSession = (response: NextResponse): NextResponse => {
+    if (role && rawCookie) {
+      response.cookies.set(SESSION_COOKIE_NAME, rawCookie, sessionCookieOptions());
+    }
+    return response;
+  };
 
   // Already signed in? Keep them out of the login/register pages.
   if (role && isLoginRoute(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = HOME_FOR_ROLE[role];
     url.search = "";
-    return NextResponse.redirect(url);
+    return withRenewedSession(NextResponse.redirect(url));
   }
 
-  if (isPublic(pathname)) return nextWithCsp(request);
+  if (isPublic(pathname)) return withRenewedSession(nextWithCsp(request));
 
   // Protected route, no valid session → bounce to the appropriate login.
   if (!role) {
@@ -124,10 +145,10 @@ export function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = HOME_FOR_ROLE[role];
     url.search = "";
-    return NextResponse.redirect(url);
+    return withRenewedSession(NextResponse.redirect(url));
   }
 
-  return nextWithCsp(request);
+  return withRenewedSession(nextWithCsp(request));
 }
 
 export const config = {

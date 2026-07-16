@@ -59,6 +59,25 @@ export function verifySessionCookie(
 
 export const SESSION_COOKIE_NAME = "nxtsft_session";
 
+// Single source of truth for session lifetime — shared by the cookie's
+// maxAge (browser) and Session.expiresAt (DB), which both get renewed on
+// activity (see the rolling-renewal comments in middleware.ts and
+// server.ts's createContextFromToken) so an active user's session survives
+// indefinitely; only this many days of total inactivity logs them out.
+export const SESSION_TTL_DAYS = 30;
+export const SESSION_COOKIE_MAX_AGE_SECONDS = SESSION_TTL_DAYS * 24 * 60 * 60;
+
+/** Cookie options shared by every Set-Cookie for the session cookie. */
+export function sessionCookieOptions(maxAge: number = SESSION_COOKIE_MAX_AGE_SECONDS) {
+  return {
+    httpOnly: true as const,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge,
+  };
+}
+
 /**
  * Session.token is stored as sha256(rawToken), never the raw value (GOL-268
  * L2) — a DB compromise or backup leak no longer hands out live, directly

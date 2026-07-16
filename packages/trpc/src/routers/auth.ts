@@ -12,7 +12,7 @@ import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import prisma from "@nxtsft/db";
-import { hashToken } from "@nxtsft/shared";
+import { hashToken, SESSION_TTL_DAYS } from "@nxtsft/shared";
 import { notify, notifyCredit, portalBase } from "../notify";
 import { uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 import { generateOtp, storeOtp, verifyOtp, isSignupOtpEnabled } from "../otp";
@@ -25,7 +25,6 @@ import {
   registerRateLimit,
 } from "../server";
 
-const SESSION_TTL_DAYS = 30;
 // Oldest sessions beyond this many per user are dropped on new login (GOL-268
 // L2) — bounds how many devices/browsers can hold a live session at once.
 const MAX_SESSIONS_PER_USER = 5;

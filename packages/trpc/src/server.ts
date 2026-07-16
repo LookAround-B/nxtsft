@@ -3,10 +3,22 @@ import { ZodError } from "zod";
 import prisma from "@nxtsft/db";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { verifySessionCookie, SESSION_COOKIE_NAME, hashToken, trustedClientIp } from "@nxtsft/shared";
+import {
+  verifySessionCookie,
+  SESSION_COOKIE_NAME,
+  SESSION_TTL_DAYS,
+  hashToken,
+  trustedClientIp,
+} from "@nxtsft/shared";
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"] as const;
 const ADMIN_ROLES = ["admin", "super-admin"] as const;
+
+const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
+// Renew once less than this much life remains, i.e. ~5 days since the last
+// renewal (or creation) — keeps an active session from ever hitting its
+// fixed TTL, while writing far less often than once per request.
+const SESSION_RENEWAL_THRESHOLD_MS = SESSION_TTL_MS - 5 * 24 * 60 * 60 * 1000;
 
 // Shared token → user resolution used by both Next.js and Fastify adapters.
 // `token` here is always the raw (unhashed) value — Session.token is stored
@@ -17,6 +29,22 @@ export async function createContextFromToken(token: string | null, ip: string | 
 
   const session = await prisma.session.findUnique({ where: { token: hashToken(token) } });
   if (!session || session.expiresAt <= new Date()) return { prisma, user: null, token: null, ip };
+
+  // Sliding expiry: an active session's DB-side TTL (the real authorization
+  // boundary, unlike the cookie which this convenience-gates) gets pushed
+  // out on use instead of counting down from a single login. Mirrors the
+  // cookie-side renewal in middleware.ts so the two never drift apart.
+  if (session.expiresAt.getTime() - Date.now() < SESSION_RENEWAL_THRESHOLD_MS) {
+    try {
+      await prisma.session.update({
+        where: { id: session.id },
+        data: { expiresAt: new Date(Date.now() + SESSION_TTL_MS) },
+      });
+    } catch {
+      // best-effort — a failed renewal just means the session expires on
+      // its original schedule, not a request-blocking failure
+    }
+  }
 
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
   return { prisma, user, token, ip };
