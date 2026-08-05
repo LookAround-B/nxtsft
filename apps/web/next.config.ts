@@ -88,6 +88,12 @@ const nextConfig: NextConfig = {
     // load at once. Skip the optimizer in dev so the browser fetches originals
     // directly; production (fast egress + CDN cache) keeps optimization on.
     unoptimized: process.env.NODE_ENV === "development",
+    // Route R2 photos through Cloudflare's /cdn-cgi/image resizer instead of
+    // Vercel's metered Image Optimization. See ./image-loader.ts. A custom
+    // loader is global and ignores remotePatterns; the loader passes non-R2
+    // sources (Unsplash, local assets) through untouched.
+    loader: "custom",
+    loaderFile: "./image-loader.ts",
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "*.r2.cloudflarecontent.com" },
