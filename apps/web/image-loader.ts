@@ -1,33 +1,20 @@
 import type { ImageLoaderProps } from "next/image";
 
-// Custom next/image loader that routes R2-hosted photos through Cloudflare's
-// on-the-fly image resizer (/cdn-cgi/image) instead of Vercel's Image
-// Optimization (which is metered — 5k transforms/mo on the free tier). R2 lives
-// on the same Cloudflare zone as cdn.nxtsft.com, so transforms are free up to
-// Cloudflare's own 5k/mo and never touch Vercel's meter.
+// Custom next/image loader that serves every image at its ORIGINAL URL, which
+// disables Vercel's Image Optimization (metered — 5k transforms/mo on the free
+// tier) entirely: with a custom loader configured, Next never routes images
+// through /_next/image, it uses whatever URL this returns.
 //
-// A custom loader is GLOBAL — Next calls it for every <Image>, and
-// images.remotePatterns is ignored. So anything that isn't an R2 image
-// (Unsplash dummy data, the fallback, local /public assets) is passed through
-// untouched rather than forced through Cloudflare, since Cloudflare would need
-// each third-party origin explicitly allow-listed to fetch it.
-const R2_HOST = process.env.NEXT_PUBLIC_R2_HOST || "";
-
-export default function cloudflareLoader({ src, width, quality }: ImageLoaderProps): string {
-  // Resolve host. Relative srcs (local /public assets) throw against a base
-  // and fall through to pass-through.
-  let url: URL;
-  try {
-    url = new URL(src, "https://local.invalid");
-  } catch {
-    return src;
-  }
-
-  // Only R2 (cdn.nxtsft.com) images get transformed; everything else as-is.
-  if (!R2_HOST || url.host !== R2_HOST) return src;
-
-  const params = `width=${width},quality=${quality || 70},format=auto`;
-  // Source path is relative to the same zone as the transform endpoint.
-  const path = url.pathname.replace(/^\/+/, "");
-  return `https://${R2_HOST}/cdn-cgi/image/${params}/${path}`;
+// We intentionally do NOT resize R2 photos through Cloudflare's /cdn-cgi/image
+// endpoint. Uploads are already downscaled to ~1024px q0.7 JPEG on the client
+// (see src/lib/image.ts) and Cloudflare R2 egress is free, so serving the
+// stored object directly is cheap and needs no on-the-fly transform. Routing
+// through /cdn-cgi/image on the cdn.nxtsft.com R2 custom domain returned
+// cf-resized err=9401 for every request, so the original is also the reliable
+// path. Unsplash dummy data and local /public assets pass through unchanged.
+//
+// (Git history keeps the Cloudflare-transform variant, if that resizer is ever
+// made to work on the R2 custom-domain hostname.)
+export default function passthroughLoader({ src }: ImageLoaderProps): string {
+  return src;
 }
