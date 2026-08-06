@@ -18,6 +18,14 @@ live only once its template is approved and its env var is set.
 > ⚠️ Variable **count + order must match** the table or the send fails.
 > Recipients must give their **WhatsApp number** (delivery is on WhatsApp).
 
+> ⚠️ **Sender ID (common "approved but not delivering" cause):** BhashSMS sends
+> Authentication (OTP) and Utility templates from *different* sender IDs. OTP uses
+> `BHASHSMS_SENDER` (`BhashSoftwareLab`); every Utility template (all rows below
+> except `signup_otp`) uses **`BHASHSMS_SENDER_UTILITY`**, which defaults to
+> `BUZWAP` (BhashSMS's WhatsApp sender). If an approved Utility template still
+> doesn't arrive, confirm your utility sender with BhashSMS and set
+> `BHASHSMS_SENDER_UTILITY` in Vercel — this does **not** affect OTP.
+
 ## Transactional templates (wired, auto-fire)
 
 | Env var | Suggested name | Category | Variables (in order) | Fires when → who |

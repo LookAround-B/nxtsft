@@ -89,11 +89,19 @@ export async function sendWhatsAppTemplate(opts: {
 }): Promise<BhashResult> {
   const user = process.env.BHASHSMS_USER;
   const pass = process.env.BHASHSMS_PASS;
-  // Sender for Authentication OTP templates is the account's registered Sender
-  // ID ("BhashSoftwareLab" for this account, per BhashSMS). Utility/normal WA
-  // templates instead use "BUZWAP" per their docs — set BHASHSMS_SENDER if/when
-  // those go live. Kept env-configurable so changing it needs no redeploy.
-  const sender = process.env.BHASHSMS_SENDER || "BhashSoftwareLab";
+  const stype = opts.stype ?? "normal";
+  // BhashSMS sends Authentication (OTP) and Utility/normal WhatsApp templates
+  // from DIFFERENT sender IDs, so one env var can't serve both:
+  //   - auth (OTP)       → the account's registered Sender ID ("BhashSoftwareLab")
+  //   - normal (utility) → the WhatsApp sender ("BUZWAP" per BhashSMS docs)
+  // Each is env-overridable (no redeploy to change): BHASHSMS_SENDER for auth,
+  // BHASHSMS_SENDER_UTILITY for utility. The auth default is unchanged so the
+  // live OTP send is untouched; utility now defaults to BUZWAP instead of
+  // wrongly inheriting the OTP sender.
+  const sender =
+    stype === "auth"
+      ? process.env.BHASHSMS_SENDER || "BhashSoftwareLab"
+      : process.env.BHASHSMS_SENDER_UTILITY || "BUZWAP";
   if (!user || !pass) {
     console.log(`[bhashsms] not configured — skipped template "${opts.template}" to ${opts.to}`);
     return { sent: false, reason: "not configured" };
@@ -105,7 +113,7 @@ export async function sendWhatsAppTemplate(opts: {
     sender,
     text: opts.template,
     priority: "wa", // WhatsApp
-    stype: opts.stype ?? "normal",
+    stype,
     phone: toWhatsAppNumber(opts.to),
   });
   if (opts.params && opts.params.length > 0) {
