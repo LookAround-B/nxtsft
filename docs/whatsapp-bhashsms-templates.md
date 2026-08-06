@@ -30,6 +30,7 @@ live only once its template is approved and its env var is set.
 | `BHASHSMS_TEMPLATE_VISIT_CONFIRMED` | `visit_confirmed` | Utility | `{{1}}` visitor name, `{{2}}` property title, `{{3}}` date & time | site visit scheduled → visitor |
 | `BHASHSMS_TEMPLATE_LISTING_LIVE` | `listing_live` | Utility | `{{1}}` seller name, `{{2}}` property title | listing approved → seller |
 | `BHASHSMS_TEMPLATE_PAYMENT_RECEIPT` | `payment_receipt` | Utility | `{{1}}` plan name, `{{2}}` credits, `{{3}}` amount (₹) | credits payment success → buyer |
+| `BHASHSMS_TEMPLATE_ADMIN_NEW_USER` | `admin_new_user` | Utility | `{{1}}` name, `{{2}}` phone, `{{3}}` city, `{{4}}` role | any new signup → **business owner** (see `ADMIN_ALERT_WHATSAPP` below) |
 
 ### Suggested body wording (match the variable order above)
 - **seller_welcome** — `Hi {{1}}, your NxtSft.com account is approved. You can now log in and list your property.` (kept promo-free so it stays **Utility** — a promotional tail risks a Marketing reclassification)
@@ -39,6 +40,13 @@ live only once its template is approved and its env var is set.
 - **visit_confirmed** — `Hi {{1}}, your site visit for "{{2}}" is confirmed for {{3}}. See you there! — NxtSft.com`
 - **listing_live** — `Hi {{1}}, your listing "{{2}}" is now LIVE on NxtSft.com and visible to buyers. 🎉`
 - **payment_receipt** — `Payment received! {{1}} — {{2}} credits added to your NxtSft.com wallet. Amount: ₹{{3}}. Thank you!`
+- **admin_new_user** — `New signup on NxtSft.com: {{1}} ({{2}}), {{3}} — registered as {{4}}.`
+
+> ⚠️ **`admin_new_user` is the one template sent to a fixed owner number, not a
+> per-event customer.** It needs **both** env vars: `BHASHSMS_TEMPLATE_ADMIN_NEW_USER`
+> (the approved template name) **and** `ADMIN_ALERT_WHATSAPP` (the owner's 10-digit
+> WhatsApp number, no country code). If either is blank it stays a silent no-op —
+> which is why the alert wasn't arriving before this was wired.
 
 ## Wired code locations
 - helper: `sendTemplateIfConfigured(envKey, to, params)` in `packages/trpc/src/bhashsms.ts`
@@ -46,6 +54,7 @@ live only once its template is approved and its env var is set.
 - `new_lead_alert`, `enquiry_ack`, `visit_confirmed` → `routers/leads.ts` (create, scheduleVisit)
 - `contact_unlocked` → `routers/properties.ts` (unlockContact)
 - `payment_receipt` → `routers/subscriptions.ts` (verifyPayment)
+- `admin_new_user` → `routers/auth.ts` (register, registerSeller, completePhone — both Google branches) via `notifyAdminNewUser()`; sent to the owner number in `ADMIN_ALERT_WHATSAPP` on every completed signup
 
 ## Not yet wired (need more than an event hook)
 - **visit_reminder** (day-before) — needs a scheduled cron, not an event. Separate task.

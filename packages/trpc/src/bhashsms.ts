@@ -41,6 +41,31 @@ export async function sendTemplateIfConfigured(
 }
 
 /**
+ * Alert the business owner on WhatsApp when a new user registers. Sends to the
+ * single owner number in ADMIN_ALERT_WHATSAPP using the approved template named
+ * in BHASHSMS_TEMPLATE_ADMIN_NEW_USER, with params [name, phone, city, role] in
+ * that order (so the approved template's {{1}}..{{4}} map to those). No-ops —
+ * like every transactional send — until BhashSMS is configured AND both env vars
+ * are set, so it's safe to call from every signup path today and starts
+ * delivering the moment the template name + owner number land in Vercel env.
+ */
+export async function notifyAdminNewUser(u: {
+  name: string;
+  phone?: string | null;
+  city?: string | null;
+  role: string;
+}): Promise<void> {
+  const roleLabel =
+    u.role === "home-seller" ? "Home Seller" : u.role === "agent" ? "Agent / Partner" : "Home Buyer";
+  await sendTemplateIfConfigured("BHASHSMS_TEMPLATE_ADMIN_NEW_USER", process.env.ADMIN_ALERT_WHATSAPP, [
+    u.name,
+    u.phone ?? "—",
+    u.city ?? "—",
+    roleLabel,
+  ]);
+}
+
+/**
  * BhashSMS's WhatsApp API wants the plain 10-digit number WITHOUT the 91
  * country code — the note under every example in their WA API docs says so.
  * Strip a leading country code if the caller passed a full number.
