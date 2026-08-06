@@ -2,6 +2,14 @@ packages:
   - "apps/*"
   - "packages/*"
 
+allowBuilds:
+  '@prisma/engines': set this to true or false
+  core-js: set this to true or false
+  esbuild: set this to true or false
+  prisma: set this to true or false
+  sharp: set this to true or false
+  unrs-resolver: set this to true or false
+
 # Pin hono below 4.12.26 — Prisma 7's @prisma/dev (dev-only) pulls the latest
 # hono, which Vercel's supply-chain policy (minimumReleaseAge) rejects as too
 # new and fails install. pnpm 10+ (Vercel) reads overrides from HERE; pnpm 9

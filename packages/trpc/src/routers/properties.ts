@@ -29,7 +29,12 @@ import { hasSellerBadges } from "../badges";
 import { sweepExpiredBoosts } from "../boostSweep";
 import { notify, notifyCredit } from "../notify";
 import { sendTemplateIfConfigured } from "../bhashsms";
+import { findOrCreateCustomerAccount } from "../customerAccount";
 import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server";
+
+// Staff roles allowed to list a property on a customer's behalf (see the
+// `onBehalfOfLeadId` branch in `create`).
+const REP_LISTING_ROLES = ["sales", "admin", "super-admin"];
 
 // Serialize BigInt price fields to number for JSON transport
 function serializeProperty<T extends object>(obj: T): T {
@@ -467,13 +472,56 @@ export const propertiesRouter = router({
         pgFood: safeString(30).optional(),
         virtualTourUrl: safeString(500).optional(),
         walkthroughVideoUrl: safeString(500).optional(),
+        // Rep-assisted listing: the property is created for this lead's
+        // customer, not for the signed-in rep. Staff-only (see below).
+        onBehalfOfLeadId: cuidSchema.optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, ...rest } =
+      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, onBehalfOfLeadId, ...rest } =
         input;
 
       assertReraValid(city, input.rera, input.reraLabel);
+
+      // ── Owner resolution ──────────────────────────────────────────────────
+      // Normally the lister owns what they list. A sales rep listing off a call
+      // instead owns nothing: the property is created under the customer's own
+      // (pre-approved) seller account so it never has to be transferred later,
+      // and the lead is linked so the payment webhook knows what to publish.
+      let ownerId = ctx.user.id;
+      let onBehalfOf: { leadId: string; customerId: string; customerName: string } | null = null;
+
+      if (onBehalfOfLeadId) {
+        if (!REP_LISTING_ROLES.includes(ctx.user.role)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only sales staff can list on a customer's behalf." });
+        }
+        const lead = await prisma.lead.findUnique({
+          where: { id: onBehalfOfLeadId },
+          select: { id: true, name: true, phone: true, email: true, city: true, assignedToId: true, propertyId: true },
+        });
+        if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
+        if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "This lead isn't assigned to you." });
+        }
+        if (lead.propertyId) {
+          // Overwriting the link would orphan the first listing from the payment
+          // that publishes it. A second property needs its own lead.
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This lead already has a property. Raise a new lead for another listing.",
+          });
+        }
+
+        const customer = await findOrCreateCustomerAccount({
+          phone: lead.phone,
+          name: lead.name,
+          email: lead.email,
+          city: lead.city ?? city,
+          createdById: ctx.user.id,
+        });
+        ownerId = customer.id;
+        onBehalfOf = { leadId: lead.id, customerId: customer.id, customerName: customer.name };
+      }
 
       const slug = generateSlug(input.title, city);
 
@@ -486,7 +534,7 @@ export const propertiesRouter = router({
           pricePerSqft: Math.round(price / area),
           area,
           ...(pgDeposit !== undefined && { pgDeposit: BigInt(pgDeposit) }),
-          ownerId: ctx.user.id,
+          ownerId,
           location: {
             create: { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces },
           },
@@ -494,13 +542,46 @@ export const propertiesRouter = router({
         include: propertyInclude,
       });
 
-      await notify({
-        userId: ctx.user.id,
-        type: "listing_submitted",
-        title: "Listing submitted",
-        content: `"${property.title}" is pending admin approval.`,
-        actionUrl: "/user-portal#mylist",
-      });
+      if (onBehalfOf) {
+        // One lead points at one property — a rep listing a second property for
+        // the same customer should raise a second lead. The link is what the
+        // Razorpay webhook follows to publish on payment.
+        await prisma.lead.update({
+          where: { id: onBehalfOf.leadId },
+          data: { propertyId: property.id },
+        });
+        await prisma.salesActivity.create({
+          data: {
+            salesRepId: ctx.user.id,
+            type: "listing",
+            leadId: onBehalfOf.leadId,
+            action: `Listed "${property.title}" for ${onBehalfOf.customerName}`,
+            outcome: "Draft created — goes live on payment",
+          },
+        });
+        await notify({
+          userId: onBehalfOf.customerId,
+          type: "listing_submitted",
+          title: "Your listing is ready",
+          content: `"${property.title}" was added to your account. It goes live once payment is complete.`,
+          actionUrl: "/user-portal#mylist",
+        });
+        await notify({
+          userId: ctx.user.id,
+          type: "listing_submitted",
+          title: "Listing saved for customer",
+          content: `"${property.title}" is on ${onBehalfOf.customerName}'s account. Send the payment link to publish it.`,
+          actionUrl: "/sales-portal",
+        });
+      } else {
+        await notify({
+          userId: ctx.user.id,
+          type: "listing_submitted",
+          title: "Listing submitted",
+          content: `"${property.title}" is pending admin approval.`,
+          actionUrl: "/user-portal#mylist",
+        });
+      }
 
       return serializeProperty(property);
     }),
@@ -695,7 +776,15 @@ export const propertiesRouter = router({
 
       const isOwner = property.ownerId === ctx.user.id;
       const isAdmin = ["admin", "super-admin"].includes(ctx.user.role);
-      if (!isOwner && !isAdmin) throw new TRPCError({ code: "FORBIDDEN" });
+      // A rep who listed on a customer's behalf still has to fix details the
+      // customer corrects on a follow-up call, so allow edits while the lead is
+      // assigned to them. Ownership stays with the customer either way.
+      const isAssignedRep =
+        !isOwner &&
+        !isAdmin &&
+        ctx.user.role === "sales" &&
+        (await prisma.lead.count({ where: { propertyId: id, assignedToId: ctx.user.id } })) > 0;
+      if (!isOwner && !isAdmin && !isAssignedRep) throw new TRPCError({ code: "FORBIDDEN" });
 
       // A pending listing can only change status via admin approval — owners
       // must not self-approve their way out of review.

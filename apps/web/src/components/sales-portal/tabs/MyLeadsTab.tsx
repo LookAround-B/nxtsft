@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Phone, Calendar, Download, MessageSquare } from "lucide-react";
+import { Phone, Calendar, Download, MessageSquare, Building2 } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
@@ -73,6 +73,11 @@ export function MyLeadsTab() {
       setPlanDraft("");
       setAmountDraft("");
     },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const sendReminder = trpc.leads.sendPaymentReminder.useMutation({
+    onSuccess: () => toast.success("Payment reminder sent on WhatsApp"),
     onError: (e) => toast.error(e.message),
   });
 
@@ -227,6 +232,14 @@ export function MyLeadsTab() {
                   >
                     Log Call
                   </button>
+                  {!l.propertyId && l.paymentStatus !== "Paid" && (
+                    <a
+                      href="/list"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-accent px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/5"
+                    >
+                      <Building2 size={12} /> List their property
+                    </a>
+                  )}
                   {l.paymentStatus !== "Paid" && (
                     <button
                       onClick={() => toggle(l.id, "payment")}
@@ -241,11 +254,15 @@ export function MyLeadsTab() {
               {/* Payment pipeline state */}
               {l.paymentStatus === "Paid" ? (
                 <div className="mt-2 text-[11px] font-semibold text-emerald-600">
-                  ✓ Paid{l.plan ? ` — ${l.plan}` : ""}{l.amount ? ` (₹${l.amount.toLocaleString("en-IN")})` : ""} · listing live
+                  ✓ Paid{l.plan ? ` — ${l.plan}` : ""}{l.amount ? ` (₹${l.amount.toLocaleString("en-IN")})` : ""}
+                  {l.property ? ` · "${l.property.title}" ${l.property.status === "Active" ? "is live" : `is ${l.property.status.toLowerCase()}`}` : " · no listing linked"}
+                  {l.expiryDate ? ` · valid till ${new Date(l.expiryDate).toLocaleDateString("en-IN")}` : ""}
                 </div>
               ) : l.paymentLink ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                  <span className="font-semibold text-amber-600">Payment pending</span>
+                  <span className={`font-semibold ${l.paymentStatus === "Failed" ? "text-red-600" : "text-amber-600"}`}>
+                    {l.paymentStatus === "Failed" ? "Payment failed" : "Payment pending"}
+                  </span>
                   <a href={l.paymentLink} target="_blank" rel="noopener noreferrer" className="text-accent underline">
                     {l.paymentLink}
                   </a>
@@ -257,8 +274,26 @@ export function MyLeadsTab() {
                   >
                     Copy
                   </button>
+                  <button
+                    onClick={() => sendReminder.mutate({ leadId: l.id })}
+                    disabled={sendReminder.isPending}
+                    className="rounded border border-border px-2 py-0.5 font-semibold hover:bg-muted disabled:opacity-40"
+                  >
+                    Send reminder
+                  </button>
                 </div>
               ) : null}
+
+              {/* Which property this lead is selling — set when a rep lists for them. */}
+              {l.property && l.paymentStatus !== "Paid" && (
+                <div className="mt-2 text-[11px] text-muted-foreground">
+                  Draft listing:{" "}
+                  <a href={`/properties/${l.property.slug}`} className="font-semibold text-navy hover:underline">
+                    {l.property.title}
+                  </a>{" "}
+                  — publishes on payment.
+                </div>
+              )}
 
               {openAction?.id === l.id && openAction.kind === "note" && (
                 <div className="mt-3 flex items-center gap-2">

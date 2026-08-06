@@ -157,9 +157,23 @@ const PROJECT_TYPE_TO_FORM: Record<string, string> = {
 
 type PickedProject = { id: string; name: string; builderName: string };
 
+// Staff who may list a property for a customer they're on a call with. The
+// listing is created on the CUSTOMER's account (see onBehalfOfLeadId in
+// properties.create) — the rep never owns it.
+const REP_LISTING_ROLES = ["sales", "admin", "super-admin"];
+
 export default function ListPropertyPage() {
   const { session } = useAuth();
+  const isRep = REP_LISTING_ROLES.includes(session?.role ?? "");
   const createProperty = trpc.properties.create.useMutation();
+  // Rep flow: which assigned lead this listing belongs to. Leads that already
+  // have a property are excluded — a second property means a second lead.
+  const [leadId, setLeadId] = useState("");
+  const repLeadsQ = trpc.leads.list.useQuery({ limit: 50 }, { enabled: isRep });
+  const repLeads = (repLeadsQ.data?.items ?? []).filter(
+    (l) => !l.propertyId && l.paymentStatus !== "Paid",
+  );
+  const selectedLead = repLeads.find((l) => l.id === leadId) ?? null;
   const { upload } = usePresignUploader();
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -242,14 +256,16 @@ export default function ListPropertyPage() {
   };
 
   useEffect(() => {
-    if (session) {
+    // A rep's contact block belongs to the customer (filled from the picked
+    // lead), so never seed it with the rep's own identity.
+    if (session && !isRep) {
       setData((d) => ({
         ...d,
         listerName: d.listerName || session.name,
         listerEmail: d.listerEmail || session.email,
       }));
     }
-  }, [session]);
+  }, [session, isRep]);
 
   useEffect(() => {
     if (data.bhk && data.propertyType && data.city && !data.title) {
@@ -325,6 +341,11 @@ export default function ListPropertyPage() {
       setErrors(errs);
       return;
     }
+    // A rep's listing has to land on a customer's account, never their own.
+    if (isRep && !leadId) {
+      toast.error("Pick the lead this property belongs to before continuing.");
+      return;
+    }
     setErrors({});
     if (step < 4) {
       // Push a history entry so device/browser Back returns to this step.
@@ -390,6 +411,7 @@ export default function ListPropertyPage() {
     if (session && dbType) {
       try {
         await createProperty.mutateAsync({
+          ...(isRep ? { onBehalfOfLeadId: leadId } : {}),
           title,
           type: dbType,
           purpose: data.purpose,
@@ -432,12 +454,29 @@ export default function ListPropertyPage() {
             <CheckCircle2 size={40} className="text-emerald-500" strokeWidth={1.5} />
           </div>
           <div className="font-display text-3xl font-black text-navy sm:text-4xl">
-            Property Submitted!
+            {isRep ? "Saved to the customer's account" : "Property Submitted!"}
           </div>
           <p className="mt-3 text-muted-foreground">
-            Your listing is under review. Our team verifies details and publishes within
-            24&nbsp;hours.
+            {isRep ? (
+              <>
+                The listing now sits on {selectedLead?.name ?? "the customer"}&apos;s account. Send them the
+                payment link from the sales portal — it goes live automatically once they pay.
+              </>
+            ) : (
+              <>
+                Your listing is under review. Our team verifies details and publishes within
+                24&nbsp;hours.
+              </>
+            )}
           </p>
+          {isRep && (
+            <Link
+              href="/sales-portal"
+              className="mt-5 inline-block rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white transition hover:opacity-90"
+            >
+              Back to sales portal
+            </Link>
+          )}
 
           <div className="mx-auto mt-6 inline-block rounded-xl border border-border bg-secondary/60 px-6 py-3">
             <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -561,7 +600,7 @@ export default function ListPropertyPage() {
     );
   }
 
-  if (session.role !== "home-seller") {
+  if (session.role !== "home-seller" && !isRep) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-5">
         <div className="mx-auto max-w-md rounded-3xl border border-border bg-white p-10 text-center shadow-sm">
@@ -582,6 +621,56 @@ export default function ListPropertyPage() {
   // ── Wizard ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
+      {/* Rep-assisted listing: pick whose property this is. Everything below is
+          then saved to that customer's account, not the rep's. */}
+      {isRep && (
+        <div className="border-b border-amber-200 bg-amber-50">
+          <div className="mx-auto max-w-2xl px-4 py-4 sm:px-6">
+            <label className="block text-xs font-bold uppercase tracking-widest text-amber-800">
+              Listing on behalf of
+            </label>
+            <select
+              value={leadId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setLeadId(id);
+                const lead = repLeads.find((l) => l.id === id);
+                if (lead) {
+                  set("listerName", lead.name);
+                  set("listerPhone", lead.phone);
+                  if (lead.email) set("listerEmail", lead.email);
+                  if (lead.city) set("city", lead.city);
+                }
+              }}
+              className="mt-2 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-navy focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              <option value="">Select a lead…</option>
+              {repLeads.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name} · {l.phone}
+                  {l.city ? ` · ${l.city}` : ""}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-amber-800">
+              {selectedLead ? (
+                <>
+                  This listing will be created on <strong>{selectedLead.name}</strong>&apos;s own account
+                  (created automatically if they don&apos;t have one) and goes live once they pay the link
+                  you send from the sales portal.
+                </>
+              ) : repLeadsQ.isLoading ? (
+                "Loading your leads…"
+              ) : repLeads.length === 0 ? (
+                "No leads are waiting for a listing. Leads that already have a property, or that have paid, aren't shown."
+              ) : (
+                "Pick the customer whose property you're listing — required before you can continue."
+              )}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Step progress bar */}
       <div className="border-b border-border bg-white">
         <div className="mx-auto max-w-2xl px-4 py-5 sm:px-6">

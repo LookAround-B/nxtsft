@@ -216,7 +216,7 @@ export const furnishingSchema = z.enum(["Furnished", "Semi-Furnished", "Unfurnis
 /** Lead status enum — pipeline stages added by the payment-link flow (LA-342) */
 export const leadStatusSchema = z.enum([
   "Hot", "Warm", "Cold", "New", "Converted", "Lost",
-  "Payment Pending", "Paid", "Listed", "Expired",
+  "Payment Pending", "Paid", "Listed", "Expiring Soon", "Expired",
 ]);
 
 /** Lead source enum */

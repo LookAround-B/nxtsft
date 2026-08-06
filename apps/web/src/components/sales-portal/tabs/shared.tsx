@@ -34,7 +34,8 @@ export type DbLead = {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
-  property: { id: string; title: string; slug: string } | null;
+  propertyId: string | null;
+  property: { id: string; title: string; slug: string; status: string } | null;
   // LA-342 payment-link pipeline fields
   plan?: string | null;
   amount?: number | null;
@@ -42,6 +43,8 @@ export type DbLead = {
   paymentLink?: string | null;
   lastCallAt?: string | null;
   lastCallRemark?: string | null;
+  /** Listing validity end, stamped when the payment webhook lands. */
+  expiryDate?: string | null;
 };
 
 /** Extract the most recent note line from the appended notes string. */

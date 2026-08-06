@@ -30,6 +30,9 @@ live only once its template is approved and its env var is set.
 | `BHASHSMS_TEMPLATE_VISIT_CONFIRMED` | `visit_confirmed` | Utility | `{{1}}` visitor name, `{{2}}` property title, `{{3}}` date & time | site visit scheduled → visitor |
 | `BHASHSMS_TEMPLATE_LISTING_LIVE` | `listing_live` | Utility | `{{1}}` seller name, `{{2}}` property title | listing approved → seller |
 | `BHASHSMS_TEMPLATE_PAYMENT_RECEIPT` | `payment_receipt` | Utility | `{{1}}` plan name, `{{2}}` credits, `{{3}}` amount (₹) | credits payment success → buyer |
+| `BHASHSMS_TEMPLATE_PAYMENT_REMINDER` | `payment_reminder` | Utility | `{{1}}` customer name, `{{2}}` plan, `{{3}}` amount (₹), `{{4}}` payment link | rep hits "Send reminder" → customer |
+| `BHASHSMS_TEMPLATE_LISTING_EXPIRING` | `listing_expiring` | Utility | `{{1}}` seller name, `{{2}}` property title, `{{3}}` days left | validity sweep, 3 days out → seller |
+| `BHASHSMS_TEMPLATE_LISTING_EXPIRED` | `listing_expired` | Utility | `{{1}}` seller name, `{{2}}` property title | validity sweep, on expiry → seller |
 
 ### Suggested body wording (match the variable order above)
 - **seller_welcome** — `Hi {{1}}, your NxtSft.com account is approved. You can now log in and list your property.` (kept promo-free so it stays **Utility** — a promotional tail risks a Marketing reclassification)
@@ -39,6 +42,9 @@ live only once its template is approved and its env var is set.
 - **visit_confirmed** — `Hi {{1}}, your site visit for "{{2}}" is confirmed for {{3}}. See you there! — NxtSft.com`
 - **listing_live** — `Hi {{1}}, your listing "{{2}}" is now LIVE on NxtSft.com and visible to buyers. 🎉`
 - **payment_receipt** — `Payment received! {{1}} — {{2}} credits added to your NxtSft.com wallet. Amount: ₹{{3}}. Thank you!`
+- **payment_reminder** — `Hi {{1}}, your NxtSft.com listing ({{2}}, {{3}}) is waiting on payment. Complete it here: {{4}}`
+- **listing_expiring** — `Hi {{1}}, your NxtSft.com listing "{{2}}" expires in {{3}} day(s). Renew to keep receiving enquiries.`
+- **listing_expired** — `Hi {{1}}, your NxtSft.com listing "{{2}}" has expired and is no longer visible to buyers. Renew any time to go live again.`
 
 ## Wired code locations
 - helper: `sendTemplateIfConfigured(envKey, to, params)` in `packages/trpc/src/bhashsms.ts`
@@ -46,6 +52,9 @@ live only once its template is approved and its env var is set.
 - `new_lead_alert`, `enquiry_ack`, `visit_confirmed` → `routers/leads.ts` (create, scheduleVisit)
 - `contact_unlocked` → `routers/properties.ts` (unlockContact)
 - `payment_receipt` → `routers/subscriptions.ts` (verifyPayment)
+- `payment_reminder` → `routers/leads.ts` (sendPaymentReminder)
+- `listing_expiring`, `listing_expired` → `listingExpiry.ts` (sweepListingValidity, run by `/api/cron/listing-expiry`)
+- `seller_welcome` also fires for rep-created customer accounts → `customerAccount.ts`
 
 ## Not yet wired (need more than an event hook)
 - **visit_reminder** (day-before) — needs a scheduled cron, not an event. Separate task.

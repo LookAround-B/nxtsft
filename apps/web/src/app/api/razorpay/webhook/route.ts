@@ -5,16 +5,25 @@ import { recordPaymentCommission } from "@nxtsft/trpc/salesCommission";
 
 // Razorpay webhook (LA-342) — completion signal for sales payment links.
 //
-// Configure in the Razorpay dashboard: event `payment_link.paid`, secret in
+// Configure in the Razorpay dashboard: events `payment_link.paid`,
+// `payment_link.cancelled`, `payment_link.expired`, `payment.failed`; secret in
 // RAZORPAY_WEBHOOK_SECRET. On payment: lead → Paid → auto-Listed for 10 days
-// (per the CRM V3 brief), then the flat ₹500 commission rule runs
-// (first payment from that customer AND amount >= ₹4,999).
+// (per the CRM V3 brief), the customer's rep-created listing is published, then
+// the flat ₹500 commission rule runs (first payment from that customer AND
+// amount >= ₹4,999). Failed/cancelled/expired links mark the lead Failed and
+// tell the rep to follow up.
 //
 // Idempotent under Razorpay's webhook retries: a lead already marked Paid is
 // acknowledged without re-processing, and recordPaymentCommission refuses a
 // second commission for the same lead.
 
 const LISTED_VALIDITY_DAYS = 10;
+
+const FAILURE_EVENTS: Record<string, string> = {
+  "payment_link.cancelled": "cancelled",
+  "payment_link.expired": "expired",
+  "payment.failed": "failed",
+};
 
 function verifySignature(body: string, signature: string): boolean {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -25,6 +34,8 @@ function verifySignature(body: string, signature: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+type Notes = { lead_id?: string; salesrep_id?: string; plan?: string };
+
 type PaymentLinkPaidPayload = {
   event?: string;
   payload?: {
@@ -32,10 +43,12 @@ type PaymentLinkPaidPayload = {
       entity?: {
         id?: string;
         amount?: number; // paise
-        notes?: { lead_id?: string; salesrep_id?: string; plan?: string };
+        notes?: Notes;
       };
     };
-    payment?: { entity?: { id?: string } };
+    // payment.failed carries no payment_link block; Razorpay copies the link's
+    // notes onto the payment, so read the lead id from whichever is present.
+    payment?: { entity?: { id?: string; notes?: Notes; error_description?: string } };
   };
 };
 
@@ -54,15 +67,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Malformed body" }, { status: 400 });
   }
 
-  // Only payment_link.paid drives the CRM pipeline; acknowledge the rest so
-  // Razorpay stops retrying them.
-  if (event.event !== "payment_link.paid") {
+  const entity = event.payload?.payment_link?.entity;
+  const notes = entity?.notes ?? event.payload?.payment?.entity?.notes;
+
+  // Only the paid + failure events drive the CRM pipeline; acknowledge the rest
+  // so Razorpay stops retrying them.
+  const failureKind = FAILURE_EVENTS[event.event ?? ""];
+  if (event.event !== "payment_link.paid" && !failureKind) {
     return NextResponse.json({ ok: true, ignored: event.event ?? "unknown" });
   }
 
-  const entity = event.payload?.payment_link?.entity;
-  const leadId = entity?.notes?.lead_id;
-  const salesRepId = entity?.notes?.salesrep_id;
+  if (failureKind) {
+    return handleFailure(failureKind, notes, event.payload?.payment?.entity?.error_description);
+  }
+
+  const leadId = notes?.lead_id;
+  const salesRepId = notes?.salesrep_id;
   const paymentId = event.payload?.payment?.entity?.id ?? entity?.id ?? "unknown";
   const amountRupees = Math.round((entity?.amount ?? 0) / 100);
 
@@ -91,6 +111,35 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Publish the listing the rep created for this customer. It already belongs
+  // to the customer's account (properties.create → onBehalfOfLeadId), so paying
+  // only has to flip it live and stamp the same validity window as the lead.
+  let published: { id: string; title: string; slug: string; ownerId: string } | null = null;
+  if (lead.propertyId) {
+    const property = await prisma.property.findFirst({
+      where: { id: lead.propertyId, deletedAt: null },
+      select: { id: true, title: true, slug: true, ownerId: true, status: true },
+    });
+    if (property && property.status !== "Active") {
+      await prisma.property.update({ where: { id: property.id }, data: { status: "Active" } });
+      published = property;
+    } else if (property) {
+      published = property;
+    }
+  }
+
+  if (published) {
+    await prisma.notification.create({
+      data: {
+        userId: published.ownerId,
+        type: "listing_approved",
+        title: "Your listing is live",
+        content: `"${published.title}" is now live on NxtSft for ${LISTED_VALIDITY_DAYS} days.`,
+        actionUrl: `/properties/${published.slug}`,
+      },
+    });
+  }
+
   let commission: { qualified: boolean; reason: string } = { qualified: false, reason: "no sales rep" };
   if (salesRepId) {
     commission = await recordPaymentCommission({
@@ -118,10 +167,58 @@ export async function POST(req: NextRequest) {
       userId,
       type: "payment_success",
       title: "Lead payment received",
-      content: `${lead.name} paid ${amountLabel}${lead.plan ? ` for ${lead.plan}` : ""}. Lead is now Listed for ${LISTED_VALIDITY_DAYS} days.`,
+      content:
+        `${lead.name} paid ${amountLabel}${lead.plan ? ` for ${lead.plan}` : ""}. ` +
+        `Lead is now Listed for ${LISTED_VALIDITY_DAYS} days` +
+        (published ? ` — "${published.title}" is live.` : ". No listing is linked to this lead yet."),
       actionUrl: "/sales-portal",
     })),
   });
 
-  return NextResponse.json({ ok: true, commission });
+  return NextResponse.json({ ok: true, commission, published: published?.id ?? null });
+}
+
+/**
+ * Cancelled / expired links and failed payments: mark the lead Failed and alert
+ * the rep + supervisor so they can call the customer back. The listing stays
+ * Pending (unpublished) on the customer's account — re-sending a link and
+ * paying publishes it.
+ */
+async function handleFailure(
+  kind: string,
+  notes: Notes | undefined,
+  errorDescription: string | undefined,
+): Promise<NextResponse> {
+  const leadId = notes?.lead_id;
+  if (!leadId) return NextResponse.json({ ok: true, ignored: "no lead_id in notes" });
+
+  const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+  if (!lead) return NextResponse.json({ ok: true, ignored: "lead not found" });
+  // A later failure event on an already-paid lead (e.g. a retried card that
+  // failed before the successful one) must never undo the sale.
+  if (lead.paymentStatus === "Paid") return NextResponse.json({ ok: true, ignored: "already paid" });
+  if (lead.paymentStatus === "Failed") return NextResponse.json({ ok: true, ignored: "already failed" });
+
+  await prisma.lead.update({
+    where: { id: leadId },
+    data: { paymentStatus: "Failed", status: "Payment Pending" },
+  });
+
+  const recipients = new Set<string>();
+  if (lead.assignedToId) recipients.add(lead.assignedToId);
+  if (lead.supervisorId) recipients.add(lead.supervisorId);
+  if (recipients.size === 0) return NextResponse.json({ ok: true, kind, notified: 0 });
+
+  const reason = errorDescription ? ` (${errorDescription})` : "";
+  await prisma.notification.createMany({
+    data: [...recipients].map((userId) => ({
+      userId,
+      type: "payment_failed",
+      title: `Payment ${kind}`,
+      content: `${lead.name}'s payment ${kind}${reason}. Send a fresh link or call them back.`,
+      actionUrl: "/sales-portal",
+    })),
+  });
+
+  return NextResponse.json({ ok: true, kind, notified: recipients.size });
 }

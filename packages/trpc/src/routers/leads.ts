@@ -20,6 +20,9 @@ import {
   datetimeSchema,
 } from "../sanitize";
 
+/** Minimum gap between payment reminders for one lead (any staff member). */
+const REMINDER_COOLDOWN_HOURS = 6;
+
 export const leadsRouter = router({
   // Buyer submits an inquiry from a property detail page. propertyId is
   // omitted for general leads with no specific listing yet (e.g. a
@@ -108,7 +111,8 @@ export const leadsRouter = router({
       const items = await prisma.lead.findMany({
         where,
         include: {
-          property: { select: { id: true, title: true, slug: true } },
+          // `status` drives the sales portal's Listings tab (draft vs live).
+          property: { select: { id: true, title: true, slug: true, status: true } },
           user: { select: { id: true, name: true, email: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -580,6 +584,58 @@ export const leadsRouter = router({
           status: "Payment Pending",
         },
       });
+    }),
+
+  // Nudge a customer who has a link but hasn't paid. WhatsApp only (the number
+  // we have is a mobile); no-ops silently until the template env var is set, so
+  // the rep still gets the activity logged either way.
+  sendPaymentReminder: staffProcedure
+    .input(z.object({ leadId: cuidSchema }))
+    .mutation(async ({ input, ctx }) => {
+      const lead = await prisma.lead.findUnique({ where: { id: input.leadId } });
+      if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
+      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (lead.paymentStatus === "Paid") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This lead has already paid." });
+      }
+      if (!lead.paymentLink) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Create a payment link first." });
+      }
+
+      // Anti-spam: one reminder per lead per 6 hours, across all staff. The
+      // SalesActivity log doubles as the rate-limit record — no extra column.
+      const since = new Date(Date.now() - REMINDER_COOLDOWN_HOURS * 60 * 60 * 1000);
+      const recent = await prisma.salesActivity.findFirst({
+        where: { leadId: lead.id, type: "payment_reminder", createdAt: { gte: since } },
+        select: { createdAt: true },
+      });
+      if (recent) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `A reminder was already sent ${Math.round((Date.now() - recent.createdAt.getTime()) / 60000)} min ago. Try again later.`,
+        });
+      }
+
+      await sendTemplateIfConfigured("BHASHSMS_TEMPLATE_PAYMENT_REMINDER", lead.phone, [
+        lead.name,
+        lead.plan ?? "your NxtSft listing",
+        lead.amount ? `₹${lead.amount.toLocaleString("en-IN")}` : "",
+        lead.paymentLink,
+      ]);
+
+      await prisma.salesActivity.create({
+        data: {
+          salesRepId: ctx.user.id,
+          type: "payment_reminder",
+          leadId: lead.id,
+          action: `Payment reminder sent to ${lead.name}`,
+          outcome: lead.plan ? `${lead.plan} — ${lead.paymentLink}` : lead.paymentLink,
+        },
+      });
+
+      return { ok: true as const, phone: lead.phone };
     }),
 
   // Role-scoped flat rows for the CSV export button (client renders the file
