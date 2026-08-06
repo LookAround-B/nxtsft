@@ -303,10 +303,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (hadCachedSession || hasAuthMarkerCookie()) {
       makeTRPC()
         .auth.me.query()
-        .then((freshUser) => {
+        .then(async (freshUser) => {
           if (!freshUser) {
-            // No valid session server-side — clear the stale local cache and
-            // the marker, so we don't re-query on every page load.
+            // No valid session server-side. Critically, the session COOKIE can
+            // still be here and still verify: middleware only checks the HMAC,
+            // never the DB, so a cookie whose Session row is gone (pruned by
+            // MAX_SESSIONS_PER_USER, expired, revoked, or belonging to a
+            // deleted/re-registered account) reads as "signed in" to every
+            // page gate while every tRPC call 401s. That combination traps the
+            // user with no way back to the OTP form: /login 307s to
+            // /user-portal (middleware sees the cookie), the portal guard
+            // sends them back to /login (no session), forever. Ask the server
+            // to clear the cookie — awaited, so the redirect that follows
+            // sessionChecked flipping is made with the cookie already gone.
+            await clearSessionCookieServer();
             removeLS(SESSION_KEY);
             removeLS(CREDITS_KEY);
             clearAuthMarkerCookie();
