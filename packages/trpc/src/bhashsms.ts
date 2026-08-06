@@ -41,6 +41,31 @@ export async function sendTemplateIfConfigured(
 }
 
 /**
+ * Alert the business owner on WhatsApp when a new user registers. Sends to the
+ * single owner number in ADMIN_ALERT_WHATSAPP using the approved template named
+ * in BHASHSMS_TEMPLATE_ADMIN_NEW_USER, with params [name, phone, city, role] in
+ * that order (so the approved template's {{1}}..{{4}} map to those). No-ops —
+ * like every transactional send — until BhashSMS is configured AND both env vars
+ * are set, so it's safe to call from every signup path today and starts
+ * delivering the moment the template name + owner number land in Vercel env.
+ */
+export async function notifyAdminNewUser(u: {
+  name: string;
+  phone?: string | null;
+  city?: string | null;
+  role: string;
+}): Promise<void> {
+  const roleLabel =
+    u.role === "home-seller" ? "Home Seller" : u.role === "agent" ? "Agent / Partner" : "Home Buyer";
+  await sendTemplateIfConfigured("BHASHSMS_TEMPLATE_ADMIN_NEW_USER", process.env.ADMIN_ALERT_WHATSAPP, [
+    u.name,
+    u.phone ?? "—",
+    u.city ?? "—",
+    roleLabel,
+  ]);
+}
+
+/**
  * BhashSMS's WhatsApp API wants the plain 10-digit number WITHOUT the 91
  * country code — the note under every example in their WA API docs says so.
  * Strip a leading country code if the caller passed a full number.
@@ -64,11 +89,19 @@ export async function sendWhatsAppTemplate(opts: {
 }): Promise<BhashResult> {
   const user = process.env.BHASHSMS_USER;
   const pass = process.env.BHASHSMS_PASS;
-  // Sender for Authentication OTP templates is the account's registered Sender
-  // ID ("BhashSoftwareLab" for this account, per BhashSMS). Utility/normal WA
-  // templates instead use "BUZWAP" per their docs — set BHASHSMS_SENDER if/when
-  // those go live. Kept env-configurable so changing it needs no redeploy.
-  const sender = process.env.BHASHSMS_SENDER || "BhashSoftwareLab";
+  const stype = opts.stype ?? "normal";
+  // BhashSMS sends Authentication (OTP) and Utility/normal WhatsApp templates
+  // from DIFFERENT sender IDs, so one env var can't serve both:
+  //   - auth (OTP)       → the account's registered Sender ID ("BhashSoftwareLab")
+  //   - normal (utility) → the WhatsApp sender ("BUZWAP" per BhashSMS docs)
+  // Each is env-overridable (no redeploy to change): BHASHSMS_SENDER for auth,
+  // BHASHSMS_SENDER_UTILITY for utility. The auth default is unchanged so the
+  // live OTP send is untouched; utility now defaults to BUZWAP instead of
+  // wrongly inheriting the OTP sender.
+  const sender =
+    stype === "auth"
+      ? process.env.BHASHSMS_SENDER || "BhashSoftwareLab"
+      : process.env.BHASHSMS_SENDER_UTILITY || "BUZWAP";
   if (!user || !pass) {
     console.log(`[bhashsms] not configured — skipped template "${opts.template}" to ${opts.to}`);
     return { sent: false, reason: "not configured" };
@@ -80,7 +113,7 @@ export async function sendWhatsAppTemplate(opts: {
     sender,
     text: opts.template,
     priority: "wa", // WhatsApp
-    stype: opts.stype ?? "normal",
+    stype,
     phone: toWhatsAppNumber(opts.to),
   });
   if (opts.params && opts.params.length > 0) {

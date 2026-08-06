@@ -18,6 +18,14 @@ live only once its template is approved and its env var is set.
 > ⚠️ Variable **count + order must match** the table or the send fails.
 > Recipients must give their **WhatsApp number** (delivery is on WhatsApp).
 
+> ⚠️ **Sender ID (common "approved but not delivering" cause):** BhashSMS sends
+> Authentication (OTP) and Utility templates from *different* sender IDs. OTP uses
+> `BHASHSMS_SENDER` (`BhashSoftwareLab`); every Utility template (all rows below
+> except `signup_otp`) uses **`BHASHSMS_SENDER_UTILITY`**, which defaults to
+> `BUZWAP` (BhashSMS's WhatsApp sender). If an approved Utility template still
+> doesn't arrive, confirm your utility sender with BhashSMS and set
+> `BHASHSMS_SENDER_UTILITY` in Vercel — this does **not** affect OTP.
+
 ## Transactional templates (wired, auto-fire)
 
 | Env var | Suggested name | Category | Variables (in order) | Fires when → who |
@@ -33,6 +41,7 @@ live only once its template is approved and its env var is set.
 | `BHASHSMS_TEMPLATE_PAYMENT_REMINDER` | `payment_reminder` | Utility | `{{1}}` customer name, `{{2}}` plan, `{{3}}` amount (₹), `{{4}}` payment link | rep hits "Send reminder" → customer |
 | `BHASHSMS_TEMPLATE_LISTING_EXPIRING` | `listing_expiring` | Utility | `{{1}}` seller name, `{{2}}` property title, `{{3}}` days left | validity sweep, 3 days out → seller |
 | `BHASHSMS_TEMPLATE_LISTING_EXPIRED` | `listing_expired` | Utility | `{{1}}` seller name, `{{2}}` property title | validity sweep, on expiry → seller |
+| `BHASHSMS_TEMPLATE_ADMIN_NEW_USER` | `admin_new_user` | Utility | `{{1}}` name, `{{2}}` phone, `{{3}}` city, `{{4}}` role | any new signup → **business owner** (see `ADMIN_ALERT_WHATSAPP` below) |
 
 ### Suggested body wording (match the variable order above)
 - **seller_welcome** — `Hi {{1}}, your NxtSft.com account is approved. You can now log in and list your property.` (kept promo-free so it stays **Utility** — a promotional tail risks a Marketing reclassification)
@@ -45,6 +54,18 @@ live only once its template is approved and its env var is set.
 - **payment_reminder** — `Hi {{1}}, your NxtSft.com listing ({{2}}, {{3}}) is waiting on payment. Complete it here: {{4}}`
 - **listing_expiring** — `Hi {{1}}, your NxtSft.com listing "{{2}}" expires in {{3}} day(s). Renew to keep receiving enquiries.`
 - **listing_expired** — `Hi {{1}}, your NxtSft.com listing "{{2}}" has expired and is no longer visible to buyers. Renew any time to go live again.`
+- **admin_new_user** — `Hello! A new user just registered on NxtSft.com. Name: {{1}}. Mobile: {{2}}. City: {{3}}. They signed up as a {{4}}. Review this registration in your admin dashboard.`
+  > Meta rejects a short body with 4 variables ("Parameters words ratio exceeds
+  > limit", subcode 2388293) — the body must carry enough static text per
+  > variable, and must not start or end with a `{{n}}`. Keep the wording at least
+  > this long. Only the body text changes to satisfy this; the code still fills
+  > `{{1}}`–`{{4}}` as name, phone, city, role, so no redeploy is needed.
+
+> ⚠️ **`admin_new_user` is the one template sent to a fixed owner number, not a
+> per-event customer.** It needs **both** env vars: `BHASHSMS_TEMPLATE_ADMIN_NEW_USER`
+> (the approved template name) **and** `ADMIN_ALERT_WHATSAPP` (the owner's 10-digit
+> WhatsApp number, no country code). If either is blank it stays a silent no-op —
+> which is why the alert wasn't arriving before this was wired.
 
 ## Wired code locations
 - helper: `sendTemplateIfConfigured(envKey, to, params)` in `packages/trpc/src/bhashsms.ts`
@@ -55,6 +76,7 @@ live only once its template is approved and its env var is set.
 - `payment_reminder` → `routers/leads.ts` (sendPaymentReminder)
 - `listing_expiring`, `listing_expired` → `listingExpiry.ts` (sweepListingValidity, run by `/api/cron/listing-expiry`)
 - `seller_welcome` also fires for rep-created customer accounts → `customerAccount.ts`
+- `admin_new_user` → `routers/auth.ts` (register, registerSeller, completePhone — both Google branches) via `notifyAdminNewUser()`; sent to the owner number in `ADMIN_ALERT_WHATSAPP` on every completed signup
 
 ## Not yet wired (need more than an event hook)
 - **visit_reminder** (day-before) — needs a scheduled cron, not an event. Separate task.

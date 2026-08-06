@@ -16,7 +16,7 @@ import { hashToken, SESSION_TTL_DAYS } from "@nxtsft/shared";
 import { notify, notifyCredit, portalBase } from "../notify";
 import { uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 import { generateOtp, storeOtp, verifyOtp, isSignupOtpEnabled } from "../otp";
-import { sendWhatsAppTemplate } from "../bhashsms";
+import { sendWhatsAppTemplate, notifyAdminNewUser } from "../bhashsms";
 import {
   router,
   publicProcedure,
@@ -257,6 +257,9 @@ export const authRouter = router({
       // Every new user is a follow-up lead for admin (has phone here).
       await createSignupLead(user);
 
+      // Best-effort WhatsApp alert to the business owner about the new signup.
+      await notifyAdminNewUser(user);
+
       const token = await createSession(user.id);
 
       const freshUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
@@ -348,6 +351,9 @@ export const authRouter = router({
           })),
         });
       }
+
+      // Best-effort WhatsApp alert to the business owner about the new signup.
+      await notifyAdminNewUser(applicant);
 
       return { success: true as const };
     }),
@@ -662,6 +668,8 @@ export const authRouter = router({
             })),
           });
         }
+        // Best-effort WhatsApp alert to the business owner about the new signup.
+        await notifyAdminNewUser(seller);
         // Invalidate every session — an unverified seller must not stay logged in.
         await prisma.session.deleteMany({ where: { userId: seller.id } });
         return { pendingApproval: true as const, user: safeUser(seller) };
@@ -690,6 +698,8 @@ export const authRouter = router({
       }
 
       await createSignupLead(user);
+      // Best-effort WhatsApp alert to the business owner about the new signup.
+      await notifyAdminNewUser(user);
       const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
       return { pendingApproval: false as const, user: safeUser(fresh) };
     }),
