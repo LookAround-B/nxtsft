@@ -40,7 +40,12 @@ live only once its template is approved and its env var is set.
 - **visit_confirmed** — `Hi {{1}}, your site visit for "{{2}}" is confirmed for {{3}}. See you there! — NxtSft.com`
 - **listing_live** — `Hi {{1}}, your listing "{{2}}" is now LIVE on NxtSft.com and visible to buyers. 🎉`
 - **payment_receipt** — `Payment received! {{1}} — {{2}} credits added to your NxtSft.com wallet. Amount: ₹{{3}}. Thank you!`
-- **admin_new_user** — `New signup on NxtSft.com: {{1}} ({{2}}), {{3}} — registered as {{4}}.`
+- **admin_new_user** — `Hello! A new user just registered on NxtSft.com. Name: {{1}}. Mobile: {{2}}. City: {{3}}. They signed up as a {{4}}. Review this registration in your admin dashboard.`
+  > Meta rejects a short body with 4 variables ("Parameters words ratio exceeds
+  > limit", subcode 2388293) — the body must carry enough static text per
+  > variable, and must not start or end with a `{{n}}`. Keep the wording at least
+  > this long. Only the body text changes to satisfy this; the code still fills
+  > `{{1}}`–`{{4}}` as name, phone, city, role, so no redeploy is needed.
 
 > ⚠️ **`admin_new_user` is the one template sent to a fixed owner number, not a
 > per-event customer.** It needs **both** env vars: `BHASHSMS_TEMPLATE_ADMIN_NEW_USER`
