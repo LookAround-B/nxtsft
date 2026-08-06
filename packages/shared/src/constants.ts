@@ -56,6 +56,14 @@ export const RATE_LIMITS = {
  * Postgres can sort on an indexed integer; `tag` is what a buyer sees on the
  * card. Gold additionally qualifies a listing for the home page.
  */
+/**
+ * Property.status for a rep's dummy (test) listing. No public read asks for it
+ * — search, feeds, the sitemap and the public REST API all filter
+ * `status: "Active"` — so a Test listing is invisible to buyers while staying
+ * reachable by direct URL for the rep who made it.
+ */
+export const TEST_LISTING_STATUS = "Test";
+
 export const BOOST_TIERS = {
   bronze: { score: 40, tag: "Boosted" },
   silver: { score: 70, tag: "Top Pick" },
@@ -75,3 +83,13 @@ export function boostIsActive(tier: string | null, expiry: Date | string | null)
   if (!tier || !expiry) return false;
   return new Date(expiry).getTime() > Date.now();
 }
+
+/**
+ * Name of the non-httpOnly companion cookie set alongside the real session
+ * cookie. It carries no secret — it only says "a session cookie exists for
+ * this browser", which is the one thing client JS cannot otherwise learn
+ * (the session token is httpOnly by design, GOL-268 H2). Lives here rather
+ * than in session-cookie.ts so client components can import it without
+ * dragging node:crypto into the browser bundle. See authMarkerCookieOptions.
+ */
+export const AUTH_MARKER_COOKIE_NAME = "nxtsft_auth";

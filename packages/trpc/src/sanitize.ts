@@ -208,7 +208,9 @@ export const propertyTypeSchema = z.enum([
 export const purposeSchema = z.enum(["Sale", "Rent"]);
 
 /** Property status enum. "Pending" = awaiting admin review (e.g. bulk-uploaded). */
-export const propertyStatusSchema = z.enum(["Active", "Pending", "Sold", "Rented", "Inactive"]);
+// "Test" = a sales rep's dummy listing (see TEST_LISTING_STATUS). It is never
+// returned by a public query, but admins need to filter for it.
+export const propertyStatusSchema = z.enum(["Active", "Pending", "Sold", "Rented", "Inactive", "Test"]);
 
 /** Furnishing enum */
 export const furnishingSchema = z.enum(["Furnished", "Semi-Furnished", "Unfurnished"]);

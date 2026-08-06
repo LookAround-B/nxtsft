@@ -3,6 +3,8 @@ import {
   verifySessionCookie,
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
+  AUTH_MARKER_COOKIE_NAME,
+  authMarkerCookieOptions,
 } from "@nxtsft/shared";
 import {
   HOME_FOR_ROLE,
@@ -118,6 +120,9 @@ export function middleware(request: NextRequest) {
   const withRenewedSession = (response: NextResponse): NextResponse => {
     if (role && rawCookie) {
       response.cookies.set(SESSION_COOKIE_NAME, rawCookie, sessionCookieOptions());
+      // Re-stamped in lockstep so the JS-readable marker can never outlive —
+      // or expire ahead of — the session cookie it describes.
+      response.cookies.set(AUTH_MARKER_COOKIE_NAME, "1", authMarkerCookieOptions());
     }
     return response;
   };

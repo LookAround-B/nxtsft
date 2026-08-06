@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import prisma from "@nxtsft/db";
 import { recordPaymentCommission } from "@nxtsft/trpc/salesCommission";
+import { TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
 
 // Razorpay webhook (LA-342) — completion signal for sales payment links.
 //
@@ -120,7 +121,12 @@ export async function POST(req: NextRequest) {
       where: { id: lead.propertyId, deletedAt: null },
       select: { id: true, title: true, slug: true, ownerId: true, status: true },
     });
-    if (property && property.status !== "Active") {
+    // A dummy (Test) listing must never be published by paying its test link —
+    // it stays out of search for good. Everything else about the payment (lead
+    // Paid, commission, alerts) still runs, which is what the rep is testing.
+    if (property && property.status === TEST_LISTING_STATUS) {
+      published = null;
+    } else if (property && property.status !== "Active") {
       await prisma.property.update({ where: { id: property.id }, data: { status: "Active" } });
       published = property;
     } else if (property) {

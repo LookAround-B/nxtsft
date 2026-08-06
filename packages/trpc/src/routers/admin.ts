@@ -583,7 +583,7 @@ export const adminRouter = router({
           }),
         ]);
 
-        const counts = { Active: 0, Pending: 0, Sold: 0, Rented: 0, Inactive: 0 } as Record<string, number>;
+        const counts = { Active: 0, Pending: 0, Sold: 0, Rented: 0, Inactive: 0, Test: 0 } as Record<string, number>;
         for (const row of byStatus) counts[row.status] = row._count;
 
         return {

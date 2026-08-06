@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createContextFromToken } from "@nxtsft/trpc/server";
-import { signSessionCookie, SESSION_COOKIE_NAME, sessionCookieOptions } from "@nxtsft/shared";
+import {
+  signSessionCookie,
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+  AUTH_MARKER_COOKIE_NAME,
+  authMarkerCookieOptions,
+} from "@nxtsft/shared";
 
 // Node runtime: signSessionCookie uses node:crypto (HMAC), and this route
 // also needs the Prisma-backed createContextFromToken.
@@ -24,6 +30,8 @@ export async function POST(req: Request) {
 
   const res = NextResponse.json({ ok: true });
   res.cookies.set(SESSION_COOKIE_NAME, signSessionCookie(token, user.role), sessionCookieOptions());
+  // JS-readable "you have a session" flag — see AUTH_MARKER_COOKIE_NAME.
+  res.cookies.set(AUTH_MARKER_COOKIE_NAME, "1", authMarkerCookieOptions());
   return res;
 }
 
@@ -32,5 +40,6 @@ export async function POST(req: Request) {
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
   res.cookies.set(SESSION_COOKIE_NAME, "", { path: "/", maxAge: 0 });
+  res.cookies.set(AUTH_MARKER_COOKIE_NAME, "", { path: "/", maxAge: 0 });
   return res;
 }

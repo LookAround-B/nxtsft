@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import type { AppRouter } from "@nxtsft/trpc";
+import { AUTH_MARKER_COOKIE_NAME } from "@nxtsft/shared/constants";
 
 export type Role =
   | "super-admin"
@@ -140,6 +141,29 @@ async function clearSessionCookieServer(): Promise<void> {
   } catch {}
 }
 
+/**
+ * Is the JS-readable marker cookie present? The session token itself is
+ * httpOnly and invisible to JS, so this flag is the only way the client can
+ * tell "signed out" from "signed in, but my localStorage cache is gone" —
+ * see AUTH_MARKER_COOKIE_NAME in @nxtsft/shared.
+ */
+function hasAuthMarkerCookie(): boolean {
+  try {
+    return document.cookie
+      .split(";")
+      .some((c) => c.trim().startsWith(`${AUTH_MARKER_COOKIE_NAME}=`));
+  } catch {
+    return false;
+  }
+}
+
+/** Drop the marker once the server has told us the session is dead. */
+function clearAuthMarkerCookie(): void {
+  try {
+    document.cookie = `${AUTH_MARKER_COOKIE_NAME}=; path=/; max-age=0`;
+  } catch {}
+}
+
 interface Ctx {
   session: Session | null;
   credits: number;
@@ -269,14 +293,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // actually grants access, so this also catches: the cookie expired or
     // was cleared, or the user's role changed (e.g. an admin promoting them
     // to home-seller) since the cached copy was written.
-    if (hadCachedSession) {
+    //
+    // Also runs when there is NO cached session but the marker cookie says a
+    // session exists: browsers that drop localStorage while keeping cookies
+    // (in-app WebViews, private mode, iOS ITP eviction) would otherwise leave
+    // a signed-in user permanently signed-out in the UI — /list showing "Sign
+    // in to list your property", and the portal guard trading redirects with
+    // middleware forever. Rebuilding the cache from the cookie is the repair.
+    if (hadCachedSession || hasAuthMarkerCookie()) {
       makeTRPC()
         .auth.me.query()
         .then((freshUser) => {
           if (!freshUser) {
-            // No valid session server-side — clear the stale local cache.
+            // No valid session server-side — clear the stale local cache and
+            // the marker, so we don't re-query on every page load.
             removeLS(SESSION_KEY);
             removeLS(CREDITS_KEY);
+            clearAuthMarkerCookie();
             setSession(null);
             setCredits(0);
             return;

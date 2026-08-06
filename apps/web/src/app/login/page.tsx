@@ -26,13 +26,13 @@ function LoginPageContent() {
   // Google sign-up returns no phone; hold the auto-redirect while we collect one.
   const [needPhone, setNeedPhone] = useState(false);
 
-  // Middleware sometimes lands a still-signed-in user here because the
-  // nxtsft_session cookie silently expired/was cleared while their
-  // localStorage token was still valid (Safari's 7-day cap on JS-set cookies,
-  // aggressive in-app browser cookie clearing, etc). AuthProvider re-verifies
-  // the token in the background on mount and repairs the cookie — once that
-  // check confirms the session is still good, send them straight back instead
-  // of making them notice the banner below and click "Sign in" again.
+  // A still-signed-in user can land here with only a stale localStorage copy
+  // of their session — e.g. they clicked "Sign in" in a header that had not
+  // yet re-checked with the server. AuthProvider re-verifies against the
+  // httpOnly cookie on mount (it cannot repair a dead cookie: the raw token
+  // is server-side only, so a genuinely expired session just clears the cache
+  // and leaves them on the form below). Once that check confirms the session
+  // is still good, send them straight back where they were headed.
   useEffect(() => {
     if (sessionChecked && session && !needPhone) {
       router.replace(searchParams.get("redirect") || ROLE_META[session.role].portal);

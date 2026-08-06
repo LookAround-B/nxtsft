@@ -162,8 +162,37 @@ type PickedProject = { id: string; name: string; builderName: string };
 // properties.create) — the rep never owns it.
 const REP_LISTING_ROLES = ["sales", "admin", "super-admin"];
 
+// Sentinel value for the "Dummy" entry in the lead dropdown. A dummy listing
+// belongs to no customer: the rep owns it, it is created with status "Test"
+// (invisible in search), every paid perk is switched on, and its payment link
+// goes to the rep's own number so they can rehearse the flow end to end.
+const DUMMY_LEAD = "__dummy__";
+
+// Sample content the Dummy option drops into the form so a rep can reach
+// Submit in one click. Deliberately obvious as test data. RERA stays blank —
+// it's optional, and a wrong number would fail the state-format check.
+const DUMMY_FORM: Partial<FormData> = {
+  listerType: "owner",
+  propertyType: "Apartment",
+  purpose: "Sale",
+  city: "Hyderabad",
+  locality: "Gachibowli",
+  latitude: "17.4401",
+  longitude: "78.3489",
+  price: "7500000",
+  area: "1450",
+  areaUnit: "sqft",
+  builtUpArea: "1300",
+  bhk: "3 BHK",
+  title: "TEST LISTING — 3 BHK Apartment in Hyderabad",
+  description:
+    "Dummy listing created by a sales rep to test the listing flow. Not a real property — ignore.",
+  amenities: ["Power Backup", "24/7 Security", "Elevator / Lift", "Covered Parking"],
+  possession: "Ready to Move",
+};
+
 export default function ListPropertyPage() {
-  const { session } = useAuth();
+  const { session, sessionChecked } = useAuth();
   const isRep = REP_LISTING_ROLES.includes(session?.role ?? "");
   const createProperty = trpc.properties.create.useMutation();
   // Rep flow: which assigned lead this listing belongs to. Leads that already
@@ -173,6 +202,7 @@ export default function ListPropertyPage() {
   const repLeads = (repLeadsQ.data?.items ?? []).filter(
     (l) => !l.propertyId && l.paymentStatus !== "Paid",
   );
+  const isDummy = leadId === DUMMY_LEAD;
   const selectedLead = repLeads.find((l) => l.id === leadId) ?? null;
   const { upload } = usePresignUploader();
   const [step, setStep] = useState(1);
@@ -186,12 +216,16 @@ export default function ListPropertyPage() {
   // LA-343: does this seller's active plan (≥₹4,999) include the verified
   // badge set? Drives the live-vs-grayed badge preview in step 4.
   const badgesQ = trpc.subscriptions.mySellerBadges.useQuery(undefined, { enabled: !!session });
-  const hasBadges = badgesQ.data?.active ?? false;
+  // A dummy listing previews the full paid treatment (the server force-enables
+  // badges + a gold boost on it), so show the badges live here too.
+  const hasBadges = isDummy || (badgesQ.data?.active ?? false);
   // LA-330: hide property types an admin has deactivated. Form labels map to
   // schema types via DB_TYPE_MAP; a type is available unless its mapped schema
   // type is in the disabled set.
   const disabledTypesQ = trpc.properties.disabledTypes.useQuery();
-  const disabledTypes = disabledTypesQ.data ?? [];
+  // A dummy listing ignores the admin's disabled-type switch — the rep is
+  // testing the form itself and needs every type reachable.
+  const disabledTypes = isDummy ? [] : (disabledTypesQ.data ?? []);
   const availableTypes = PROPERTY_TYPES.filter(
     (t) => !disabledTypes.includes(DB_TYPE_MAP[t] ?? t),
   );
@@ -312,6 +346,10 @@ export default function ListPropertyPage() {
 
   const validate = (s: number): Record<string, string> => {
     const e: Record<string, string> = {};
+    // Dummy mode is pre-filled with valid sample data — let the rep skip
+    // straight through the wizard, and let them blank fields out to see how the
+    // server behaves without the form stopping them first.
+    if (isDummy) return e;
     if (s === 1 && !data.listerType) e.listerType = "Please select your role";
     if (s === 2) {
       if (!data.propertyType) e.propertyType = "Select a property type";
@@ -411,7 +449,7 @@ export default function ListPropertyPage() {
     if (session && dbType) {
       try {
         await createProperty.mutateAsync({
-          ...(isRep ? { onBehalfOfLeadId: leadId } : {}),
+          ...(isRep ? (isDummy ? { dummy: true } : { onBehalfOfLeadId: leadId }) : {}),
           title,
           type: dbType,
           purpose: data.purpose,
@@ -454,10 +492,20 @@ export default function ListPropertyPage() {
             <CheckCircle2 size={40} className="text-emerald-500" strokeWidth={1.5} />
           </div>
           <div className="font-display text-3xl font-black text-navy sm:text-4xl">
-            {isRep ? "Saved to the customer's account" : "Property Submitted!"}
+            {isDummy
+              ? "Dummy listing created"
+              : isRep
+                ? "Saved to the customer's account"
+                : "Property Submitted!"}
           </div>
           <p className="mt-3 text-muted-foreground">
-            {isRep ? (
+            {isDummy ? (
+              <>
+                It&apos;s live on your own account with all paid features on, and hidden from buyer
+                search. A test lead with your number is waiting in the sales portal — send yourself
+                the payment link from there to test the rest of the flow.
+              </>
+            ) : isRep ? (
               <>
                 The listing now sits on {selectedLead?.name ?? "the customer"}&apos;s account. Send them the
                 payment link from the sales portal — it goes live automatically once they pay.
@@ -580,6 +628,15 @@ export default function ListPropertyPage() {
     );
   }
 
+  // Wait for the server session check before deciding anyone is signed out.
+  // A cached session is only a hint — someone whose localStorage was dropped
+  // (in-app browser, private mode, iOS ITP) is still signed in via the cookie,
+  // and showing them the sign-in card below sends them into a redirect loop
+  // with middleware instead of the wizard they asked for.
+  if (!sessionChecked && !session) {
+    return <div className="min-h-screen bg-background" />;
+  }
+
   if (!session) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-5">
@@ -634,6 +691,19 @@ export default function ListPropertyPage() {
               onChange={(e) => {
                 const id = e.target.value;
                 setLeadId(id);
+                if (id === DUMMY_LEAD) {
+                  // Everything pre-filled, contact block = the rep themselves.
+                  setData((d) => ({
+                    ...d,
+                    ...DUMMY_FORM,
+                    listerName: session?.name ?? "Sales rep",
+                    listerEmail: session?.email ?? "",
+                    listerPhone: session?.phone ?? "",
+                  }));
+                  setErrors({});
+                  toast.success("Dummy mode — sample details filled in. Submit whenever you like.");
+                  return;
+                }
                 const lead = repLeads.find((l) => l.id === id);
                 if (lead) {
                   set("listerName", lead.name);
@@ -645,6 +715,7 @@ export default function ListPropertyPage() {
               className="mt-2 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-navy focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="">Select a lead…</option>
+              <option value={DUMMY_LEAD}>🧪 Dummy — test listing (not a customer)</option>
               {repLeads.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name} · {l.phone}
@@ -653,7 +724,14 @@ export default function ListPropertyPage() {
               ))}
             </select>
             <p className="mt-2 text-xs text-amber-800">
-              {selectedLead ? (
+              {isDummy ? (
+                <>
+                  <strong>Test listing.</strong> Sample details are filled in and every field is
+                  optional. It goes live on your own account straight away with all paid features on,
+                  but stays hidden from search. The payment link goes to{" "}
+                  <strong>your own number</strong> — send it from the sales portal to test the flow.
+                </>
+              ) : selectedLead ? (
                 <>
                   This listing will be created on <strong>{selectedLead.name}</strong>&apos;s own account
                   (created automatically if they don&apos;t have one) and goes live once they pay the link

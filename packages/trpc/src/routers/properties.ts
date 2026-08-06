@@ -24,7 +24,7 @@ import {
   propertyStatusSchema,
 } from "../sanitize";
 import prisma from "@nxtsft/db";
-import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
+import { BULK_IMPORT_MAX_ROWS, BOOST_TIERS, TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
 import { hasSellerBadges } from "../badges";
 import { sweepExpiredBoosts } from "../boostSweep";
 import { notify, notifyCredit } from "../notify";
@@ -35,6 +35,10 @@ import { router, publicProcedure, protectedProcedure, adminProcedure, contactRat
 // Staff roles allowed to list a property on a customer's behalf (see the
 // `onBehalfOfLeadId` branch in `create`).
 const REP_LISTING_ROLES = ["sales", "admin", "super-admin"];
+
+// How long a dummy listing's (free) gold boost runs — long enough that a rep
+// testing the flow always sees the premium treatment on the card.
+const DUMMY_BOOST_DAYS = 30;
 
 // Serialize BigInt price fields to number for JSON transport
 function serializeProperty<T extends object>(obj: T): T {
@@ -421,7 +425,10 @@ export const propertiesRouter = router({
 
       // Verified badge set (LA-343): shown when the owner holds an active
       // subscription of ₹4,999 or more.
-      const sellerBadges = await hasSellerBadges(property.ownerId);
+      // Dummy listings show the full paid badge set regardless of the rep's own
+      // (nonexistent) subscription — the point is to preview a premium listing.
+      const sellerBadges =
+        property.status === TEST_LISTING_STATUS ? true : await hasSellerBadges(property.ownerId);
 
       return serializeProperty({ ...property, sellerBadges });
     }),
@@ -475,10 +482,13 @@ export const propertiesRouter = router({
         // Rep-assisted listing: the property is created for this lead's
         // customer, not for the signed-in rep. Staff-only (see below).
         onBehalfOfLeadId: cuidSchema.optional(),
+        // Dummy test listing: rep lists against their OWN number so they can
+        // rehearse the whole flow (payment link → webhook → publish). Staff-only.
+        dummy: z.boolean().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, onBehalfOfLeadId, ...rest } =
+      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, onBehalfOfLeadId, dummy, ...rest } =
         input;
 
       assertReraValid(city, input.rera, input.reraLabel);
@@ -490,6 +500,32 @@ export const propertiesRouter = router({
       // and the lead is linked so the payment webhook knows what to publish.
       let ownerId = ctx.user.id;
       let onBehalfOf: { leadId: string; customerId: string; customerName: string } | null = null;
+
+      // ── Dummy (test) listing ──────────────────────────────────────────────
+      // The rep owns it themselves: their phone is a staff account, which
+      // findOrCreateCustomerAccount refuses to make a listing owner (and
+      // rightly so). A lead carrying the rep's own number is created below so
+      // the sales portal's payment-link button targets them.
+      let dummyRep: { name: string; phone: string; email: string; city: string } | null = null;
+      if (dummy) {
+        if (onBehalfOfLeadId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A dummy listing can't also be on a customer's behalf." });
+        }
+        if (!REP_LISTING_ROLES.includes(ctx.user.role)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only sales staff can create dummy listings." });
+        }
+        const rep = await prisma.user.findUnique({
+          where: { id: ctx.user.id },
+          select: { name: true, phone: true, email: true, city: true },
+        });
+        if (!rep?.phone) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Add a mobile number to your staff profile — the dummy payment link is sent to it.",
+          });
+        }
+        dummyRep = { name: rep.name, phone: rep.phone, email: rep.email, city: rep.city || city };
+      }
 
       if (onBehalfOfLeadId) {
         if (!REP_LISTING_ROLES.includes(ctx.user.role)) {
@@ -529,7 +565,16 @@ export const propertiesRouter = router({
         data: {
           ...rest,
           slug,
-          status: "Pending",
+          // Dummy listings skip the review/payment gate and land "live" (in the
+          // rep's own views) straight away, with every paid perk switched on so
+          // the rep can see what a top-tier listing looks like.
+          status: dummy ? TEST_LISTING_STATUS : "Pending",
+          ...(dummy && {
+            featured: true,
+            boostTier: "gold",
+            boostScore: BOOST_TIERS.gold.score,
+            boostExpiry: new Date(Date.now() + DUMMY_BOOST_DAYS * 24 * 60 * 60 * 1000),
+          }),
           price: BigInt(price),
           pricePerSqft: Math.round(price / area),
           area,
@@ -571,6 +616,42 @@ export const propertiesRouter = router({
           type: "listing_submitted",
           title: "Listing saved for customer",
           content: `"${property.title}" is on ${onBehalfOf.customerName}'s account. Send the payment link to publish it.`,
+          actionUrl: "/sales-portal",
+        });
+      } else if (dummyRep) {
+        // Give the dummy listing a lead of its own, addressed to the rep. It
+        // behaves like any other rep lead in the sales portal — "Create payment
+        // link" sends a real Razorpay link to the rep's own number — while the
+        // listing itself is already live, so nothing waits on the payment.
+        const lead = await prisma.lead.create({
+          data: {
+            userId: ctx.user.id,
+            propertyId: property.id,
+            name: `${dummyRep.name} (dummy)`,
+            phone: dummyRep.phone,
+            email: dummyRep.email,
+            city: dummyRep.city,
+            interest: `Dummy test — ${property.title}`,
+            source: "Dummy",
+            status: "New",
+            assignedToId: ctx.user.id,
+            assignedAt: new Date(),
+          },
+        });
+        await prisma.salesActivity.create({
+          data: {
+            salesRepId: ctx.user.id,
+            type: "listing",
+            leadId: lead.id,
+            action: `Created dummy listing "${property.title}"`,
+            outcome: "Test listing — hidden from search; payment link goes to your own number",
+          },
+        });
+        await notify({
+          userId: ctx.user.id,
+          type: "listing_submitted",
+          title: "Dummy listing created",
+          content: `"${property.title}" is a test listing — hidden from search. Send yourself the payment link from the sales portal to test the flow.`,
           actionUrl: "/sales-portal",
         });
       } else {

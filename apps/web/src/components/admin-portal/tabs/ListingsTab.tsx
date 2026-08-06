@@ -25,7 +25,7 @@ const LISTING_TYPE_OPTIONS = [
   { value: "Bungalow", label: "Bungalow" },
   { value: "PG", label: "PG / Co-living" },
 ];
-type ListingStatusFilter = "" | "Pending" | "Active" | "Inactive" | "Sold" | "Rented";
+type ListingStatusFilter = "" | "Pending" | "Active" | "Inactive" | "Sold" | "Rented" | "Test";
 
 // Authority labels shown before the registration number (mirrors the /list form).
 const RERA_LABELS = ["RERA", "TS RERA", "KA RERA", "TN RERA", "MahaRERA", "GujRERA", "HMDA", "DTCP", "BDA", "CMDA", "Others"];
@@ -588,6 +588,7 @@ export function ListingsTab() {
                 <SelectItem value="Inactive">Rejected / inactive</SelectItem>
                 <SelectItem value="Sold">Sold</SelectItem>
                 <SelectItem value="Rented">Rented</SelectItem>
+                <SelectItem value="Test">Dummy / test</SelectItem>
               </SelectContent>
             </Select>
           </div>

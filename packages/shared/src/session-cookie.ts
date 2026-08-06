@@ -79,6 +79,24 @@ export function sessionCookieOptions(maxAge: number = SESSION_COOKIE_MAX_AGE_SEC
 }
 
 /**
+ * Options for the non-httpOnly companion cookie (AUTH_MARKER_COOKIE_NAME,
+ * declared in ./constants so client code can read the name without pulling
+ * node:crypto into the browser bundle). Same lifetime and scope as the real
+ * session cookie, but readable by JS.
+ *
+ * Why it exists: the session token is httpOnly by design (GOL-268 H2), so
+ * client JS cannot see whether it's still signed in. AuthProvider used to
+ * infer that from its localStorage cache alone, which meant a browser that
+ * drops localStorage but keeps cookies (in-app WebViews, private mode, iOS
+ * ITP's 7-day eviction) rendered the whole app signed-out while the server
+ * still had a perfectly valid session — and the portal guard then bounced to
+ * /login while middleware bounced straight back, an unbreakable loop.
+ */
+export function authMarkerCookieOptions(maxAge: number = SESSION_COOKIE_MAX_AGE_SECONDS) {
+  return { ...sessionCookieOptions(maxAge), httpOnly: false as const };
+}
+
+/**
  * Session.token is stored as sha256(rawToken), never the raw value (GOL-268
  * L2) — a DB compromise or backup leak no longer hands out live, directly
  * usable session tokens. The raw token (generated once at login, returned to
