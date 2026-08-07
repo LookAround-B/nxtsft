@@ -452,7 +452,7 @@ export const authRouter = router({
       // the thing worth protecting from spam. Keying only on IP (as the shared
       // authRateLimit does) means one person on a CGNAT'd mobile network can
       // exhaust the bucket for every other subscriber sharing that address.
-      const phoneLimit = await checkRateLimit(`auth.requestOtp:phone:${input.phone}`, 5, 15 * 60);
+      const phoneLimit = await checkRateLimit(`auth.requestOtp:phone:${input.phone}`, 8, 15 * 60);
       if (!phoneLimit.ok) {
         throw new TRPCError({
           code: "TOO_MANY_REQUESTS",
@@ -548,7 +548,7 @@ export const authRouter = router({
     .mutation(async ({ input }) => {
       // Per-number cap, same reasoning as requestOtp — an IP-only bucket blocks
       // unrelated people signing up from the same carrier NAT or office wifi.
-      const phoneLimit = await checkRateLimit(`auth.requestSignupOtp:phone:${input.phone}`, 5, 15 * 60);
+      const phoneLimit = await checkRateLimit(`auth.requestSignupOtp:phone:${input.phone}`, 8, 15 * 60);
       if (!phoneLimit.ok) {
         throw new TRPCError({
           code: "TOO_MANY_REQUESTS",
