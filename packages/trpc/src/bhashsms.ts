@@ -1,13 +1,19 @@
 // BhashSMS WhatsApp sender.
 //
-// Sends approved WhatsApp templates via BhashSMS's GET API
-// (http://bhashsms.com/api/sendmsg.php). Inactive until BHASHSMS_USER +
-// BHASHSMS_PASS are set (Vercel env), so callers can be wired now and start
-// delivering the moment the credentials land. A success response looks like
-// "s.123456"; anything else is an error string ("error", "Username/Password
-// Incorrect…", "Sender ID Does not Exist…").
-
-const ENDPOINT = "http://bhashsms.com/api/sendmsg.php";
+// Sends approved WhatsApp templates via BhashSMS's GET API. Inactive until
+// BHASHSMS_USER + BHASHSMS_PASS are set (Vercel env), so callers can be wired
+// now and start delivering the moment the credentials land. A success response
+// looks like "s.123456" / "S.123456"; anything else is an error string
+// ("error", "Username/Password Incorrect…", "Marketing Templates Not Allowed").
+//
+// BhashSMS uses a DIFFERENT endpoint + sender per template category (confirmed
+// by direct API tests against this account):
+//   - auth / OTP  → sendmsg.php     + sender "BhashSoftwareLab" + stype "auth"
+//   - utility     → sendmsgutil.php + sender "BUZWAP"           + stype "normal"
+// Sending a utility template through sendmsg.php is rejected ("Marketing
+// Templates Not Allowed"); the util endpoint + BUZWAP is what returns "S.<id>".
+const AUTH_ENDPOINT = "http://bhashsms.com/api/sendmsg.php";
+const UTIL_ENDPOINT = "https://bhashsms.com/api/sendmsgutil.php";
 
 export type BhashResult = { sent: boolean; reason: string; messageId?: string };
 
@@ -90,18 +96,14 @@ export async function sendWhatsAppTemplate(opts: {
   const user = process.env.BHASHSMS_USER;
   const pass = process.env.BHASHSMS_PASS;
   const stype = opts.stype ?? "normal";
-  // BhashSMS sends Authentication (OTP) and Utility/normal WhatsApp templates
-  // from DIFFERENT sender IDs, so one env var can't serve both:
-  //   - auth (OTP)       → the account's registered Sender ID ("BhashSoftwareLab")
-  //   - normal (utility) → the WhatsApp sender ("BUZWAP" per BhashSMS docs)
-  // Each is env-overridable (no redeploy to change): BHASHSMS_SENDER for auth,
-  // BHASHSMS_SENDER_UTILITY for utility. The auth default is unchanged so the
-  // live OTP send is untouched; utility now defaults to BUZWAP instead of
-  // wrongly inheriting the OTP sender.
-  const sender =
-    stype === "auth"
-      ? process.env.BHASHSMS_SENDER || "BhashSoftwareLab"
-      : process.env.BHASHSMS_SENDER_UTILITY || "BUZWAP";
+  const isAuth = stype === "auth";
+  // Endpoint + sender are paired to the template category (see top-of-file note).
+  // Each sender is env-overridable without a redeploy (BHASHSMS_SENDER for auth,
+  // BHASHSMS_SENDER_UTILITY for utility).
+  const endpoint = isAuth ? AUTH_ENDPOINT : UTIL_ENDPOINT;
+  const sender = isAuth
+    ? process.env.BHASHSMS_SENDER || "BhashSoftwareLab"
+    : process.env.BHASHSMS_SENDER_UTILITY || "BUZWAP";
   if (!user || !pass) {
     console.log(`[bhashsms] not configured — skipped template "${opts.template}" to ${opts.to}`);
     return { sent: false, reason: "not configured" };
@@ -125,7 +127,7 @@ export async function sendWhatsAppTemplate(opts: {
   }
 
   try {
-    const res = await fetch(`${ENDPOINT}?${query.toString()}`, { method: "GET" });
+    const res = await fetch(`${endpoint}?${query.toString()}`, { method: "GET" });
     const body = (await res.text()).trim();
     // Success ids start with "s." (e.g. "s.123456"); everything else is an error.
     if (res.ok && /^s\./i.test(body)) {

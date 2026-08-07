@@ -18,13 +18,22 @@ live only once its template is approved and its env var is set.
 > ⚠️ Variable **count + order must match** the table or the send fails.
 > Recipients must give their **WhatsApp number** (delivery is on WhatsApp).
 
-> ⚠️ **Sender ID (common "approved but not delivering" cause):** BhashSMS sends
-> Authentication (OTP) and Utility templates from *different* sender IDs. OTP uses
-> `BHASHSMS_SENDER` (`BhashSoftwareLab`); every Utility template (all rows below
-> except `signup_otp`) uses **`BHASHSMS_SENDER_UTILITY`**, which defaults to
-> `BUZWAP` (BhashSMS's WhatsApp sender). If an approved Utility template still
-> doesn't arrive, confirm your utility sender with BhashSMS and set
-> `BHASHSMS_SENDER_UTILITY` in Vercel — this does **not** affect OTP.
+> ⚠️ **Category MUST be Utility, not Marketing.** BhashSMS rejects Marketing
+> templates on this send path with `Marketing Templates Not Allowed`. Meta will
+> classify a template as Marketing if the wording is promotional OR doesn't read
+> as a specific transactional/account event — so pick **Utility** at creation and
+> keep the body strictly operational (no offers, no marketing tone). If a template
+> got approved as Marketing, recreate it as Utility (a new name is fine — just
+> point the env var at the new one).
+
+> ⚠️ **Endpoint + sender differ by category** (this bit us — verified by direct
+> API test):
+> - **Auth/OTP** → `sendmsg.php` + sender `BhashSoftwareLab` (`BHASHSMS_SENDER`).
+> - **Utility** → `sendmsgutil.php` + sender `BUZWAP` (`BHASHSMS_SENDER_UTILITY`).
+>
+> Sending a Utility template through `sendmsg.php` fails (`Marketing Templates Not
+> Allowed`); the utility endpoint + `BUZWAP` is what returns `S.<id>`. The code
+> (`sendWhatsAppTemplate`) now picks both automatically from `stype`.
 
 ## Transactional templates (wired, auto-fire)
 
