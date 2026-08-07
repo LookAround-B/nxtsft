@@ -225,9 +225,16 @@ function createRateLimiter(points: number, windowMs: number) {
 
 // Pre-built rate limiters
 const authRateLimit      = createRateLimiter(10,  15 * 60 * 1000); // 10 per 15 min
+// OTP login is the PRIMARY way in, and Indian mobile carriers (Jio/Airtel) put
+// large numbers of subscribers behind a handful of CGNAT addresses — so does any
+// office wifi. An IP bucket sized for one person therefore lets strangers lock
+// each other out of logging in entirely. The real per-identity cap for OTP lives
+// on the phone number (see auth.requestOtp) plus MAX_ATTEMPTS in otp.ts; this
+// wider IP bucket stays only as a blunt abuse ceiling.
+const otpIpRateLimit     = createRateLimiter(30,  15 * 60 * 1000); // 30 per 15 min
 const registerRateLimit  = createRateLimiter(5,   60 * 60 * 1000); // 5 per hour
 const contactRateLimit   = createRateLimiter(5,   60 * 60 * 1000); // 5 per hour
 const generalRateLimit   = createRateLimiter(100, 60 * 60 * 1000); // 100 per hour
 const broadcastRateLimit = createRateLimiter(5,   60 * 60 * 1000); // 5 per hour
 
-export { createRateLimiter, authRateLimit, registerRateLimit, contactRateLimit, generalRateLimit, broadcastRateLimit };
+export { createRateLimiter, authRateLimit, otpIpRateLimit, registerRateLimit, contactRateLimit, generalRateLimit, broadcastRateLimit };

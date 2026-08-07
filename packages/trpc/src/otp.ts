@@ -8,7 +8,12 @@ import { Redis } from "@upstash/redis";
 // (local dev), falls back to an in-process Map — fine for a single dev instance,
 // never used in production (Vercel always has Redis; OTP is env-gated on top).
 
-const OTP_TTL_SECONDS = 5 * 60;      // code valid for 5 minutes
+// WhatsApp template delivery through BhashSMS is not instant — a busy carrier
+// queue can put minutes between "OTP sent" and the message landing. A 5-minute
+// code could expire before the user ever saw it, and the only thing the UI can
+// say then is "this OTP has expired — request a new one", which loops forever.
+// 10 minutes is still short enough to be safe (one-time use, 5 attempts).
+const OTP_TTL_SECONDS = 10 * 60;     // code valid for 10 minutes
 const MAX_ATTEMPTS = 5;              // wrong guesses before the code is burned
 const KEY_PREFIX = "nxtsft:signup_otp:";
 

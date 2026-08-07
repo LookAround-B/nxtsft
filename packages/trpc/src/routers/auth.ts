@@ -22,7 +22,9 @@ import {
   publicProcedure,
   protectedProcedure,
   authRateLimit,
+  otpIpRateLimit,
   registerRateLimit,
+  checkRateLimit,
 } from "../server";
 
 // Oldest sessions beyond this many per user are dropped on new login (GOL-268
@@ -443,9 +445,20 @@ export const authRouter = router({
   // stays as a fallback. requestOtp finds the account by phone, generates a code,
   // stores it (Redis, 5-min TTL) and sends it via the approved BhashSMS template.
   requestOtp: publicProcedure
-    .use(authRateLimit)
+    .use(otpIpRateLimit)
     .input(z.object({ phone: phoneSchema }))
     .mutation(async ({ input }) => {
+      // The cap that matters is per NUMBER — that's the thing being messaged and
+      // the thing worth protecting from spam. Keying only on IP (as the shared
+      // authRateLimit does) means one person on a CGNAT'd mobile network can
+      // exhaust the bucket for every other subscriber sharing that address.
+      const phoneLimit = await checkRateLimit(`auth.requestOtp:phone:${input.phone}`, 5, 15 * 60);
+      if (!phoneLimit.ok) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Too many OTP requests for this number. Try again in ${phoneLimit.retryIn} seconds, or sign in with email & password.`,
+        });
+      }
       if (!isSignupOtpEnabled()) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -471,6 +484,13 @@ export const authRouter = router({
       const template = process.env.BHASHSMS_TEMPLATE_SIGNUP_OTP!;
       // Authentication OTP templates must be sent with stype=auth (not "normal").
       const res = await sendWhatsAppTemplate({ to: input.phone, template, params: [code], stype: "auth" });
+      // OTP is the primary login, so a silent delivery failure reads to the user
+      // as "the site keeps asking me for an OTP". Log the outcome of every send
+      // with the number, so a support report is one log query rather than a
+      // guess. The code itself is never logged.
+      console.log(
+        `[otp] login OTP to ${input.phone} (user ${user.id}): ${res.sent ? "sent" : `FAILED — ${res.reason}`}`,
+      );
       if (!res.sent) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -482,11 +502,16 @@ export const authRouter = router({
 
   // Verify the OTP and issue a session — same session machinery as password login.
   loginWithOtp: publicProcedure
-    .use(authRateLimit)
+    // Wrong-code attempts are already capped per number by MAX_ATTEMPTS in
+    // otp.ts, so the IP bucket here only needs to be an abuse ceiling — sized
+    // so people sharing a carrier NAT don't block each other. Same reasoning as
+    // requestOtp above.
+    .use(otpIpRateLimit)
     .input(z.object({ phone: phoneSchema, code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code") }))
     .mutation(async ({ input }) => {
       const result = await verifyOtp(input.phone, input.code);
       if (!result.ok) {
+        console.log(`[otp] login verify failed for ${input.phone}: ${result.reason}`);
         const message =
           result.reason === "expired"
             ? "This OTP has expired — request a new one."
@@ -518,9 +543,18 @@ export const authRouter = router({
   // Throws if OTP is disabled or delivery fails, so the client can fall back to
   // registering the number unverified.
   requestSignupOtp: publicProcedure
-    .use(authRateLimit)
+    .use(otpIpRateLimit)
     .input(z.object({ phone: phoneSchema, email: emailSchema.optional() }))
     .mutation(async ({ input }) => {
+      // Per-number cap, same reasoning as requestOtp — an IP-only bucket blocks
+      // unrelated people signing up from the same carrier NAT or office wifi.
+      const phoneLimit = await checkRateLimit(`auth.requestSignupOtp:phone:${input.phone}`, 5, 15 * 60);
+      if (!phoneLimit.ok) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Too many OTP requests for this number. Try again in ${phoneLimit.retryIn} seconds.`,
+        });
+      }
       if (!isSignupOtpEnabled()) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "OTP verification isn't available right now." });
       }
@@ -539,6 +573,7 @@ export const authRouter = router({
       await storeOtp(input.phone, code);
       const template = process.env.BHASHSMS_TEMPLATE_SIGNUP_OTP!;
       const res = await sendWhatsAppTemplate({ to: input.phone, template, params: [code], stype: "auth" });
+      console.log(`[otp] signup OTP to ${input.phone}: ${res.sent ? "sent" : `FAILED — ${res.reason}`}`);
       if (!res.sent) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Couldn't send the OTP right now. Please try again." });
       }

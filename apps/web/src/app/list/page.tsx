@@ -645,7 +645,10 @@ export default function ListPropertyPage() {
           <h2 className="font-display text-xl font-black text-navy">Sign in to list your property</h2>
           <p className="mt-2 text-sm text-muted-foreground">You need a Home Seller account to list a property on NxtSft.</p>
           <div className="mt-6 flex flex-col gap-3">
-            <Link href="/login" className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white transition hover:opacity-90">
+            {/* Carry the redirect so signing in lands back on the wizard the
+                user actually came for, instead of dropping them on the portal
+                and making them find /list again. */}
+            <Link href="/login?redirect=/list" className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white transition hover:opacity-90">
               Sign In
             </Link>
             <Link href="/register" className="rounded-xl border border-border px-6 py-3 text-sm font-semibold text-navy transition hover:bg-secondary">
