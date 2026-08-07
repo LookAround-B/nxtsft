@@ -12,8 +12,16 @@
 //   - utility     → sendmsgutil.php + sender "BUZWAP"           + stype "normal"
 // Sending a utility template through sendmsg.php is rejected ("Marketing
 // Templates Not Allowed"); the util endpoint + BUZWAP is what returns "S.<id>".
+//
+// Both are plain HTTP: bhashsms.com's HTTPS chain is missing an intermediate
+// cert, which browsers tolerate but Node/undici (on Vercel) rejects as a generic
+// "fetch failed". The live OTP send already proves HTTP works from Vercel.
 const AUTH_ENDPOINT = "http://bhashsms.com/api/sendmsg.php";
-const UTIL_ENDPOINT = "https://bhashsms.com/api/sendmsgutil.php";
+const UTIL_ENDPOINT = "http://bhashsms.com/api/sendmsgutil.php";
+
+// Cap every send so a slow/unreachable BhashSMS can't hang the request that
+// triggered it (a failed HTTPS attempt held a signup for 17s once).
+const SEND_TIMEOUT_MS = 8000;
 
 export type BhashResult = { sent: boolean; reason: string; messageId?: string };
 
@@ -127,7 +135,10 @@ export async function sendWhatsAppTemplate(opts: {
   }
 
   try {
-    const res = await fetch(`${endpoint}?${query.toString()}`, { method: "GET" });
+    const res = await fetch(`${endpoint}?${query.toString()}`, {
+      method: "GET",
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+    });
     const body = (await res.text()).trim();
     // Success ids start with "s." (e.g. "s.123456"); everything else is an error.
     if (res.ok && /^s\./i.test(body)) {

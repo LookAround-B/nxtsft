@@ -34,6 +34,12 @@ live only once its template is approved and its env var is set.
 > Sending a Utility template through `sendmsg.php` fails (`Marketing Templates Not
 > Allowed`); the utility endpoint + `BUZWAP` is what returns `S.<id>`. The code
 > (`sendWhatsAppTemplate`) now picks both automatically from `stype`.
+>
+> Both endpoints are called over **plain `http://`**, never `https://`.
+> bhashsms.com's HTTPS chain is missing an intermediate cert: browsers tolerate
+> it, but server-side fetch (Vercel/Node undici) rejects it as a generic
+> `fetch failed`. Sends are also capped at an 8s timeout so a slow gateway can't
+> hang the signup/login request that triggered them.
 
 ## Transactional templates (wired, auto-fire)
 
