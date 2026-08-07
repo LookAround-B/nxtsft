@@ -300,6 +300,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // a signed-in user permanently signed-out in the UI — /list showing "Sign
     // in to list your property", and the portal guard trading redirects with
     // middleware forever. Rebuilding the cache from the cookie is the repair.
+    // A cached session with NO marker cookie means the browser is signed out as
+    // far as middleware is concerned — the marker is re-stamped in lockstep with
+    // the session cookie on every authenticated request, so it cannot outlive
+    // it. Believing the cache here is what produces the loop the client keeps
+    // reporting: the page thinks "signed in" and redirects to the portal,
+    // middleware sees no session cookie and bounces back to /login, forever,
+    // with "Signed in as <name>" sitting above the sign-in form the whole time.
+    // Trust the cookie, not the cache, and don't wait on the network to do it.
+    if (hadCachedSession && !hasAuthMarkerCookie()) {
+      removeLS(SESSION_KEY);
+      removeLS(CREDITS_KEY);
+      setSession(null);
+      setCredits(0);
+      // The session cookie may still be present-but-orphaned (see the null
+      // branch below); clearing it server-side costs one request and makes
+      // /login reachable instead of 307-ing back to the portal.
+      void clearSessionCookieServer();
+      setSessionChecked(true);
+      return;
+    }
+
     if (hadCachedSession || hasAuthMarkerCookie()) {
       makeTRPC()
         .auth.me.query()
@@ -327,7 +348,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           persist(toSession(freshUser), freshUser.credits);
         })
         .catch(() => {
-          // Network hiccup — keep the cached session; we'll re-check next load.
+          // Network hiccup. Keeping the cached session is only safe because we
+          // already know the marker cookie is present (checked above), so
+          // middleware and this cache still agree — no redirect loop is
+          // possible. We'll re-check on the next load.
         })
         .finally(() => setSessionChecked(true));
     } else {
