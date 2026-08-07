@@ -184,6 +184,7 @@ interface Ctx {
   verifyMyPhone: (phone: string, code: string) => Promise<Session>;
   signInWithGoogle: (credential: string) => Promise<{ session: Session; needsPhone: boolean }>;
   completePhone: (phone: string, applyAs?: "buyer" | "seller", otp?: string) => Promise<{ pendingApproval: boolean }>;
+  applyAsSeller: () => Promise<void>;
   signOut: () => Promise<void>;
   register: (name: string, email: string, phone: string, password: string, city?: string, waOptIn?: boolean, otp?: string) => Promise<Session>;
   registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent", waOptIn?: boolean, otp?: string) => Promise<void>;
@@ -439,6 +440,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { pendingApproval: res.pendingApproval };
   }
 
+  // Convert this buyer account into a Home Seller pending admin approval. The
+  // server drops every session (an unapproved seller must not stay signed in),
+  // so clear the local cache to match instead of leaving a session the cookie
+  // no longer backs.
+  async function applyAsSeller(): Promise<void> {
+    await makeTRPC().auth.applyAsSeller.mutate();
+    await clearSessionCookieServer();
+    removeLS(SESSION_KEY);
+    clearAuthMarkerCookie();
+    setSession(null);
+  }
+
   async function signOut(): Promise<void> {
     if (session) {
       try {
@@ -542,6 +555,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInStaff,
         requestOtp,
         loginWithOtp,
+        applyAsSeller,
         requestSignupOtp,
         requestMyPhoneOtp,
         verifyMyPhone,

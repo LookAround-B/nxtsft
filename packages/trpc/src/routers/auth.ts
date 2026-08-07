@@ -201,6 +201,54 @@ async function resolveSignupPhoneVerified(phone: string, code?: string): Promise
   return true;
 }
 
+/**
+ * Convert an existing account into a home-seller awaiting admin approval —
+ * the same queue the /register seller flow feeds. Shared by the Google
+ * phone-capture step (completePhone) and by applyAsSeller, which is the path
+ * for someone who already signed up as a buyer and now wants to list: their
+ * number is already taken (by their own account), so /register can only ever
+ * tell them "This mobile number is already registered".
+ *
+ * The caller is signed out on purpose: login/googleSignIn/requestOtp all block
+ * unverified sellers, so leaving a live session would let them reach seller
+ * screens they aren't approved for yet.
+ */
+async function convertToPendingSeller(
+  userId: string,
+  data: { phone?: string; phoneVerified?: boolean } = {},
+) {
+  const seller = await prisma.user.update({
+    where: { id: userId },
+    data: { ...data, role: "home-seller", verified: false },
+  });
+  await createSignupLead(seller);
+  await notify({
+    userId: seller.id,
+    type: "welcome",
+    title: "Home Seller application received",
+    content:
+      "Your Home Seller account is pending admin approval. We'll notify you once it's approved.",
+  });
+  const admins = await prisma.user.findMany({
+    where: { role: { in: ["admin", "super-admin"] } },
+    select: { id: true, role: true },
+  });
+  if (admins.length > 0) {
+    await prisma.notification.createMany({
+      data: admins.map((a) => ({
+        userId: a.id,
+        type: "seller_approval",
+        title: "New Home Seller pending approval",
+        content: `${seller.name} (${seller.email}) is awaiting account approval.`,
+        actionUrl: `${portalBase(a.role)}#seller-approvals`,
+      })),
+    });
+  }
+  await notifyAdminNewUser(seller);
+  await prisma.session.deleteMany({ where: { userId: seller.id } });
+  return seller;
+}
+
 export const authRouter = router({
   // Public registration for home buyers (role: user)
   register: publicProcedure
@@ -676,37 +724,10 @@ export const authRouter = router({
       // out and must wait for approval (login + googleSignIn block unverified
       // sellers), so no promotion credit and no active session.
       if (input.applyAs === "seller") {
-        const seller = await prisma.user.update({
-          where: { id: ctx.user.id },
-          data: { phone: input.phone, role: "home-seller", verified: false, phoneVerified },
+        const seller = await convertToPendingSeller(ctx.user.id, {
+          phone: input.phone,
+          phoneVerified,
         });
-        await createSignupLead(seller);
-        await notify({
-          userId: seller.id,
-          type: "welcome",
-          title: "Account created",
-          content:
-            "Your Home Seller account is pending admin approval. We'll notify you once it's approved.",
-        });
-        const admins = await prisma.user.findMany({
-          where: { role: { in: ["admin", "super-admin"] } },
-          select: { id: true, role: true },
-        });
-        if (admins.length > 0) {
-          await prisma.notification.createMany({
-            data: admins.map((a) => ({
-              userId: a.id,
-              type: "seller_approval",
-              title: "New Home Seller pending approval",
-              content: `${seller.name} (${seller.email}) signed up with Google and is awaiting account approval.`,
-              actionUrl: `${portalBase(a.role)}#seller-approvals`,
-            })),
-          });
-        }
-        // Best-effort WhatsApp alert to the business owner about the new signup.
-        await notifyAdminNewUser(seller);
-        // Invalidate every session — an unverified seller must not stay logged in.
-        await prisma.session.deleteMany({ where: { userId: seller.id } });
         return { pendingApproval: true as const, user: safeUser(seller) };
       }
 
@@ -738,6 +759,29 @@ export const authRouter = router({
       const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
       return { pendingApproval: false as const, user: safeUser(fresh) };
     }),
+
+  // A signed-in Home Buyer applies to become a Home Seller on their EXISTING
+  // account. Without this the only route offered is "Register as Home Seller",
+  // which always dead-ends on "This mobile number is already registered" —
+  // their own number, on their own account.
+  applyAsSeller: protectedProcedure.mutation(async ({ ctx }) => {
+    if (ctx.user.role === "home-seller" || ctx.user.role === "agent") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "This account can already list properties." });
+    }
+    if (ctx.user.role !== "user") {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Staff accounts can't be converted to Home Sellers." });
+    }
+    // Sellers are contacted on WhatsApp about their listings, and the approval
+    // queue is useless without a number — send them to add one first.
+    if (!ctx.user.phone) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Add your mobile number to your profile before applying as a Home Seller.",
+      });
+    }
+    await convertToPendingSeller(ctx.user.id);
+    return { pendingApproval: true as const };
+  }),
 
   // A logged-in user verifies (and may correct) their WhatsApp number to earn the
   // verified badge. Unlike requestSignupOtp, this ALLOWS the user's own current
