@@ -191,6 +191,15 @@ const DUMMY_FORM: Partial<FormData> = {
   possession: "Ready to Move",
 };
 
+// Human-readable ₹ amount for the price field (Indians read prices in lakh /
+// crore). The input stores clean digits; this is just a readability hint.
+function priceInWords(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "";
+  if (n >= 1e7) return `≈ ₹${+(n / 1e7).toFixed(2)} Cr`;
+  if (n >= 1e5) return `≈ ₹${+(n / 1e5).toFixed(2)} Lakh`;
+  return `₹${n.toLocaleString("en-IN")}`;
+}
+
 export default function ListPropertyPage() {
   const { session, sessionChecked, applyAsSeller } = useAuth();
   const isRep = REP_LISTING_ROLES.includes(session?.role ?? "");
@@ -556,7 +565,7 @@ export default function ListPropertyPage() {
             <div className="mt-2 flex flex-wrap gap-2 text-xs">
               <span className="rounded bg-secondary px-2 py-0.5 font-medium">{submitted.city}</span>
               <span className="rounded bg-secondary px-2 py-0.5 font-medium">
-                ₹{submitted.price}
+                ₹{Number(submitted.price).toLocaleString("en-IN")}
               </span>
               <span className="rounded bg-secondary px-2 py-0.5 font-medium">
                 {submitted.area} sqft
@@ -1188,11 +1197,15 @@ export default function ListPropertyPage() {
                   <label className="block text-sm font-semibold text-foreground">Price (₹)</label>
                   <input
                     type="text"
-                    value={data.price}
-                    onChange={(e) => set("price", e.target.value)}
-                    placeholder="e.g. 75 Lakh, 1.2 Cr…"
+                    inputMode="numeric"
+                    value={data.price ? Number(data.price).toLocaleString("en-IN") : ""}
+                    onChange={(e) => set("price", e.target.value.replace(/\D/g, ""))}
+                    placeholder="e.g. 75,00,000"
                     className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.price ? "border-rose-400" : "border-input"}`}
                   />
+                  {data.price && (
+                    <p className="mt-1 text-xs text-muted-foreground">{priceInWords(Number(data.price))}</p>
+                  )}
                   {errors.price && <p className="mt-1 text-xs text-rose-500">{errors.price}</p>}
                 </div>
                 {data.propertyType === "Plot" ? (
