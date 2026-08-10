@@ -162,7 +162,7 @@ export function FeaturedProperties() {
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <span className="text-sm font-semibold text-muted-foreground">
-                Page {page} of {totalPages}
+                Next page
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
