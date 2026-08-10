@@ -67,7 +67,12 @@ export function generateSlug(title: string, city: string) {
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, "")
     .trim()
-    .replace(/\s+/g, "-");
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-") // collapse repeated dashes (e.g. from " - " in titles)
+    // Cap the human-readable part so the final slug stays URL/SEO-friendly and
+    // within the read endpoints' input limit; Date.now() adds ~14 chars.
+    .slice(0, 80)
+    .replace(/-+$/, "");
   return `${base}-${Date.now()}`;
 }
 
@@ -408,7 +413,9 @@ export const propertiesRouter = router({
 
   // Single property by id or slug
   get: publicProcedure
-    .input(z.object({ id: safeString(100, 1) }))
+    // Slugs embed the title, so they can be long — accept up to 300 (matches
+    // `similar`) so listings with long titles aren't unreachable via their URL.
+    .input(z.object({ id: safeString(300, 1) }))
     .query(async ({ input }) => {
       const property = await prisma.property.findFirst({
         where: {
