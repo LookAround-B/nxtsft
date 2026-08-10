@@ -14,6 +14,7 @@ import {
   Users,
   LifeBuoy,
   Briefcase,
+  Images,
 } from "lucide-react";
 import { Home as HomeIcon } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
@@ -36,6 +37,7 @@ import { SellerLeadsTab } from "@/components/user-portal/tabs/SellerLeadsTab";
 import { SellerVisitsTab } from "@/components/user-portal/tabs/SellerVisitsTab";
 import { SupportTicketsTab } from "@/components/user-portal/tabs/SupportTicketsTab";
 import { MyBusinessTab } from "@/components/user-portal/tabs/MyBusinessTab";
+import { BulkPhotosTab } from "@/components/user-portal/tabs/BulkPhotosTab";
 
 export default function UserPortal() {
   const { session } = useAuth();
@@ -72,6 +74,7 @@ export default function UserPortal() {
     // Seller-only: buyers who enquired on / booked visits to their listings.
     ...(isSeller
       ? [
+          { label: "Bulk Photos", to: "/user-portal#bulkphotos", icon: <Images size={14} /> },
           { label: "Leads",  to: "/user-portal#leads",     icon: <Users size={14} />, badge: b?.sellerNewLeads },
           { label: "Visits", to: "/user-portal#propvisits", icon: <Calendar size={14} /> },
         ]
@@ -99,15 +102,18 @@ export default function UserPortal() {
       nav={nav}
       basePath="/user-portal"
     >
-      {renderTab(h)}
+      {renderTab(h, isSeller)}
     </PortalShell>
   );
 }
 
-function renderTab(h: string) {
+function renderTab(h: string, isSeller: boolean) {
   switch (h) {
     case "saved":   return <SavedTab />;
     case "mylist":  return <MyListingsTab />;
+    // Hash-gated the same way the nav item is — the hash is guessable and
+    // media.createUploadUrls only checks "signed in", not role.
+    case "bulkphotos": return isSeller ? <BulkPhotosTab /> : <OverviewDashboard />;
     case "leads":   return <SellerLeadsTab />;
     case "propvisits": return <SellerVisitsTab />;
     case "business": return <MyBusinessTab />;

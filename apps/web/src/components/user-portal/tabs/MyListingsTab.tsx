@@ -411,6 +411,12 @@ export function MyListingsTab() {
         action={
           <div className="flex items-center gap-2">
             <Link
+              href="/user-portal#bulkphotos"
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
+            >
+              Bulk photos
+            </Link>
+            <Link
               href="/list/bulk"
               className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
             >
