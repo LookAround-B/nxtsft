@@ -1,13 +1,24 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 import { ROLE_META, useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
 const GOOGLE_ENABLED = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+// Post-login we navigate with window.location (a hard navigation) instead of the
+// Next router. A soft (client) navigation replays Next's Router Cache, which
+// remembers the "/list -> /login" redirect middleware issued during a logged-OUT
+// visit and keeps bouncing the user back to /login even after they sign in — the
+// exact "clicking List a Property goes to login, but typing the URL works" bug.
+// A hard navigation refetches from the server, so the stale cached redirect is
+// dropped. safeInternalPath keeps the ?redirect target internal (no open redirect).
+function safeInternalPath(param: string | null, fallback: string): string {
+  return param && param.startsWith("/") && !param.startsWith("//") ? param : fallback;
+}
 
 export default function LoginPage() {
   return (
@@ -20,7 +31,6 @@ export default function LoginPage() {
 function LoginPageContent() {
   const { session, sessionChecked, signIn, signInWithGoogle, completePhone, signOut, requestOtp, loginWithOtp, requestSignupOtp } =
     useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Google sign-up returns no phone; hold the auto-redirect while we collect one.
@@ -35,9 +45,9 @@ function LoginPageContent() {
   // is still good, send them straight back where they were headed.
   useEffect(() => {
     if (sessionChecked && session && !needPhone) {
-      router.replace(searchParams.get("redirect") || ROLE_META[session.role].portal);
+      window.location.replace(safeInternalPath(searchParams.get("redirect"), ROLE_META[session.role].portal));
     }
-  }, [sessionChecked, session, searchParams, router, needPhone]);
+  }, [sessionChecked, session, searchParams, needPhone]);
 
   // OTP is the primary way in; email + password stays as a fallback.
   const [mode, setMode] = useState<"otp" | "password">("otp");
@@ -87,7 +97,7 @@ function LoginPageContent() {
     try {
       const s = await signIn(email.trim(), password);
       toast.success(`Welcome back, ${s.name.split(" ")[0]}!`);
-      router.push(ROLE_META[s.role].portal);
+      window.location.assign(ROLE_META[s.role].portal);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
@@ -128,7 +138,7 @@ function LoginPageContent() {
     try {
       const s = await loginWithOtp(otpPhone.replace(/\D/g, ""), otpCode);
       toast.success(`Welcome back, ${s.name.split(" ")[0]}!`);
-      router.push(searchParams.get("redirect") || ROLE_META[s.role].portal);
+      window.location.assign(safeInternalPath(searchParams.get("redirect"), ROLE_META[s.role].portal));
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : "Couldn't verify the code. Please try again.");
     } finally {
@@ -151,7 +161,7 @@ function LoginPageContent() {
         setNeedPhone(true);
         return;
       }
-      router.push(ROLE_META[s.role].portal);
+      window.location.assign(ROLE_META[s.role].portal);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Google sign-in failed.");
     } finally {
@@ -171,7 +181,7 @@ function LoginPageContent() {
       setSellerPending(true);
       return;
     }
-    router.push(searchParams.get("redirect") || "/user-portal");
+    window.location.assign(safeInternalPath(searchParams.get("redirect"), "/user-portal"));
   };
 
   // Step 1: validate the number, then send a WhatsApp OTP to verify it.
