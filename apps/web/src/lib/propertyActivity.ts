@@ -15,10 +15,6 @@ import { NAMES_BY_STATE, DEFAULT_NAMES, type DummyName } from "@/data/dummyNames
 
 export type ActivityAction = "interested" | "wishlisted" | "contact";
 
-// No fabricated activity for the first 48 hours after a listing goes live — a
-// brand-new listing showing views/interests/contacts looks fake.
-const LISTING_GRACE_MS = 48 * 60 * 60 * 1000;
-
 // User-listed properties store state as "India" (the /list wizard hardcodes it),
 // so the region-name lookup has to fall back to the city. Maps each city the
 // listing form offers to the state whose name pool it should draw from.
@@ -85,17 +81,15 @@ function dayNumber(d: Date): number {
 
 /**
  * Build the fabricated activity for one property. Deterministic for a given
- * (propertyId, calendar day) pair.
+ * (propertyId, calendar day) pair. Shown from the moment a listing goes live —
+ * event timestamps are clamped to the listing's own age so nothing predates it.
  */
 export function propertyActivity(
   propertyId: string,
   createdAt: Date,
   region?: { state?: string | null; city?: string | null } | null,
   now: Date = new Date(),
-): PropertyActivity | null {
-  // Suppress all fabricated activity for the first 48 hours after listing.
-  if (now.getTime() - createdAt.getTime() < LISTING_GRACE_MS) return null;
-
+): PropertyActivity {
   // Region-appropriate buyer names (Hyderabad listing → Telangana names, etc.).
   const names: DummyName[] = namePool(region?.state, region?.city);
 
@@ -124,6 +118,11 @@ export function propertyActivity(
   const actions: ActivityAction[] = ["interested", "wishlisted", "contact"];
   const recent: ActivityEvent[] = [];
 
+  // Events spread over the last ~3 days, but never further back than the
+  // listing itself exists — a 4h-old listing gets 4h worth of activity.
+  const ageMinutes = Math.max(1, Math.floor((now.getTime() - createdAt.getTime()) / 60_000));
+  const spanMinutes = Math.min(3 * 24 * 60, ageMinutes);
+
   for (let i = 0; i < count; i++) {
     let idx = Math.floor(feedRng() * names.length);
     // linear-probe to avoid duplicate names in the same feed
@@ -131,8 +130,7 @@ export function propertyActivity(
     used.add(idx);
     const person = names[idx]!;
     const action = actions[Math.floor(feedRng() * actions.length)]!;
-    // Spread events across the last ~3 days, newest first.
-    const minutesAgo = Math.floor(feedRng() * 3 * 24 * 60) + i * 7;
+    const minutesAgo = Math.min(ageMinutes, Math.floor(feedRng() * spanMinutes) + i * 7);
     recent.push({
       name: person.n,
       gender: person.g,

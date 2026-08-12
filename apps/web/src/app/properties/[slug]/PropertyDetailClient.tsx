@@ -23,7 +23,6 @@ import {
   ShieldCheck,
   Globe,
   Star,
-  Share2,
   Maximize2,
   ImageOff,
   Eye,
@@ -44,6 +43,7 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { trpc } from "@/lib/trpc";
 import { formatArea } from "@/lib/area";
 import { propertyActivity } from "@/lib/propertyActivity";
+import { ShareMenu } from "@/components/ShareMenu";
 import { amenityIcon } from "@/data/amenities";
 import { useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -182,17 +182,9 @@ function ViewerBadge({
   // consistent: total = unique viewers × a repeat-view factor (1.3–1.6×).
   // Computed after mount (date-dependent) to avoid SSR/CSR hydration mismatch.
   const [massViews, setMassViews] = useState<number | null>(null);
-  // Hidden during the first 48h post-listing (propertyActivity returns null),
-  // which also suppresses the "viewing right now" pill below.
-  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     const activity = propertyActivity(propertyId, new Date(createdAt));
-    if (!activity) {
-      setHidden(true);
-      return;
-    }
-    setHidden(false);
     const factor = 1.3 + (viewBase % 4) * 0.1; // 1.3–1.6, deterministic per listing
     setMassViews(Math.round(activity.counts.views * factor));
   }, [propertyId, createdAt, viewBase]);
@@ -207,9 +199,6 @@ function ViewerBadge({
     const id = setInterval(tick, 38_000 + Math.random() * 14_000);
     return () => clearInterval(id);
   }, []);
-
-  // No dummy view/activity indicators for the first 48h after listing.
-  if (hidden) return null;
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">
@@ -681,15 +670,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                   >
                     <Heart size={16} fill={saved ? "currentColor" : "none"} />
                   </button>
-                  <button
-                    onClick={() => {
-                      void navigator.clipboard.writeText(window.location.href);
-                      toast.success("Link copied!");
-                    }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white/80 text-foreground backdrop-blur-sm transition hover:bg-secondary"
-                  >
-                    <Share2 size={16} />
-                  </button>
+                  <ShareMenu title={property.title} />
                 </div>
               </div>
 

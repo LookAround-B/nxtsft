@@ -71,8 +71,8 @@ function Stat({ icon, value, label, tone }: { icon: React.ReactNode; value: numb
  *
  * Numbers are deterministic per property + day (see lib/propertyActivity) and
  * are computed client-side after mount to avoid SSR/CSR hydration mismatch on
- * the date-dependent values. Only rendered for Active listings — non-active /
- * dummy listings show nothing.
+ * the date-dependent values (hence the null `data` until mount). Only rendered
+ * for Active listings — non-active / dummy listings show nothing.
  */
 export function PropertyEngagement({
   propertyId,
@@ -93,7 +93,6 @@ export function PropertyEngagement({
 
   useEffect(() => {
     if (status !== "Active") return;
-    // Returns null for the first 48h post-listing → the card renders nothing.
     setData(propertyActivity(propertyId, new Date(createdAt), { state, city }));
   }, [propertyId, createdAt, status, state, city]);
 

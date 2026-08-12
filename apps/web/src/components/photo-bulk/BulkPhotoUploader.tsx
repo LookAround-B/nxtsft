@@ -99,8 +99,13 @@ export function BulkPhotoUploader() {
       downloadCsv(rows);
       setResult(rows);
       toast.success(`${rows.reduce((n, r) => n + r.urls.length, 0)} photo(s) uploaded · CSV downloaded.`);
-    } catch {
-      toast.error("Upload failed — check your connection and try again.");
+    } catch (err) {
+      // Surface the real reason — the old blanket "check your connection" hid a
+      // bucket CORS misconfiguration behind a message that sent people hunting
+      // for a network problem they didn't have.
+      const detail = err instanceof Error ? err.message : "";
+      toast.error(detail ? `Upload failed — ${detail}` : "Upload failed. Please try again.");
+      console.error("[bulk-photos] upload failed", err);
     } finally {
       setBusy(false);
     }

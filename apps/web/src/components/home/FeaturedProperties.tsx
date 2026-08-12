@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import Link from "next/link";
@@ -19,6 +19,7 @@ const PAGE_SIZE = 18;
 export function FeaturedProperties() {
   const [propTab, setPropTab] = useState("All");
   const [page, setPage] = useState(1);
+  const topRef = useRef<HTMLDivElement>(null);
 
   const featuredQ = trpc.properties.list.useQuery({
     featured: true,
@@ -33,6 +34,13 @@ export function FeaturedProperties() {
   const selectTab = (t: string) => {
     setPropTab(t);
     setPage(1);
+  };
+
+  // Paging from the controls at the bottom of the grid would otherwise leave the
+  // viewport parked at the footer — scroll back to the top of the section.
+  const goToPage = (next: number) => {
+    setPage(next);
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   // Re-run scroll reveal when dynamic cards mount after data loads
@@ -56,7 +64,10 @@ export function FeaturedProperties() {
   return (
     <section className="px-4 py-2 sm:px-6 sm:py-3">
       <div className="mx-auto max-w-7xl">
-        <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-7">
+        <div
+          ref={topRef}
+          className="scroll-mt-24 rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-7"
+        >
           <div className="mb-4" data-reveal>
             <Eyebrow>Hand Picked</Eyebrow>
             <h2 className="mt-1 font-display text-xl font-black text-navy sm:text-2xl">
@@ -154,7 +165,7 @@ export function FeaturedProperties() {
           {totalPages > 1 && (
             <div className="mt-5 flex items-center justify-center gap-3">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => goToPage(Math.max(1, page - 1))}
                 disabled={page <= 1}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-navy shadow-sm transition hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Previous page"
@@ -165,7 +176,7 @@ export function FeaturedProperties() {
                 Next page
               </span>
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => goToPage(Math.min(totalPages, page + 1))}
                 disabled={page >= totalPages}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-navy shadow-sm transition hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Next page"
