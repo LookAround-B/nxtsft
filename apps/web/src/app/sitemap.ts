@@ -40,7 +40,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/`, lastModified: now, changeFrequency: "daily", priority: 1.0 },
     { url: `${SITE_URL}/properties`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: `${SITE_URL}/builders`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
-    { url: `${SITE_URL}/agents`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    // /agents directory is hidden from the site nav, so it stays out of the
+    // sitemap; individual agent profiles below are still indexed.
     { url: `${SITE_URL}/interiors`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE_URL}/decor`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE_URL}/pg`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },

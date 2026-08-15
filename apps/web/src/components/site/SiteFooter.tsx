@@ -23,7 +23,6 @@ const FOOTER_LINKS = {
     { href: "/pricing", label: "Pricing Plans" },
     { href: "/contact", label: "Contact" },
     { href: "/careers", label: "Careers" },
-    { href: "/agents", label: "Find an Agent" },
     { href: "/nri-guide", label: "For NRIs" },
   ],
   quick: [

@@ -15,12 +15,7 @@ import { HowItWorks } from "@/components/pricing/HowItWorks";
 import { FAQ } from "@/components/pricing/FAQ";
 import { PlanChooser } from "@/components/pricing/PlanChooser";
 import { CTABanner } from "@/components/pricing/CTABanner";
-import {
-  PRICING_TABS,
-  seekerFaqs,
-  ownerFaqs,
-  ownerSellFaqs,
-} from "@/components/pricing/pricingData";
+import { PRICING_TABS, seekerFaqs, ownerSellFaqs } from "@/components/pricing/pricingData";
 
 const TAB_ICONS = [
   <Building2 size={15} key="b" />,
@@ -51,7 +46,6 @@ export default function PricingPage() {
   const { session, refreshCredits } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
-  const [ownerMode, setOwnerMode] = useState<"renting" | "selling">("renting");
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
 
   // Deep-link the tab: /pricing#buyer opens Property Buyer, #seller opens Seller.
@@ -62,9 +56,8 @@ export default function PricingPage() {
   }, []);
 
   const seekerPlansQuery = trpc.subscriptions.plans.useQuery({ type: "seeker" });
-  const ownerPlansQuery = trpc.subscriptions.plans.useQuery({
-    type: ownerMode === "renting" ? "owner-rent" : "owner-sell",
-  });
+  // Renting plans are hidden from the frontend; sellers only see selling plans.
+  const ownerPlansQuery = trpc.subscriptions.plans.useQuery({ type: "owner-sell" });
   const gatewayQ = trpc.subscriptions.activeGateway.useQuery();
   const createOrder = trpc.subscriptions.createOrder.useMutation();
   const createOwnerOrder = trpc.subscriptions.createOwnerOrder.useMutation();
@@ -241,22 +234,6 @@ export default function PricingPage() {
       {/* ── PROPERTY SELLER ── */}
       {activeTab === 0 && (
         <>
-          {/* Sub-toggle */}
-          <div className="mx-auto mt-10 flex max-w-xs justify-center">
-            <div className="flex rounded-xl border border-border bg-secondary p-1">
-              {(["renting", "selling"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setOwnerMode(mode)}
-                  className={`rounded-lg px-5 py-2 font-display text-sm font-semibold transition
-                    ${ownerMode === mode ? "bg-white text-navy shadow" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  {mode === "renting" ? "For Renting" : "For Selling"}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Cards */}
           <section className="mx-auto max-w-6xl px-5 pt-10 pb-6 sm:px-6">
             <div className="grid grid-cols-1 items-stretch gap-6 pt-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -283,20 +260,9 @@ export default function PricingPage() {
             </p>
           </section>
 
-          <PlanChooser
-            variant={ownerMode === "renting" ? "owner-rent" : "owner-sell"}
-            plans={ownerPlans}
-            onScrollToPlans={scrollToPlan}
-          />
+          <PlanChooser variant="owner-sell" plans={ownerPlans} onScrollToPlans={scrollToPlan} />
           <HowItWorks forSeeker={false} />
-          <FAQ
-            faqs={ownerMode === "renting" ? ownerFaqs : ownerSellFaqs}
-            title={
-              ownerMode === "renting"
-                ? "Property seller rental plan FAQs"
-                : "Property seller selling plan FAQs"
-            }
-          />
+          <FAQ faqs={ownerSellFaqs} title="Property seller selling plan FAQs" />
           <CTABanner session={session} />
         </>
       )}
