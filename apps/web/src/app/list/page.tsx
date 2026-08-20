@@ -206,7 +206,6 @@ export default function ListPropertyPage() {
   // Home Buyer → Home Seller upgrade, offered in place of the old dead-end
   // "Register as Home Seller" link (see the role gate below).
   const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
   const [applyError, setApplyError] = useState("");
   const createProperty = trpc.properties.create.useMutation();
   // Rep flow: which assigned lead this listing belongs to. Leads that already
@@ -647,27 +646,6 @@ export default function ListPropertyPage() {
   // (in-app browser, private mode, iOS ITP) is still signed in via the cookie,
   // and showing them the sign-in card below sends them into a redirect loop
   // with middleware instead of the wizard they asked for.
-  // Applying ends the session server-side, so this has to win over the
-  // signed-out card below — otherwise the confirmation is replaced by "Sign in
-  // to list your property" the instant the application succeeds.
-  if (applied) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-5">
-        <div className="mx-auto max-w-md rounded-3xl border border-border bg-white p-10 text-center shadow-sm">
-          <Building2 className="mx-auto mb-4 h-10 w-10 text-accent" />
-          <h2 className="font-display text-xl font-black text-navy">Application submitted</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Your Home Seller account is pending admin approval. We&rsquo;ll notify you on WhatsApp
-            once it&rsquo;s approved — then sign in again and your listing can go up.
-          </p>
-          <Link href="/" className="mt-6 inline-block rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white transition hover:opacity-90">
-            Back to home
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   if (!sessionChecked && !session) {
     return <div className="min-h-screen bg-background" />;
   }
@@ -710,8 +688,8 @@ export default function ListPropertyPage() {
           {canUpgrade ? (
             <>
               <p className="mt-2 text-sm text-muted-foreground">
-                You&rsquo;re signed in as a Home Buyer. Apply to become a Home Seller and you can
-                list this property once an admin approves your account — no need to sign up again.
+                You&rsquo;re signed in as a Home Buyer. Switch to a Seller account and start listing
+                this property right away — no approval wait, no need to sign up again.
               </p>
               {applyError && <p className="mt-4 text-sm font-semibold text-red-600">{applyError}</p>}
               <button
@@ -722,10 +700,10 @@ export default function ListPropertyPage() {
                   setApplying(true);
                   try {
                     await applyAsSeller();
-                    // The server ends every session on purpose (an unapproved
-                    // seller must not stay signed in), so there is nothing to
-                    // navigate to but the pending-approval message.
-                    setApplied(true);
+                    // Account converts in place and the session stays live —
+                    // session.role flips to "home-seller", so this component
+                    // re-renders straight into the listing wizard below.
+                    toast.success("You're a Seller now — let's list your property!");
                   } catch (err) {
                     setApplyError(err instanceof Error ? err.message : "Couldn't submit your application.");
                   } finally {

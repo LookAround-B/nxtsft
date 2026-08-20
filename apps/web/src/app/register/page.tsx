@@ -81,10 +81,24 @@ export default function RegisterPage() {
       const s = await register(form.name.trim(), form.email.trim(), phone, form.password, form.city, waOptIn, otp);
       toast.success(`Welcome to NxtSft, ${s.name.split(" ")[0]}! You have 1 free credit.`);
       router.push(ROLE_META[s.role].portal);
-    } else {
-      await registerSeller(form.name.trim(), form.email.trim(), phone, form.password, form.city, isAgent ? "agent" : "seller", waOptIn, otp);
-      setSellerPending(true);
+      return;
     }
+    const { pendingApproval } = await registerSeller(
+      form.name.trim(), form.email.trim(), phone, form.password, form.city,
+      isAgent ? "agent" : "seller", waOptIn, otp,
+    );
+    if (pendingApproval) {
+      // Agent / Partner — still goes through the RERA-verified approval queue.
+      setSellerPending(true);
+      return;
+    }
+    // Home Seller — account is active immediately, no approval wait. Hard nav
+    // to /list (not router.push): a soft navigation replays Next's Router Cache,
+    // which may hold a stale "/list -> /login" redirect from a logged-out visit
+    // and bounce this freshly-signed-in seller back to login (same bug we fixed
+    // on the login page's post-auth redirect).
+    toast.success(`Welcome to NxtSft, ${form.name.trim().split(" ")[0]}! You can list your first property now.`);
+    window.location.assign("/list");
   };
 
   const routeRegisterError = (err: unknown) => {
@@ -333,7 +347,7 @@ export default function RegisterPage() {
                 {t === "buyer" ? <Home size={20} className={regType === t ? "text-accent" : "text-muted-foreground"} /> : <Building2 size={20} className={regType === t ? "text-accent" : "text-muted-foreground"} />}
                 <div>
                   <div className={`text-sm font-bold ${regType === t ? "text-accent" : "text-navy"}`}>
-                    {t === "buyer" ? "Home Buyer" : isAgent ? "Agent / Partner" : "Home Seller"}
+                    {t === "buyer" ? "Buyer" : isAgent ? "Agent / Partner" : "Seller"}
                   </div>
                   <div className="text-[11px] text-muted-foreground">
                     {t === "buyer" ? "Browse & buy" : isAgent ? "List & sell as a verified agent" : "List & sell"}
@@ -344,11 +358,15 @@ export default function RegisterPage() {
           </div>
 
           {regType === "seller" && (
-            <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-700">
-              {isAgent
-                ? "Agent / partner accounts require admin approval (RERA verification) before you can log in and list properties."
-                : "Home Seller accounts require admin approval before you can log in and list properties."}
-            </p>
+            isAgent ? (
+              <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-700">
+                Agent / partner accounts require admin approval (RERA verification) before you can log in and list properties.
+              </p>
+            ) : (
+              <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-700">
+                Seller accounts are active immediately — no approval wait. List your property right after signing up.
+              </p>
+            )
           )}
 
           <form onSubmit={submit} noValidate className="mt-4 space-y-4 rounded-2xl border border-border bg-white p-6 shadow-sm">
@@ -499,7 +517,7 @@ export default function RegisterPage() {
                   Sending code…
                 </span>
               ) : (
-                regType === "buyer" ? "Create Account →" : "Submit Application →"
+                regType === "buyer" || !isAgent ? "Create Account →" : "Submit Application →"
               )}
             </button>
 

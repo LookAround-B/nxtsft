@@ -202,50 +202,35 @@ async function resolveSignupPhoneVerified(phone: string, code?: string): Promise
 }
 
 /**
- * Convert an existing account into a home-seller awaiting admin approval —
- * the same queue the /register seller flow feeds. Shared by the Google
- * phone-capture step (completePhone) and by applyAsSeller, which is the path
- * for someone who already signed up as a buyer and now wants to list: their
- * number is already taken (by their own account), so /register can only ever
- * tell them "This mobile number is already registered".
+ * Convert an existing account into a Home Seller — active immediately, no
+ * admin approval (08-20: approval removed for Home Sellers; Agents / Partners
+ * still queue for RERA-verified approval via registerSeller). Shared by the
+ * Google phone-capture step (completePhone) and by applyAsSeller, which is
+ * the path for someone who already signed up as a buyer and now wants to
+ * list: their number is already taken (by their own account), so /register
+ * can only ever tell them "This mobile number is already registered".
  *
- * The caller is signed out on purpose: login/googleSignIn/requestOtp all block
- * unverified sellers, so leaving a live session would let them reach seller
- * screens they aren't approved for yet.
+ * Unlike the old pending-approval flow, the caller keeps their session — they
+ * can go straight to /list and submit a property.
  */
-async function convertToPendingSeller(
+async function convertToSeller(
   userId: string,
   data: { phone?: string; phoneVerified?: boolean } = {},
 ) {
   const seller = await prisma.user.update({
     where: { id: userId },
-    data: { ...data, role: "home-seller", verified: false },
+    data: { ...data, role: "home-seller", verified: true, verifiedAt: new Date() },
   });
   await createSignupLead(seller);
   await notify({
     userId: seller.id,
     type: "welcome",
-    title: "Home Seller application received",
-    content:
-      "Your Home Seller account is pending admin approval. We'll notify you once it's approved.",
+    title: "You're a Home Seller now 🎉",
+    content: "Your account is ready — list your first property right away, no approval wait.",
+    actionUrl: "/list",
   });
-  const admins = await prisma.user.findMany({
-    where: { role: { in: ["admin", "super-admin"] } },
-    select: { id: true, role: true },
-  });
-  if (admins.length > 0) {
-    await prisma.notification.createMany({
-      data: admins.map((a) => ({
-        userId: a.id,
-        type: "seller_approval",
-        title: "New Home Seller pending approval",
-        content: `${seller.name} (${seller.email}) is awaiting account approval.`,
-        actionUrl: `${portalBase(a.role)}#seller-approvals`,
-      })),
-    });
-  }
+  // Best-effort WhatsApp alert to the business owner about the new signup.
   await notifyAdminNewUser(seller);
-  await prisma.session.deleteMany({ where: { userId: seller.id } });
   return seller;
 }
 
@@ -351,6 +336,9 @@ export const authRouter = router({
       const phoneVerified = await resolveSignupPhoneVerified(input.phone, input.otp);
       const isAgent = input.applyAs === "agent";
       const passwordHash = await bcrypt.hash(input.password, 12);
+      // Home Sellers are active immediately (08-20: admin approval removed for
+      // Home Sellers). Agents / Partners still go through the RERA-verified
+      // approval queue below — unchanged.
       const applicant = await prisma.user.create({
         data: {
           name: input.name,
@@ -359,7 +347,8 @@ export const authRouter = router({
           city: input.city,
           role: isAgent ? "agent" : "home-seller",
           passwordHash,
-          verified: false,
+          verified: !isAgent,
+          verifiedAt: !isAgent ? new Date() : undefined,
           phoneVerified,
           ...(isAgent && { slug: await uniqueAgentSlug(input.name) }),
           // Agent directory metadata and the WA consent flag share the same
@@ -373,39 +362,53 @@ export const authRouter = router({
         },
       });
 
-      // Welcome the applicant — surfaces once their account is approved & they log in.
+      if (isAgent) {
+        // Welcome the applicant — surfaces once their account is approved & they log in.
+        await notify({
+          userId: applicant.id,
+          type: "welcome",
+          title: "Account created",
+          content: "Your Agent / Partner account is pending admin approval. We'll notify you once it's approved.",
+        });
+
+        // Notify all admins and super-admins — Agents still need a human to
+        // verify RERA credentials before going live.
+        const admins = await prisma.user.findMany({
+          where: { role: { in: ["admin", "super-admin"] } },
+          select: { id: true, role: true },
+        });
+        if (admins.length > 0) {
+          await prisma.notification.createMany({
+            data: admins.map((a) => ({
+              userId: a.id,
+              type: "seller_approval",
+              title: "New Agent / Partner pending approval",
+              content: `${applicant.name} (${applicant.email}) registered and is awaiting account approval.`,
+              actionUrl: `${portalBase(a.role)}#seller-approvals`,
+            })),
+          });
+        }
+
+        // Best-effort WhatsApp alert to the business owner about the new signup.
+        await notifyAdminNewUser(applicant);
+        return { pendingApproval: true as const };
+      }
+
+      // Home Seller: no approval queue — sign them in immediately, same as a
+      // buyer registering.
       await notify({
         userId: applicant.id,
         type: "welcome",
-        title: "Account created",
-        content: isAgent
-          ? "Your Agent / Partner account is pending admin approval. We'll notify you once it's approved."
-          : "Your Home Seller account is pending admin approval. We'll notify you once it's approved.",
+        title: "You're a Home Seller now 🎉",
+        content: "Your account is ready — you can list your first property right away.",
+        actionUrl: "/list",
       });
-
-      // Notify all admins and super-admins
-      const admins = await prisma.user.findMany({
-        where: { role: { in: ["admin", "super-admin"] } },
-        select: { id: true, role: true },
-      });
-      if (admins.length > 0) {
-        await prisma.notification.createMany({
-          data: admins.map((a) => ({
-            userId: a.id,
-            type: "seller_approval",
-            title: isAgent
-              ? "New Agent / Partner pending approval"
-              : "New Home Seller pending approval",
-            content: `${applicant.name} (${applicant.email}) registered and is awaiting account approval.`,
-            actionUrl: `${portalBase(a.role)}#seller-approvals`,
-          })),
-        });
-      }
-
       // Best-effort WhatsApp alert to the business owner about the new signup.
       await notifyAdminNewUser(applicant);
 
-      return { success: true as const };
+      const token = await createSession(applicant.id);
+      const freshUser = await prisma.user.findUniqueOrThrow({ where: { id: applicant.id } });
+      return { pendingApproval: false as const, token, user: safeUser(freshUser) };
     }),
 
   // Login for consumers (/login page)
@@ -719,16 +722,16 @@ export const authRouter = router({
 
       const phoneVerified = await resolveSignupPhoneVerified(input.phone, input.otp);
 
-      // Seller path: convert this Google buyer into a pending home-seller — the
-      // same admin-approval queue as the /register seller flow. They're signed
-      // out and must wait for approval (login + googleSignIn block unverified
-      // sellers), so no promotion credit and no active session.
+      // Seller path: convert this Google buyer into a Home Seller — active
+      // immediately (08-20: no more admin-approval queue for Home Sellers).
+      // Their existing session stays live, so no promotion credit (that's a
+      // buyer-only reward) but they can go straight to /list.
       if (input.applyAs === "seller") {
-        const seller = await convertToPendingSeller(ctx.user.id, {
+        const seller = await convertToSeller(ctx.user.id, {
           phone: input.phone,
           phoneVerified,
         });
-        return { pendingApproval: true as const, user: safeUser(seller) };
+        return { pendingApproval: false as const, user: safeUser(seller) };
       }
 
       // Buyer path: set phone, then "update mobile number to unlock 1 credit" —
@@ -771,16 +774,16 @@ export const authRouter = router({
     if (ctx.user.role !== "user") {
       throw new TRPCError({ code: "FORBIDDEN", message: "Staff accounts can't be converted to Home Sellers." });
     }
-    // Sellers are contacted on WhatsApp about their listings, and the approval
-    // queue is useless without a number — send them to add one first.
+    // Sellers are contacted on WhatsApp about their listings — send them to
+    // add one before converting.
     if (!ctx.user.phone) {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
         message: "Add your mobile number to your profile before applying as a Home Seller.",
       });
     }
-    await convertToPendingSeller(ctx.user.id);
-    return { pendingApproval: true as const };
+    await convertToSeller(ctx.user.id);
+    return { pendingApproval: false as const };
   }),
 
   // A logged-in user verifies (and may correct) their WhatsApp number to earn the

@@ -187,7 +187,7 @@ interface Ctx {
   applyAsSeller: () => Promise<void>;
   signOut: () => Promise<void>;
   register: (name: string, email: string, phone: string, password: string, city?: string, waOptIn?: boolean, otp?: string) => Promise<Session>;
-  registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent", waOptIn?: boolean, otp?: string) => Promise<void>;
+  registerSeller: (name: string, email: string, phone: string, password: string, city: string, applyAs?: "seller" | "agent", waOptIn?: boolean, otp?: string) => Promise<{ pendingApproval: boolean }>;
   updateProfile: (name: string, phone: string) => Promise<void>;
   updateAvatar: (url: string) => Promise<void>;
   addCredits: (n: number) => void;
@@ -440,16 +440,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { pendingApproval: res.pendingApproval };
   }
 
-  // Convert this buyer account into a Home Seller pending admin approval. The
-  // server drops every session (an unapproved seller must not stay signed in),
-  // so clear the local cache to match instead of leaving a session the cookie
-  // no longer backs.
+  // Convert this buyer account into a Home Seller — active immediately, same
+  // session (08-20: no more admin-approval wait). Refresh from the server so
+  // session.role flips to "home-seller" without a sign-out/sign-in round trip.
   async function applyAsSeller(): Promise<void> {
     await makeTRPC().auth.applyAsSeller.mutate();
-    await clearSessionCookieServer();
-    removeLS(SESSION_KEY);
-    clearAuthMarkerCookie();
-    setSession(null);
+    const freshUser = await makeTRPC().auth.me.query();
+    if (freshUser) persist(toSession(freshUser), freshUser.credits);
   }
 
   async function signOut(): Promise<void> {
@@ -498,9 +495,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     applyAs: "seller" | "agent" = "seller",
     waOptIn?: boolean,
     otp?: string,
-  ): Promise<void> {
-    await makeTRPC().auth.registerSeller.mutate({ name, email, phone, password, city, applyAs, waOptIn, otp });
-    // No session — applicant must wait for admin approval
+  ): Promise<{ pendingApproval: boolean }> {
+    const res = await makeTRPC().auth.registerSeller.mutate({ name, email, phone, password, city, applyAs, waOptIn, otp });
+    if (!res.pendingApproval) {
+      // Home Seller — active immediately, session granted server-side.
+      await syncSessionCookie(res.token);
+      const s = toSession(res.user);
+      persist(s, res.user.credits);
+    }
+    // Agent — no session; applicant must wait for admin approval.
+    return { pendingApproval: res.pendingApproval };
   }
 
   async function updateProfile(name: string, phone: string): Promise<void> {

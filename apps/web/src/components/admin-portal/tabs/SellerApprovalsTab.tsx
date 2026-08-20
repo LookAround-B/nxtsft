@@ -57,7 +57,7 @@ export function SellerApprovalsTab() {
     <>
       <PageHead
         title="Seller & Agent Approvals"
-        subtitle="Review and approve Home Seller and Agent / Partner accounts before they go live."
+        subtitle="Review and approve Agent / Partner accounts (RERA-verified). Seller accounts are now approved automatically."
       />
 
       <div className="relative mb-6 max-w-md">

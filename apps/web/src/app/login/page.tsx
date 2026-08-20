@@ -175,8 +175,9 @@ function LoginPageContent() {
     const { pendingApproval } = await completePhone(p, applyAs, otp);
     setNeedPhone(false);
     if (pendingApproval) {
-      // Seller — server invalidated the session; clear it locally and show
-      // the pending-approval screen instead of entering the app.
+      // Defensive only — Sellers convert instantly now (08-20, see
+      // convertToSeller) and this never fires for them in practice. Kept in
+      // case a future signup path re-adds an approval queue here.
       await signOut();
       setSellerPending(true);
       return;
@@ -308,7 +309,7 @@ function LoginPageContent() {
                   <p className="mt-2 text-xs text-muted-foreground">
                     {applyAs === "buyer"
                       ? "🎉 Get 1 free credit to unlock an owner contact."
-                      : "Our team reviews new sellers before your listings go live."}
+                      : "No approval wait — list your property right after verifying."}
                   </p>
                   <p className="mt-1 text-xs font-medium text-amber-600">
                     ⚠ Enter your WhatsApp number only — the code is sent on WhatsApp.
@@ -353,7 +354,7 @@ function LoginPageContent() {
                       ? "Verifying…"
                       : applyAs === "buyer"
                         ? "Verify & unlock 1 credit"
-                        : "Verify & submit for approval"}
+                        : "Verify & start selling"}
                   </button>
                 </form>
 
