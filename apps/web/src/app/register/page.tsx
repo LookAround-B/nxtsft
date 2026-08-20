@@ -364,7 +364,7 @@ export default function RegisterPage() {
               </p>
             ) : (
               <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-700">
-                Seller accounts are active immediately — no approval wait. List your property right after signing up.
+                Start listing your property right after sign-up. There is no approval delay for new seller accounts.
               </p>
             )
           )}
