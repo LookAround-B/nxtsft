@@ -16,7 +16,10 @@ function getPageNumbers(page: number, totalPages: number): (number | "ellipsis")
   return result;
 }
 
-/** Numbered, jump-to-page pagination bar with an optional "Showing X of Y" summary. */
+/**
+ * Numbered, jump-to-page pagination bar with an optional "Showing X of Y" summary.
+ * Pass `simple` to drop the page numbers and label the control "Next page" instead.
+ */
 export function Pagination({
   page,
   totalPages,
@@ -24,6 +27,7 @@ export function Pagination({
   shown,
   total,
   noun = "items",
+  simple = false,
   className,
 }: {
   page: number;
@@ -32,6 +36,7 @@ export function Pagination({
   shown?: number;
   total?: number;
   noun?: string;
+  simple?: boolean;
   className?: string;
 }) {
   if (totalPages <= 1) return null;
@@ -54,24 +59,31 @@ export function Pagination({
         >
           <ChevronLeft size={16} />
         </button>
-        {pages.map((p, i) =>
-          p === "ellipsis" ? (
-            <span key={`e${i}`} className="grid h-9 w-9 place-items-center text-sm text-muted-foreground">
-              …
-            </span>
-          ) : (
-            <button
-              key={p}
-              onClick={() => onPageChange(p)}
-              aria-current={p === page ? "page" : undefined}
-              className={cn(
-                "grid h-9 w-9 place-items-center rounded-lg text-sm font-semibold transition",
-                p === page ? "bg-navy text-white" : "text-foreground hover:bg-secondary",
-              )}
-            >
-              {p}
-            </button>
-          ),
+        {simple ? (
+          <span className="px-3 text-sm font-semibold text-muted-foreground">Next page</span>
+        ) : (
+          pages.map((p, i) =>
+            p === "ellipsis" ? (
+              <span
+                key={`e${i}`}
+                className="grid h-9 w-9 place-items-center text-sm text-muted-foreground"
+              >
+                …
+              </span>
+            ) : (
+              <button
+                key={p}
+                onClick={() => onPageChange(p)}
+                aria-current={p === page ? "page" : undefined}
+                className={cn(
+                  "grid h-9 w-9 place-items-center rounded-lg text-sm font-semibold transition",
+                  p === page ? "bg-navy text-white" : "text-foreground hover:bg-secondary",
+                )}
+              >
+                {p}
+              </button>
+            ),
+          )
         )}
         <button
           onClick={() => onPageChange(page + 1)}

@@ -541,7 +541,7 @@ function PropertiesInner() {
               ))}
             </div>
 
-            <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} />
+            <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} simple />
           </>
         )}
       </main>
