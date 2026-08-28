@@ -108,7 +108,6 @@ const NAV_SECTIONS = [
 ];
 
 const STATS = [
-  { raw: "10K+", label: "Active Listings" },
   { raw: "30+",  label: "Cities" },
   { raw: "₹0",   label: "Brokerage for Buyers" },
   { raw: "100%", label: "RERA-Verified" },
@@ -285,7 +284,7 @@ export function AboutContent() {
             className="mt-7 flex flex-wrap gap-2.5"
             style={{ transitionDelay: "240ms" }}
           >
-            {["Zero Commission", "RERA-Verified", "AI-Matched", "10,000+ Homes"].map((chip) => (
+            {["Zero Commission", "RERA-Verified", "AI-Matched"].map((chip) => (
               <span
                 key={chip}
                 className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-semibold text-white/85 backdrop-blur-sm"
@@ -342,7 +341,7 @@ export function AboutContent() {
               India&apos;s real estate market in numbers
             </h2>
           </div>
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-3">
             {STATS.map((s, i) => (
               <StatCard key={s.label} raw={s.raw} label={s.label} delay={i * 80} />
             ))}

@@ -43,7 +43,6 @@ export const HERO_IMAGES = [
 
 export const ROTATING_STATS = [
   "Trusted by 1 Lakh+ Happy Customers",
-  "10,000+ RERA-Verified Properties",
   "Zero Commission — Save Lakhs",
   "Covering 50+ Cities Across India",
   "AI-Matched Listings for Every Budget",
@@ -51,7 +50,6 @@ export const ROTATING_STATS = [
 ];
 
 export const KPI_BAND = [
-  { num: 10000, prefix: "", suffix: "+", decimals: 0, l: "Verified Properties" },
   { num: 50, prefix: "", suffix: "+", decimals: 0, l: "Cities Covered" },
   { num: 4.8, prefix: "", suffix: " ★", decimals: 1, l: "Average Rating" },
   { num: 1, prefix: "", suffix: " Lakh+", decimals: 0, l: "Happy Customers" },
@@ -60,7 +58,6 @@ export const KPI_BAND = [
 ];
 
 export const TOP_STATS_DATA = [
-  { num: 10, suffix: "K+", l: "Properties" },
   { num: 2, suffix: "K+", l: "Projects" },
   { num: 50, suffix: "+", l: "Cities" },
   { num: 100, suffix: "K+", l: "Customers" },

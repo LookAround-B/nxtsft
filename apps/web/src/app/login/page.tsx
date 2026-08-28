@@ -430,9 +430,8 @@ function LoginPageContent() {
               personalised recommendations.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-4 border-t border-white/10 pt-6">
+          <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-6">
             {[
-              ["10K+", "Properties"],
               ["50+", "Cities"],
               ["100K+", "Happy Buyers"],
             ].map(([v, l]) => (

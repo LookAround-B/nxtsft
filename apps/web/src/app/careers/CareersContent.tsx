@@ -179,7 +179,6 @@ const LEADERSHIP = [
 ];
 
 const IMPACT_STATS = [
-  { value: "10K+", label: "Properties Listed" },
   { value: "30+", label: "Cities Covered" },
   { value: "500+", label: "Verified Builders" },
   { value: "₹1T+", label: "Property Value Managed" },
@@ -369,7 +368,7 @@ export function CareersContent() {
               >
                 Our impact, in numbers
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-4">
+              <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-3">
                 {IMPACT_STATS.map(({ value, label }, i) => (
                   <div
                     key={label}
