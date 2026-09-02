@@ -20,6 +20,7 @@ import {
   longitudeSchema,
   amenitiesSchema,
   safeUrlArraySchema,
+  isSafeUrl,
   nearbyPlacesSchema,
   propertyStatusSchema,
   nameSchema,
@@ -94,6 +95,51 @@ export const CATEGORY_IMAGE: Record<string, string> = {
 // Split a comma-separated cell (amenities, PG occupancy, …) into a clean array.
 export function splitList(v: string | undefined): string[] {
   return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : [];
+}
+
+// Same idea for a cell of image URLs, but any of comma / newline / semicolon /
+// space separates them — real bulk sheets use all four, and a URL never
+// contains whitespace so this can't split one in half. Deliberately NOT
+// splitList: amenities and PG fields hold multi-word values ("Swimming Pool")
+// that a whitespace split would shatter.
+export function splitUrlList(v: string | undefined): string[] {
+  return v ? v.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean) : [];
+}
+
+// The bulk template's "Image URLs" cell. Deliberately NOT safeString(): its
+// stripUnsafe() strips HTML entities, which silently corrupted every URL
+// carrying an escaped ampersand ("?w=800&amp;q=80" came out "?w=800q=80" and
+// 404'd forever). isSafeUrl below is the stricter gate anyway — it rejects
+// javascript:/data: and internal hosts, which the bulk path never checked at
+// all. The cap is generous because 40 R2 URLs already measure ~4000 chars.
+export const bulkImagesCellSchema = z.string().max(10_000).optional();
+
+/**
+ * Parse an "Image URLs" cell into usable URLs, keeping the rejects so the
+ * importer can tell the admin *which* entries it dropped instead of silently
+ * falling back to the category placeholder.
+ */
+export function parseBulkImages(cell: string | undefined): { urls: string[]; invalid: string[] } {
+  // Sheets pasted out of HTML carry "&amp;" in query strings — decode before
+  // validating so those URLs survive instead of 404ing.
+  const entries = splitUrlList(cell?.replace(/&amp;/gi, "&"));
+  const urls: string[] = [];
+  const invalid: string[] = [];
+  for (const u of entries) (isSafeUrl(u) ? urls : invalid).push(u);
+  return { urls, invalid };
+}
+
+/** Per-row note for the import result: why a row's photos aren't what was expected. */
+export function bulkImageWarning(urls: string[], invalid: string[]): string | null {
+  if (invalid.length) {
+    const shown = invalid.slice(0, 3).join(", ");
+    const rest = invalid.length > 3 ? ` (+${invalid.length - 3} more)` : "";
+    return urls.length
+      ? `${invalid.length} image URL(s) ignored — not a valid http/https link: ${shown}${rest}`
+      : `No usable image URLs — placeholder cover used. Ignored: ${shown}${rest}`;
+  }
+  if (!urls.length) return "No Image URLs given — placeholder cover artwork used.";
+  return null;
 }
 
 // Server-side state-specific RERA validation (mirrors apps/web/src/lib/rera.ts).
@@ -827,7 +873,7 @@ export const propertiesRouter = router({
         latitude: z.coerce.number().min(-90).max(90).optional(),
         longitude: z.coerce.number().min(-180).max(180).optional(),
         amenities: safeString(2000).optional(),
-        images: safeString(4000).optional(),
+        images: bulkImagesCellSchema,
         virtualTourUrl: safeString(500).optional(),
         walkthroughVideoUrl: safeString(500).optional(),
         // PG-specific (only meaningful when type === "PG")
@@ -841,6 +887,9 @@ export const propertiesRouter = router({
       });
 
       const errors: { row: number; message: string }[] = [];
+      // Non-fatal notes: the row was created, but not with what the sheet meant
+      // (e.g. no photos, so the placeholder cover was used).
+      const warnings: { row: number; message: string }[] = [];
       let created = 0;
 
       for (let i = 0; i < input.rows.length; i++) {
@@ -854,7 +903,11 @@ export const propertiesRouter = router({
         try {
           assertReraValid(d.city, d.rera, d.reraLabel);
           // Use uploaded image URLs if given, else the type's default cover.
-          const images = splitList(d.images);
+          // A row that lands on the default is reported as a warning — silently
+          // shipping placeholder artwork is how whole imports went out photoless.
+          const { urls: images, invalid: badImages } = parseBulkImages(d.images);
+          const imageWarning = bulkImageWarning(images, badImages);
+          if (imageWarning) warnings.push({ row: sheetRow, message: imageWarning });
           const isPg = d.type === "PG";
           await prisma.property.create({
             data: {
@@ -928,7 +981,13 @@ export const propertiesRouter = router({
         });
       }
 
-      return { received: input.rows.length, created, failed: errors.length, errors: errors.slice(0, 100) };
+      return {
+        received: input.rows.length,
+        created,
+        failed: errors.length,
+        errors: errors.slice(0, 100),
+        warnings: warnings.slice(0, 100),
+      };
     }),
 
   // Update own property (or admin overriding)

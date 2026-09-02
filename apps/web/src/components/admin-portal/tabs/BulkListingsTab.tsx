@@ -63,7 +63,9 @@ const FIELDS: FieldDef[] = [
   { key: "latitude", header: "Latitude", example: "12.9698" },
   { key: "longitude", header: "Longitude", example: "77.7500" },
   { key: "amenities", header: "Amenities", example: "Swimming Pool, Gym, 24/7 Security" },
-  { key: "images", header: "Image URLs", aliases: ["images", "image url"], example: "" },
+  // Wide alias set on purpose: an unmatched header is dropped silently (images
+  // is optional), which is exactly how imports went live on placeholder covers.
+  { key: "images", header: "Image URLs", aliases: ["images", "image url", "photos", "photo url", "photo urls", "images url", "image link", "image links", "pictures", "property images"], example: "" },
   { key: "virtualTourUrl", header: "Virtual Tour URL", aliases: ["virtual tour"], example: "" },
   { key: "walkthroughVideoUrl", header: "Walkthrough Video URL", aliases: ["walkthrough video", "video url"], example: "" },
   { key: "pgGender", header: "PG Gender", example: "" },
@@ -111,13 +113,18 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
-function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows: Row[]; error?: string } {
+function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows: Row[]; error?: string; ignored?: string[] } {
   if (!matrix.length) return { rows: [], error: "The file is empty." };
   const header = matrix[0].map((h) => String(h ?? "").trim().toLowerCase());
   const idx: Partial<Record<FieldKey, number>> = {};
+  // Columns we don't recognise are dropped. Only *required* ones raise an error,
+  // so a misspelled optional header (famously "Photos" instead of "Image URLs")
+  // used to vanish without a word — report them instead.
+  const ignored: string[] = [];
   header.forEach((h, i) => {
     const f = FIELD_BY_HEADER[h];
     if (f && idx[f] === undefined) idx[f] = i;
+    else if (!f && h) ignored.push(String(matrix[0]![i] ?? h).trim());
   });
   const missing = REQUIRED.filter((f) => idx[f] === undefined);
   if (missing.length) {
@@ -137,7 +144,7 @@ function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows:
     }
     rows.push(row);
   }
-  return { rows };
+  return { rows, ignored };
 }
 
 // Lets an admin add photos/description to a listing right after a bulk upload,
@@ -223,10 +230,12 @@ export function BulkListingsTab() {
   const [parseErr, setParseErr] = useState("");
   const [fileName, setFileName] = useState("");
   const [parsing, setParsing] = useState(false);
+  const [ignoredCols, setIgnoredCols] = useState<string[]>([]);
   const [result, setResult] = useState<{
     created: number;
     failed: number;
     errors: { row: number; message: string }[];
+    warnings: { row: number; message: string }[];
     createdListings: { id: string; slug: string; title: string }[];
   } | null>(null);
 
@@ -239,7 +248,7 @@ export function BulkListingsTab() {
     const vErr = validateBulkImportFile(file);
     if (vErr) { setParseErr(vErr.message); return; }
 
-    setParseErr(""); setParsed(null); setResult(null); setFileName(file.name); setParsing(true);
+    setParseErr(""); setParsed(null); setResult(null); setIgnoredCols([]); setFileName(file.name); setParsing(true);
     try {
       let matrix: BulkImportMatrix;
       if (file.name.toLowerCase().endsWith(".csv")) {
@@ -248,11 +257,11 @@ export function BulkListingsTab() {
         const readXlsxFile = (await import("read-excel-file/browser")).default;
         matrix = normalizeBulkImportMatrix(await readXlsxFile(file));
       }
-      const { rows, error } = rowsFromMatrix(matrix);
+      const { rows, error, ignored } = rowsFromMatrix(matrix);
       if (error) setParseErr(error);
       else if (!rows.length) setParseErr("No listing rows found in the file.");
       else if (rows.length > BULK_IMPORT_MAX_ROWS) setParseErr(`Too many rows — upload up to ${BULK_IMPORT_MAX_ROWS} listings at a time.`);
-      else setParsed(rows);
+      else { setParsed(rows); setIgnoredCols(ignored ?? []); }
     } catch {
       setParseErr("Couldn't read this file. Make sure it's a valid .xlsx or .csv matching the template.");
     } finally {
@@ -268,9 +277,11 @@ export function BulkListingsTab() {
         onSuccess: (res) => {
           setResult(res);
           setParsed(null);
+          setIgnoredCols([]);
           setFileName("");
           if (res.created > 0) toast.success(`${res.created} dummy listing(s) created and live.`);
           if (res.failed > 0) toast.warning(`${res.failed} row(s) had errors — see below.`);
+          if (res.warnings.length > 0) toast.warning(`${res.warnings.length} listing(s) have photo issues — see below.`);
         },
         onError: (err) => toast.error(err.message),
       },
@@ -330,6 +341,17 @@ export function BulkListingsTab() {
 
           {parseErr && (
             <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">{parseErr}</p>
+          )}
+
+          {ignoredCols.length > 0 && (
+            <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+              <AlertTriangle size={14} className="mt-px shrink-0" />
+              <span>
+                Ignored column(s): <strong>{ignoredCols.join(", ")}</strong>. These headers don&apos;t match the
+                template, so their values won&apos;t be imported — check the spelling (photo columns must be titled
+                <strong> Image URLs</strong>).
+              </span>
+            </p>
           )}
 
           {parsed && (
@@ -400,6 +422,7 @@ export function BulkListingsTab() {
             <h3 className="font-display text-base font-bold text-navy">
               {result.created} created
               {result.failed > 0 && ` · ${result.failed} failed`}
+              {result.warnings.length > 0 && ` · ${result.warnings.length} with photo issues`}
             </h3>
           </div>
           {result.createdListings.length > 0 && (
@@ -410,6 +433,23 @@ export function BulkListingsTab() {
               {result.createdListings.map((l) => (
                 <CreatedListingRow key={l.id} listing={l} />
               ))}
+            </div>
+          )}
+          {result.warnings.length > 0 && (
+            <div className="mt-4 overflow-hidden rounded-lg border border-amber-100">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-amber-50 text-[11px] uppercase tracking-wide text-amber-700">
+                  <tr><th className="px-3 py-2">Sheet row</th><th className="px-3 py-2">Created, but note</th></tr>
+                </thead>
+                <tbody>
+                  {result.warnings.map((w, i) => (
+                    <tr key={i} className="border-t border-amber-100">
+                      <td className="px-3 py-1.5 font-mono">{w.row}</td>
+                      <td className="px-3 py-1.5 text-foreground/80">{w.message}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
           {result.errors.length > 0 && (
