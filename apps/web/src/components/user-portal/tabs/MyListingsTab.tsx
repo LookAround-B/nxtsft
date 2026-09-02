@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { useRouter } from "next/navigation";
-import { Building2, Eye, Clock, Pencil, Camera, Check, Coins, Rocket } from "lucide-react";
+import { Building2, Eye, Clock, Pencil, Camera, Check, Coins, Rocket, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge, Section } from "@/components/portal/PortalShell";
 import { useAuth } from "@/lib/auth";
@@ -347,6 +347,69 @@ function ModifyConfirmDialog({ onConfirm, onClose }: { onConfirm: () => void; on
   );
 }
 
+/**
+ * Deleting is irreversible from the seller's side (properties.delete soft-deletes,
+ * so support can still recover it), and it takes the listing off the market
+ * immediately — so it asks for the listing's own name to be confirmed rather than
+ * a single click next to "Modify".
+ */
+function DeleteConfirmDialog({
+  title,
+  pending,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  pending: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-navy/40 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-2xl border border-border bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-rose-50 text-rose-500">
+            <Trash2 size={18} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-navy">Delete this listing?</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              &ldquo;{title}&rdquo; will be removed from the market and will no longer appear in
+              search results.
+            </p>
+          </div>
+        </div>
+        <ul className="mt-4 space-y-2 rounded-xl border border-border bg-secondary/40 p-4 text-sm text-muted-foreground">
+          <li>• Buyers can no longer find or enquire about it.</li>
+          <li>• Leads and enquiries you already received stay in your account.</li>
+          <li>• A listing credit already used on it is not returned.</li>
+          <li>• Deleted by mistake? Contact support — it can be restored.</li>
+        </ul>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={pending}
+            className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-navy transition hover:bg-secondary disabled:opacity-50"
+          >
+            Keep listing
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={pending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:opacity-50"
+          >
+            {pending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            Delete listing
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const listingTone: Record<string, "success" | "warm" | "cold" | "new" | "default"> = {
   Active: "success",
   Sold: "default",
@@ -361,7 +424,9 @@ export function MyListingsTab() {
   const [modifyTarget, setModifyTarget] = useState<string | null>(null);
   const [mediaPackageTarget, setMediaPackageTarget] = useState<{ id: string; title: string } | null>(null);
   const [boostTarget, setBoostTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const listingsQ = trpc.users.myListings.useQuery(undefined, { enabled: session?.role === "home-seller" });
+  const utils = trpc.useUtils();
 
   if (session?.role !== "home-seller") {
     return (
@@ -378,6 +443,19 @@ export function MyListingsTab() {
     onSuccess: () => listingsQ.refetch(),
     onError: (err: { message: string }) => toast.error(err.message),
   });
+
+  // properties.delete soft-deletes and already allows the owner — no new
+  // procedure needed. The sidebar "My Listings" badge reads users.badgeCounts,
+  // so refresh that too or the count keeps the deleted listing.
+  const deleteListing = trpc.properties.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Listing deleted.");
+      setDeleteTarget(null);
+      void listingsQ.refetch();
+      void utils.users.badgeCounts.invalidate();
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
   const items = (listingsQ.data ?? []) as unknown as ListingItem[];
 
   const setStatus = (id: string, status: "Active" | "Inactive", label: string) =>
@@ -385,6 +463,14 @@ export function MyListingsTab() {
 
   return (
     <>
+      {deleteTarget && (
+        <DeleteConfirmDialog
+          title={deleteTarget.title}
+          pending={deleteListing.isPending}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => deleteListing.mutate({ id: deleteTarget.id })}
+        />
+      )}
       {modifyTarget && (
         <ModifyConfirmDialog
           onClose={() => setModifyTarget(null)}
@@ -570,6 +656,13 @@ export function MyListingsTab() {
                           Reactivate
                         </button>
                       )}
+                      <button
+                        onClick={() => setDeleteTarget({ id: p.id, title: p.title })}
+                        disabled={deleteListing.isPending}
+                        className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-rose-300 hover:text-rose-600 disabled:opacity-50"
+                      >
+                        <Trash2 size={11} /> Delete
+                      </button>
                     </div>
                     {/* A listing credit from the seller's plan is consumed only
                         once a listing is approved & live (Active) — LA-321. */}

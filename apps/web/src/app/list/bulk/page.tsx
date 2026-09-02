@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   ImagePlus,
+  ImageOff,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { normalizeBulkImportMatrix, type BulkImportMatrix } from "@/lib/bulk-import";
@@ -23,8 +25,23 @@ import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 import { usePresignUploader } from "@/lib/upload";
 
 const MAX_PHOTOS_PER_ROW = 10;
-const imageCount = (s: string | undefined) =>
-  s ? s.split(",").map((x) => x.trim()).filter(Boolean).length : 0;
+// Mirrors splitUrlList in packages/trpc/src/routers/properties.ts — a sheet may
+// separate URLs with any of comma / newline / semicolon / space, and the
+// preview must show exactly what the server will store.
+const splitImagesCell = (s: string | undefined): string[] =>
+  (s ?? "").replace(/&amp;/gi, "&").split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+const imageCount = (s: string | undefined) => splitImagesCell(s).length;
+
+// Sheet cells hold raw rupees ("9500000"); show them grouped so a mistyped
+// price is obvious at review time. Non-numeric cells pass through untouched.
+const fmtRowPrice = (v: string | undefined): string => {
+  const n = Number(String(v ?? "").replace(/[^0-9.]/g, ""));
+  if (!v) return "—";
+  if (!Number.isFinite(n) || n <= 0) return v;
+  if (n >= 1e7) return `₹${(n / 1e7).toFixed(2).replace(/\.00$/, "")} Cr`;
+  if (n >= 1e5) return `₹${(n / 1e5).toFixed(2).replace(/\.00$/, "")} L`;
+  return `₹${n.toLocaleString("en-IN")}`;
+};
 
 // Single source of truth for the bulk template. List order = template column
 // order = preview order. Headers, required set, header-matching, the parser and
@@ -76,7 +93,9 @@ const FIELDS: FieldDef[] = [
   { key: "latitude", header: "Latitude", example: "12.9698" },
   { key: "longitude", header: "Longitude", example: "77.7500" },
   { key: "amenities", header: "Amenities", example: "Swimming Pool, Gym, 24/7 Security" },
-  { key: "images", header: "Image URLs", aliases: ["images", "image url"], example: "" },
+  // Wide alias set on purpose: an unmatched header is dropped silently (images
+  // is optional), which is exactly how imports went live on placeholder covers.
+  { key: "images", header: "Image URLs", aliases: ["images", "image url", "photos", "photo url", "photo urls", "images url", "image link", "image links", "pictures", "property images"], example: "" },
   { key: "virtualTourUrl", header: "Virtual Tour URL", aliases: ["virtual tour"], example: "" },
   { key: "walkthroughVideoUrl", header: "Walkthrough Video URL", aliases: ["walkthrough video", "video url"], example: "" },
   { key: "pgGender", header: "PG Gender", example: "" },
@@ -126,13 +145,18 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
-function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows: Row[]; error?: string } {
+function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows: Row[]; error?: string; ignored?: string[] } {
   if (!matrix.length) return { rows: [], error: "The file is empty." };
   const header = matrix[0].map((h) => String(h ?? "").trim().toLowerCase());
   const idx: Partial<Record<keyof Row, number>> = {};
+  // Unrecognised columns are dropped. Only *required* ones raise an error, so a
+  // misspelled optional header (famously "Photos" for "Image URLs") used to
+  // vanish without a word — report them instead.
+  const ignored: string[] = [];
   header.forEach((h, i) => {
     const f = FIELD_BY_HEADER[h];
     if (f && idx[f] === undefined) idx[f] = i;
+    else if (!f && h) ignored.push(String(matrix[0]![i] ?? h).trim());
   });
   const missing = REQUIRED.filter((f) => idx[f] === undefined);
   if (missing.length) {
@@ -167,7 +191,53 @@ function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows:
     delete row.mapsLink; // server schema has no mapsLink field; it consumes lat/long
     rows.push(row);
   }
-  return { rows };
+  return { rows, ignored };
+}
+
+/**
+ * One photo in the pre-submit review strip. A plain <img> on purpose — SafeImage
+ * silently swaps a stock photo in on error, which is exactly what this view
+ * exists to expose: a URL that won't load must LOOK broken to the seller.
+ */
+function RowPhoto({ url, onRemove }: { url: string; onRemove: () => void }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <span
+      className={`relative inline-block h-16 w-16 shrink-0 overflow-hidden rounded-lg border align-middle sm:h-20 sm:w-20
+        ${broken ? "border-rose-200" : "border-border bg-secondary/40"}`}
+    >
+      {broken ? (
+        <span
+          title={`This photo won't load: ${url}`}
+          className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-rose-50 px-1 text-center text-rose-600"
+        >
+          <ImageOff size={16} />
+          <span className="text-[9px] font-semibold leading-tight">Won&apos;t load</span>
+        </span>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt=""
+          title={url}
+          loading="lazy"
+          onError={() => setBroken(true)}
+          className="h-full w-full object-cover"
+        />
+      )}
+      {/* Always visible, not hover-only: a hover-gated control is unreachable on
+          touch, which is most of this audience. */}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Remove this photo"
+        title="Remove this photo"
+        className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-navy/70 text-white shadow-sm transition hover:bg-rose-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+      >
+        <X size={12} />
+      </button>
+    </span>
+  );
 }
 
 export default function BulkListPage() {
@@ -176,7 +246,13 @@ export default function BulkListPage() {
   const [parseErr, setParseErr] = useState("");
   const [fileName, setFileName] = useState("");
   const [parsing, setParsing] = useState(false);
-  const [result, setResult] = useState<{ created: number; failed: number; errors: { row: number; message: string }[] } | null>(null);
+  const [ignoredCols, setIgnoredCols] = useState<string[]>([]);
+  const [result, setResult] = useState<{
+    created: number;
+    failed: number;
+    errors: { row: number; message: string }[];
+    warnings: { row: number; message: string }[];
+  } | null>(null);
 
   const bulkMut = trpc.properties.bulkCreate.useMutation();
   const storage = trpc.media.storageStatus.useQuery();
@@ -194,6 +270,18 @@ export default function BulkListPage() {
   const pickPhotos = (row: number) => {
     activeRowRef.current = row;
     photoInputRef.current?.click();
+  };
+
+  // Drop one photo from a row's cell. Only edits the pending upload in memory —
+  // nothing is deleted from storage, since the same URL may be used elsewhere.
+  const removePhoto = (row: number, url: string) => {
+    setParsed((prev) => {
+      if (!prev) return prev;
+      const next = [...prev];
+      const kept = splitImagesCell(next[row]?.images).filter((u) => u !== url);
+      next[row] = { ...next[row], images: kept.join(", ") };
+      return next;
+    });
   };
 
   const onRowPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -223,7 +311,9 @@ export default function BulkListPage() {
       setParsed((prev) => {
         if (!prev) return prev;
         const next = [...prev];
-        const merged = [next[row]?.images?.trim(), urls.join(", ")].filter(Boolean).join(", ");
+        // Re-join through the shared splitter so a sheet that used newlines or
+        // semicolons is normalised to the comma form on its way back out.
+        const merged = [...splitImagesCell(next[row]?.images), ...urls].join(", ");
         next[row] = { ...next[row], images: merged };
         return next;
       });
@@ -242,7 +332,7 @@ export default function BulkListPage() {
     const vErr = validateBulkImportFile(file);
     if (vErr) { setParseErr(vErr.message); return; }
 
-    setParseErr(""); setParsed(null); setResult(null); setFileName(file.name); setParsing(true);
+    setParseErr(""); setParsed(null); setResult(null); setIgnoredCols([]); setFileName(file.name); setParsing(true);
     try {
       let matrix: BulkImportMatrix;
       if (file.name.toLowerCase().endsWith(".csv")) {
@@ -251,11 +341,11 @@ export default function BulkListPage() {
         const readXlsxFile = (await import("read-excel-file/browser")).default;
         matrix = normalizeBulkImportMatrix(await readXlsxFile(file));
       }
-      const { rows, error } = rowsFromMatrix(matrix);
+      const { rows, error, ignored } = rowsFromMatrix(matrix);
       if (error) setParseErr(error);
       else if (!rows.length) setParseErr("No property rows found in the file.");
       else if (rows.length > BULK_IMPORT_MAX_ROWS) setParseErr(`Too many rows — upload up to ${BULK_IMPORT_MAX_ROWS} properties at a time.`);
-      else setParsed(rows);
+      else { setParsed(rows); setIgnoredCols(ignored ?? []); }
     } catch {
       setParseErr("Couldn't read this file. Make sure it's a valid .xlsx or .csv matching the template.");
     } finally {
@@ -271,9 +361,11 @@ export default function BulkListPage() {
         onSuccess: (res) => {
           setResult(res);
           setParsed(null);
+          setIgnoredCols([]);
           setFileName("");
           if (res.created > 0) toast.success(`${res.created} listing(s) submitted for review.`);
           if (res.failed > 0) toast.warning(`${res.failed} row(s) had errors — see below.`);
+          if (res.warnings.length > 0) toast.warning(`${res.warnings.length} listing(s) have photo issues — see below.`);
         },
         onError: (err) => toast.error(err.message),
       },
@@ -320,9 +412,9 @@ export default function BulkListPage() {
             <h2 className="font-display text-base font-bold text-navy">1 · Get the template</h2>
             <button
               onClick={downloadTemplate}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-navy transition hover:border-accent hover:text-accent"
+              className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-semibold text-navy transition hover:border-accent hover:bg-accent/5 hover:text-accent"
             >
-              <Download size={14} /> Download CSV template
+              <Download size={15} /> Download CSV template
             </button>
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
@@ -346,8 +438,8 @@ export default function BulkListPage() {
           <h2 className="font-display text-base font-bold text-navy">2 · Upload your file</h2>
           <div className="mt-4 rounded-xl border border-dashed border-border bg-secondary/20 p-5">
             <div className="flex flex-wrap items-center gap-3">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition hover:opacity-90">
-                {parsing ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+              <label className="inline-flex min-h-[46px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-sm font-bold text-accent-foreground transition hover:opacity-90 sm:w-auto">
+                {parsing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
                 {parsing ? "Reading…" : "Choose .xlsx / .csv"}
                 <input type="file" accept=".xlsx,.csv" onChange={onFile} className="hidden" disabled={parsing} />
               </label>
@@ -362,35 +454,57 @@ export default function BulkListPage() {
               <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">{parseErr}</p>
             )}
 
+            {ignoredCols.length > 0 && (
+              <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                <AlertTriangle size={14} className="mt-px shrink-0" />
+                <span>
+                  Ignored column(s): <strong>{ignoredCols.join(", ")}</strong>. These headers don&apos;t match the
+                  template, so their values won&apos;t be imported — check the spelling (photo columns must be titled
+                  <strong> Image URLs</strong>).
+                </span>
+              </p>
+            )}
+
             {parsed && (
-              <div className="mt-4 rounded-lg border border-border bg-white p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-navy">
-                    {parsed.length.toLocaleString("en-IN")} row(s) ready to submit
-                  </span>
-                  <div className="flex gap-2">
+              <div className="mt-4 rounded-xl border border-border bg-white p-4 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-base font-bold text-navy">
+                      {parsed.length.toLocaleString("en-IN")} propert{parsed.length === 1 ? "y" : "ies"} ready
+                    </p>
+                    {canPhotos && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {(() => {
+                          const without = parsed.filter((r) => imageCount(r.images) === 0).length;
+                          if (without === 0) return "Every property has photos attached.";
+                          return `${without} of ${parsed.length} ${without === 1 ? "has" : "have"} no photos yet — those go live on a default cover.`;
+                        })()}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-1 gap-2 sm:flex-none">
                     <button
                       onClick={() => { setParsed(null); setFileName(""); }}
-                      className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground"
+                      className="min-h-[42px] flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-muted-foreground transition hover:border-navy/30 hover:text-navy sm:flex-none"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={submit}
                       disabled={bulkMut.isPending || rowBusy !== null}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-bold text-accent-foreground disabled:opacity-60"
+                      className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
                     >
-                      {bulkMut.isPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                      {bulkMut.isPending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
                       Submit {parsed.length.toLocaleString("en-IN")}
                     </button>
                   </div>
                 </div>
 
                 {canPhotos && (
-                  <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-                    Add photos to any property below — they&apos;re compressed, watermarked and
-                    attached automatically. No need to fill the Image URLs column. Rows left without
-                    photos use a default cover.
+                  <p className="mt-3 rounded-lg bg-secondary/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                    Each thumbnail below is exactly what buyers will see. A photo that won&apos;t load
+                    shows in red — tap <span className="font-semibold text-navy">✕</span> to remove it.
+                    Photos added here are compressed and watermarked automatically.
                   </p>
                 )}
 
@@ -404,55 +518,82 @@ export default function BulkListPage() {
                   onChange={onRowPhotos}
                 />
 
-                <div className="mt-3 max-h-96 overflow-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="sticky top-0 bg-white text-[11px] uppercase tracking-wide text-muted-foreground">
-                      <tr>
-                        <th className="py-1 pr-3">#</th>
-                        <th className="py-1 pr-4">Title</th>
-                        <th className="py-1 pr-4">Type</th>
-                        <th className="py-1 pr-4">Price</th>
-                        <th className="py-1 pr-4">City</th>
-                        {canPhotos && <th className="py-1 pr-2">Photos</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {parsed.map((r, i) => {
-                        const count = imageCount(r.images);
-                        return (
-                          <tr key={i} className="border-t border-border text-foreground/80">
-                            <td className="py-1.5 pr-3 text-muted-foreground">{i + 1}</td>
-                            <td className="py-1.5 pr-4 font-medium text-navy">{r.title || "—"}</td>
-                            <td className="py-1.5 pr-4">{r.type || "—"}</td>
-                            <td className="py-1.5 pr-4">{r.price || "—"}</td>
-                            <td className="py-1.5 pr-4">{r.city || "—"}</td>
-                            {canPhotos && (
-                              <td className="py-1.5 pr-2">
-                                <button
-                                  type="button"
-                                  onClick={() => pickPhotos(i)}
-                                  disabled={rowBusy !== null}
-                                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold transition disabled:opacity-50
-                                    ${count > 0 ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-border bg-white text-navy hover:border-accent hover:text-accent"}`}
-                                >
-                                  {rowBusy === i ? (
-                                    <Loader2 size={12} className="animate-spin" />
-                                  ) : count > 0 ? (
-                                    <Check size={12} />
-                                  ) : (
-                                    <ImagePlus size={12} />
-                                  )}
-                                  {rowBusy === i ? "Uploading…" : count > 0 ? `${count} photo(s) · add more` : "Add photos"}
-                                </button>
-                              </td>
+                {/* One card per row rather than a 6-column table: the page is
+                    max-w-3xl, and the photo strip needs full width to be
+                    reviewable. Cards also give every control a real tap target. */}
+                <div className="mt-4 max-h-[32rem] space-y-2.5 overflow-auto pr-1">
+                  {parsed.map((r, i) => {
+                    const photos = splitImagesCell(r.images);
+                    const count = photos.length;
+                    const busy = rowBusy === i;
+                    return (
+                      <div
+                        key={i}
+                        className="rounded-xl border border-border bg-white p-3.5 transition hover:border-accent/40 sm:p-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-secondary text-[11px] font-bold text-muted-foreground">
+                            {i + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-navy">{r.title || "Untitled listing"}</p>
+                            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                              <span>{r.type || "—"}</span>
+                              <span aria-hidden>·</span>
+                              <span className="font-medium text-foreground/80">{fmtRowPrice(r.price)}</span>
+                              <span aria-hidden>·</span>
+                              <span>{r.city || "—"}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        {canPhotos && (
+                          <div className="mt-3 border-t border-border/70 pt-3">
+                            {count > 0 && (
+                              <div className="mb-2.5 flex flex-wrap gap-2">
+                                {photos.map((url) => (
+                                  <RowPhoto key={url} url={url} onRemove={() => removePhoto(i, url)} />
+                                ))}
+                              </div>
                             )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => pickPhotos(i)}
+                                disabled={rowBusy !== null}
+                                className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50
+                                  ${count > 0
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100"
+                                    : "border-border bg-white text-navy hover:border-accent hover:text-accent"}`}
+                              >
+                                {busy ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : count > 0 ? (
+                                  <ImagePlus size={14} />
+                                ) : (
+                                  <ImagePlus size={14} />
+                                )}
+                                {busy ? "Uploading…" : count > 0 ? "Add more photos" : "Add photos"}
+                              </button>
+
+                              {count > 0 ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700">
+                                  <Check size={13} /> {count} photo{count > 1 ? "s" : ""} attached
+                                </span>
+                              ) : (
+                                !busy && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700">
+                                    <AlertTriangle size={13} /> No photos — default cover will be used
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>              </div>
             )}
           </div>
         </div>
@@ -468,6 +609,7 @@ export default function BulkListPage() {
               <h2 className="font-display text-base font-bold text-navy">
                 {result.created} submitted for review
                 {result.failed > 0 && ` · ${result.failed} failed`}
+                {result.warnings.length > 0 && ` · ${result.warnings.length} with photo issues`}
               </h2>
             </div>
             {result.created > 0 && (
@@ -475,6 +617,23 @@ export default function BulkListPage() {
                 Submitted listings are pending admin approval. Track them in{" "}
                 <Link href="/user-portal#listings" className="font-semibold text-accent underline underline-offset-2">My Listings</Link>.
               </p>
+            )}
+            {result.warnings.length > 0 && (
+              <div className="mt-4 overflow-hidden rounded-lg border border-amber-100">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-amber-50 text-[11px] uppercase tracking-wide text-amber-700">
+                    <tr><th className="px-3 py-2">Sheet row</th><th className="px-3 py-2">Submitted, but note</th></tr>
+                  </thead>
+                  <tbody>
+                    {result.warnings.map((w, i) => (
+                      <tr key={i} className="border-t border-amber-100">
+                        <td className="px-3 py-1.5 font-mono">{w.row}</td>
+                        <td className="px-3 py-1.5 text-foreground/80">{w.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
             {result.errors.length > 0 && (
               <div className="mt-4 overflow-hidden rounded-lg border border-rose-100">

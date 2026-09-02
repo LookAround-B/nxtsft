@@ -33,7 +33,10 @@ import {
 } from "../sanitize";
 import { makeInteriorDesignerSlug } from "./interiorDesigners";
 import { makeDecorStoreSlug } from "./decorStores";
-import { generateSlug, assertReraValid, splitList, CATEGORY_IMAGE } from "./properties";
+import {
+  generateSlug, assertReraValid, splitList, CATEGORY_IMAGE,
+  bulkImagesCellSchema, parseBulkImages, bulkImageWarning,
+} from "./properties";
 import { agentInitials, uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 
 
@@ -766,7 +769,7 @@ export const adminRouter = router({
           latitude: bulkNum(z.coerce.number().min(-90).max(90).optional()),
           longitude: bulkNum(z.coerce.number().min(-180).max(180).optional()),
           amenities: safeString(2000).optional(),
-          images: safeString(4000).optional(),
+          images: bulkImagesCellSchema,
           virtualTourUrl: safeString(500).optional(),
           walkthroughVideoUrl: safeString(500).optional(),
           pgGender: z.enum(["Boys", "Girls", "Co-living"]).optional(),
@@ -779,6 +782,9 @@ export const adminRouter = router({
         });
 
         const errors: { row: number; message: string }[] = [];
+        // Non-fatal notes: the row was created, but not with what the sheet
+        // meant (e.g. no usable photos, so the placeholder cover was used).
+        const warnings: { row: number; message: string }[] = [];
         const createdListings: { id: string; slug: string; title: string }[] = [];
 
         // Maps a schema field key back to the spreadsheet column header the admin
@@ -1003,8 +1009,12 @@ export const adminRouter = router({
         // first, then their Location rows keyed by the slugs we just created.
         if (toInsert.length > 0) {
           await prisma.property.createMany({
-            data: toInsert.map(({ d, slug, ownerId, displayName }) => {
-              const images = splitList(d.images);
+            data: toInsert.map(({ sheetRow, d, slug, ownerId, displayName }) => {
+              // Photos: report every row that ends up on the placeholder cover.
+              // Falling back silently is how a whole import went live photoless.
+              const { urls: images, invalid: badImages } = parseBulkImages(d.images);
+              const imageWarning = bulkImageWarning(images, badImages);
+              if (imageWarning) warnings.push({ row: sheetRow, message: imageWarning });
               const isPg = d.type === "PG";
               return {
                 ownerName: displayName,
@@ -1084,12 +1094,14 @@ export const adminRouter = router({
 
         const created = createdListings.length;
         errors.sort((a, b) => a.row - b.row);
+        warnings.sort((a, b) => a.row - b.row);
 
         return {
           received: input.rows.length,
           created,
           failed: errors.length,
           errors: errors.slice(0, 100),
+          warnings: warnings.slice(0, 100),
           createdListings,
         };
       }),
