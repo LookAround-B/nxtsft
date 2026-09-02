@@ -191,6 +191,12 @@ model Property {
   boostExpiry DateTime?
   boostScore  Int     @default(0) // gold=100, silver=70, bronze=40, none=0
 
+  // Free-listing tier: rep-sourced "Fresh Lead", admin-approved, no payment.
+  // Ranked below every paid listing because the order key reads boostScore
+  // FIRST — so buying a boost lifts it to page 1 and a lapsed boost drops it
+  // back on its own. This flag is therefore never cleared.
+  freeListing Boolean @default(false)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -203,6 +209,7 @@ model Property {
   @@index([purpose])
   @@index([status])
   @@index([featured])
+  @@index([freeListing])
   @@index([createdAt])
   @@index([projectId])
 }

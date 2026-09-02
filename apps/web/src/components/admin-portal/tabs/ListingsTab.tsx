@@ -58,6 +58,8 @@ type ListingItem = {
   featured?: boolean;
   boostTier?: string | null;
   boostExpiry?: string | null;
+  /** Free tier: approved without payment, ranked last until boosted. */
+  freeListing?: boolean;
   /** Per-listing seller-name override; null means the account name shows. */
   ownerName?: string | null;
   /** The owning account's real name, shown as the fallback hint. */
@@ -74,6 +76,7 @@ type RawProp = {
   ownerName: string | null;
   boostTier: string | null;
   boostExpiry: string | null;
+  freeListing: boolean;
   location: { city: string; latitude: number; longitude: number } | null;
   price: number;
   bhk: string | null;
@@ -473,6 +476,7 @@ export function ListingsTab() {
     accountName: p.owner?.name ?? "",
     boostTier: p.boostTier,
     boostExpiry: p.boostExpiry,
+    freeListing: p.freeListing,
     city: p.location?.city ?? "",
     priceLabel:
       p.price >= 1e7
@@ -826,6 +830,13 @@ export function ListingsTab() {
                       </>
                     ) : (
                       <span className="text-muted-foreground">Not boosted</span>
+                    )}
+                    {/* Free tier — approved without payment and ranked last
+                        until the owner buys a boost. */}
+                    {it.freeListing && (
+                      <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                        Free Listing
+                      </span>
                     )}
                   </div>
                 </div>

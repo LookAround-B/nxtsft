@@ -35,7 +35,14 @@ export type DbLead = {
   createdAt: string;
   updatedAt: string;
   propertyId: string | null;
-  property: { id: string; title: string; slug: string; status: string } | null;
+  property: {
+    id: string;
+    title: string;
+    slug: string;
+    status: string;
+    freeListing: boolean;
+    boostExpiry: string | null;
+  } | null;
   // LA-342 payment-link pipeline fields
   plan?: string | null;
   amount?: number | null;

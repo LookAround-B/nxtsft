@@ -81,6 +81,11 @@ export function MyLeadsTab() {
     onError: (e) => toast.error(e.message),
   });
 
+  const sendUpgradeReminder = trpc.leads.sendUpgradeReminder.useMutation({
+    onSuccess: () => toast.success("Upgrade reminder sent on WhatsApp"),
+    onError: (e) => toast.error(e.message),
+  });
+
   const recordCall = trpc.leads.recordCall.useMutation({
     onSuccess: () => {
       utils.leads.list.invalidate();
@@ -284,15 +289,43 @@ export function MyLeadsTab() {
                 </div>
               ) : null}
 
-              {/* Which property this lead is selling — set when a rep lists for them. */}
-              {l.property && l.paymentStatus !== "Paid" && (
-                <div className="mt-2 text-[11px] text-muted-foreground">
-                  Draft listing:{" "}
+              {/* Free listing — no payment involved. Once an admin approves it
+                  it's live on the last page, and the only thing left to sell is
+                  the upgrade. */}
+              {l.property?.freeListing ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  <span className="font-semibold text-sky-700">Free listing</span>
                   <a href={`/properties/${l.property.slug}`} className="font-semibold text-navy hover:underline">
                     {l.property.title}
-                  </a>{" "}
-                  — publishes on payment.
+                  </a>
+                  <span>
+                    {l.property.status === "Active"
+                      ? "— live on the last page"
+                      : "— awaiting admin approval"}
+                  </span>
+                  {l.property.status === "Active" &&
+                    !(l.property.boostExpiry && new Date(l.property.boostExpiry) > new Date()) && (
+                      <button
+                        onClick={() => sendUpgradeReminder.mutate({ leadId: l.id })}
+                        disabled={sendUpgradeReminder.isPending}
+                        className="rounded border border-border px-2 py-0.5 font-semibold hover:bg-muted disabled:opacity-40"
+                      >
+                        Send upgrade reminder
+                      </button>
+                    )}
                 </div>
+              ) : (
+                /* Which property this lead is selling — set when a rep lists for them. */
+                l.property &&
+                l.paymentStatus !== "Paid" && (
+                  <div className="mt-2 text-[11px] text-muted-foreground">
+                    Draft listing:{" "}
+                    <a href={`/properties/${l.property.slug}`} className="font-semibold text-navy hover:underline">
+                      {l.property.title}
+                    </a>{" "}
+                    — publishes on payment.
+                  </div>
+                )
               )}
 
               {openAction?.id === l.id && openAction.kind === "note" && (

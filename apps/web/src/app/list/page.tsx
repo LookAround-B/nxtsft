@@ -20,6 +20,8 @@ import {
   MapPin,
   ShieldCheck,
   Globe,
+  Pencil,
+  FlaskConical,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -168,6 +170,13 @@ const REP_LISTING_ROLES = ["sales", "admin", "super-admin"];
 // goes to the rep's own number so they can rehearse the flow end to end.
 const DUMMY_LEAD = "__dummy__";
 
+// Sentinel for the "Fresh Lead" entry — a customer the rep sourced themselves,
+// so there's no assigned lead to pick. The rep types the customer's name /
+// mobile / email inline and the listing is created FREE: admin approval, no
+// payment, published on the last page with a "Free Listing" badge. The lead row
+// is created server-side and auto-assigned back to the rep.
+const FRESH_LEAD = "__fresh__";
+
 // Sample content the Dummy option drops into the form so a rep can reach
 // Submit in one click. Deliberately obvious as test data. RERA stays blank —
 // it's optional, and a wrong number would fail the state-format check.
@@ -216,6 +225,7 @@ export default function ListPropertyPage() {
     (l) => !l.propertyId && l.paymentStatus !== "Paid",
   );
   const isDummy = leadId === DUMMY_LEAD;
+  const isFresh = leadId === FRESH_LEAD;
   const selectedLead = repLeads.find((l) => l.id === leadId) ?? null;
   const { upload } = usePresignUploader();
   const [step, setStep] = useState(1);
@@ -364,6 +374,13 @@ export default function ListPropertyPage() {
     // server behaves without the form stopping them first.
     if (isDummy) return e;
     if (s === 1 && !data.listerType) e.listerType = "Please select your role";
+    // Fresh Lead: the customer's name and mobile are collected in step 1 (they
+    // are what creates the customer's account), so validate them there too.
+    if (s === 1 && isFresh) {
+      if (!data.listerName.trim()) e.listerName = "Enter the customer's name";
+      if (!/^[6-9]\d{9}$/.test(data.listerPhone.replace(/\s/g, "")))
+        e.listerPhone = "Enter the customer's 10-digit mobile number";
+    }
     if (s === 2) {
       if (!data.propertyType) e.propertyType = "Select a property type";
       if (!data.city) e.city = "Select a city";
@@ -378,7 +395,10 @@ export default function ListPropertyPage() {
     }
     if (s === 4) {
       if (!data.listerName.trim()) e.listerName = "Enter your full name";
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.listerEmail))
+      // Email is optional on a Fresh Lead — the customer may not have given one
+      // — but still has to be valid when it is filled in.
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.listerEmail);
+      if (isFresh ? data.listerEmail.trim() !== "" && !emailOk : !emailOk)
         e.listerEmail = "Enter a valid email";
       if (!/^\d{10}$/.test(data.listerPhone.replace(/\s/g, "")))
         e.listerPhone = "Enter a 10-digit phone number";
@@ -462,7 +482,19 @@ export default function ListPropertyPage() {
     if (session && dbType) {
       try {
         await createProperty.mutateAsync({
-          ...(isRep ? (isDummy ? { dummy: true } : { onBehalfOfLeadId: leadId }) : {}),
+          ...(isRep
+            ? isDummy
+              ? { dummy: true }
+              : isFresh
+                ? {
+                    freshLead: {
+                      name: data.listerName.trim(),
+                      phone: data.listerPhone.replace(/\D/g, ""),
+                      email: data.listerEmail.trim() || undefined,
+                    },
+                  }
+                : { onBehalfOfLeadId: leadId }
+            : {}),
           title,
           type: dbType,
           purpose: data.purpose,
@@ -507,9 +539,11 @@ export default function ListPropertyPage() {
           <div className="font-display text-3xl font-black text-navy sm:text-4xl">
             {isDummy
               ? "Dummy listing created"
-              : isRep
-                ? "Saved to the customer's account"
-                : "Property Submitted!"}
+              : isFresh
+                ? "Sent for admin approval"
+                : isRep
+                  ? "Saved to the customer's account"
+                  : "Property Submitted!"}
           </div>
           <p className="mt-3 text-muted-foreground">
             {isDummy ? (
@@ -517,6 +551,12 @@ export default function ListPropertyPage() {
                 It&apos;s live on your own account with all paid features on, and hidden from buyer
                 search. A test lead with your number is waiting in the sales portal — send yourself
                 the payment link from there to test the rest of the flow.
+              </>
+            ) : isFresh ? (
+              <>
+                The listing sits on {data.listerName || "the customer"}&apos;s new account and the
+                lead is assigned to you. Once an admin approves it, it goes live free on the last
+                page — send them the upgrade link from the sales portal to reach the first page.
               </>
             ) : isRep ? (
               <>
@@ -742,10 +782,9 @@ export default function ListPropertyPage() {
             <label className="block text-xs font-bold uppercase tracking-widest text-amber-800">
               Listing on behalf of
             </label>
-            <select
+            <Select
               value={leadId}
-              onChange={(e) => {
-                const id = e.target.value;
+              onValueChange={(id) => {
                 setLeadId(id);
                 if (id === DUMMY_LEAD) {
                   // Everything pre-filled, contact block = the rep themselves.
@@ -760,6 +799,14 @@ export default function ListPropertyPage() {
                   toast.success("Dummy mode — sample details filled in. Submit whenever you like.");
                   return;
                 }
+                if (id === FRESH_LEAD) {
+                  // Blank the contact block so nothing carries over from a
+                  // previously selected lead — the rep types the customer's
+                  // own details, and they are what mints their account.
+                  setData((d) => ({ ...d, listerName: "", listerEmail: "", listerPhone: "" }));
+                  setErrors({});
+                  return;
+                }
                 const lead = repLeads.find((l) => l.id === id);
                 if (lead) {
                   set("listerName", lead.name);
@@ -768,17 +815,97 @@ export default function ListPropertyPage() {
                   if (lead.city) set("city", lead.city);
                 }
               }}
-              className="mt-2 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-navy focus:outline-none focus:ring-1 focus:ring-accent"
             >
-              <option value="">Select a lead…</option>
-              <option value={DUMMY_LEAD}>🧪 Dummy — test listing (not a customer)</option>
-              {repLeads.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} · {l.phone}
-                  {l.city ? ` · ${l.city}` : ""}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="mt-2 w-full border-amber-300 bg-white text-sm font-semibold text-navy">
+                <SelectValue placeholder="Select a lead…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={FRESH_LEAD}>
+                  <span className="flex items-center gap-2">
+                    <Pencil className="h-4 w-4" />
+                    Fresh Lead — new customer (free listing)
+                  </span>
+                </SelectItem>
+                <SelectItem value={DUMMY_LEAD}>
+                  <span className="flex items-center gap-2">
+                    <FlaskConical className="h-4 w-4" />
+                    Dummy — test listing (not a customer)
+                  </span>
+                </SelectItem>
+                {repLeads.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name} · {l.phone}
+                    {l.city ? ` · ${l.city}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Fresh Lead — the customer has no account and no lead yet, so
+                collect their details here. Bound to the SAME form state as the
+                step-4 contact block, so the two can never disagree. */}
+            {isFresh && (
+              <div className="mt-3 rounded-xl border border-amber-300 bg-white p-4">
+                <div className="text-xs font-bold uppercase tracking-widest text-amber-800">
+                  Customer details
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-foreground">
+                      Customer name
+                    </label>
+                    <input
+                      type="text"
+                      value={data.listerName}
+                      onChange={(e) => set("listerName", e.target.value)}
+                      placeholder="Full name"
+                      className={`mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent ${errors.listerName ? "border-rose-400" : "border-input"}`}
+                    />
+                    {errors.listerName && (
+                      <p className="mt-1 text-xs text-rose-500">{errors.listerName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground">
+                      Mobile number
+                    </label>
+                    <div className="mt-1 flex">
+                      <span className="flex items-center rounded-l-lg border border-r-0 border-input bg-secondary px-3 text-sm font-medium text-foreground/60">
+                        +91
+                      </span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
+                        value={data.listerPhone}
+                        onChange={(e) => set("listerPhone", e.target.value.replace(/\D/g, ""))}
+                        placeholder="9876543210"
+                        className={`w-full rounded-r-lg border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent ${errors.listerPhone ? "border-rose-400" : "border-input"}`}
+                      />
+                    </div>
+                    {errors.listerPhone && (
+                      <p className="mt-1 text-xs text-rose-500">{errors.listerPhone}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground">
+                      Email <span className="font-normal text-muted-foreground">(optional)</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={data.listerEmail}
+                      onChange={(e) => set("listerEmail", e.target.value)}
+                      placeholder="customer@email.com"
+                      className={`mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent ${errors.listerEmail ? "border-rose-400" : "border-input"}`}
+                    />
+                    {errors.listerEmail && (
+                      <p className="mt-1 text-xs text-rose-500">{errors.listerEmail}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <p className="mt-2 text-xs text-amber-800">
               {isDummy ? (
                 <>
@@ -786,6 +913,13 @@ export default function ListPropertyPage() {
                   optional. It goes live on your own account straight away with all paid features on,
                   but stays hidden from search. The payment link goes to{" "}
                   <strong>your own number</strong> — send it from the sales portal to test the flow.
+                </>
+              ) : isFresh ? (
+                <>
+                  <strong>Free listing.</strong> An account is created for the customer on this
+                  mobile number, the lead is assigned to you, and the listing goes to admin
+                  approval. Once approved it&apos;s published free on the last page — no payment
+                  needed. Send them the upgrade link to move it to the first page.
                 </>
               ) : selectedLead ? (
                 <>

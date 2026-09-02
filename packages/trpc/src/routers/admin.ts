@@ -607,7 +607,12 @@ export const adminRouter = router({
           include: { owner: { select: { name: true, phone: true } } },
         });
         if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
-        if (!property.rera) {
+        // Free listings are exempt: a rep-sourced individual owner often has no
+        // RERA number, and holding the free tier to it would block the flow at
+        // day one. The requirement moves to the paid step instead — the boost
+        // order (subscriptions.createBoostOrder) refuses a property without
+        // RERA, so nothing reaches page 1 unregistered.
+        if (!property.freeListing && !property.rera) {
           throw new TRPCError({ code: "PRECONDITION_FAILED", message: "RERA number required before approval." });
         }
         const updated = await prisma.property.update({ where: { id: input.id }, data: { status: "Active" } });
@@ -615,8 +620,10 @@ export const adminRouter = router({
           userId: property.ownerId,
           type: "listing_approved",
           title: "Your listing is approved 🎉",
-          content: `"${property.title}" is now live and visible to buyers.`,
-          actionUrl: `/properties/${property.slug}`,
+          content: property.freeListing
+            ? `"${property.title}" is now live as a free listing. Upgrade to move it to the first page.`
+            : `"${property.title}" is now live and visible to buyers.`,
+          actionUrl: property.freeListing ? "/pricing#boost" : `/properties/${property.slug}`,
         });
         // Best-effort WhatsApp to the seller (no-op until configured).
         void sendTemplateIfConfigured(
@@ -1237,7 +1244,11 @@ export const adminRouter = router({
         const items = await prisma.lead.findMany({
           where,
           include: {
-            property: { select: { id: true, title: true, slug: true } },
+            // freeListing + status + boostExpiry drive the "send upgrade
+            // reminder" action on the row.
+            property: {
+              select: { id: true, title: true, slug: true, status: true, freeListing: true, boostExpiry: true },
+            },
             user: { select: { id: true, name: true, email: true } },
           },
           orderBy: { createdAt: "desc" },

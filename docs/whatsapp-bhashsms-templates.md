@@ -54,6 +54,7 @@ live only once its template is approved and its env var is set.
 | `BHASHSMS_TEMPLATE_LISTING_LIVE` | `listing_live` | Utility | `{{1}}` seller name, `{{2}}` property title | listing approved → seller |
 | `BHASHSMS_TEMPLATE_PAYMENT_RECEIPT` | `payment_receipt` | Utility | `{{1}}` plan name, `{{2}}` credits, `{{3}}` amount (₹) | credits payment success → buyer |
 | `BHASHSMS_TEMPLATE_PAYMENT_REMINDER` | `payment_reminder` | Utility | `{{1}}` customer name, `{{2}}` plan, `{{3}}` amount (₹), `{{4}}` payment link | rep hits "Send reminder" → customer |
+| `BHASHSMS_TEMPLATE_UPGRADE_REMINDER` | `upgrade_reminder` | Utility | `{{1}}` customer name, `{{2}}` property title, `{{3}}` upgrade link | staff hits "Send upgrade reminder" on a free listing → customer |
 | `BHASHSMS_TEMPLATE_LISTING_EXPIRING` | `listing_expiring` | Utility | `{{1}}` seller name, `{{2}}` property title, `{{3}}` days left | validity sweep, 3 days out → seller |
 | `BHASHSMS_TEMPLATE_LISTING_EXPIRED` | `listing_expired` | Utility | `{{1}}` seller name, `{{2}}` property title | validity sweep, on expiry → seller |
 | `BHASHSMS_TEMPLATE_ADMIN_NEW_USER` | `admin_new_user` | Utility | `{{1}}` name, `{{2}}` phone, `{{3}}` city, `{{4}}` role | any new signup → **business owner** (see `ADMIN_ALERT_WHATSAPP` below) |
@@ -64,6 +65,7 @@ live only once its template is approved and its env var is set.
 - **enquiry_ack** — `Hi {{1}}, we've received your enquiry for "{{2}}" on NxtSft.com. Our team will connect you with the owner shortly.`
 - **contact_unlocked** — `You unlocked the owner contact for "{{1}}" on NxtSft.com. Owner: {{2}}, {{3}}. Call now to schedule a visit!`
 - **visit_confirmed** — `Hi {{1}}, your site visit for "{{2}}" is confirmed for {{3}}. See you there! — NxtSft.com`
+- **upgrade_reminder** — `Hi {{1}}, your free listing "{{2}}" is live on NxtSft.com. Upgrade it here to move to the first page: {{3}}`
 - **listing_live** — `Hi {{1}}, your listing "{{2}}" is now LIVE on NxtSft.com and visible to buyers. 🎉`
 - **payment_receipt** — `Payment received! {{1}} — {{2}} credits added to your NxtSft.com wallet. Amount: ₹{{3}}. Thank you!`
 - **payment_reminder** — `Hi {{1}}, your NxtSft.com listing ({{2}}, {{3}}) is waiting on payment. Complete it here: {{4}}`

@@ -111,8 +111,11 @@ export const leadsRouter = router({
       const items = await prisma.lead.findMany({
         where,
         include: {
-          // `status` drives the sales portal's Listings tab (draft vs live).
-          property: { select: { id: true, title: true, slug: true, status: true } },
+          // `status` drives the sales portal's Listings tab (draft vs live);
+          // freeListing + boostExpiry drive the "send upgrade reminder" button.
+          property: {
+            select: { id: true, title: true, slug: true, status: true, freeListing: true, boostExpiry: true },
+          },
           user: { select: { id: true, name: true, email: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -632,6 +635,82 @@ export const leadsRouter = router({
           leadId: lead.id,
           action: `Payment reminder sent to ${lead.name}`,
           outcome: lead.plan ? `${lead.plan} — ${lead.paymentLink}` : lead.paymentLink,
+        },
+      });
+
+      return { ok: true as const, phone: lead.phone };
+    }),
+
+  // Nudge a free-listing customer to upgrade so their listing moves off the
+  // last page. Any backend staff member may send it (admin, supervisor, sales,
+  // support) — a sales rep only for their own assigned leads, same scoping as
+  // the payment reminder above, and the same 6-hour per-lead cooldown so two
+  // staff members can't double-message the customer.
+  sendUpgradeReminder: staffProcedure
+    .input(z.object({ leadId: cuidSchema }))
+    .mutation(async ({ input, ctx }) => {
+      const lead = await prisma.lead.findUnique({
+        where: { id: input.leadId },
+        include: {
+          property: {
+            select: { id: true, title: true, slug: true, ownerId: true, status: true, freeListing: true, boostExpiry: true },
+          },
+        },
+      });
+      if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
+      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const property = lead.property;
+      if (!property?.freeListing) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This lead has no free listing to upgrade." });
+      }
+      if (property.status !== "Active") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The listing isn't live yet — it still needs admin approval.",
+        });
+      }
+      if (property.boostExpiry && property.boostExpiry > new Date()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This listing is already boosted." });
+      }
+
+      // Same anti-spam shape as sendPaymentReminder: the SalesActivity row is
+      // the rate-limit record, so no extra column and it's global per lead.
+      const since = new Date(Date.now() - REMINDER_COOLDOWN_HOURS * 60 * 60 * 1000);
+      const recent = await prisma.salesActivity.findFirst({
+        where: { leadId: lead.id, type: "upgrade_reminder", createdAt: { gte: since } },
+        select: { createdAt: true },
+      });
+      if (recent) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `An upgrade reminder was already sent ${Math.round((Date.now() - recent.createdAt.getTime()) / 60000)} min ago. Try again later.`,
+        });
+      }
+
+      const upgradeUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.nxtsft.com"}/pricing#boost`;
+      await sendTemplateIfConfigured("BHASHSMS_TEMPLATE_UPGRADE_REMINDER", lead.phone, [
+        lead.name,
+        property.title,
+        upgradeUrl,
+      ]);
+
+      await notify({
+        userId: property.ownerId,
+        type: "listing_upgrade_reminder",
+        title: "Move your listing to the first page",
+        content: `"${property.title}" is live as a free listing on the last page. Upgrade it to reach buyers on page 1.`,
+        actionUrl: "/pricing#boost",
+      });
+
+      await prisma.salesActivity.create({
+        data: {
+          salesRepId: ctx.user.id,
+          type: "upgrade_reminder",
+          leadId: lead.id,
+          action: `Upgrade reminder sent to ${lead.name}`,
+          outcome: `Free listing — "${property.title}"`,
         },
       });
 

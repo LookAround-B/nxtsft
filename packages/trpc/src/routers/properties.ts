@@ -22,6 +22,9 @@ import {
   safeUrlArraySchema,
   nearbyPlacesSchema,
   propertyStatusSchema,
+  nameSchema,
+  phoneSchema,
+  emailSchema,
 } from "../sanitize";
 import prisma from "@nxtsft/db";
 import { BULK_IMPORT_MAX_ROWS, BOOST_TIERS, TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
@@ -198,6 +201,15 @@ export const propertiesRouter = router({
           { location: { city: { contains: search, mode: "insensitive" } } },
           { location: { state: { contains: search, mode: "insensitive" } } },
         ];
+
+        // Property ID lookup. The UI only ever shows the last 8 characters of
+        // the cuid, uppercased and prefixed with "#" (PropertyDetailClient),
+        // so accept that form and match on the suffix. `endsWith` can't use an
+        // index, hence the shape guard — it only fires for ID-looking input.
+        const idCandidate = search.replace(/^#/, "").trim().toLowerCase();
+        if (/^[a-z0-9]{6,}$/.test(idCandidate)) {
+          where.OR.push({ id: { endsWith: idCandidate } });
+        }
       }
 
       // Run page + count concurrently — count was ~100ms of sequential wait
@@ -208,7 +220,16 @@ export const propertiesRouter = router({
           include: propertyInclude,
           // Paid boosts rank first (gold > silver > bronze), then the admin's
           // featured picks, then recency. boostScore is zeroed by the expiry cron.
-          orderBy: [{ boostScore: "desc" }, { featured: "desc" }, { createdAt: "desc" }],
+          // freeListing sits directly under boostScore: an un-boosted free
+          // listing (score 0, flag true) sorts after every other un-boosted
+          // listing — i.e. the last page — while a boosted one outranks all
+          // score-0 rows and lands on page 1. Prisma orders false before true.
+          orderBy: [
+            { boostScore: "desc" },
+            { freeListing: "asc" },
+            { featured: "desc" },
+            { createdAt: "desc" },
+          ],
           take: limit,
           skip: (page - 1) * limit,
         }),
@@ -354,7 +375,7 @@ export const propertiesRouter = router({
           ],
         },
         include: propertyInclude,
-        orderBy: [{ boostScore: "desc" }, { featured: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ boostScore: "desc" }, { freeListing: "asc" }, { featured: "desc" }, { createdAt: "desc" }],
         take: input.limit,
       });
       return serializeProperty(items);
@@ -492,13 +513,29 @@ export const propertiesRouter = router({
         // Dummy test listing: rep lists against their OWN number so they can
         // rehearse the whole flow (payment link → webhook → publish). Staff-only.
         dummy: z.boolean().optional(),
+        // Fresh Lead: a customer the rep sourced themselves, typed inline
+        // instead of picked from their assigned leads. Produces a FREE listing
+        // (admin-approved, no payment, last page). Staff-only.
+        freshLead: z
+          .object({ name: nameSchema, phone: phoneSchema, email: emailSchema.optional() })
+          .optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, onBehalfOfLeadId, dummy, ...rest } =
+      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, onBehalfOfLeadId, dummy, freshLead, ...rest } =
         input;
 
       assertReraValid(city, input.rera, input.reraLabel);
+
+      // Exactly one listing mode: self-serve, an assigned lead, a fresh lead,
+      // or a dummy test. Two at once is always a client bug — reject up front,
+      // before any branch below mints a customer account.
+      if ([onBehalfOfLeadId, freshLead, dummy].filter(Boolean).length > 1) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose one: an existing lead, a fresh lead, or a dummy listing.",
+        });
+      }
 
       // ── Owner resolution ──────────────────────────────────────────────────
       // Normally the lister owns what they list. A sales rep listing off a call
@@ -515,9 +552,6 @@ export const propertiesRouter = router({
       // the sales portal's payment-link button targets them.
       let dummyRep: { name: string; phone: string; email: string; city: string } | null = null;
       if (dummy) {
-        if (onBehalfOfLeadId) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "A dummy listing can't also be on a customer's behalf." });
-        }
         if (!REP_LISTING_ROLES.includes(ctx.user.role)) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Only sales staff can create dummy listings." });
         }
@@ -566,6 +600,27 @@ export const propertiesRouter = router({
         onBehalfOf = { leadId: lead.id, customerId: customer.id, customerName: customer.name };
       }
 
+      // ── Fresh Lead (free listing) ─────────────────────────────────────────
+      // The rep sourced this customer themselves and typed their details in,
+      // so there is no lead row yet — one is created below, after the property,
+      // and auto-assigned back to the rep. Same ownership rule as above: the
+      // listing belongs to the customer from the moment it exists.
+      let freshCustomer: { id: string; name: string; phone: string; email?: string } | null = null;
+      if (freshLead) {
+        if (!REP_LISTING_ROLES.includes(ctx.user.role)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only sales staff can create a fresh-lead listing." });
+        }
+        const customer = await findOrCreateCustomerAccount({
+          phone: freshLead.phone,
+          name: freshLead.name,
+          email: freshLead.email,
+          city,
+          createdById: ctx.user.id,
+        });
+        ownerId = customer.id;
+        freshCustomer = { id: customer.id, name: customer.name, phone: customer.phone, email: freshLead.email };
+      }
+
       const slug = generateSlug(input.title, city);
 
       const property = await prisma.property.create({
@@ -576,6 +631,9 @@ export const propertiesRouter = router({
           // rep's own views) straight away, with every paid perk switched on so
           // the rep can see what a top-tier listing looks like.
           status: dummy ? TEST_LISTING_STATUS : "Pending",
+          // Free tier — admin approves it without payment and it publishes on
+          // the last page. Never set from a self-serve or paid-lead listing.
+          freeListing: freshCustomer !== null,
           ...(dummy && {
             featured: true,
             boostTier: "gold",
@@ -659,6 +717,54 @@ export const propertiesRouter = router({
           type: "listing_submitted",
           title: "Dummy listing created",
           content: `"${property.title}" is a test listing — hidden from search. Send yourself the payment link from the sales portal to test the flow.`,
+          actionUrl: "/sales-portal",
+        });
+      } else if (freshCustomer) {
+        // The lead is created AFTER the property so propertyId lands in one
+        // write, and is auto-assigned back to the rep who sourced it (brief §3)
+        // — but only when they're a sales rep. leads.assign validates that its
+        // target is a sales rep, so an admin self-assigning here would plant a
+        // lead that violates that invariant; an admin's fresh lead is left
+        // unassigned for the normal routing queue.
+        const selfAssign = ctx.user.role === "sales";
+        const lead = await prisma.lead.create({
+          data: {
+            userId: freshCustomer.id,
+            propertyId: property.id,
+            name: freshCustomer.name,
+            phone: freshCustomer.phone,
+            email: freshCustomer.email,
+            city,
+            interest: `Free listing — ${property.title}`,
+            // Deliberately NOT in leadSourceSchema (same call as "Dummy"):
+            // adding it would make it a public leads.create value and a filter
+            // option. It is set here and read for display only.
+            source: "Fresh Lead",
+            status: "New",
+            ...(selfAssign && { assignedToId: ctx.user.id, assignedAt: new Date() }),
+          },
+        });
+        await prisma.salesActivity.create({
+          data: {
+            salesRepId: ctx.user.id,
+            type: "listing",
+            leadId: lead.id,
+            action: `Listed "${property.title}" for ${freshCustomer.name} (fresh lead)`,
+            outcome: "Free listing — awaiting admin approval",
+          },
+        });
+        await notify({
+          userId: freshCustomer.id,
+          type: "listing_submitted",
+          title: "Your free listing is submitted",
+          content: `"${property.title}" was added to your account. It goes live free once our team reviews it.`,
+          actionUrl: "/user-portal#mylist",
+        });
+        await notify({
+          userId: ctx.user.id,
+          type: "listing_submitted",
+          title: "Free listing submitted",
+          content: `"${property.title}" is on ${freshCustomer.name}'s account, awaiting admin approval. Once live, send them the upgrade link to reach page 1.`,
           actionUrl: "/sales-portal",
         });
       } else {
