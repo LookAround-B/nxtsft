@@ -70,9 +70,14 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      // Same ranking as properties.list, so the public API doesn't interleave
+      // free listings with paid ones: boosts first, free tier last.
+      orderBy: [
+        { boostScore: "desc" },
+        { freeListing: "asc" },
+        { featured: "desc" },
+        { createdAt: "desc" },
+      ],
     });
 
     return NextResponse.json(serializeBigInt(properties));

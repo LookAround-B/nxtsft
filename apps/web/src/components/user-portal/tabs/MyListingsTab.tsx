@@ -29,6 +29,7 @@ type ListingItem = {
   hasPendingEdit?: boolean;
   boostTier?: string | null;
   boostExpiry?: string | null;
+  freeListing?: boolean;
 };
 
 const STARTER_FEATURES = [
@@ -498,6 +499,15 @@ export function MyListingsTab() {
                           </span>
                         </Badge>
                       )}
+                      {/* Free tier and not boosted — it is on the last page of
+                          search. The Boost button below is the way off it. */}
+                      {p.freeListing &&
+                        p.status === "Active" &&
+                        !boostIsActive(p.boostTier ?? null, p.boostExpiry ?? null) && (
+                          <Badge tone="default">
+                            Free Listing · on the last page
+                          </Badge>
+                        )}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button

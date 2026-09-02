@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BuyCreditsLabel } from "@/components/pricing/BuyCreditsLabel";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
+import { boostIsActive } from "@nxtsft/shared/constants";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
@@ -82,6 +83,9 @@ type FullProperty = {
   possession: string | null;
   builder: string | null;
   featured: boolean;
+  freeListing: boolean;
+  boostTier: string | null;
+  boostExpiry: string | null;
   views: number;
   viewBase: number;
   pgGender: string | null;
@@ -745,6 +749,15 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                   {property.reraLabel ?? "RERA"} Verified · {property.rera}
                 </div>
               )}
+
+              {/* Free tier. Hidden once a boost is running — an upgraded
+                  listing is no longer on the last page. */}
+              {property.freeListing &&
+                !boostIsActive(property.boostTier, property.boostExpiry) && (
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-700">
+                    Free Listing
+                  </div>
+                )}
 
               {/* Social-proof viewer badge */}
               <ViewerBadge propertyId={property.id} createdAt={property.createdAt} viewBase={property.viewBase} />

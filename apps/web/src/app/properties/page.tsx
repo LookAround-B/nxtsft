@@ -60,6 +60,7 @@ type PropertyItem = {
   featured: boolean;
   boostTier: string | null;
   boostExpiry: string | null;
+  freeListing: boolean;
   location: { city: string; locality: string; state: string };
 };
 
@@ -172,10 +173,17 @@ function PropertyCard({ p }: { p: PropertyItem }) {
             >
               {BOOST_TIERS[p.boostTier].tag}
             </span>
+          ) : p.featured ? (
+            <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-white">
+              Featured
+            </span>
           ) : (
-            p.featured && (
-              <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-white">
-                Featured
+            // Free tier. Only shown while it is actually sitting on the last
+            // page — a boosted free listing has been upgraded and shows its
+            // boost tag instead (handled by the branch above).
+            p.freeListing && (
+              <span className="rounded-full bg-sky-600 px-2.5 py-1 text-[11px] font-bold text-white">
+                Free Listing
               </span>
             )
           )}

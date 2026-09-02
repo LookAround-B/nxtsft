@@ -50,8 +50,9 @@ const CONTACTS = [
 ];
 
 const SOCIALS = [
-  // Stat values here are fallbacks only — live counts come from
-  // trpc.social.stats (scraped from each profile's public meta tags).
+  // Stat values here are a last resort only — live counts come from
+  // trpc.social.stats, which persists the last good read in the DB.
+  // Snapshot taken 2026-09-02.
   {
     key: "instagram",
     Icon: Instagram,
@@ -60,8 +61,8 @@ const SOCIALS = [
     handle: "@nxtsft",
     tile: "bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600",
     stats: [
-      { label: "Posts", value: "149" },
-      { label: "Followers", value: "79" },
+      { label: "Posts", value: "183" },
+      { label: "Followers", value: "1,140" },
     ],
   },
   {
@@ -71,7 +72,7 @@ const SOCIALS = [
     label: "Facebook",
     handle: "NxtSft",
     tile: "bg-[#1877F2]",
-    stats: [{ label: "Likes", value: "705" }],
+    stats: [{ label: "Likes", value: "1,679" }],
   },
   {
     key: "linkedin",
@@ -80,7 +81,7 @@ const SOCIALS = [
     label: "LinkedIn",
     handle: "truenxtsft",
     tile: "bg-[#0A66C2]",
-    stats: [{ label: "Followers", value: "43" }],
+    stats: [{ label: "Followers", value: "162" }],
   },
   { Icon: Youtube, href: "#", label: "YouTube" },
   { Icon: Twitter, href: "#", label: "X / Twitter" },

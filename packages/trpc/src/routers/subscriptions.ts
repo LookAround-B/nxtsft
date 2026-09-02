@@ -843,7 +843,7 @@ export const subscriptionsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const property = await prisma.property.findFirst({
         where: { id: input.propertyId, deletedAt: null },
-        select: { id: true, title: true, ownerId: true, status: true },
+        select: { id: true, title: true, ownerId: true, status: true, rera: true, freeListing: true },
       });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
 
@@ -856,6 +856,15 @@ export const subscriptionsRouter = router({
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message: "Only an active listing can be boosted.",
+        });
+      }
+      // Free listings are approved without a RERA number (see
+      // admin.properties.approve) — the requirement lands here instead, so a
+      // listing can't buy its way onto the first page unregistered.
+      if (property.freeListing && !property.rera) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Add a RERA registration number to this listing before upgrading it.",
         });
       }
 
