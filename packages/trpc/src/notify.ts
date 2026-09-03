@@ -74,3 +74,37 @@ export async function notifyCredit(args: {
     actionUrl: "/user-portal#credits",
   });
 }
+
+/**
+ * Fan a notification out to every admin and super-admin, each landing in their
+ * own portal. `hash` is the tab anchor (e.g. "listings"), appended to the
+ * recipient's portal base.
+ *
+ * Best-effort like `notify` — an approval queue alert must never roll back the
+ * mutation that raised it.
+ */
+export async function notifyAdmins(args: {
+  type: string;
+  title: string;
+  content?: string | null;
+  hash: string;
+}): Promise<void> {
+  try {
+    const admins = await prisma.user.findMany({
+      where: { role: { in: ["admin", "super-admin"] } },
+      select: { id: true, role: true },
+    });
+    if (admins.length === 0) return;
+    await prisma.notification.createMany({
+      data: admins.map((a) => ({
+        userId: a.id,
+        type: args.type,
+        title: args.title,
+        content: args.content ?? null,
+        actionUrl: `${portalBase(a.role)}#${args.hash}`,
+      })),
+    });
+  } catch {
+    // never throw — notifications are non-critical
+  }
+}

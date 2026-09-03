@@ -31,7 +31,7 @@ import prisma from "@nxtsft/db";
 import { BULK_IMPORT_MAX_ROWS, BOOST_TIERS, TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
 import { hasSellerBadges } from "../badges";
 import { sweepExpiredBoosts } from "../boostSweep";
-import { notify, notifyCredit } from "../notify";
+import { notify, notifyAdmins, notifyCredit } from "../notify";
 import { sendTemplateIfConfigured } from "../bhashsms";
 import { findOrCreateCustomerAccount } from "../customerAccount";
 import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server";
@@ -812,6 +812,15 @@ export const propertiesRouter = router({
           title: "Free listing submitted",
           content: `"${property.title}" is on ${freshCustomer.name}'s account, awaiting admin approval. Once live, send them the upgrade link to reach page 1.`,
           actionUrl: "/sales-portal",
+        });
+        // Admin approval is the ONLY route live for a free listing (no payment
+        // gate — see the razorpay webhook), so without this the listing sits
+        // Pending with nothing telling an admin to look at it.
+        await notifyAdmins({
+          type: "listing_pending",
+          title: "Free listing pending approval",
+          content: `${ctx.user.name} listed "${property.title}" for ${freshCustomer.name} (free tier) — needs your approval to go live.`,
+          hash: "listings",
         });
       } else {
         await notify({
