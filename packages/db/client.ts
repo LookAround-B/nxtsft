@@ -46,13 +46,22 @@ function loadEnv() {
 function createPrismaClient() {
   loadEnv();
   const connectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/postgres";
-  // max:1 prevents connection exhaustion in Vercel serverless — each function
-  // instance is single-threaded so it never needs more than one connection.
-  // connectionTimeoutMillis ensures a hung DB surfaces as a fast error rather
+  // Pool sizing is per function instance. The old max:1 assumed one request
+  // per instance, which stopped being true under Vercel Fluid Compute — an
+  // instance now serves many requests concurrently, so a single connection
+  // turns every concurrent request into a queue behind it and one slow query
+  // fails all of them with "timeout exceeded when trying to connect".
+  //
+  // POOL_MAX is deliberately small anyway: the Postgres behind this is shared
+  // (max_connections=100, other databases on the same server), so the budget
+  // is instances x POOL_MAX, not requests x anything. Raise it only alongside
+  // a real pooler (PgBouncer in transaction mode) in front of the database.
+  //
+  // connectionTimeoutMillis keeps a hung DB surfacing as a fast error rather
   // than a 30-second Vercel function timeout.
   const pool = new pg.Pool({
     connectionString,
-    max: 1,
+    max: Number(process.env.DB_POOL_MAX) || 5,
     idleTimeoutMillis: 20_000,
     connectionTimeoutMillis: 8_000,
   });

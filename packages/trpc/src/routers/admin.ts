@@ -33,7 +33,10 @@ import {
 } from "../sanitize";
 import { makeInteriorDesignerSlug } from "./interiorDesigners";
 import { makeDecorStoreSlug } from "./decorStores";
-import { generateSlug, assertReraValid, splitList, CATEGORY_IMAGE } from "./properties";
+import {
+  generateSlug, assertReraValid, splitList, CATEGORY_IMAGE,
+  bulkImagesCellSchema, parseBulkImages, bulkImageWarning,
+} from "./properties";
 import { agentInitials, uniqueAgentSlug, defaultAgentMetadata } from "../agentProfile";
 
 
@@ -607,7 +610,12 @@ export const adminRouter = router({
           include: { owner: { select: { name: true, phone: true } } },
         });
         if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
-        if (!property.rera) {
+        // Free listings are exempt: a rep-sourced individual owner often has no
+        // RERA number, and holding the free tier to it would block the flow at
+        // day one. The requirement moves to the paid step instead — the boost
+        // order (subscriptions.createBoostOrder) refuses a property without
+        // RERA, so nothing reaches page 1 unregistered.
+        if (!property.freeListing && !property.rera) {
           throw new TRPCError({ code: "PRECONDITION_FAILED", message: "RERA number required before approval." });
         }
         const updated = await prisma.property.update({ where: { id: input.id }, data: { status: "Active" } });
@@ -615,8 +623,10 @@ export const adminRouter = router({
           userId: property.ownerId,
           type: "listing_approved",
           title: "Your listing is approved 🎉",
-          content: `"${property.title}" is now live and visible to buyers.`,
-          actionUrl: `/properties/${property.slug}`,
+          content: property.freeListing
+            ? `"${property.title}" is now live as a free listing. Upgrade to move it to the first page.`
+            : `"${property.title}" is now live and visible to buyers.`,
+          actionUrl: property.freeListing ? "/pricing#boost" : `/properties/${property.slug}`,
         });
         // Best-effort WhatsApp to the seller (no-op until configured).
         void sendTemplateIfConfigured(
@@ -759,7 +769,7 @@ export const adminRouter = router({
           latitude: bulkNum(z.coerce.number().min(-90).max(90).optional()),
           longitude: bulkNum(z.coerce.number().min(-180).max(180).optional()),
           amenities: safeString(2000).optional(),
-          images: safeString(4000).optional(),
+          images: bulkImagesCellSchema,
           virtualTourUrl: safeString(500).optional(),
           walkthroughVideoUrl: safeString(500).optional(),
           pgGender: z.enum(["Boys", "Girls", "Co-living"]).optional(),
@@ -772,6 +782,9 @@ export const adminRouter = router({
         });
 
         const errors: { row: number; message: string }[] = [];
+        // Non-fatal notes: the row was created, but not with what the sheet
+        // meant (e.g. no usable photos, so the placeholder cover was used).
+        const warnings: { row: number; message: string }[] = [];
         const createdListings: { id: string; slug: string; title: string }[] = [];
 
         // Maps a schema field key back to the spreadsheet column header the admin
@@ -996,8 +1009,12 @@ export const adminRouter = router({
         // first, then their Location rows keyed by the slugs we just created.
         if (toInsert.length > 0) {
           await prisma.property.createMany({
-            data: toInsert.map(({ d, slug, ownerId, displayName }) => {
-              const images = splitList(d.images);
+            data: toInsert.map(({ sheetRow, d, slug, ownerId, displayName }) => {
+              // Photos: report every row that ends up on the placeholder cover.
+              // Falling back silently is how a whole import went live photoless.
+              const { urls: images, invalid: badImages } = parseBulkImages(d.images);
+              const imageWarning = bulkImageWarning(images, badImages);
+              if (imageWarning) warnings.push({ row: sheetRow, message: imageWarning });
               const isPg = d.type === "PG";
               return {
                 ownerName: displayName,
@@ -1077,12 +1094,14 @@ export const adminRouter = router({
 
         const created = createdListings.length;
         errors.sort((a, b) => a.row - b.row);
+        warnings.sort((a, b) => a.row - b.row);
 
         return {
           received: input.rows.length,
           created,
           failed: errors.length,
           errors: errors.slice(0, 100),
+          warnings: warnings.slice(0, 100),
           createdListings,
         };
       }),
@@ -1237,7 +1256,11 @@ export const adminRouter = router({
         const items = await prisma.lead.findMany({
           where,
           include: {
-            property: { select: { id: true, title: true, slug: true } },
+            // freeListing + status + boostExpiry drive the "send upgrade
+            // reminder" action on the row.
+            property: {
+              select: { id: true, title: true, slug: true, status: true, freeListing: true, boostExpiry: true },
+            },
             user: { select: { id: true, name: true, email: true } },
           },
           orderBy: { createdAt: "desc" },

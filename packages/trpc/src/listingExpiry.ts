@@ -54,6 +54,13 @@ export async function sweepListingValidity(): Promise<ValiditySweepResult> {
   // ── 1. Expiring soon ────────────────────────────────────────────────────────
   const expiringSoon = (await prisma.lead.findMany({
     where: {
+      // A free listing has no validity window — it stays up until an admin
+      // takes it down. If a payment link is ever raised on its lead (an
+      // upgrade, say), the webhook stamps expiryDate and this sweep would
+      // otherwise unpublish the free listing when that window lapses.
+      // `NOT` rather than `property: { freeListing: false }` so leads with no
+      // property at all are still swept.
+      NOT: { property: { is: { freeListing: true } } },
       paymentStatus: "Paid",
       status: "Listed",
       expiryDate: { gt: now, lte: warnBefore },
@@ -96,6 +103,13 @@ export async function sweepListingValidity(): Promise<ValiditySweepResult> {
   // ── 2. Expired ──────────────────────────────────────────────────────────────
   const lapsed = (await prisma.lead.findMany({
     where: {
+      // A free listing has no validity window — it stays up until an admin
+      // takes it down. If a payment link is ever raised on its lead (an
+      // upgrade, say), the webhook stamps expiryDate and this sweep would
+      // otherwise unpublish the free listing when that window lapses.
+      // `NOT` rather than `property: { freeListing: false }` so leads with no
+      // property at all are still swept.
+      NOT: { property: { is: { freeListing: true } } },
       paymentStatus: "Paid",
       status: { in: ["Listed", "Expiring Soon"] },
       expiryDate: { lte: now },

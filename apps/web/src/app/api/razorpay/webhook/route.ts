@@ -100,6 +100,18 @@ export async function POST(req: NextRequest) {
   const now = new Date();
   const expiryDate = new Date(now.getTime() + LISTED_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
 
+  const property = lead.propertyId
+    ? await prisma.property.findFirst({
+        where: { id: lead.propertyId, deletedAt: null },
+        select: { id: true, title: true, slug: true, ownerId: true, status: true, freeListing: true },
+      })
+    : null;
+
+  // A free listing has no validity window — it is live because an admin
+  // approved it, not because someone paid. Stamping expiryDate here would put
+  // it on the expiry sweep's clock (see sweepListingValidity).
+  const isFree = property?.freeListing === true;
+
   await prisma.lead.update({
     where: { id: leadId },
     data: {
@@ -107,7 +119,7 @@ export async function POST(req: NextRequest) {
       paymentId,
       paymentDate: now,
       status: "Listed",
-      expiryDate,
+      ...(isFree ? {} : { expiryDate }),
       ...(amountRupees > 0 ? { amount: amountRupees } : {}),
     },
   });
@@ -116,20 +128,20 @@ export async function POST(req: NextRequest) {
   // to the customer's account (properties.create → onBehalfOfLeadId), so paying
   // only has to flip it live and stamp the same validity window as the lead.
   let published: { id: string; title: string; slug: string; ownerId: string } | null = null;
-  if (lead.propertyId) {
-    const property = await prisma.property.findFirst({
-      where: { id: lead.propertyId, deletedAt: null },
-      select: { id: true, title: true, slug: true, ownerId: true, status: true },
-    });
+  if (property) {
     // A dummy (Test) listing must never be published by paying its test link —
     // it stays out of search for good. Everything else about the payment (lead
     // Paid, commission, alerts) still runs, which is what the rep is testing.
-    if (property && property.status === TEST_LISTING_STATUS) {
+    //
+    // A free listing is likewise never published by a payment: admin approval
+    // is the only route live, so a payment link raised on its lead can't be
+    // used to skip the review.
+    if (property.status === TEST_LISTING_STATUS || (isFree && property.status !== "Active")) {
       published = null;
-    } else if (property && property.status !== "Active") {
+    } else if (property.status !== "Active") {
       await prisma.property.update({ where: { id: property.id }, data: { status: "Active" } });
       published = property;
-    } else if (property) {
+    } else {
       published = property;
     }
   }

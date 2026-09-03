@@ -54,6 +54,11 @@ export function LeadsTab() {
 
   const exportQ = trpc.leads.exportRows.useQuery({}, { enabled: false });
 
+  const sendUpgradeReminder = trpc.leads.sendUpgradeReminder.useMutation({
+    onSuccess: () => toast.success("Upgrade reminder sent"),
+    onError: (e) => toast.error(e.message),
+  });
+
   async function handleExport() {
     const res = await exportQ.refetch();
     const rows = res.data ?? [];
@@ -227,7 +232,22 @@ export function LeadsTab() {
                     <div className="font-semibold text-navy">{l.user?.name ?? "—"}</div>
                     <div className="text-xs text-muted-foreground">{l.user?.email}</div>
                   </td>
-                  <td className="text-xs">{l.property?.title ?? "—"}</td>
+                  <td className="text-xs">
+                    {l.property?.title ?? "—"}
+                    {/* Live free listing with no running boost — the only
+                        thing left to sell is the upgrade off the last page. */}
+                    {l.property?.freeListing &&
+                      l.property.status === "Active" &&
+                      !(l.property.boostExpiry && new Date(l.property.boostExpiry) > new Date()) && (
+                        <button
+                          onClick={() => sendUpgradeReminder.mutate({ leadId: l.id })}
+                          disabled={sendUpgradeReminder.isPending}
+                          className="ml-2 rounded border border-border px-2 py-0.5 text-[11px] font-semibold hover:bg-muted disabled:opacity-40"
+                        >
+                          Upgrade reminder
+                        </button>
+                      )}
+                  </td>
                   <td>
                     <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-navy">
                       {l.source ?? "Portal"}

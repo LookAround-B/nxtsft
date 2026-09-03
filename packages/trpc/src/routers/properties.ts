@@ -20,8 +20,12 @@ import {
   longitudeSchema,
   amenitiesSchema,
   safeUrlArraySchema,
+  isSafeUrl,
   nearbyPlacesSchema,
   propertyStatusSchema,
+  nameSchema,
+  phoneSchema,
+  emailSchema,
 } from "../sanitize";
 import prisma from "@nxtsft/db";
 import { BULK_IMPORT_MAX_ROWS, BOOST_TIERS, TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
@@ -91,6 +95,51 @@ export const CATEGORY_IMAGE: Record<string, string> = {
 // Split a comma-separated cell (amenities, PG occupancy, …) into a clean array.
 export function splitList(v: string | undefined): string[] {
   return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : [];
+}
+
+// Same idea for a cell of image URLs, but any of comma / newline / semicolon /
+// space separates them — real bulk sheets use all four, and a URL never
+// contains whitespace so this can't split one in half. Deliberately NOT
+// splitList: amenities and PG fields hold multi-word values ("Swimming Pool")
+// that a whitespace split would shatter.
+export function splitUrlList(v: string | undefined): string[] {
+  return v ? v.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean) : [];
+}
+
+// The bulk template's "Image URLs" cell. Deliberately NOT safeString(): its
+// stripUnsafe() strips HTML entities, which silently corrupted every URL
+// carrying an escaped ampersand ("?w=800&amp;q=80" came out "?w=800q=80" and
+// 404'd forever). isSafeUrl below is the stricter gate anyway — it rejects
+// javascript:/data: and internal hosts, which the bulk path never checked at
+// all. The cap is generous because 40 R2 URLs already measure ~4000 chars.
+export const bulkImagesCellSchema = z.string().max(10_000).optional();
+
+/**
+ * Parse an "Image URLs" cell into usable URLs, keeping the rejects so the
+ * importer can tell the admin *which* entries it dropped instead of silently
+ * falling back to the category placeholder.
+ */
+export function parseBulkImages(cell: string | undefined): { urls: string[]; invalid: string[] } {
+  // Sheets pasted out of HTML carry "&amp;" in query strings — decode before
+  // validating so those URLs survive instead of 404ing.
+  const entries = splitUrlList(cell?.replace(/&amp;/gi, "&"));
+  const urls: string[] = [];
+  const invalid: string[] = [];
+  for (const u of entries) (isSafeUrl(u) ? urls : invalid).push(u);
+  return { urls, invalid };
+}
+
+/** Per-row note for the import result: why a row's photos aren't what was expected. */
+export function bulkImageWarning(urls: string[], invalid: string[]): string | null {
+  if (invalid.length) {
+    const shown = invalid.slice(0, 3).join(", ");
+    const rest = invalid.length > 3 ? ` (+${invalid.length - 3} more)` : "";
+    return urls.length
+      ? `${invalid.length} image URL(s) ignored — not a valid http/https link: ${shown}${rest}`
+      : `No usable image URLs — placeholder cover used. Ignored: ${shown}${rest}`;
+  }
+  if (!urls.length) return "No Image URLs given — placeholder cover artwork used.";
+  return null;
 }
 
 // Server-side state-specific RERA validation (mirrors apps/web/src/lib/rera.ts).
@@ -198,6 +247,15 @@ export const propertiesRouter = router({
           { location: { city: { contains: search, mode: "insensitive" } } },
           { location: { state: { contains: search, mode: "insensitive" } } },
         ];
+
+        // Property ID lookup. The UI only ever shows the last 8 characters of
+        // the cuid, uppercased and prefixed with "#" (PropertyDetailClient),
+        // so accept that form and match on the suffix. `endsWith` can't use an
+        // index, hence the shape guard — it only fires for ID-looking input.
+        const idCandidate = search.replace(/^#/, "").trim().toLowerCase();
+        if (/^[a-z0-9]{6,}$/.test(idCandidate)) {
+          where.OR.push({ id: { endsWith: idCandidate } });
+        }
       }
 
       // Run page + count concurrently — count was ~100ms of sequential wait
@@ -208,7 +266,16 @@ export const propertiesRouter = router({
           include: propertyInclude,
           // Paid boosts rank first (gold > silver > bronze), then the admin's
           // featured picks, then recency. boostScore is zeroed by the expiry cron.
-          orderBy: [{ boostScore: "desc" }, { featured: "desc" }, { createdAt: "desc" }],
+          // freeListing sits directly under boostScore: an un-boosted free
+          // listing (score 0, flag true) sorts after every other un-boosted
+          // listing — i.e. the last page — while a boosted one outranks all
+          // score-0 rows and lands on page 1. Prisma orders false before true.
+          orderBy: [
+            { boostScore: "desc" },
+            { freeListing: "asc" },
+            { featured: "desc" },
+            { createdAt: "desc" },
+          ],
           take: limit,
           skip: (page - 1) * limit,
         }),
@@ -354,7 +421,7 @@ export const propertiesRouter = router({
           ],
         },
         include: propertyInclude,
-        orderBy: [{ boostScore: "desc" }, { featured: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ boostScore: "desc" }, { freeListing: "asc" }, { featured: "desc" }, { createdAt: "desc" }],
         take: input.limit,
       });
       return serializeProperty(items);
@@ -492,13 +559,29 @@ export const propertiesRouter = router({
         // Dummy test listing: rep lists against their OWN number so they can
         // rehearse the whole flow (payment link → webhook → publish). Staff-only.
         dummy: z.boolean().optional(),
+        // Fresh Lead: a customer the rep sourced themselves, typed inline
+        // instead of picked from their assigned leads. Produces a FREE listing
+        // (admin-approved, no payment, last page). Staff-only.
+        freshLead: z
+          .object({ name: nameSchema, phone: phoneSchema, email: emailSchema.optional() })
+          .optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, onBehalfOfLeadId, dummy, ...rest } =
+      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, onBehalfOfLeadId, dummy, freshLead, ...rest } =
         input;
 
       assertReraValid(city, input.rera, input.reraLabel);
+
+      // Exactly one listing mode: self-serve, an assigned lead, a fresh lead,
+      // or a dummy test. Two at once is always a client bug — reject up front,
+      // before any branch below mints a customer account.
+      if ([onBehalfOfLeadId, freshLead, dummy].filter(Boolean).length > 1) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose one: an existing lead, a fresh lead, or a dummy listing.",
+        });
+      }
 
       // ── Owner resolution ──────────────────────────────────────────────────
       // Normally the lister owns what they list. A sales rep listing off a call
@@ -515,9 +598,6 @@ export const propertiesRouter = router({
       // the sales portal's payment-link button targets them.
       let dummyRep: { name: string; phone: string; email: string; city: string } | null = null;
       if (dummy) {
-        if (onBehalfOfLeadId) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "A dummy listing can't also be on a customer's behalf." });
-        }
         if (!REP_LISTING_ROLES.includes(ctx.user.role)) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Only sales staff can create dummy listings." });
         }
@@ -566,6 +646,27 @@ export const propertiesRouter = router({
         onBehalfOf = { leadId: lead.id, customerId: customer.id, customerName: customer.name };
       }
 
+      // ── Fresh Lead (free listing) ─────────────────────────────────────────
+      // The rep sourced this customer themselves and typed their details in,
+      // so there is no lead row yet — one is created below, after the property,
+      // and auto-assigned back to the rep. Same ownership rule as above: the
+      // listing belongs to the customer from the moment it exists.
+      let freshCustomer: { id: string; name: string; phone: string; email?: string } | null = null;
+      if (freshLead) {
+        if (!REP_LISTING_ROLES.includes(ctx.user.role)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only sales staff can create a fresh-lead listing." });
+        }
+        const customer = await findOrCreateCustomerAccount({
+          phone: freshLead.phone,
+          name: freshLead.name,
+          email: freshLead.email,
+          city,
+          createdById: ctx.user.id,
+        });
+        ownerId = customer.id;
+        freshCustomer = { id: customer.id, name: customer.name, phone: customer.phone, email: freshLead.email };
+      }
+
       const slug = generateSlug(input.title, city);
 
       const property = await prisma.property.create({
@@ -576,6 +677,9 @@ export const propertiesRouter = router({
           // rep's own views) straight away, with every paid perk switched on so
           // the rep can see what a top-tier listing looks like.
           status: dummy ? TEST_LISTING_STATUS : "Pending",
+          // Free tier — admin approves it without payment and it publishes on
+          // the last page. Never set from a self-serve or paid-lead listing.
+          freeListing: freshCustomer !== null,
           ...(dummy && {
             featured: true,
             boostTier: "gold",
@@ -661,6 +765,54 @@ export const propertiesRouter = router({
           content: `"${property.title}" is a test listing — hidden from search. Send yourself the payment link from the sales portal to test the flow.`,
           actionUrl: "/sales-portal",
         });
+      } else if (freshCustomer) {
+        // The lead is created AFTER the property so propertyId lands in one
+        // write, and is auto-assigned back to the rep who sourced it (brief §3)
+        // — but only when they're a sales rep. leads.assign validates that its
+        // target is a sales rep, so an admin self-assigning here would plant a
+        // lead that violates that invariant; an admin's fresh lead is left
+        // unassigned for the normal routing queue.
+        const selfAssign = ctx.user.role === "sales";
+        const lead = await prisma.lead.create({
+          data: {
+            userId: freshCustomer.id,
+            propertyId: property.id,
+            name: freshCustomer.name,
+            phone: freshCustomer.phone,
+            email: freshCustomer.email,
+            city,
+            interest: `Free listing — ${property.title}`,
+            // Deliberately NOT in leadSourceSchema (same call as "Dummy"):
+            // adding it would make it a public leads.create value and a filter
+            // option. It is set here and read for display only.
+            source: "Fresh Lead",
+            status: "New",
+            ...(selfAssign && { assignedToId: ctx.user.id, assignedAt: new Date() }),
+          },
+        });
+        await prisma.salesActivity.create({
+          data: {
+            salesRepId: ctx.user.id,
+            type: "listing",
+            leadId: lead.id,
+            action: `Listed "${property.title}" for ${freshCustomer.name} (fresh lead)`,
+            outcome: "Free listing — awaiting admin approval",
+          },
+        });
+        await notify({
+          userId: freshCustomer.id,
+          type: "listing_submitted",
+          title: "Your free listing is submitted",
+          content: `"${property.title}" was added to your account. It goes live free once our team reviews it.`,
+          actionUrl: "/user-portal#mylist",
+        });
+        await notify({
+          userId: ctx.user.id,
+          type: "listing_submitted",
+          title: "Free listing submitted",
+          content: `"${property.title}" is on ${freshCustomer.name}'s account, awaiting admin approval. Once live, send them the upgrade link to reach page 1.`,
+          actionUrl: "/sales-portal",
+        });
       } else {
         await notify({
           userId: ctx.user.id,
@@ -721,7 +873,7 @@ export const propertiesRouter = router({
         latitude: z.coerce.number().min(-90).max(90).optional(),
         longitude: z.coerce.number().min(-180).max(180).optional(),
         amenities: safeString(2000).optional(),
-        images: safeString(4000).optional(),
+        images: bulkImagesCellSchema,
         virtualTourUrl: safeString(500).optional(),
         walkthroughVideoUrl: safeString(500).optional(),
         // PG-specific (only meaningful when type === "PG")
@@ -735,6 +887,9 @@ export const propertiesRouter = router({
       });
 
       const errors: { row: number; message: string }[] = [];
+      // Non-fatal notes: the row was created, but not with what the sheet meant
+      // (e.g. no photos, so the placeholder cover was used).
+      const warnings: { row: number; message: string }[] = [];
       let created = 0;
 
       for (let i = 0; i < input.rows.length; i++) {
@@ -748,7 +903,11 @@ export const propertiesRouter = router({
         try {
           assertReraValid(d.city, d.rera, d.reraLabel);
           // Use uploaded image URLs if given, else the type's default cover.
-          const images = splitList(d.images);
+          // A row that lands on the default is reported as a warning — silently
+          // shipping placeholder artwork is how whole imports went out photoless.
+          const { urls: images, invalid: badImages } = parseBulkImages(d.images);
+          const imageWarning = bulkImageWarning(images, badImages);
+          if (imageWarning) warnings.push({ row: sheetRow, message: imageWarning });
           const isPg = d.type === "PG";
           await prisma.property.create({
             data: {
@@ -822,7 +981,13 @@ export const propertiesRouter = router({
         });
       }
 
-      return { received: input.rows.length, created, failed: errors.length, errors: errors.slice(0, 100) };
+      return {
+        received: input.rows.length,
+        created,
+        failed: errors.length,
+        errors: errors.slice(0, 100),
+        warnings: warnings.slice(0, 100),
+      };
     }),
 
   // Update own property (or admin overriding)
