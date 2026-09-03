@@ -21,7 +21,17 @@ export function ListingsTab() {
   return (
     <>
       <Head t="Listings" s="Properties you listed for your customers." />
-      <Section title="Customer listings">
+      <Section
+        title="Customer listings"
+        action={
+          <a
+            href="/list"
+            className="rounded-md bg-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+          >
+            List a property
+          </a>
+        }
+      >
         {leadsQ.isLoading ? (
           <div className="space-y-4 py-2">
             {[1, 2, 3].map((i) => (
@@ -40,12 +50,6 @@ export function ListingsTab() {
               <span className="font-semibold text-navy">List their property</span> — the listing is
               created on the customer&apos;s own account and goes live when they pay.
             </p>
-            <a
-              href="/list"
-              className="rounded-md bg-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90"
-            >
-              List a property
-            </a>
           </div>
         ) : (
           withProperty.map((l) => (

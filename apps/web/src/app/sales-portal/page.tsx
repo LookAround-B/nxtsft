@@ -8,6 +8,7 @@ import {
   Wallet,
   LayoutGrid,
   BarChart2,
+  PlusCircle,
 } from "lucide-react";
 import { PortalShell, type PortalNav } from "@/components/portal/PortalShell";
 import { useActiveHash } from "@/lib/use-active-hash";
@@ -36,6 +37,9 @@ const makeNav = (b?: Badges): PortalNav[] => [
   { label: "Activity Log", to: "/sales-portal#log", icon: <ClipboardList size={14} />, group: "Monitoring" },
 
   { label: "Listings", to: "/sales-portal#listings", icon: <LayoutGrid size={14} />, group: "Platform" },
+  // The header's "List Property" link is home-seller only, so without this a rep
+  // who already has a listing has no visible way back to the wizard.
+  { label: "List a Property", to: "/list", icon: <PlusCircle size={14} /> },
   { label: "My Earnings", to: "/sales-portal#commission", icon: <Wallet size={14} /> },
 
   { label: "Reports", to: "/sales-portal#reports", icon: <BarChart2 size={14} />, group: "Intelligence" },
