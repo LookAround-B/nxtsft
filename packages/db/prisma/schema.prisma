@@ -47,6 +47,7 @@ model User {
 
   properties            Property[]             @relation("OwnedProperties")
   agentListings         Property[]             @relation("AgentListings")
+  createdListings       Property[]             @relation("CreatedListings")
   listings              Listing[]
   editRequests          PropertyEditRequest[]  @relation("UserEditRequests")
   leads                 Lead[]
@@ -197,6 +198,20 @@ model Property {
   // back on its own. This flag is therefore never cleared.
   freeListing Boolean @default(false)
 
+  // How this listing reached us — the admin queue can't tell a rep-assisted
+  // listing from a walk-in seller without it (status/freeListing only cover the
+  // dummy and free-tier cases). Set once at creation, never rewritten.
+  //   self        — the owner listed it themselves (home-seller / buyer turned seller)
+  //   rep_assisted— a sales rep listed it for an assigned lead (paid flow)
+  //   fresh_lead  — a sales rep sourced the customer inline (free tier)
+  //   dummy       — staff test listing (status "Test")
+  //   bulk_import — admin CSV import
+  source      String  @default("self")
+  // Staff member who actually created the row, when that isn't the owner.
+  // Null on self-serve listings and on rows created before this column existed.
+  createdById String?
+  createdBy   User?   @relation("CreatedListings", fields: [createdById], references: [id], onDelete: SetNull)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -210,6 +225,8 @@ model Property {
   @@index([status])
   @@index([featured])
   @@index([freeListing])
+  @@index([source])
+  @@index([createdById])
   @@index([createdAt])
   @@index([projectId])
 }

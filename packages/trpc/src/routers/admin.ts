@@ -572,6 +572,9 @@ export const adminRouter = router({
             include: {
               location: true,
               owner: { select: { id: true, name: true, email: true, role: true } },
+              // Who actually submitted it — a rep on a customer's behalf, or an
+              // admin importing a sheet. Null on self-serve listings.
+              createdBy: { select: { id: true, name: true, role: true } },
               _count: { select: { leads: true, favoritedBy: true } },
             },
             orderBy: { createdAt: "desc" },
@@ -1046,6 +1049,8 @@ export const adminRouter = router({
                 walkthroughVideoUrl: d.walkthroughVideoUrl,
                 status: "Active",
                 ownerId,
+                source: "bulk_import",
+                createdById: ctx.user.id,
                 ...(isPg
                   ? {
                       pgGender: d.pgGender,

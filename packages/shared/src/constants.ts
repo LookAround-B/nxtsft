@@ -64,6 +64,27 @@ export const RATE_LIMITS = {
  */
 export const TEST_LISTING_STATUS = "Test";
 
+/**
+ * Property.source — how a listing reached us. Written once at creation and
+ * never rewritten, so the admin queue can say who submitted a listing without
+ * guessing from status/freeListing.
+ */
+export const LISTING_SOURCES = {
+  self: { label: "Home seller", hint: "Owner listed it themselves" },
+  rep_assisted: { label: "Sales rep", hint: "Rep listed it for an assigned lead" },
+  fresh_lead: { label: "Fresh Lead", hint: "Rep sourced the customer inline (free tier)" },
+  dummy: { label: "Dummy", hint: "Staff test listing" },
+  bulk_import: { label: "Bulk import", hint: "Created from an admin CSV import" },
+} as const;
+
+export type ListingSource = keyof typeof LISTING_SOURCES;
+
+export const LISTING_SOURCE_KEYS = Object.keys(LISTING_SOURCES) as ListingSource[];
+
+export function listingSourceLabel(source: string | null | undefined): string {
+  return (LISTING_SOURCES as Record<string, { label: string }>)[source ?? ""]?.label ?? "Home seller";
+}
+
 export const BOOST_TIERS = {
   bronze: { score: 40, tag: "Boosted" },
   silver: { score: 70, tag: "Top Pick" },

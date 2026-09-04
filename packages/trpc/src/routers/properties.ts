@@ -680,6 +680,12 @@ export const propertiesRouter = router({
           // Free tier — admin approves it without payment and it publishes on
           // the last page. Never set from a self-serve or paid-lead listing.
           freeListing: freshCustomer !== null,
+          // Provenance for the admin queue. The four modes are mutually
+          // exclusive (asserted above), so this is a straight fold of the same
+          // branch flags. createdById is the acting staff member; on a
+          // self-serve listing that's the owner, so it stays null.
+          source: dummy ? "dummy" : freshCustomer ? "fresh_lead" : onBehalfOf ? "rep_assisted" : "self",
+          createdById: dummy || freshCustomer || onBehalfOf ? ctx.user.id : null,
           ...(dummy && {
             featured: true,
             boostTier: "gold",
@@ -949,6 +955,8 @@ export const propertiesRouter = router({
               status: "Pending",
               ownerId: ctx.user.id,
               ownerName: d.ownerName ?? null,
+              source: "bulk_import",
+              createdById: ctx.user.id,
               // PG fields only when the listing is a PG.
               ...(isPg
                 ? {

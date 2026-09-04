@@ -3,8 +3,8 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin, ImageIcon, User, Eye } from "lucide-react";
-import { boostIsActive } from "@nxtsft/shared/constants";
+import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin, ImageIcon, User, Eye, Clock, UserCog } from "lucide-react";
+import { boostIsActive, listingSourceLabel } from "@nxtsft/shared/constants";
 import { keepPreviousData } from "@tanstack/react-query";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
@@ -64,6 +64,10 @@ type ListingItem = {
   ownerName?: string | null;
   /** The owning account's real name, shown as the fallback hint. */
   accountName?: string;
+  /** Property.source — how the listing reached us (self | rep_assisted | ...). */
+  source?: string;
+  /** Staff member who created it (rep / importing admin); absent on self-serve. */
+  createdByName?: string;
 };
 
 type RawProp = {
@@ -85,8 +89,53 @@ type RawProp = {
   reraLabel: string | null;
   slug: string;
   featured: boolean;
+  source: string;
+  createdBy: { id: string; name: string; role: string } | null;
+  createdAt: string;
   _count?: { leads: number; favoritedBy: number };
 };
+
+// ─── Submission provenance ────────────────────────────────────────────────────
+// Chip styling per Property.source. Anything unknown (or a legacy row still on
+// the "self" default) falls back to the neutral home-seller look.
+const SOURCE_CHIP: Record<string, string> = {
+  self: "bg-slate-100 text-slate-700",
+  rep_assisted: "bg-violet-100 text-violet-700",
+  fresh_lead: "bg-sky-100 text-sky-700",
+  dummy: "bg-zinc-200 text-zinc-700",
+  bulk_import: "bg-teal-100 text-teal-700",
+};
+
+function SourceChip({ source, staffName }: { source?: string; staffName?: string }) {
+  const key = source && SOURCE_CHIP[source] ? source : "self";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${SOURCE_CHIP[key]}`}>
+      <UserCog size={9} />
+      {listingSourceLabel(key)}
+      {staffName && key !== "self" ? ` · ${staffName}` : ""}
+    </span>
+  );
+}
+
+/** Whole days between `iso` and now; negative clock skew clamps to 0. */
+function daysSince(iso: string): number {
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+}
+
+// "How old is this pending listing" — the queue is worked oldest-first, so the
+// age is coloured once it starts to look stale (3 days warm, 7 days hot).
+function SubmittedLine({ at, pending }: { at: string; pending: boolean }) {
+  const days = daysSince(at);
+  const tone = !pending ? "text-muted-foreground" : days >= 7 ? "text-rose-600" : days >= 3 ? "text-amber-600" : "text-muted-foreground";
+  const age = days === 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`;
+  return (
+    <div className={`mt-1 flex items-center gap-1 text-[11px] ${tone}`}>
+      <Clock size={10} />
+      Submitted {new Date(at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+      <span className="font-semibold">· {age}</span>
+    </div>
+  );
+}
 
 // ─── Promote Checklist ────────────────────────────────────────────────────────
 function CheckRow({ label, ok }: { label: string; ok: boolean }) {
@@ -498,6 +547,9 @@ export function ListingsTab() {
     interested: p._count?.leads ?? 0,
     wishlisted: p._count?.favoritedBy ?? 0,
     featured: p.featured,
+    source: p.source,
+    createdByName: p.createdBy?.name,
+    submittedAt: p.createdAt,
   }));
 
   // User submissions live in localStorage (legacy /list form) and aren't part
@@ -642,6 +694,7 @@ export function ListingsTab() {
                         <Star size={9} className="fill-current" /> On Home
                       </span>
                     )}
+                    <SourceChip source={it.source} staffName={it.createdByName} />
                   </div>
                   {it.slug ? (
                     <Link
@@ -656,6 +709,7 @@ export function ListingsTab() {
                     <div className="mt-1 text-sm font-semibold text-navy">{it.title}</div>
                   )}
                   <div className="text-xs text-muted-foreground">{it.builder}</div>
+                  {it.submittedAt && <SubmittedLine at={it.submittedAt} pending={it.status === "Pending"} />}
                   <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
                     <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-navy">
                       {it.city}
@@ -923,15 +977,6 @@ export function ListingsTab() {
                     <span className="flex items-center gap-1">
                       <Phone size={11} className="text-accent" />
                       +91 {it.listerPhone}
-                    </span>
-                  )}
-                  {it.submittedAt && (
-                    <span className="ml-auto text-[10px]">
-                      {new Date(it.submittedAt).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
                     </span>
                   )}
                 </div>

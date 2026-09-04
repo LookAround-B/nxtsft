@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 // GOL-292: footer "Visitors Today" ticker. Purely presentational — the number
 // is a deterministic curve, not real traffic (real tracking = Vercel Analytics
 // + PostHog). Seeded by IST calendar day so every client shows the same value:
-//   • daily target: 20k–30k, picked from the day seed
+//   • daily target: 30k–60k, picked from the day seed
 //   • resets to 0 at midnight IST
 //   • 80% of the day's count accrues 7:00–23:00, 20% overnight
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -33,7 +33,7 @@ function cumulativeShare(minute: number): number {
 export function visitorsNow(now = new Date()): number {
   const ist = new Date(now.getTime() + IST_OFFSET_MS);
   const daySeed = ist.getUTCFullYear() * 10000 + (ist.getUTCMonth() + 1) * 100 + ist.getUTCDate();
-  const target = 20000 + Math.floor(mulberry32(daySeed)() * 10001); // 20k–30k
+  const target = 30000 + Math.floor(mulberry32(daySeed)() * 30001); // 30k–60k
   const minuteOfDay =
     ist.getUTCHours() * 60 + ist.getUTCMinutes() + ist.getUTCSeconds() / 60;
   return Math.floor(target * cumulativeShare(minuteOfDay));
