@@ -860,8 +860,11 @@ export const subscriptionsRouter = router({
       }
       // Free listings are approved without a RERA number (see
       // admin.properties.approve) — the requirement lands here instead, so a
-      // listing can't buy its way onto the first page unregistered.
-      if (property.freeListing && !property.rera) {
+      // listing can't buy its way onto the first page unregistered. Same
+      // admin toggle as the approval gate (SiteSetting "listings.rera_required_for_approval").
+      const reraSetting = await prisma.siteSetting.findUnique({ where: { key: "listings.rera_required_for_approval" } });
+      const reraRequired = (reraSetting?.value as boolean | undefined) ?? false;
+      if (reraRequired && property.freeListing && !property.rera) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message: "Add a RERA registration number to this listing before upgrading it.",

@@ -886,10 +886,15 @@ export function ListingsTab() {
                       <span className="text-muted-foreground">Not boosted</span>
                     )}
                     {/* Free tier — approved without payment and ranked last
-                        until the owner buys a boost. */}
+                        until the owner buys a boost. Sub-label shows who
+                        actually created it (Home seller / Sales rep / …). */}
                     {it.freeListing && (
-                      <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
                         Free Listing
+                        <span className="font-normal text-sky-700/70">
+                          · {listingSourceLabel(it.source)}
+                          {it.createdByName ? ` (${it.createdByName})` : ""}
+                        </span>
                       </span>
                     )}
                   </div>

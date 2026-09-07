@@ -618,7 +618,12 @@ export const adminRouter = router({
         // day one. The requirement moves to the paid step instead — the boost
         // order (subscriptions.createBoostOrder) refuses a property without
         // RERA, so nothing reaches page 1 unregistered.
-        if (!property.freeListing && !property.rera) {
+        // Admin-togglable (SiteSetting "listings.rera_required_for_approval") —
+        // temporarily disabled 2026-09-07 at the user's request; re-enable from
+        // the Property Types admin tab.
+        const reraSetting = await prisma.siteSetting.findUnique({ where: { key: "listings.rera_required_for_approval" } });
+        const reraRequired = (reraSetting?.value as boolean | undefined) ?? false;
+        if (reraRequired && !property.freeListing && !property.rera) {
           throw new TRPCError({ code: "PRECONDITION_FAILED", message: "RERA number required before approval." });
         }
         const updated = await prisma.property.update({ where: { id: input.id }, data: { status: "Active" } });
@@ -1587,6 +1592,24 @@ export const adminRouter = router({
         update: { value, editorId: ctx.user.id },
       });
       return { type: input.type, enabled: input.enabled };
+    }),
+
+  // RERA-required-before-approval gate (see `approve` above). Off by default
+  // (temporarily disabled 2026-09-07) — admins can re-enable it here.
+  reraRequired: adminProcedure.query(async () => {
+    const setting = await prisma.siteSetting.findUnique({ where: { key: "listings.rera_required_for_approval" } });
+    return { enabled: (setting?.value as boolean | undefined) ?? false };
+  }),
+
+  setReraRequired: adminProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      await prisma.siteSetting.upsert({
+        where: { key: "listings.rera_required_for_approval" },
+        create: { key: "listings.rera_required_for_approval", value: input.enabled, editorId: ctx.user.id },
+        update: { value: input.enabled, editorId: ctx.user.id },
+      });
+      return { enabled: input.enabled };
     }),
 
   teamMembers: adminProcedure

@@ -19,6 +19,24 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
 export function PropertyTypesTab() {
   const utils = trpc.useUtils();
   const typesQ = trpc.admin.propertyTypes.useQuery();
+  const reraQ = trpc.admin.reraRequired.useQuery();
+
+  const toggleRera = trpc.admin.setReraRequired.useMutation({
+    onMutate: async ({ enabled }) => {
+      await utils.admin.reraRequired.cancel();
+      const prev = utils.admin.reraRequired.getData();
+      utils.admin.reraRequired.setData(undefined, { enabled });
+      return { prev };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.prev) utils.admin.reraRequired.setData(undefined, ctx.prev);
+      toast.error(err.message);
+    },
+    onSuccess: ({ enabled }) => {
+      toast.success(`RERA number ${enabled ? "is now required" : "is no longer required"} before approval`);
+    },
+    onSettled: () => utils.admin.reraRequired.invalidate(),
+  });
 
   const toggle = trpc.admin.setPropertyTypeEnabled.useMutation({
     onMutate: async ({ type, enabled }) => {
@@ -51,6 +69,37 @@ export function PropertyTypesTab() {
         title="Property Types"
         subtitle="Turn property types on or off. Inactive types disappear from the browse filter and the “list your property” form — existing listings are untouched."
       />
+
+      <Section title="Listing Rules">
+        <div
+          className={`flex items-center gap-3 rounded-2xl border p-4 transition ${
+            reraQ.data?.enabled ? "border-border bg-white" : "border-dashed border-border bg-secondary/40 opacity-70"
+          }`}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-navy">RERA number required</div>
+            <div className="text-xs text-muted-foreground">
+              When on, non-free listings need a RERA number to be approved, and free listings need one before they can be boosted.
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!reraQ.data?.enabled}
+            disabled={reraQ.isLoading || toggleRera.isPending}
+            onClick={() => toggleRera.mutate({ enabled: !reraQ.data?.enabled })}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${
+              reraQ.data?.enabled ? "bg-emerald-500" : "bg-muted-foreground/30"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                reraQ.data?.enabled ? "left-[22px]" : "left-0.5"
+              }`}
+            />
+          </button>
+        </div>
+      </Section>
 
       <Section title="Types">
         {typesQ.isLoading && <ListSkeleton rows={5} />}
