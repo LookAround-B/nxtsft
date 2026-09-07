@@ -689,6 +689,16 @@ export const leadsRouter = router({
         });
       }
 
+      // Boost packs are sold only while at least one boost plan is active, so
+      // don't SMS a customer a link to a section the pricing page won't render.
+      const activeBoostPlans = await prisma.plan.count({ where: { type: "boost", active: true } });
+      if (activeBoostPlans === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Boost packs are switched off right now — activate one in Plans Manager first.",
+        });
+      }
+
       const upgradeUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.nxtsft.com"}/pricing#boost`;
       await sendTemplateIfConfigured("BHASHSMS_TEMPLATE_UPGRADE_REMINDER", lead.phone, [
         lead.name,

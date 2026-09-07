@@ -72,6 +72,10 @@ export default function PricingPage() {
   // portal, where they pick WHICH listing to boost (createBoostOrder binds the
   // propertyId into the payment metadata, so it can't come from this page).
   const boostPlansQuery = trpc.subscriptions.boostPlans.useQuery();
+  // boostPlans only returns active plans, so deactivating all three in the
+  // admin Plans Manager takes the whole Boost section off this page.
+  const boostPlans = boostPlansQuery.data ?? [];
+  const showBoostSection = boostPlansQuery.isLoading || boostPlans.length > 0;
   const gatewayQ = trpc.subscriptions.activeGateway.useQuery();
   const createOrder = trpc.subscriptions.createOrder.useMutation();
   const createOwnerOrder = trpc.subscriptions.createOwnerOrder.useMutation();
@@ -276,6 +280,7 @@ export default function PricingPage() {
 
           {/* ── Boost packs ──────────────────────────────────────────────
               Target of the "upgrade" link on a free listing. */}
+          {showBoostSection && (
           <section id="boost" className="scroll-mt-32 border-y border-border bg-secondary/30">
             <div className="mx-auto max-w-6xl px-5 py-12 sm:px-6">
               <div className="text-center">
@@ -295,7 +300,7 @@ export default function PricingPage() {
                 {boostPlansQuery.isLoading ? (
                   <PlanSkeletons count={3} />
                 ) : (
-                  (boostPlansQuery.data ?? []).map((plan) => (
+                  boostPlans.map((plan) => (
                     <div
                       key={plan.id}
                       className="flex h-full flex-col rounded-2xl border border-border bg-white p-6 shadow-sm"
@@ -342,18 +347,13 @@ export default function PricingPage() {
                 )}
               </div>
 
-              {!boostPlansQuery.isLoading && (boostPlansQuery.data ?? []).length === 0 && (
-                <p className="mt-6 text-center text-sm text-muted-foreground">
-                  Boost packs aren&apos;t available right now. Please check back shortly.
-                </p>
-              )}
-
               <p className="mt-6 text-center text-xs text-muted-foreground">
                 You pick which listing to boost in your portal, then pay — the boost applies to that
                 listing only.
               </p>
             </div>
           </section>
+          )}
 
           <PlanChooser variant="owner-sell" plans={ownerPlans} onScrollToPlans={scrollToPlan} />
           <HowItWorks forSeeker={false} />

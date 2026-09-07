@@ -426,6 +426,12 @@ export function MyListingsTab() {
   const [boostTarget, setBoostTarget] = useState<{ id: string; title: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const listingsQ = trpc.users.myListings.useQuery(undefined, { enabled: session?.role === "home-seller" });
+  // Boost is sold only while at least one boost plan is active in the admin
+  // Plans Manager — deactivate all three and the Boost buttons disappear.
+  const boostPlansQ = trpc.subscriptions.boostPlans.useQuery(undefined, {
+    enabled: session?.role === "home-seller",
+  });
+  const boostEnabled = (boostPlansQ.data ?? []).length > 0;
   const utils = trpc.useUtils();
 
   if (session?.role !== "home-seller") {
@@ -596,19 +602,21 @@ export function MyListingsTab() {
                         )}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => setBoostTarget({ id: p.id, title: p.title })}
-                        disabled={p.status !== "Active"}
-                        title={
-                          p.status === "Active"
-                            ? "Move to Page 1, 2 or 3 instantly"
-                            : "Only an active listing can be boosted"
-                        }
-                        className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground transition hover:opacity-90 disabled:opacity-50"
-                      >
-                        <Rocket size={11} />
-                        {boostIsActive(p.boostTier ?? null, p.boostExpiry ?? null) ? "Extend Boost" : "Boost"}
-                      </button>
+                      {boostEnabled && (
+                        <button
+                          onClick={() => setBoostTarget({ id: p.id, title: p.title })}
+                          disabled={p.status !== "Active"}
+                          title={
+                            p.status === "Active"
+                              ? "Move to Page 1, 2 or 3 instantly"
+                              : "Only an active listing can be boosted"
+                          }
+                          className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground transition hover:opacity-90 disabled:opacity-50"
+                        >
+                          <Rocket size={11} />
+                          {boostIsActive(p.boostTier ?? null, p.boostExpiry ?? null) ? "Extend Boost" : "Boost"}
+                        </button>
+                      )}
                       {p.type === "PG" && (
                         <button
                           onClick={() => setMediaPackageTarget({ id: p.id, title: p.title })}
