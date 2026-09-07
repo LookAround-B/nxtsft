@@ -16,6 +16,7 @@ import {
   PackageOpen,
   Inbox,
   LayoutGrid,
+  Layers,
   Target,
   Kanban,
   Building2,
@@ -83,6 +84,7 @@ import { ReviewsTab } from "@/components/admin-portal/tabs/ReviewsTab";
 import { DecorTab } from "@/components/admin-portal/tabs/DecorTab";
 import { ReferralsTab } from "@/components/admin-portal/tabs/ReferralsTab";
 import { BulkListingsTab } from "@/components/admin-portal/tabs/BulkListingsTab";
+import { PropertyTypesTab } from "@/components/admin-portal/tabs/PropertyTypesTab";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Grouped nav — mirrors the admin portal's section structure (source of
@@ -113,6 +115,7 @@ const makeNav = (b?: BadgeCounts) => [
 
   // ── Platform ─────────────────────────────────────────────────────────
   { label: "Listings",        to: "/sa-portal#listings",     icon: <Building2 size={14} />, group: "Platform", badge: b?.listings },
+  { label: "Property Types",  to: "/sa-portal#property-types",icon: <Layers size={14} /> },
   { label: "Agents",          to: "/sa-portal#agents",       icon: <Contact size={14} /> },
   { label: "Reviews",         to: "/sa-portal#reviews",      icon: <Star size={14} />, badge: b?.reviews },
   { label: "Home Interiors",  to: "/sa-portal#interiors",    icon: <Sofa size={14} />, badge: b?.interiors },
@@ -203,6 +206,8 @@ function renderTab(hash: string) {
       return <TeamTab />;
     case "bulk-listings":
       return <BulkListingsTab />;
+    case "property-types":
+      return <PropertyTypesTab />;
     case "subscriptions":
       return <SubscriptionsTab />;
     case "views":
