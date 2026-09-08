@@ -540,6 +540,44 @@ export const adminRouter = router({
 
         return { ok: true, email: target.email, name: target.name };
       }),
+
+    // Disable / re-enable any account. A disabled user is blocked at login
+    // (auth.ts) and on every request (protectedProcedure in server.ts), so we
+    // also drop their live sessions to log them out immediately.
+    setActive: adminProcedure
+      .input(z.object({ userId: cuidSchema, active: z.boolean() }))
+      .mutation(async ({ input, ctx }) => {
+        if (input.userId === ctx.user.id) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "You can't disable your own account." });
+        }
+        const target = await prisma.user.findUnique({
+          where: { id: input.userId },
+          select: { id: true, role: true },
+        });
+        if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+        if (target.role === "super-admin" && ctx.user.role !== "super-admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only a super-admin can disable a super-admin." });
+        }
+
+        const user = await prisma.user.update({
+          where: { id: input.userId },
+          data: { active: input.active },
+          select: safeUserSelect,
+        });
+        if (!input.active) {
+          await prisma.session.deleteMany({ where: { userId: input.userId } });
+        }
+        await prisma.auditLog.create({
+          data: {
+            userId: ctx.user.id,
+            action: input.active ? "user_enabled" : "user_disabled",
+            entity: "User",
+            entityId: input.userId,
+            changes: { active: input.active },
+          },
+        });
+        return user;
+      }),
   }),
 
   // Property management for admin portal

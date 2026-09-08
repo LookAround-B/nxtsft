@@ -16,6 +16,7 @@ type AdminUser = {
   city: string;
   verified: boolean;
   phoneVerified: boolean;
+  active: boolean;
   credits: number;
   joined: string;
   lastActive: string;
@@ -54,6 +55,14 @@ export function UsersTab() {
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
+  const setActive = trpc.admin.users.setActive.useMutation({
+    onSuccess: (u: { active: boolean }) => {
+      usersQ.refetch();
+      toast.success(u.active ? "User enabled" : "User disabled");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
   const [pendingOnly, setPendingOnly] = useState(false);
 
   const adminCount = users.filter((u) => u.role === "admin" || u.role === "super-admin").length;
@@ -76,8 +85,8 @@ export function UsersTab() {
             onClick={() =>
               downloadCSV(
                 "users.csv",
-                ["ID", "Name", "Email", "Phone", "Phone Verified", "Role", "City", "Verified"],
-                users.map((u) => [u.id, u.name, u.email, u.phone || "—", u.phoneVerified ? "Yes" : "No", SA_ROLE_LABEL[u.role] ?? u.role, u.city, u.verified ? "Yes" : "No"]),
+                ["ID", "Name", "Email", "Phone", "Phone Verified", "Role", "City", "Verified", "Status"],
+                users.map((u) => [u.id, u.name, u.email, u.phone || "—", u.phoneVerified ? "Yes" : "No", SA_ROLE_LABEL[u.role] ?? u.role, u.city, u.verified ? "Yes" : "No", u.active ? "Active" : "Disabled"]),
               )
             }
             className="text-xs font-semibold text-accent hover:underline"
@@ -205,19 +214,34 @@ export function UsersTab() {
                     </td>
                     <td className="text-xs">{u.city}</td>
                     <td className="text-xs text-muted-foreground">{fmtJoined(u.joined)}</td>
-                    <td><Badge tone={u.verified ? "success" : "warm"}>{u.verified ? "Verified" : "Unverified"}</Badge></td>
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        <Badge tone={u.verified ? "success" : "warm"}>{u.verified ? "Verified" : "Unverified"}</Badge>
+                        {!u.active && <Badge tone="danger">Disabled</Badge>}
+                      </div>
+                    </td>
                     <td className="text-right">
-                      {u.verified ? (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      ) : (
+                      <div className="flex items-center justify-end gap-3">
+                        {!u.verified && (
+                          <button
+                            onClick={() => verifyUser.mutate({ userId: u.id })}
+                            disabled={verifyUser.isPending}
+                            className="text-xs font-semibold text-accent hover:underline disabled:opacity-50"
+                          >
+                            Verify
+                          </button>
+                        )}
                         <button
-                          onClick={() => verifyUser.mutate({ userId: u.id })}
-                          disabled={verifyUser.isPending}
-                          className="text-xs font-semibold text-accent hover:underline disabled:opacity-50"
+                          onClick={() => {
+                            if (u.active && !confirm(`Disable ${u.name}? They will be signed out and blocked from logging in.`)) return;
+                            setActive.mutate({ userId: u.id, active: !u.active });
+                          }}
+                          disabled={setActive.isPending}
+                          className={`text-xs font-semibold hover:underline disabled:opacity-50 ${u.active ? "text-red-600" : "text-emerald-600"}`}
                         >
-                          Verify
+                          {u.active ? "Disable" : "Enable"}
                         </button>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 ))}
