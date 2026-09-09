@@ -763,13 +763,18 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
               <ViewerBadge propertyId={property.id} createdAt={property.createdAt} viewBase={property.viewBase} />
             </div>
 
-            {/* Activity on this property (fabricated social proof — Active only) */}
+            {/* Activity on this property (fabricated social proof — Active,
+                paid/boosted/featured only) */}
             <PropertyEngagement
               propertyId={property.id}
               createdAt={property.createdAt}
               status={property.status}
               state={property.location.state}
               city={property.location.city}
+              freeListing={property.freeListing}
+              featured={property.featured}
+              boostTier={property.boostTier}
+              boostExpiry={property.boostExpiry}
             />
 
             {/* Report incorrect info */}
