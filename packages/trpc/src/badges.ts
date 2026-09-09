@@ -19,3 +19,4 @@ export async function hasSellerBadges(userId: string | null | undefined): Promis
   });
   return sub !== null;
 }
+

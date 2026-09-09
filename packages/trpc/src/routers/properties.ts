@@ -28,7 +28,7 @@ import {
   emailSchema,
 } from "../sanitize";
 import prisma from "@nxtsft/db";
-import { BULK_IMPORT_MAX_ROWS, BOOST_TIERS, TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
+import { BULK_IMPORT_MAX_ROWS, BOOST_TIERS, TEST_LISTING_STATUS, boostIsActive } from "@nxtsft/shared/constants";
 import { hasSellerBadges } from "../badges";
 import { sweepExpiredBoosts } from "../boostSweep";
 import { notify, notifyAdmins, notifyCredit } from "../notify";
@@ -504,7 +504,17 @@ export const propertiesRouter = router({
       const sellerBadges =
         property.status === TEST_LISTING_STATUS ? true : await hasSellerBadges(property.ownerId);
 
-      return serializeProperty({ ...property, sellerBadges });
+      // Fabricated social-proof numbers ("Activity On This Property" + the
+      // viewed/viewing badges) are a paid-tier perk: a free listing shows none
+      // of them, so the counts stay a reason to upgrade. A running boost, an
+      // admin feature push, or a dummy listing brings them back.
+      const showActivity =
+        property.status === TEST_LISTING_STATUS ||
+        property.featured ||
+        boostIsActive(property.boostTier, property.boostExpiry) ||
+        !property.freeListing;
+
+      return serializeProperty({ ...property, sellerBadges, showActivity });
     }),
 
   // Create a new property listing (authenticated owners)

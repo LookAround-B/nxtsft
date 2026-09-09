@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Eye, Heart, Phone } from "lucide-react";
-import { boostIsActive } from "@nxtsft/shared/constants";
 import { propertyActivity, type PropertyActivity, type ActivityAction } from "@/lib/propertyActivity";
 import { cn } from "@/lib/utils";
 
@@ -75,9 +74,10 @@ function Stat({ icon, value, label, tone }: { icon: React.ReactNode; value: numb
  * the date-dependent values (hence the null `data` until mount). Only rendered
  * for Active listings — non-active / dummy listings show nothing.
  *
- * Also a paid-tier perk: a free listing shows nothing, so the card stays a
- * reason to upgrade. It comes back the moment the listing carries a running
- * boost or an admin has pushed it to the home page (featured).
+ * Also a paid-tier perk: `show` comes from properties.get (showActivity), which
+ * is false on any unpaid listing, so the card stays a reason to upgrade. It
+ * comes back the moment the listing carries a running boost or an admin has
+ * pushed it to the home page (featured).
  */
 export function PropertyEngagement({
   propertyId,
@@ -85,10 +85,7 @@ export function PropertyEngagement({
   status,
   state,
   city,
-  freeListing,
-  featured,
-  boostTier,
-  boostExpiry,
+  show: paidTier,
   className,
 }: {
   propertyId: string;
@@ -96,16 +93,11 @@ export function PropertyEngagement({
   status: string;
   state?: string | null;
   city?: string | null;
-  freeListing: boolean;
-  featured: boolean;
-  boostTier: string | null;
-  boostExpiry: string | null;
+  show: boolean;
   className?: string;
 }) {
   const [data, setData] = useState<PropertyActivity | null>(null);
 
-  // Paid-tier gate: free listings get the card only while boosted or featured.
-  const paidTier = !freeListing || featured || boostIsActive(boostTier, boostExpiry);
   const show = status === "Active" && paidTier;
 
   useEffect(() => {

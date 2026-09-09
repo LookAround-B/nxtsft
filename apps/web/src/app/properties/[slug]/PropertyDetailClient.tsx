@@ -110,6 +110,8 @@ type FullProperty = {
   ownerName: string | null;
   /** LA-343: owner holds an active ≥₹4,999 plan — show the verified badge set. */
   sellerBadges?: boolean;
+  /** Paid perk: fabricated social-proof counts. False on unpaid listings. */
+  showActivity?: boolean;
 };
 
 type SimilarProperty = {
@@ -169,15 +171,19 @@ function PgFact({ icon, label, value }: { icon: React.ReactNode; label: string; 
   );
 }
 
-/* Simulated live viewer badge — random jitter every 45s, seeded by viewBase */
+/* Simulated live viewer badge — random jitter every 45s, seeded by viewBase.
+   Gated by `show` (properties.get → showActivity): unpaid listings get no
+   fabricated counts, same rule as PropertyEngagement. */
 function ViewerBadge({
   propertyId,
   createdAt,
   viewBase,
+  show,
 }: {
   propertyId: string;
   createdAt: string;
   viewBase: number;
+  show: boolean;
 }) {
   const seed = (viewBase % 9) + 3; // 3–11 starting live count
   const [live, setLive] = useState(seed);
@@ -188,10 +194,11 @@ function ViewerBadge({
   const [massViews, setMassViews] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!show) return;
     const activity = propertyActivity(propertyId, new Date(createdAt));
     const factor = 1.3 + (viewBase % 4) * 0.1; // 1.3–1.6, deterministic per listing
     setMassViews(Math.round(activity.counts.views * factor));
-  }, [propertyId, createdAt, viewBase]);
+  }, [propertyId, createdAt, viewBase, show]);
 
   useEffect(() => {
     const tick = () => {
@@ -203,6 +210,8 @@ function ViewerBadge({
     const id = setInterval(tick, 38_000 + Math.random() * 14_000);
     return () => clearInterval(id);
   }, []);
+
+  if (!show) return null;
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">
@@ -760,7 +769,12 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                 )}
 
               {/* Social-proof viewer badge */}
-              <ViewerBadge propertyId={property.id} createdAt={property.createdAt} viewBase={property.viewBase} />
+              <ViewerBadge
+                propertyId={property.id}
+                createdAt={property.createdAt}
+                viewBase={property.viewBase}
+                show={property.showActivity ?? false}
+              />
             </div>
 
             {/* Activity on this property (fabricated social proof — Active,
@@ -771,10 +785,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
               status={property.status}
               state={property.location.state}
               city={property.location.city}
-              freeListing={property.freeListing}
-              featured={property.featured}
-              boostTier={property.boostTier}
-              boostExpiry={property.boostExpiry}
+              show={property.showActivity ?? false}
             />
 
             {/* Report incorrect info */}
