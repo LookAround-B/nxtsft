@@ -501,18 +501,20 @@ export const propertiesRouter = router({
       // subscription of ₹4,999 or more.
       // Dummy listings show the full paid badge set regardless of the rep's own
       // (nonexistent) subscription — the point is to preview a premium listing.
+      // Deliberately not granted by a boost: a bronze boost costs a fraction of
+      // the badge threshold, so boosting must not buy a trust badge.
       const sellerBadges =
         property.status === TEST_LISTING_STATUS ? true : await hasSellerBadges(property.ownerId);
 
+      const boosted = property.featured || boostIsActive(property.boostTier, property.boostExpiry);
+
       // Fabricated social-proof numbers ("Activity On This Property" + the
-      // viewed/viewing badges) are a paid-tier perk: a free listing shows none
-      // of them, so the counts stay a reason to upgrade. A running boost, an
-      // admin feature push, or a dummy listing brings them back.
-      const showActivity =
-        property.status === TEST_LISTING_STATUS ||
-        property.featured ||
-        boostIsActive(property.boostTier, property.boostExpiry) ||
-        !property.freeListing;
+      // viewed/viewing badges) are a boost perk, nothing else: no boost, no
+      // counts, so they stay a reason to buy one. A running boost, an admin
+      // feature push to the home page, or a dummy listing turns them on.
+      // Deliberately NOT keyed on freeListing — that flag only marks the rep
+      // Fresh Lead path, so it can't tell a paid listing from an unpaid one.
+      const showActivity = property.status === TEST_LISTING_STATUS || boosted;
 
       return serializeProperty({ ...property, sellerBadges, showActivity });
     }),
