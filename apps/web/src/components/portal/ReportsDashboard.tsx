@@ -748,9 +748,9 @@ export function ReportsDashboard({
         onExport={() =>
           dlCSV(
             "property-listings.csv",
-            ["ID", "Title", "Owner", "City", "State", "Type", "Purpose", "Status", "Price (₹)", "RERA", "Builder", "Listed On"],
+            ["ID", "Title", "Owner", "Owner Phone", "Sales Rep", "City", "State", "Type", "Purpose", "Status", "Price (₹)", "RERA", "Builder", "Listed On"],
             fListings.map((l) => [
-              l.id, l.title, l.owner, l.city, l.state, l.type, l.purpose, l.status, l.price, l.rera, l.builder, l.listedOn,
+              l.id, l.title, l.owner, l.ownerPhone, l.salesRep, l.city, l.state, l.type, l.purpose, l.status, l.price, l.rera, l.builder, l.listedOn,
             ]),
           )
         }
@@ -766,6 +766,8 @@ export function ReportsDashboard({
                 <th className="py-2">ID</th>
                 <th>Title</th>
                 <th>Owner</th>
+                <th>Phone</th>
+                <th>Sales Rep</th>
                 <th>City</th>
                 <th>Type</th>
                 <th>Purpose</th>
@@ -780,7 +782,14 @@ export function ReportsDashboard({
                 <tr key={`${l.id}-${i}`}>
                   <td className="font-mono text-xs">{l.id}</td>
                   <td className="font-semibold text-navy">{l.title}</td>
-                  <td className="text-xs">{l.owner}</td>
+                  <td className="text-xs">
+                    {l.ownerPhone ? (
+                      <a href={`tel:${l.ownerPhone}`} className="font-medium text-accent hover:underline">{l.ownerPhone}</a>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="text-xs">{l.salesRep || <span className="text-muted-foreground">—</span>}</td>
                   <td className="text-xs">{l.city}</td>
                   <td className="text-xs">{l.type}</td>
                   <td className="text-xs">{l.purpose}</td>

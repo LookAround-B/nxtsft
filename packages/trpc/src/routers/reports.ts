@@ -162,7 +162,11 @@ export const reportsRouter = router({
               rera: true,
               builder: true,
               createdAt: true,
-              owner: { select: { name: true } },
+              owner: { select: { name: true, phone: true } },
+              ownerName: true,
+              // Staff member who created the listing — empty for self-serve
+              // ("direct login") sellers, who have no createdById.
+              createdBy: { select: { name: true, role: true } },
               location: { select: { city: true, state: true } },
             },
             orderBy: { createdAt: "desc" },
@@ -408,7 +412,9 @@ export const reportsRouter = router({
         id: p.id.slice(-6).toUpperCase(),
         slug: p.slug,
         title: p.title,
-        owner: p.owner?.name ?? "—",
+        owner: p.ownerName || p.owner?.name || "—",
+        ownerPhone: p.owner?.phone ?? "",
+        salesRep: p.createdBy?.name ?? "",
         city: p.location?.city ?? "—",
         state: p.location?.state ?? "—",
         type: p.type,
