@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin, ImageIcon, User, Eye, Clock, UserCog } from "lucide-react";
+import { Mail, Phone, Star, CheckCircle2, XCircle, ChevronDown, ChevronUp, Rocket, ShieldCheck, Pencil, MapPin, ImageIcon, User, Eye, Clock, UserCog, Search, X } from "lucide-react";
 import { boostIsActive, listingSourceLabel } from "@nxtsft/shared/constants";
 import { keepPreviousData } from "@tanstack/react-query";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
@@ -368,16 +368,22 @@ export function ListingsTab() {
   const [page, setPage] = useState(1);
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<ListingStatusFilter>("");
+  // Free-text lookup by property id / slug / pasted public URL / title. Held in
+  // two pieces: what's typed, and what's actually sent (on submit) so every
+  // keystroke doesn't hit the server.
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   // Reset to the first page whenever a filter changes.
   useEffect(() => {
     setPage(1);
-  }, [typeFilter, statusFilter]);
+  }, [typeFilter, statusFilter, search]);
   const dbListingsQ = trpc.admin.properties.list.useQuery(
     {
       page,
       limit: 18,
       type: typeFilter || undefined,
       status: statusFilter || undefined,
+      search: search || undefined,
     },
     { placeholderData: keepPreviousData },
   );
@@ -555,7 +561,9 @@ export function ListingsTab() {
   // User submissions live in localStorage (legacy /list form) and aren't part
   // of the paginated DB set — surface them above page 1 only, so they don't
   // repeat under every page.
-  const items = page === 1 ? [...localItems, ...dbItems] : dbItems;
+  // While searching, show only DB matches — the localStorage submissions are
+  // not part of the search and would look like stray results.
+  const items = page === 1 && !search ? [...localItems, ...dbItems] : dbItems;
 
   const approve = (it: ListingItem) => {
     if (it.isUserSubmission) {
@@ -616,7 +624,43 @@ export function ListingsTab() {
       <Section
         title={dbListingsQ.data ? `All Submissions (${dbListingsQ.data.total} live in library)` : "All Submissions"}
         action={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <form
+              className="flex w-full items-center gap-1 sm:w-auto"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setSearch(searchInput.trim());
+              }}
+            >
+              <div className="relative flex-1 sm:flex-none">
+                <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Property ID, link or title"
+                  className="h-8 w-full rounded-md border border-input bg-background pl-7 pr-7 text-xs outline-none focus:ring-2 focus:ring-ring sm:w-56"
+                />
+                {searchInput ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchInput("");
+                      setSearch("");
+                    }}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X size={13} />
+                  </button>
+                ) : null}
+              </div>
+              <button
+                type="submit"
+                className="h-8 shrink-0 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground"
+              >
+                Search
+              </button>
+            </form>
             <Select value={typeFilter || "__all"} onValueChange={(v) => setTypeFilter(v === "__all" ? "" : v)}>
               <SelectTrigger size="sm" className="min-w-[9.5rem]">
                 <SelectValue placeholder="All types" />

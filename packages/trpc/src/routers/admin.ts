@@ -588,6 +588,8 @@ export const adminRouter = router({
           status: propertyStatusSchema.optional(),
           city: geoTextSchema.optional(),
           type: safeString(50).optional(),
+          // Free-text lookup: property id, slug, a pasted public URL, or title.
+          search: searchSchema.optional(),
           page: pageSchema.optional(),
           limit: limitSchema,
         }),
@@ -600,6 +602,16 @@ export const adminRouter = router({
         if (status) where.status = status;
         if (type) where.type = type;
         if (city) where.location = { city: { equals: city, mode: "insensitive" } };
+        // A pasted URL (https://.../properties/<slug>) reduces to its last
+        // path segment so admins can search by copy-pasting the live link.
+        const term = input.search?.trim().replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop() ?? "";
+        if (term) {
+          where.OR = [
+            { id: term },
+            { slug: { contains: term, mode: "insensitive" } },
+            { title: { contains: term, mode: "insensitive" } },
+          ];
+        }
 
         // Offset pagination + a matching total so the admin grid can show a
         // numbered pager. `counts` is DB-wide (ignores the status filter) so the
