@@ -135,7 +135,7 @@ async function scrape(): Promise<SocialStats> {
     instagramGraph(),
     fetchHtml("https://www.instagram.com/nxtsft/"),
     fetchHtml("https://www.facebook.com/share/1FCiksdpRP/"),
-    fetchHtml("https://www.linkedin.com/company/truenxtsft/"),
+    fetchHtml("https://www.linkedin.com/company/nxtsft/"),
   ]);
   const ig = ogDescription(igHtml);
   const fb = ogDescription(fbHtml);
