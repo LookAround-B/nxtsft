@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
+import { Pagination } from "@/components/ui/pagination";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { TabHeader } from "./shared";
 
@@ -40,6 +42,8 @@ const ROLE_PORTAL: Record<string, string> = {
 const fmtJoined = (iso: string) =>
   new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
+const PAGE_SIZE = 20;
+
 const emptyForm = { name: "", email: "", phone: "", password: "", role: "sales" as StaffRole, city: "" };
 
 export function TeamsTab() {
@@ -47,8 +51,40 @@ export function TeamsTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
-  const membersQ = trpc.admin.teamMembers.useQuery({ search: search || undefined });
-  const members = (membersQ.data ?? []) as unknown as TeamMember[];
+  const [page, setPage] = useState(1);
+  const membersQ = trpc.admin.teamMembers.useQuery(
+    { search: search || undefined, page, limit: PAGE_SIZE },
+    { placeholderData: keepPreviousData },
+  );
+  const members = (membersQ.data?.items ?? []) as unknown as TeamMember[];
+
+  const utils = trpc.useUtils();
+
+  // The roster is paged now, so the export walks every page rather than dumping
+  // the 20 rows on screen. limitSchema caps a page at 100.
+  async function exportCsv() {
+    const rows: TeamMember[] = [];
+    for (let p = 1; ; p++) {
+      const res = await utils.admin.teamMembers.fetch({ search: search || undefined, page: p, limit: 100 });
+      rows.push(...(res.items as unknown as TeamMember[]));
+      if (p >= res.totalPages) break;
+    }
+    downloadCSV(
+      "team-directory.csv",
+      ["ID", "Name", "Email", "Phone", "Role", "Portal", "City", "Joined", "Status"],
+      rows.map((m) => [
+        m.id,
+        m.name,
+        m.email,
+        m.phone ?? "",
+        ROLE_LABEL[m.role] ?? m.role,
+        ROLE_PORTAL[m.role] ?? "—",
+        m.city,
+        fmtJoined(m.joined),
+        m.verified ? "Active" : "Pending",
+      ]),
+    );
+  }
 
   const createMember = trpc.admin.createTeamMember.useMutation({
     onSuccess: () => {
@@ -60,10 +96,9 @@ export function TeamsTab() {
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
-  const total = members.length;
-  const active = members.filter((m) => m.verified).length;
-  const pending = members.filter((m) => !m.verified).length;
-  const admins = members.filter((m) => m.role === "admin" || m.role === "super-admin").length;
+  const { total, active, pending, admins } = membersQ.data?.counts ?? {
+    total: 0, active: 0, pending: 0, admins: 0,
+  };
 
   return (
     <>
@@ -94,27 +129,11 @@ export function TeamsTab() {
             <input
               placeholder="Search name, email or phone…"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
             />
             <button
-              onClick={() =>
-                downloadCSV(
-                  "team-directory.csv",
-                  ["ID", "Name", "Email", "Phone", "Role", "Portal", "City", "Joined", "Status"],
-                  members.map((m) => [
-                    m.id,
-                    m.name,
-                    m.email,
-                    m.phone ?? "",
-                    ROLE_LABEL[m.role] ?? m.role,
-                    ROLE_PORTAL[m.role] ?? "—",
-                    m.city,
-                    fmtJoined(m.joined),
-                    m.verified ? "Active" : "Pending",
-                  ]),
-                )
-              }
+              onClick={() => void exportCsv()}
               className="text-xs font-semibold text-accent hover:underline"
             >
               Export CSV →
@@ -160,6 +179,15 @@ export function TeamsTab() {
             </table>
           </div>
         )}
+
+        <Pagination
+          page={page}
+          totalPages={membersQ.data?.totalPages ?? 1}
+          onPageChange={setPage}
+          shown={members.length}
+          total={total}
+          noun="staff members"
+        />
       </Section>
 
       {showAdd && (

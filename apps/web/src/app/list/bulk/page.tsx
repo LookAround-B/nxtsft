@@ -23,6 +23,7 @@ import { validateBulkImportFile, validateImageFile } from "@/lib/file-validation
 import { parseLatLng } from "@/lib/map";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 import { usePresignUploader } from "@/lib/upload";
+import { parseCsv } from "@/lib/parse-csv";
 
 const MAX_PHOTOS_PER_ROW = 10;
 // Mirrors splitUrlList in packages/trpc/src/routers/properties.ts — a sheet may
@@ -128,22 +129,6 @@ function downloadTemplate() {
   URL.revokeObjectURL(a.href);
 }
 
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [], cur = "", inQ = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQ) {
-      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
-      else cur += c;
-    } else if (c === '"') inQ = true;
-    else if (c === ",") { row.push(cur); cur = ""; }
-    else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
-    else if (c !== "\r") cur += c;
-  }
-  if (cur.length || row.length) { row.push(cur); rows.push(row); }
-  return rows;
-}
 
 function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows: Row[]; error?: string; ignored?: string[] } {
   if (!matrix.length) return { rows: [], error: "The file is empty." };

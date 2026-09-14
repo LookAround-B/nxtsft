@@ -1,10 +1,12 @@
 "use client";
 import { useState, type FormEvent } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Ban, CheckCircle2 } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { Pagination } from "@/components/ui/pagination";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PageHead } from "./PageHead";
 import { type NewMemberInput, type TeamMember, ROLE_LABEL } from "./shared";
@@ -244,14 +246,26 @@ function EditModal({
   );
 }
 
+const PAGE_SIZE = 20;
+
 export function TeamTab() {
   const [roleFilter, setRoleFilter] = useState("");
   const [search, setSearch] = useState("");
-  const teamQ = trpc.admin.teamMembers.useQuery({
-    role: roleFilter ? (roleFilter as NewMemberInput["role"]) : undefined,
-    search: search || undefined,
-  });
-  const members = (teamQ.data ?? []) as unknown as TeamMember[];
+  const [page, setPage] = useState(1);
+  // Any filter change invalidates the current page number.
+  const reset = (fn: () => void) => { fn(); setPage(1); };
+
+  const teamQ = trpc.admin.teamMembers.useQuery(
+    {
+      role: roleFilter ? (roleFilter as NewMemberInput["role"]) : undefined,
+      search: search || undefined,
+      page,
+      limit: PAGE_SIZE,
+    },
+    { placeholderData: keepPreviousData },
+  );
+  const members = (teamQ.data?.items ?? []) as unknown as TeamMember[];
+  const total = teamQ.data?.total ?? 0;
 
   const createMember = trpc.admin.createTeamMember.useMutation({
     onSuccess: () => {
@@ -287,25 +301,27 @@ export function TeamTab() {
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
-  const supervisors = members.filter((m) => m.role === "supervisor");
+  // Roster rows are paged, so the supervisor options come from their own query
+  // — otherwise a supervisor on page 2 would be missing from page 1's dropdown.
+  const supervisors = trpc.leads.supervisors.useQuery().data ?? [];
 
   const [showInvite, setShowInvite] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
 
   return (
     <>
-      <PageHead title="Team Management" subtitle={`${members.length} staff member${members.length !== 1 ? "s" : ""}`} />
+      <PageHead title="Team Management" subtitle={`${total} staff member${total !== 1 ? "s" : ""}`} />
       <Section
         title="Active Roster"
         action={
           <div className="flex items-center gap-2">
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => reset(() => setSearch(e.target.value))}
               placeholder="Search name / email…"
               className="rounded-md border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-accent"
             />
-            <Select value={roleFilter || "__all"} onValueChange={(v) => setRoleFilter(v === "__all" ? "" : v)}>
+            <Select value={roleFilter || "__all"} onValueChange={(v) => reset(() => setRoleFilter(v === "__all" ? "" : v))}>
               <SelectTrigger size="sm" className="min-w-[8.5rem]">
                 <SelectValue />
               </SelectTrigger>
@@ -412,6 +428,15 @@ export function TeamTab() {
             </table>
           </div>
         )}
+
+        <Pagination
+          page={page}
+          totalPages={teamQ.data?.totalPages ?? 1}
+          onPageChange={setPage}
+          shown={members.length}
+          total={total}
+          noun="staff members"
+        />
       </Section>
       {showInvite && (
         <InviteModal

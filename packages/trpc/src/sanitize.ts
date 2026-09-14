@@ -222,7 +222,15 @@ export const leadStatusSchema = z.enum([
 ]);
 
 /** Lead source enum */
-export const leadSourceSchema = z.enum(["Portal", "WhatsApp", "Referral", "Direct"]);
+export const leadSourceSchema = z.enum(["Portal", "WhatsApp", "Referral", "Direct", "Rep Contact"]);
+
+/** Telecalling contact status (Phase 2). "NI" = not interested. */
+export const repContactStatusSchema = z.enum(["New", "Hot", "Warm", "Cold", "NI", "Converted"]);
+
+/** Outcome of one dial attempt. */
+export const repCallOutcomeSchema = z.enum([
+  "connected", "no_answer", "busy", "wrong_number", "callback",
+]);
 
 /** Enquiry (contact-form) status enum */
 export const enquiryStatusSchema = z.enum(["New", "In Progress", "Resolved", "Closed"]);

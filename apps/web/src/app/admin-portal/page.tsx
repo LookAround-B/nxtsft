@@ -39,6 +39,7 @@ import { TeamTab } from "@/components/admin-portal/tabs/TeamTab";
 import { ListingsTab } from "@/components/admin-portal/tabs/ListingsTab";
 import { LeadsTab } from "@/components/admin-portal/tabs/LeadsTab";
 import { CRMTab } from "@/components/admin-portal/tabs/CRMTab";
+import { RepContactsTab } from "@/components/admin-portal/tabs/RepContactsTab";
 import { SubscriptionsTab } from "@/components/admin-portal/tabs/SubscriptionsTab";
 import { ViewsTab } from "@/components/admin-portal/tabs/ViewsTab";
 import { AlertsTab } from "@/components/admin-portal/tabs/AlertsTab";
@@ -74,6 +75,7 @@ const makeNav = (b?: BadgeCounts) => [
   // ── Sales & CRM ──────────────────────────────────────────────────────
   { label: "CRM Pipeline",   to: "/admin-portal#crm",       icon: <Kanban size={14} />,    group: "Sales & CRM" },
   { label: "Lead Management",to: "/admin-portal#leads",     icon: <Target size={14} /> },
+  { label: "Rep Contacts",   to: "/admin-portal#rep-contacts", icon: <Contact size={14} /> },
   { label: "Commissions",    to: "/admin-portal#commissions",icon: <Wallet size={14} /> },
 
   // ── Customer Service ─────────────────────────────────────────────────
@@ -119,6 +121,7 @@ function renderTab(hash: string) {
     case "agents":        return <AgentsTab />;
     case "leads":         return <LeadsTab />;
     case "crm":           return <CRMTab />;
+    case "rep-contacts":  return <RepContactsTab />;
     case "subscriptions": return <SubscriptionsTab />;
     case "views":         return <ViewsTab />;
     case "alerts":        return <AlertsTab />;

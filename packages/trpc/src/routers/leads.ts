@@ -830,11 +830,17 @@ export const leadsRouter = router({
     const where: { assignedToId?: string } = {};
     if (ctx.user.role === "sales") where.assignedToId = ctx.user.id;
 
-    const [openLeads, hotLeads, visitsUpcoming] = await Promise.all([
+    // The telecalling book is rep-owned, so its badges scope by ownerId even
+    // for staff who see every lead.
+    const contactWhere = ctx.user.role === "sales" ? { ownerId: ctx.user.id } : {};
+
+    const [openLeads, hotLeads, visitsUpcoming, contacts, callbacksDue] = await Promise.all([
       prisma.lead.count({ where: { ...where, status: { notIn: ["Converted", "Lost"] } } }),
       prisma.lead.count({ where: { ...where, status: "Hot" } }),
       prisma.lead.count({ where: { ...where, visitScheduled: { gte: new Date() } } }),
+      prisma.repContact.count({ where: { ...contactWhere, status: { notIn: ["Converted", "NI"] } } }),
+      prisma.repContact.count({ where: { ...contactWhere, callbackAt: { lte: new Date() } } }),
     ]);
-    return { openLeads, hotLeads, visitsUpcoming };
+    return { openLeads, hotLeads, visitsUpcoming, contacts, callbacksDue };
   }),
 });
