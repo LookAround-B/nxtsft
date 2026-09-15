@@ -4,6 +4,7 @@ import {
   FileText,
   ClipboardList,
   Phone,
+  Contact,
   Building,
   Wallet,
   LayoutGrid,
@@ -19,7 +20,8 @@ import { ReportsDashboard } from "@/components/portal/ReportsDashboard";
 import { MyLeadsTab } from "@/components/sales-portal/tabs/MyLeadsTab";
 import { DetailTab } from "@/components/sales-portal/tabs/DetailTab";
 import { LogTab } from "@/components/sales-portal/tabs/LogTab";
-import { CallTab } from "@/components/sales-portal/tabs/CallTab";
+import { DialerTab } from "@/components/sales-portal/tabs/DialerTab";
+import { ContactsTab } from "@/components/sales-portal/tabs/ContactsTab";
 import { VisitsTab } from "@/components/sales-portal/tabs/VisitsTab";
 import { CommissionTab } from "@/components/sales-portal/tabs/CommissionTab";
 import { ListingsTab } from "@/components/sales-portal/tabs/ListingsTab";
@@ -27,11 +29,13 @@ import { ListingsTab } from "@/components/sales-portal/tabs/ListingsTab";
 // Follows the canonical tab order (see sa-portal/page.tsx) for the shared tabs;
 // the rep's lead-working tabs (not in the canonical list) keep their flow.
 // Grouped nav — badges come from leads.badgeCounts (hidden while loading or 0).
-type Badges = { openLeads: number; hotLeads: number; visitsUpcoming: number };
+type Badges = { openLeads: number; hotLeads: number; visitsUpcoming: number; contacts: number; callbacksDue: number };
 const makeNav = (b?: Badges): PortalNav[] => [
+  { label: "My Contacts", to: "/sales-portal#contacts", icon: <Contact size={14} />, group: "Telecalling", badge: b?.contacts },
+  { label: "Click-to-Call", to: "/sales-portal#call", icon: <Phone size={14} />, badge: b?.callbacksDue },
+
   { label: "My Leads", to: "/sales-portal", icon: <Target size={14} />, group: "Sales & CRM", badge: b?.openLeads },
   { label: "Lead Details", to: "/sales-portal#detail", icon: <FileText size={14} /> },
-  { label: "Click-to-Call", to: "/sales-portal#call", icon: <Phone size={14} />, badge: b?.hotLeads },
   { label: "Site Visits", to: "/sales-portal#visits", icon: <Building size={14} />, badge: b?.visitsUpcoming },
 
   { label: "Activity Log", to: "/sales-portal#log", icon: <ClipboardList size={14} />, group: "Monitoring" },
@@ -76,7 +80,8 @@ function renderTab(h: string) {
   switch (h) {
     case "detail":     return <DetailTab />;
     case "log":        return <LogTab />;
-    case "call":       return <CallTab />;
+    case "call":       return <DialerTab />;
+    case "contacts":   return <ContactsTab />;
     case "visits":     return <VisitsTab />;
     case "commission": return <CommissionTab />;
     case "listings":   return <ListingsTab />;

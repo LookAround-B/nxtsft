@@ -61,6 +61,45 @@ export function latestNote(notes: string | null | undefined): string | null {
   return lines.at(-1) ?? null;
 }
 
+// ─── Contact helpers ──────────────────────────────────────────────────────────
+// Indian numbers are stored as 10 digits; wa.me needs the country code and no
+// punctuation. tel: is happy with the raw value.
+export function waHref(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  const withCc = digits.length === 10 ? `91${digits}` : digits;
+  return `https://wa.me/${withCc}`;
+}
+
+export function telHref(phone: string) {
+  return `tel:${phone.replace(/[^\d+]/g, "")}`;
+}
+
+/** Telecalling contact statuses, in pipeline order. NI = not interested. */
+export const CONTACT_STATUSES = ["New", "Hot", "Warm", "Cold", "NI", "Converted"] as const;
+export type ContactStatus = (typeof CONTACT_STATUSES)[number];
+
+export const CONTACT_STATUS_STYLE: Record<string, string> = {
+  New: "bg-slate-100 text-slate-700 border-slate-200",
+  Hot: "bg-rose-50 text-rose-700 border-rose-200",
+  Warm: "bg-amber-50 text-amber-700 border-amber-200",
+  Cold: "bg-blue-50 text-blue-700 border-blue-200",
+  NI: "bg-zinc-100 text-zinc-500 border-zinc-200",
+  Converted: "bg-emerald-50 text-emerald-700 border-emerald-200",
+};
+
+export const CALL_OUTCOMES = [
+  { value: "connected", label: "Connected" },
+  { value: "no_answer", label: "No answer" },
+  { value: "busy", label: "Busy" },
+  { value: "wrong_number", label: "Wrong number" },
+  { value: "callback", label: "Callback" },
+] as const;
+
+export type CallOutcome = (typeof CALL_OUTCOMES)[number]["value"];
+
+export const OUTCOME_LABEL: Record<string, string> =
+  Object.fromEntries(CALL_OUTCOMES.map((o) => [o.value, o.label]));
+
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 export function daysSince(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);

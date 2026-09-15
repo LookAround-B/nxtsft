@@ -8,6 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { validateBulkImportFile } from "@/lib/file-validation";
 import { PageHead } from "./PageHead";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
+import { parseCsv } from "@/lib/parse-csv";
 
 // Admin-only variant of the seller bulk-upload template (apps/web/src/app/list/bulk/page.tsx),
 // extended with owner columns so admins can seed dummy listings + dummy owner
@@ -96,22 +97,6 @@ function downloadTemplate() {
   URL.revokeObjectURL(a.href);
 }
 
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [], cur = "", inQ = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQ) {
-      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
-      else cur += c;
-    } else if (c === '"') inQ = true;
-    else if (c === ",") { row.push(cur); cur = ""; }
-    else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
-    else if (c !== "\r") cur += c;
-  }
-  if (cur.length || row.length) { row.push(cur); rows.push(row); }
-  return rows;
-}
 
 function rowsFromMatrix(matrix: (string | number | null | boolean)[][]): { rows: Row[]; error?: string; ignored?: string[] } {
   if (!matrix.length) return { rows: [], error: "The file is empty." };

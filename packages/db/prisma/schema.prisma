@@ -77,6 +77,7 @@ model User {
   escalationsAssigned   Escalation[]           @relation("EscalationAssignee")
   referralSubmissions   ReferralSubmission[]   @relation("UserReferralSubmissions")
   pushSubscriptions     PushSubscription[]     @relation("UserPushSubscriptions")
+  repContacts           RepContact[]           @relation("RepContacts")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1167,4 +1168,80 @@ model Escalation {
   @@index([status])
   @@index([leadId])
   @@index([assignedToId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TELECALLING CRM (Phase 2 P1.1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// A rep-owned telecalling prospect. Unlike Lead, a contact has no User account
+// behind it — it is a raw name+number the rep imported from a spreadsheet or
+// typed in. Once the prospect is real it is promoted with repContacts.convertToLead,
+// which creates the User + Lead and back-links them here via leadId.
+model RepContact {
+  id      String @id @default(cuid())
+  ownerId String // sales rep userId; an admin can reassign
+  owner   User   @relation("RepContacts", fields: [ownerId], references: [id])
+
+  name  String
+  phone String
+  email String?
+  city  String?
+
+  interest String? // free text: "2 BHK Gachibowli"
+  source   String? // import | manual
+  batchId  String? // groups one upload, so a bad import can be filtered/undone
+  status   String  @default("New") // New | Hot | Warm | Cold | NI | Converted
+  value    Int? // expected deal value in rupees
+
+  lastCallAt  DateTime?
+  lastOutcome String? // connected | no_answer | busy | wrong_number | callback
+  callbackAt  DateTime? // set when an outcome is "callback"; drives the dial queue
+  callCount   Int       @default(0)
+
+  leadId String? // set once converted
+
+  notes RepContactNote[]
+  calls RepCall[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Owner-scoped dedup (same call as the bulk property import, LA-317): the
+  // same number may legitimately sit in two different reps' books.
+  @@unique([ownerId, phone])
+  @@index([ownerId, status])
+  @@index([callbackAt])
+  @@index([batchId])
+}
+
+// Real note rows, deliberately not the appended-string blob Lead.notes uses.
+model RepContactNote {
+  id        String     @id @default(cuid())
+  contactId String
+  contact   RepContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  authorId  String
+  text      String
+  createdAt DateTime   @default(now())
+
+  @@index([contactId, createdAt])
+}
+
+// One row per dial attempt. Click-to-call is a plain tel: link today, so
+// providerRef/recordingUrl stay null — they exist so a PSTN/masked-number
+// provider can be attached later without a schema change.
+model RepCall {
+  id           String     @id @default(cuid())
+  contactId    String
+  contact      RepContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  repId        String
+  outcome      String // connected | no_answer | busy | wrong_number | callback
+  durationSec  Int?
+  remark       String?
+  providerRef  String?
+  recordingUrl String?
+  createdAt    DateTime   @default(now())
+
+  @@index([repId, createdAt])
+  @@index([contactId, createdAt])
 }

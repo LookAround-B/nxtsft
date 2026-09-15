@@ -1667,6 +1667,8 @@ export const adminRouter = router({
       z.object({
         role: roleSchema.optional(),
         search: searchSchema.optional(),
+        page: pageSchema,
+        limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
@@ -1685,15 +1687,31 @@ export const adminRouter = router({
         ];
       }
 
-      return prisma.user.findMany({
-        where,
-        select: {
-          ...safeUserSelect,
-          supervisorId: true,
-          supervisor: { select: { id: true, name: true } },
-        },
-        orderBy: { joined: "desc" },
-      });
+      // The roster is paged, so the directory stat tiles cannot be counted from
+      // the returned rows — they are aggregated over the whole filtered set here.
+      const [items, total, active, admins] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          select: {
+            ...safeUserSelect,
+            supervisorId: true,
+            supervisor: { select: { id: true, name: true } },
+          },
+          orderBy: { joined: "desc" },
+          take: input.limit,
+          skip: (input.page - 1) * input.limit,
+        }),
+        prisma.user.count({ where }),
+        prisma.user.count({ where: { ...where, verified: true } }),
+        prisma.user.count({ where: { AND: [where, { role: { in: ["admin", "super-admin"] } }] } }),
+      ]);
+
+      return {
+        items,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / input.limit)),
+        counts: { total, active, pending: total - active, admins },
+      };
     }),
 
   // Assign (or clear) a sales rep's supervisor. Pass supervisorId: null to clear.

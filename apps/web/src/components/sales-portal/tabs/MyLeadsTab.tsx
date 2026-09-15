@@ -5,7 +5,7 @@ import { Phone, Calendar, Download, MessageSquare, Building2 } from "lucide-reac
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
-import { Head, latestNote, type DbLead, type OutcomeTone, daysSince, fmtRelative } from "./shared";
+import { Head, latestNote, waHref, type DbLead, type OutcomeTone, daysSince, fmtRelative } from "./shared";
 
 const sourceTone: Record<string, OutcomeTone> = {
   WhatsApp: "hot",
@@ -14,13 +14,6 @@ const sourceTone: Record<string, OutcomeTone> = {
   Direct: "cold",
 };
 
-// Indian numbers are stored as 10 digits; wa.me needs the country code and no
-// punctuation. tel: is happy with the raw value.
-function waHref(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  const withCc = digits.length === 10 ? `91${digits}` : digits;
-  return `https://wa.me/${withCc}`;
-}
 
 export function MyLeadsTab() {
   const [filter, setFilter] = useState<"All" | "Hot" | "Warm" | "Cold">("All");
