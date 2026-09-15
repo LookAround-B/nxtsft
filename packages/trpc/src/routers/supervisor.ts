@@ -3,26 +3,59 @@ import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, supervisorProcedure } from "../server";
 import { cuidSchema, noteSchema } from "../sanitize";
+import { leadScope, teamRepIds, seesAllTeams } from "../teamScope";
 
 const escalationLevelSchema = z.enum(["Low", "Medium", "High"]);
+
+/** Escalations a supervisor may see/act on: their reps' + the ones they raised. */
+const escalationScope = (userId: string, repIds: string[]) => ({
+  OR: [{ assignedToId: { in: repIds } }, { raisedById: userId }],
+});
+
+/** Load an escalation and assert this supervisor owns it. */
+async function ownedEscalation(ctx: { user: { id: string; role: string } }, id: string) {
+  const escalation = await prisma.escalation.findUnique({ where: { id } });
+  if (!escalation) throw new TRPCError({ code: "NOT_FOUND", message: "Escalation not found." });
+  if (seesAllTeams(ctx.user.role)) return escalation;
+  const repIds = await teamRepIds(ctx);
+  const mine =
+    escalation.raisedById === ctx.user.id ||
+    (escalation.assignedToId != null && repIds.includes(escalation.assignedToId));
+  if (!mine) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "This escalation belongs to another team." });
+  }
+  return escalation;
+}
 
 // Monthly closed-deal target per sales rep (matches the previous UI constant).
 const MONTHLY_TARGET = 8;
 
 export const supervisorRouter = router({
   // Live sidebar badge counts — one number per "needs action" queue.
-  badgeCounts: supervisorProcedure.query(async () => {
+  badgeCounts: supervisorProcedure.query(async ({ ctx }) => {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+    const scope = await leadScope(ctx);
+    const repIds = await teamRepIds(ctx);
+    const all = seesAllTeams(ctx.user.role);
     const [hotLeads, unassigned, escalations, visitsToday] = await Promise.all([
-      prisma.lead.count({ where: { status: "Hot" } }),
+      prisma.lead.count({ where: { ...scope, status: "Hot" } }),
+      // "Unassigned" for a supervisor = routed to them but not yet with a rep.
       prisma.lead.count({
-        where: { assignedToId: null, status: { notIn: ["Converted", "Lost"] } },
+        where: all
+          ? { assignedToId: null, status: { notIn: ["Converted", "Lost"] } }
+          : { supervisorId: ctx.user.id, assignedToId: null, status: { notIn: ["Converted", "Lost"] } },
       }),
-      prisma.escalation.count({ where: { status: "open" } }),
+      prisma.escalation.count({
+        where: all ? { status: "open" } : { status: "open", ...escalationScope(ctx.user.id, repIds) },
+      }),
       prisma.siteVisit.count({
-        where: { status: "Scheduled", scheduledAt: { gte: startOfDay, lt: endOfDay } },
+        where: {
+          ...(all ? {} : { salesRepId: { in: repIds } }),
+          status: "Scheduled",
+          scheduledAt: { gte: startOfDay, lt: endOfDay },
+        },
       }),
     ]);
     return { hotLeads, unassigned, escalations, visitsToday };
@@ -30,7 +63,7 @@ export const supervisorRouter = router({
 
   // Per-rep performance derived from real Lead + Commission data.
   // "Closed" = a lead marked Converted; conversion = converted / assigned.
-  performance: supervisorProcedure.query(async () => {
+  performance: supervisorProcedure.query(async ({ ctx }) => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
@@ -40,7 +73,9 @@ export const supervisorRouter = router({
 
     const [reps, assignedCounts, convertedCounts, recentConverted] = await Promise.all([
       prisma.user.findMany({
-        where: { role: "sales" },
+        where: seesAllTeams(ctx.user.role)
+          ? { role: "sales" }
+          : { role: "sales", supervisorId: ctx.user.id },
         select: { id: true, name: true, city: true },
       }),
       prisma.lead.groupBy({
@@ -111,9 +146,16 @@ export const supervisorRouter = router({
   escalations: router({
     list: supervisorProcedure
       .input(z.object({ status: z.enum(["open", "resolved", "escalated"]).optional() }).optional())
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         const items = await prisma.escalation.findMany({
-          where: input?.status ? { status: input.status } : {},
+          where: {
+            ...(input?.status ? { status: input.status } : {}),
+            // Supervisors only see escalations sitting with their own reps
+            // (plus any they raised themselves on a still-unassigned lead).
+            ...(seesAllTeams(ctx.user.role)
+              ? {}
+              : escalationScope(ctx.user.id, await teamRepIds(ctx))),
+          },
           include: {
             lead: { select: { id: true, name: true } },
             assignedTo: { select: { id: true, name: true } },
@@ -145,8 +187,8 @@ export const supervisorRouter = router({
         }),
       )
       .mutation(async ({ input, ctx }) => {
-        const lead = await prisma.lead.findUnique({
-          where: { id: input.leadId },
+        const lead = await prisma.lead.findFirst({
+          where: { id: input.leadId, ...(await leadScope(ctx)) },
           select: { id: true, assignedToId: true },
         });
         if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
@@ -164,9 +206,8 @@ export const supervisorRouter = router({
 
     resolve: supervisorProcedure
       .input(z.object({ id: cuidSchema }))
-      .mutation(async ({ input }) => {
-        const escalation = await prisma.escalation.findUnique({ where: { id: input.id } });
-        if (!escalation) throw new TRPCError({ code: "NOT_FOUND", message: "Escalation not found." });
+      .mutation(async ({ input, ctx }) => {
+        await ownedEscalation(ctx, input.id);
 
         return prisma.escalation.update({
           where: { id: input.id },
@@ -177,8 +218,7 @@ export const supervisorRouter = router({
     escalateToAdmin: supervisorProcedure
       .input(z.object({ id: cuidSchema }))
       .mutation(async ({ input, ctx }) => {
-        const escalation = await prisma.escalation.findUnique({ where: { id: input.id } });
-        if (!escalation) throw new TRPCError({ code: "NOT_FOUND", message: "Escalation not found." });
+        const escalation = await ownedEscalation(ctx, input.id);
 
         const [updated] = await Promise.all([
           prisma.escalation.update({

@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, protectedProcedure, staffProcedure } from "../server";
+import { repScope } from "../teamScope";
 import {
   cuidSchema,
   cursorSchema,
@@ -55,9 +56,10 @@ export const siteVisitsRouter = router({
   mapData: staffProcedure
     .input(z.object({ status: siteVisitStatusSchema.optional() }).optional())
     .query(async ({ input, ctx }) => {
-      const where: { salesRepId?: string; status?: string } = {};
-      // Sales reps only see their own; supervisors/admins see all.
-      if (ctx.user.role === "sales") where.salesRepId = ctx.user.id;
+      // Sales reps see their own, supervisors their team's, admins all.
+      const where: { salesRepId?: string | { in: string[] }; status?: string } = {
+        ...(await repScope(ctx, "salesRepId")),
+      };
       if (input?.status) where.status = input.status;
 
       const visits = await prisma.siteVisit.findMany({
