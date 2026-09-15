@@ -105,12 +105,14 @@ export const leadsRouter = router({
         status: leadStatusSchema.optional(),
         source: leadSourceSchema.optional(),
         propertyId: cuidSchema.optional(),
+        // Filter the list down to one sales rep (supervisor's "view rep's leads").
+        assignedToId: cuidSchema.optional(),
         cursor: cursorSchema,
         limit: limitSchema,
       }),
     )
     .query(async ({ input, ctx }) => {
-      const { cursor, limit, status, source, propertyId } = input;
+      const { cursor, limit, status, source, propertyId, assignedToId } = input;
 
       // sales → own leads, supervisor → own team, admin → everything.
       const where: NonNullable<Parameters<typeof prisma.lead.findMany>[0]>["where"] =
@@ -119,6 +121,7 @@ export const leadsRouter = router({
       if (status) where.status = status;
       if (source) where.source = source;
       if (propertyId) where.propertyId = propertyId;
+      if (assignedToId) where.assignedToId = assignedToId;
 
       const items = await prisma.lead.findMany({
         where,
@@ -129,6 +132,7 @@ export const leadsRouter = router({
             select: { id: true, title: true, slug: true, status: true, freeListing: true, boostExpiry: true },
           },
           user: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: "desc" },
         take: limit + 1,

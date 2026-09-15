@@ -61,6 +61,54 @@ export const supervisorRouter = router({
     return { hotLeads, unassigned, escalations, visitsToday };
   }),
 
+  // Reps this supervisor may assign work to (super-admin sees every rep).
+  // Drives the Reassign dropdown in Team Leads.
+  myReps: supervisorProcedure.query(({ ctx }) =>
+    prisma.user.findMany({
+      where: seesAllTeams(ctx.user.role)
+        ? { role: "sales", active: true }
+        : { role: "sales", active: true, supervisorId: ctx.user.id },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ),
+
+  // My team at a glance: rep names + their live lead counts.
+  // Drives the "My Team" list on the supervisor dashboard.
+  teamOverview: supervisorProcedure.query(async ({ ctx }) => {
+    const reps = await prisma.user.findMany({
+      where: seesAllTeams(ctx.user.role)
+        ? { role: "sales", active: true }
+        : { role: "sales", active: true, supervisorId: ctx.user.id },
+      select: { id: true, name: true, city: true, phone: true },
+      orderBy: { name: "asc" },
+    });
+    if (reps.length === 0) return [];
+
+    const repIds = reps.map((r) => r.id);
+    const byStatus = await prisma.lead.groupBy({
+      by: ["assignedToId", "status"],
+      where: { assignedToId: { in: repIds } },
+      _count: { _all: true },
+    });
+
+    const counts = new Map<string, { open: number; hot: number; converted: number }>();
+    for (const row of byStatus) {
+      const repId = row.assignedToId!;
+      const c = counts.get(repId) ?? { open: 0, hot: 0, converted: 0 };
+      const n = row._count._all;
+      if (row.status === "Converted") c.converted += n;
+      else if (row.status !== "Lost") c.open += n;
+      if (row.status === "Hot") c.hot += n;
+      counts.set(repId, c);
+    }
+
+    return reps.map((r) => ({
+      ...r,
+      ...(counts.get(r.id) ?? { open: 0, hot: 0, converted: 0 }),
+    }));
+  }),
+
   // Per-rep performance derived from real Lead + Commission data.
   // "Closed" = a lead marked Converted; conversion = converted / assigned.
   performance: supervisorProcedure.query(async ({ ctx }) => {

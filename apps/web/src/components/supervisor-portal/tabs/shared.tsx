@@ -49,4 +49,5 @@ export type DbLead = {
   createdAt: string;
   updatedAt: string;
   property: { id: string; title: string; slug: string } | null;
+  assignedTo: { id: string; name: string } | null;
 };

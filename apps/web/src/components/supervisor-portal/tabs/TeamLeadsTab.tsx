@@ -17,15 +17,50 @@ const rowBg: Record<string, string> = {
 export function TeamLeadsTab() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Lead id whose rep picker is open, and the rep chosen in it.
+  const [reassigning, setReassigning] = useState<string | null>(null);
+  const [repChoice, setRepChoice] = useState("");
+  // "" = whole team; otherwise show only this rep's leads.
+  const [repFilter, setRepFilter] = useState("");
 
-  const leadsQ = trpc.leads.list.useQuery({ limit: 100 });
+  const utils = trpc.useUtils();
+  const leadsQ = trpc.leads.list.useQuery({
+    limit: 100,
+    ...(repFilter ? { assignedToId: repFilter } : {}),
+  });
   const items = (leadsQ.data?.items ?? []) as DbLead[];
+  const repsQ = trpc.supervisor.myReps.useQuery();
+  const reps = repsQ.data ?? [];
+
+  const reassign = trpc.leads.bulkAssign.useMutation({
+    onSuccess: (_d, vars) => {
+      const rep = reps.find((r) => r.id === vars.assignedToId)?.name ?? "the rep";
+      toast.success(`Lead reassigned to ${rep}`);
+      setReassigning(null);
+      setRepChoice("");
+      void utils.leads.list.invalidate();
+      void utils.leads.badgeCounts.invalidate();
+      void utils.supervisor.badgeCounts.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const addNote = trpc.leads.addNote.useMutation({
+    onSuccess: (_d, vars) => {
+      toast.success("Note saved");
+      setNotes((prev) => ({ ...prev, [vars.id]: "" }));
+      setExpandedRow(null);
+      void utils.leads.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   function handleExport() {
-    const headers = ["ID", "Name", "Interest", "Source", "Status", "Days In Pipeline", "Last Activity"];
+    const headers = ["ID", "Name", "Interest", "Source", "Status", "Assigned To", "Days In Pipeline", "Last Activity"];
     const rows = items.map((l) => [
       l.id, l.name, l.interest ?? l.property?.title ?? "", l.source,
-      l.status, String(daysSince(l.createdAt)), fmtRelative(l.updatedAt),
+      l.status, l.assignedTo?.name ?? "Unassigned",
+      String(daysSince(l.createdAt)), fmtRelative(l.updatedAt),
     ]);
     downloadCSV("team-leads.csv", headers, rows);
     toast.success("Team Leads CSV downloaded");
@@ -37,12 +72,29 @@ export function TeamLeadsTab() {
       <Section
         title="All Leads"
         action={
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary transition"
-          >
-            <Download size={12} /> Export CSV
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs font-semibold text-muted-foreground">Sales rep</label>
+            <select
+              value={repFilter}
+              onChange={(e) => setRepFilter(e.target.value)}
+              disabled={reps.length === 0}
+              title={reps.length === 0 ? "No sales reps assigned to you yet" : undefined}
+              className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:opacity-50"
+            >
+              <option value="">All reps ({items.length})</option>
+              {reps.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary transition"
+            >
+              <Download size={12} /> Export CSV
+            </button>
+          </div>
         }
       >
         <div className="overflow-x-auto">
@@ -53,6 +105,7 @@ export function TeamLeadsTab() {
                 <th className="text-left">Interest</th>
                 <th className="text-left">Source</th>
                 <th className="text-left">Status</th>
+                <th className="text-left">Assigned To</th>
                 <th className="text-left">Pipeline</th>
                 <th className="text-left">Last Activity</th>
                 <th className="text-left">Action</th>
@@ -61,13 +114,13 @@ export function TeamLeadsTab() {
             <tbody>
               {leadsQ.isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
                     Loading leads…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
                     No leads found.
                   </td>
                 </tr>
@@ -85,6 +138,13 @@ export function TeamLeadsTab() {
                         {l.status}
                       </Badge>
                     </td>
+                    <td className="text-xs">
+                      {l.assignedTo ? (
+                        <span className="font-semibold text-navy">{l.assignedTo.name}</span>
+                      ) : (
+                        <span className="text-muted-foreground">Unassigned</span>
+                      )}
+                    </td>
                     <td className="text-xs font-mono text-muted-foreground">
                       {daysSince(l.createdAt)}d
                     </td>
@@ -100,13 +160,56 @@ export function TeamLeadsTab() {
                         {expandedRow === l.id ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
                       </button>
                       <button
-                        onClick={() => toast.success(`${l.id} reassigned`)}
-                        className="rounded-md bg-mid-blue px-3 py-1 text-xs font-semibold text-white hover:opacity-90 transition"
+                        onClick={() => {
+                          setReassigning(reassigning === l.id ? null : l.id);
+                          setRepChoice("");
+                        }}
+                        disabled={reps.length === 0}
+                        title={reps.length === 0 ? "No sales reps assigned to you yet" : undefined}
+                        className="rounded-md bg-mid-blue px-3 py-1 text-xs font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
                       >
                         Reassign
                       </button>
                     </td>
                   </tr>
+                  {reassigning === l.id && (
+                    <tr className="bg-slate-50">
+                      <td colSpan={8} className="px-4 pb-4 pt-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            Reassign <span className="font-semibold text-navy">{l.name}</span> to:
+                          </span>
+                          <select
+                            value={repChoice}
+                            onChange={(e) => setRepChoice(e.target.value)}
+                            className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                          >
+                            <option value="">Select a rep…</option>
+                            {reps.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() =>
+                              reassign.mutate({ leadIds: [l.id], assignedToId: repChoice })
+                            }
+                            disabled={!repChoice || reassign.isPending}
+                            className="rounded-md bg-mid-blue px-4 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
+                          >
+                            {reassign.isPending ? "Reassigning…" : "Confirm"}
+                          </button>
+                          <button
+                            onClick={() => setReassigning(null)}
+                            className="rounded-md border border-border px-4 py-1.5 text-xs font-semibold hover:bg-secondary transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   {expandedRow === l.id && (
                     <tr className="bg-slate-50">
                       <td colSpan={8} className="px-4 pb-4 pt-2">
@@ -122,11 +225,11 @@ export function TeamLeadsTab() {
                           />
                           <div className="flex gap-2">
                             <button
-                              onClick={() => {
-                                toast.success(`Note saved for ${l.name}`);
-                                setExpandedRow(null);
-                              }}
-                              className="rounded-md bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition"
+                              onClick={() =>
+                                addNote.mutate({ id: l.id, note: (notes[l.id] ?? "").trim() })
+                              }
+                              disabled={!(notes[l.id] ?? "").trim() || addNote.isPending}
+                              className="rounded-md bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
                             >
                               Save Note
                             </button>
