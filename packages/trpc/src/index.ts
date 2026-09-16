@@ -27,6 +27,7 @@ import { referralsRouter } from "./routers/referrals";
 import { socialRouter } from "./routers/social";
 import { pushRouter } from "./routers/push";
 import { repContactsRouter } from "./routers/repContacts";
+import { channelCodesRouter } from "./routers/channelCodes";
 
 export const appRouter = router({
   auth: authRouter,
@@ -57,6 +58,7 @@ export const appRouter = router({
   social: socialRouter,
   push: pushRouter,
   repContacts: repContactsRouter,
+  channelCodes: channelCodesRouter,
 });
 
 export type AppRouter = typeof appRouter;

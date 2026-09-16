@@ -18,6 +18,14 @@
 
 ## ✅ Completed
 
+### Marketing channel-code tracking *(09-16)*
+- [x] New `ChannelCode` model (code unique/uppercased, label, active, createdById) — admin-registered ad/channel codes (FB10, INSTA20, SALES_RAJU). `Property.channelCode` (indexed, nullable) stamps the code a listing came in with. **Additive schema — needs `prisma db push` to the VPS (local `appuser` can't push).** Tracking only — never a discount (distinct from the discount `Coupon` work).
+- [x] New `channelCodes` router: admin `create` / `list` / `setActive` / `remove` (hard-delete if unused, else deactivate) + `report` (listings + live count per code, includes zero-listing codes).
+- [x] `properties.create` gains optional `channelCode`: resolved against **active** registered codes (case-insensitive) and stored uppercased; unknown/mistyped codes are silently dropped (never block a listing). Applies to the self-serve list flow (the main "new listing" path); rep-assisted/bulk-import not tagged for now.
+- [x] UI: list-a-property form gets an optional "Referral / promo code" field; admin gets a **Channel Codes** tab (`/admin-portal#channel-codes`) to manage codes + see the per-channel listing report.
+- [x] Verified: `tsc` clean (trpc + web) + web build passes. Live capture needs the prod `db push` first (same DB-access limit as the other two features).
+  - Decisions: tracking-only · typed field on the list form · admin pre-registers codes · report = raw listing + live counts.
+
 ### Auto ₹500 subscription commission *(09-16)*
 - [x] New helper `awardSubscriptionCommission` (`packages/trpc/src/commission.ts`, exported as `@nxtsft/trpc/commission`): on a **successful subscription payment**, awards a flat **₹500 pending Commission** to the sales rep on the paying customer's most-recent rep-assigned lead, and notifies the rep. Best-effort (never throws / never blocks the payment). Self-skips buyer credit packs (`seeker`); only `owner-rent | owner-sell | designer | decor` qualify. Per boss decision, this **self-serve channel pays on EVERY successful payment** (any amount, renewals included).
 - [x] Wired into all 4 self-serve payment-success paths: `subscriptions.verifyPayment` (Razorpay credits — self-skips), `verifyOwnerPayment`, `verifyBusinessPayment`, and the **PayU callback** `owner_subscription` branch. Each path already dedups payments, so it fires exactly once per payment. `findOwnerPlan` now also returns `type`.

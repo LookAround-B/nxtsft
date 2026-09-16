@@ -565,6 +565,10 @@ export const propertiesRouter = router({
         pgFood: safeString(30).optional(),
         virtualTourUrl: safeString(500).optional(),
         walkthroughVideoUrl: safeString(500).optional(),
+        // Marketing attribution: an ad/channel code the seller typed (FB10,
+        // INSTA20, SALES_RAJU). Only stored when it matches an active
+        // ChannelCode; anything else is dropped. Never affects price.
+        channelCode: safeString(32).optional(),
         // Rep-assisted listing: the property is created for this lead's
         // customer, not for the signed-in rep. Staff-only (see below).
         onBehalfOfLeadId: cuidSchema.optional(),
@@ -580,10 +584,23 @@ export const propertiesRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, onBehalfOfLeadId, dummy, freshLead, ...rest } =
+      const { city, state, locality, address, zipCode, latitude, longitude, nearbyPlaces, price, area, pgDeposit, onBehalfOfLeadId, dummy, freshLead, channelCode: rawChannelCode, ...rest } =
         input;
 
       assertReraValid(city, input.rera, input.reraLabel);
+
+      // Resolve the marketing attribution code: keep it only if it matches an
+      // active registered channel code (case-insensitive). Unknown/mistyped
+      // codes are silently dropped — they must never block or fail a listing.
+      let channelCode: string | null = null;
+      if (rawChannelCode?.trim()) {
+        const normalized = rawChannelCode.trim().toUpperCase();
+        const match = await prisma.channelCode.findFirst({
+          where: { code: normalized, active: true },
+          select: { code: true },
+        });
+        channelCode = match?.code ?? null;
+      }
 
       // Exactly one listing mode: self-serve, an assigned lead, a fresh lead,
       // or a dummy test. Two at once is always a client bug — reject up front,
@@ -697,6 +714,7 @@ export const propertiesRouter = router({
           // branch flags. createdById is the acting staff member; on a
           // self-serve listing that's the owner, so it stays null.
           source: dummy ? "dummy" : freshCustomer ? "fresh_lead" : onBehalfOf ? "rep_assisted" : "self",
+          channelCode,
           createdById: dummy || freshCustomer || onBehalfOf ? ctx.user.id : null,
           ...(dummy && {
             featured: true,

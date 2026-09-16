@@ -91,6 +91,7 @@ type FormData = {
   rera: string;
   reraLabel: string;
   possession: string;
+  channelCode: string;
   listerName: string;
   listerEmail: string;
   listerPhone: string;
@@ -115,6 +116,7 @@ const EMPTY: FormData = {
   rera: "",
   reraLabel: "RERA",
   possession: "",
+  channelCode: "",
   listerName: "",
   listerEmail: "",
   listerPhone: "",
@@ -515,6 +517,7 @@ export default function ListPropertyPage() {
           rera: data.rera || undefined,
           reraLabel: data.reraLabel || undefined,
           possession: data.possession || undefined,
+          channelCode: data.channelCode.trim() || undefined,
           projectId: selectedProject?.id,
         });
       } catch (err) {
@@ -1533,6 +1536,23 @@ export default function ListPropertyPage() {
                     className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
                   />
                 </div>
+              </div>
+
+              <div className="mt-5">
+                <label className="block text-sm font-semibold text-foreground">
+                  Referral / promo code <span className="font-normal text-muted-foreground">(optional)</span>
+                </label>
+                <p className="mt-1 mb-1.5 text-xs text-muted-foreground">
+                  Saw us on an ad or got a code from our team? Enter it here (e.g. FB10).
+                </p>
+                <input
+                  type="text"
+                  value={data.channelCode}
+                  onChange={(e) => set("channelCode", e.target.value.toUpperCase())}
+                  placeholder="e.g. FB10"
+                  maxLength={32}
+                  className="w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                />
               </div>
 
               <div className="mt-5">
