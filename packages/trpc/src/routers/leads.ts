@@ -601,8 +601,16 @@ export const leadsRouter = router({
     .input(
       z.object({
         leadId: cuidSchema,
-        amount: z.coerce.number().int().min(1).max(10_000_000), // rupees
+        amount: z.coerce.number().int().min(1).max(10_000_000), // rupees, pre-discount
         plan: safeString(100, 1),
+        // Optional discount coupon (see coupons router). Uppercased before use.
+        couponCode: z
+          .string()
+          .trim()
+          .min(3)
+          .max(24)
+          .regex(/^[A-Za-z0-9]+$/)
+          .optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -623,18 +631,75 @@ export const leadsRouter = router({
       // acting user when the lead was never formally assigned.
       const salesRepId = lead.assignedToId ?? ctx.user.id;
 
+      // Re-creating a link supersedes any prior one: release the coupon this lead
+      // had reserved so we don't leak a use (guarded above: an already-Paid lead
+      // never reaches here, so we never release a redeemed-and-paid coupon).
+      if (lead.couponCode) {
+        await prisma.coupon.updateMany({
+          where: { code: lead.couponCode, usedCount: { gt: 0 } },
+          data: { usedCount: { decrement: 1 } },
+        });
+      }
+
+      // Apply a coupon if supplied: validate, reserve a use atomically, discount.
+      let couponCode: string | null = null;
+      let couponDiscount: number | null = null;
+      let originalAmount: number | null = null;
+      let chargeAmount = input.amount;
+      if (input.couponCode) {
+        const code = input.couponCode.toUpperCase();
+        const coupon = await prisma.coupon.findUnique({ where: { code } });
+        if (!coupon || !coupon.active) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Coupon not found or inactive." });
+        }
+        if (coupon.validUntil.getTime() <= Date.now()) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This coupon has expired." });
+        }
+        if (coupon.discountRupees >= input.amount) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Coupon discount (₹${coupon.discountRupees}) is not less than the amount (₹${input.amount}).`,
+          });
+        }
+        // Atomic reserve: maxUses is a stable literal, so this single conditional
+        // increment is race-safe — count 0 means it was exhausted concurrently.
+        const reserved = await prisma.coupon.updateMany({
+          where: { code, active: true, validUntil: { gte: new Date() }, usedCount: { lt: coupon.maxUses } },
+          data: { usedCount: { increment: 1 } },
+        });
+        if (reserved.count === 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This coupon has reached its usage limit." });
+        }
+        couponCode = code;
+        couponDiscount = coupon.discountRupees;
+        originalAmount = input.amount;
+        chargeAmount = input.amount - coupon.discountRupees;
+      }
+
       const link = await createRazorpayPaymentLink({
-        amountRupees: input.amount,
+        amountRupees: chargeAmount,
         description: `NxtSft ${input.plan} — ${lead.name}`,
         customer: { name: lead.name, contact: lead.phone, email: lead.email ?? undefined },
         notes: { lead_id: lead.id, salesrep_id: salesRepId, plan: input.plan },
+      }).catch(async (err) => {
+        // The link failed after we reserved the coupon — give the use back.
+        if (couponCode) {
+          await prisma.coupon.updateMany({
+            where: { code: couponCode, usedCount: { gt: 0 } },
+            data: { usedCount: { decrement: 1 } },
+          });
+        }
+        throw err;
       });
 
       return prisma.lead.update({
         where: { id: input.leadId },
         data: {
           plan: input.plan,
-          amount: input.amount,
+          amount: chargeAmount,
+          couponCode,
+          couponDiscount,
+          originalAmount,
           paymentLink: link.shortUrl,
           paymentStatus: "Pending",
           status: "Payment Pending",

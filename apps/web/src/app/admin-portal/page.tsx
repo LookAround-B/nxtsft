@@ -27,6 +27,7 @@ import {
   Contact,
   Flame,
   Layers,
+  TicketPercent,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -48,6 +49,7 @@ import { WaBroadcastTab } from "@/components/admin-portal/tabs/WaBroadcastTab";
 import { DevTab } from "@/components/admin-portal/tabs/DevTab";
 import { ReportsTab } from "@/components/admin-portal/tabs/ReportsTab";
 import { AdminPlansTab } from "@/components/admin-portal/tabs/AdminPlansTab";
+import { AdminCouponsTab } from "@/components/admin-portal/tabs/AdminCouponsTab";
 import { CommissionsTab } from "@/components/admin-portal/tabs/CommissionsTab";
 import { EnquiriesTab } from "@/components/admin-portal/tabs/EnquiriesTab";
 import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
@@ -77,6 +79,7 @@ const makeNav = (b?: BadgeCounts) => [
   { label: "Lead Management",to: "/admin-portal#leads",     icon: <Target size={14} /> },
   { label: "Rep Contacts",   to: "/admin-portal#rep-contacts", icon: <Contact size={14} /> },
   { label: "Commissions",    to: "/admin-portal#commissions",icon: <Wallet size={14} /> },
+  { label: "Coupons",        to: "/admin-portal#coupons",    icon: <TicketPercent size={14} /> },
 
   // ── Customer Service ─────────────────────────────────────────────────
   { label: "Contact Enquiries",  to: "/admin-portal#enquiries",      icon: <Inbox size={14} />,      group: "Customer Service", badge: b?.enquiries },
@@ -131,6 +134,7 @@ function renderTab(hash: string) {
     case "dev":           return <DevTab />;
     case "reports":       return <ReportsTab />;
     case "plans":         return <AdminPlansTab />;
+    case "coupons":       return <AdminCouponsTab />;
     case "commissions":   return <CommissionsTab />;
     case "credits":       return <CreditsTab />;
     case "transactions":  return <TransactionsTab />;

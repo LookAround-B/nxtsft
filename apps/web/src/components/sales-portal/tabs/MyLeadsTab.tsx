@@ -24,6 +24,7 @@ export function MyLeadsTab() {
   const [visitAt, setVisitAt] = useState("");
   const [planDraft, setPlanDraft] = useState("");
   const [amountDraft, setAmountDraft] = useState("");
+  const [couponDraft, setCouponDraft] = useState(""); // "" = no coupon
   const [callRemark, setCallRemark] = useState("");
 
   const utils = trpc.useUtils();
@@ -31,6 +32,9 @@ export function MyLeadsTab() {
     status: filter !== "All" ? (filter as "Hot" | "Warm" | "Cold") : undefined,
     limit: 50,
   });
+  // Coupons the rep may apply (active, in-date, not exhausted).
+  const couponsQ = trpc.coupons.available.useQuery();
+  const coupons = couponsQ.data ?? [];
   const items = (leadsQ.data?.items ?? []) as DbLead[];
 
   const addNote = trpc.leads.addNote.useMutation({
@@ -65,6 +69,7 @@ export function MyLeadsTab() {
       setOpenAction(null);
       setPlanDraft("");
       setAmountDraft("");
+      setCouponDraft("");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -344,35 +349,75 @@ export function MyLeadsTab() {
                 </div>
               )}
 
-              {openAction?.id === l.id && openAction.kind === "payment" && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    autoFocus
-                    placeholder="Plan name (e.g. Silver ₹4,999)"
-                    value={planDraft}
-                    onChange={(e) => setPlanDraft(e.target.value)}
-                    className="min-w-0 flex-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="Amount ₹"
-                    value={amountDraft}
-                    onChange={(e) => setAmountDraft(e.target.value)}
-                    className="w-28 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
-                  />
-                  <button
-                    onClick={() =>
-                      createLink.mutate({ leadId: l.id, plan: planDraft.trim(), amount: Number(amountDraft) })
-                    }
-                    disabled={!planDraft.trim() || !amountDraft || Number(amountDraft) <= 0 || createLink.isPending}
-                    className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
-                  >
-                    {createLink.isPending ? "Creating…" : "Create & send link"}
-                  </button>
+              {openAction?.id === l.id && openAction.kind === "payment" && (() => {
+                const amt = Number(amountDraft);
+                const selected = couponDraft ? coupons.find((c) => c.code === couponDraft) : undefined;
+                const discount = selected?.discountRupees ?? 0;
+                const validCoupon = !selected || (amt > discount);
+                const payable = amt > 0 ? Math.max(0, amt - discount) : 0;
+                return (
+                <div className="mt-3 flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Plan name (e.g. Silver ₹4,999)"
+                      value={planDraft}
+                      onChange={(e) => setPlanDraft(e.target.value)}
+                      className="min-w-0 flex-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="Amount ₹"
+                      value={amountDraft}
+                      onChange={(e) => setAmountDraft(e.target.value)}
+                      className="w-28 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={couponDraft}
+                      onChange={(e) => setCouponDraft(e.target.value)}
+                      disabled={coupons.length === 0}
+                      className="min-w-0 flex-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+                    >
+                      <option value="">
+                        {coupons.length === 0 ? "No coupons available" : "No coupon"}
+                      </option>
+                      {coupons.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} — ₹{c.discountRupees.toLocaleString("en-IN")} off ({c.remaining} left)
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() =>
+                        createLink.mutate({
+                          leadId: l.id,
+                          plan: planDraft.trim(),
+                          amount: amt,
+                          couponCode: couponDraft || undefined,
+                        })
+                      }
+                      disabled={!planDraft.trim() || !amountDraft || amt <= 0 || !validCoupon || createLink.isPending}
+                      className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                    >
+                      {createLink.isPending ? "Creating…" : "Create & send link"}
+                    </button>
+                  </div>
+                  {amt > 0 && selected && (
+                    <div className="text-xs text-muted-foreground">
+                      {validCoupon ? (
+                        <>Customer pays <span className="font-semibold text-navy">₹{payable.toLocaleString("en-IN")}</span> after ₹{discount.toLocaleString("en-IN")} off.</>
+                      ) : (
+                        <span className="text-red-600">Discount ₹{discount.toLocaleString("en-IN")} must be less than the amount.</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
+                );
+              })()}
 
               {openAction?.id === l.id && openAction.kind === "call" && (
                 <div className="mt-3 flex items-center gap-2">

@@ -333,7 +333,13 @@ model Lead {
 
   // Sales pipeline (LA-342): payment-link selling by the sales rep.
   plan          String? // plan name quoted to the customer
-  amount        Int? // quoted amount in rupees
+  amount        Int? // amount charged in rupees (post-coupon; what the customer pays)
+  // Coupon applied to this sale, if any (rep applies at payment-link creation).
+  // originalAmount is the pre-discount price; the ₹500 commission rule qualifies
+  // on originalAmount, not the discounted `amount`, so a coupon never costs the rep.
+  couponCode     String? // uppercased Coupon.code redeemed on this lead
+  couponDiscount Int? // ₹ taken off by the coupon
+  originalAmount Int? // pre-discount amount in rupees (null = no coupon; == amount)
   paymentStatus String    @default("Pending") // Pending | Paid | Failed
   paymentId     String? // gateway payment id once paid
   paymentLink   String? // Razorpay payment-link URL sent to the customer
@@ -792,6 +798,27 @@ model ReviewHelpful {
 // ═══════════════════════════════════════════════════════════════════════════
 // PLANS, SUBSCRIPTIONS & PAYMENTS
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Admin-created discount coupon a sales rep applies when sending a payment link
+// to a customer. Flat ₹ off, capped by maxUses (total across all reps) and a
+// validUntil date. usedCount is reserved atomically at link creation and
+// released if the payment fails/cancels/expires, so the cap counts live/paid
+// redemptions rather than abandoned links.
+model Coupon {
+  id             String    @id @default(cuid())
+  code           String    @unique // uppercased, e.g. "DIWALI2000"
+  description    String? // internal label shown to admin/rep
+  discountRupees Int // flat ₹ off
+  maxUses        Int // total redemptions allowed across everyone
+  usedCount      Int       @default(0) // reserved on apply, released on failure
+  validUntil     DateTime // coupon is unusable after this instant
+  active         Boolean   @default(true) // admin kill-switch
+  createdById    String? // admin userId (plain string, no FK — mirrors assignedToId)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([active])
+}
 
 // Seeker plans: Instant (₹99/1cr), Basic (₹299/5cr), Premium (₹699/15cr)
 // Owner plans: 4 tiers ₹499–₹4,999

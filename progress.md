@@ -18,6 +18,15 @@
 
 ## ✅ Completed
 
+### Discount coupons for sales reps *(09-16)*
+- [x] New `Coupon` model (code, `discountRupees`, `maxUses`, `usedCount`, `validUntil`, `active`, `createdById`). `Lead` gains `couponCode` / `couponDiscount` / `originalAmount`. **Additive schema — new table + nullable columns.** ⚠️ Client generated locally; **`prisma db push` to the VPS is a separate step** (local `appuser` can't push).
+- [x] New `coupons` router: admin `create` / `list` / `setActive` / `remove` (hard-delete only if unused, else deactivate); rep `available` (active + in-date + not-exhausted).
+- [x] `leads.createPaymentLink` extended with optional `couponCode`: validates + **atomically reserves** a use (conditional `updateMany` on `usedCount < maxUses`, race-safe), discounts the Razorpay amount, stores `originalAmount` (pre-discount) on the lead. Releases the reservation if the Razorpay call throws, and releases a prior coupon when a link is re-created.
+- [x] Commission stays whole: the LA-342 webhook qualifies on `lead.originalAmount ?? paidAmount`, so a coupon never drops the rep below the ₹4,999 threshold. Coupon **released on `cancelled`/`expired`** (terminal) only — not on retryable `payment.failed` — so the cap counts live/paid redemptions without over-discounting.
+- [x] Admin UI: **Coupons** tab (`AdminCouponsTab`, `/admin-portal#coupons`) — create form + list with used/remaining/status, activate/deactivate, delete. Sales UI: coupon dropdown + live "customer pays ₹X" preview in the payment-link dialog (`MyLeadsTab`).
+- [x] Verified: `tsc` clean (trpc + web) + web build passes. Same local DB-access limit as before, so logic verified by typecheck/build + review; live payment flow needs the prod `db push` first.
+  - Decision recap: flat ₹ off · total-uses cap · commission on full price · all reps see all active coupons (reserve-and-release usage model).
+
 ### Auto ₹500 subscription commission *(09-16)*
 - [x] New helper `awardSubscriptionCommission` (`packages/trpc/src/commission.ts`, exported as `@nxtsft/trpc/commission`): on a **successful subscription payment**, awards a flat **₹500 pending Commission** to the sales rep on the paying customer's most-recent rep-assigned lead, and notifies the rep. Best-effort (never throws / never blocks the payment). Self-skips buyer credit packs (`seeker`); only `owner-rent | owner-sell | designer | decor` qualify. Per boss decision, this **self-serve channel pays on EVERY successful payment** (any amount, renewals included).
 - [x] Wired into all 4 self-serve payment-success paths: `subscriptions.verifyPayment` (Razorpay credits — self-skips), `verifyOwnerPayment`, `verifyBusinessPayment`, and the **PayU callback** `owner_subscription` branch. Each path already dedups payments, so it fires exactly once per payment. `findOwnerPlan` now also returns `type`.

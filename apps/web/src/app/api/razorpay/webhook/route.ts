@@ -163,7 +163,10 @@ export async function POST(req: NextRequest) {
     commission = await recordPaymentCommission({
       leadId,
       salesRepId,
-      amountRupees: amountRupees || lead.amount || 0,
+      // Qualify on the pre-discount price so a coupon never sinks the rep's
+      // commission below the ₹4,999 threshold. originalAmount is set only when a
+      // coupon was applied; otherwise the paid amount is the full price.
+      amountRupees: lead.originalAmount ?? (amountRupees || lead.amount || 0),
       paymentId,
     });
   }
@@ -221,6 +224,19 @@ async function handleFailure(
     where: { id: leadId },
     data: { paymentStatus: "Failed", status: "Payment Pending" },
   });
+
+  // Release the coupon use this link reserved — but only for terminal, never-
+  // payable outcomes (cancelled/expired). A plain payment.failed is a retryable
+  // attempt: the link stays open and may still be paid, so we keep the hold.
+  // Guarded by the Pending→Failed short-circuit above, so this fires at most
+  // once. (A payment.failed-then-expire sequence is swallowed by "already
+  // failed" and keeps the hold — the safe direction: never over-discounts.)
+  if ((kind === "cancelled" || kind === "expired") && lead.couponCode) {
+    await prisma.coupon.updateMany({
+      where: { code: lead.couponCode, usedCount: { gt: 0 } },
+      data: { usedCount: { decrement: 1 } },
+    });
+  }
 
   const recipients = new Set<string>();
   if (lead.assignedToId) recipients.add(lead.assignedToId);
