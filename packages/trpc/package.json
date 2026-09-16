@@ -9,6 +9,7 @@
     "./server": "./src/server.ts",
     "./nextjs": "./src/nextjs.ts",
     "./boostSweep": "./src/boostSweep.ts",
+    "./commission": "./src/commission.ts",
     "./salesCommission": "./src/salesCommission.ts",
     "./listingExpiry": "./src/listingExpiry.ts",
     "./dailyLeadReport": "./src/dailyLeadReport.ts",

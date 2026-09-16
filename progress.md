@@ -1,6 +1,6 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-06-22 (session 2)
+> Last updated: 2026-09-16 (auto ₹500 subscription commission)
 > Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
@@ -17,6 +17,14 @@
 ---
 
 ## ✅ Completed
+
+### Auto ₹500 subscription commission *(09-16)*
+- [x] New helper `awardSubscriptionCommission` (`packages/trpc/src/commission.ts`, exported as `@nxtsft/trpc/commission`): on a **successful subscription payment**, awards a flat **₹500 pending Commission** to the sales rep on the paying customer's most-recent rep-assigned lead, and notifies the rep. Best-effort (never throws / never blocks the payment). Self-skips buyer credit packs (`seeker`); only `owner-rent | owner-sell | designer | decor` qualify. Per boss decision, this **self-serve channel pays on EVERY successful payment** (any amount, renewals included).
+- [x] Wired into all 4 self-serve payment-success paths: `subscriptions.verifyPayment` (Razorpay credits — self-skips), `verifyOwnerPayment`, `verifyBusinessPayment`, and the **PayU callback** `owner_subscription` branch. Each path already dedups payments, so it fires exactly once per payment. `findOwnerPlan` now also returns `type`.
+  - ⚠️ **Distinct from LA-342** `salesCommission.ts` / `recordPaymentCommission` (rep-sent Razorpay **payment links**, gated on new-sale + plan ≥ ₹4,999). No overlap: that webhook only fires on `payment_link.paid`. The two channels intentionally use different rules.
+  - Display side already existed (`CommissionTab` + `leads.myCommissions`) — ₹500 rows appear automatically, no frontend change.
+- [x] Schema: added the missing `Lead.assignedTo` relation (+ `User.assignedLeads`, named `LeadAssignee`; existing `user`/`leads` pair named `LeadUser`) that pre-existing committed code (`leads.myLeads` include) required — the tree didn't typecheck/build without it. **Client-only `prisma generate`; NOT pushed to prod**, so no DB change. ⚠️ Latent drift: schema now expects a FK on `Lead.assignedToId` that prod lacks; a future `prisma db push` would add it (verify no orphaned `assignedToId` values first — couldn't check from local, `appuser` is denied direct access). Reads work without the FK (Prisma JOINs on the existing column).
+- [x] Verified: `tsc --noEmit` clean for `@nxtsft/trpc` + `web`; `web` production build passes. Live DB write-test could not run locally (P1010 — `appuser` denied direct access to the VPS DB; direct local Prisma writes aren't permitted). Feature only fires on a real payment callback, so verified via typecheck + build + review.
 
 ### Infrastructure
 - [x] Turborepo monorepo (`apps/web`, `apps/api`, `packages/db`, `packages/trpc`, `packages/shared`)

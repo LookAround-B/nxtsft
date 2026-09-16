@@ -50,7 +50,8 @@ model User {
   createdListings       Property[]             @relation("CreatedListings")
   listings              Listing[]
   editRequests          PropertyEditRequest[]  @relation("UserEditRequests")
-  leads                 Lead[]
+  leads                 Lead[]                 @relation("LeadUser")
+  assignedLeads         Lead[]                 @relation("LeadAssignee")
   messages              Message[]
   favorites             Favorite[]
   reviews               Review[]
@@ -303,7 +304,7 @@ model Lead {
   property   Property? @relation(fields: [propertyId], references: [id])
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation("LeadUser", fields: [userId], references: [id])
 
   // Buyer contact info
   name  String
@@ -322,6 +323,11 @@ model Lead {
   // supervisor reassigns to a sales rep. Plain userId strings like
   // assignedToId; every hop is also recorded in AssignmentHistory.
   assignedToId String? // sales rep userId
+  // Relation to resolve the assigned rep's name (leads.myLeads include). Prisma
+  // reads this via a JOIN on the existing assignedToId column; the relation does
+  // not require a DB foreign key. supervisorId stays a plain string (no include
+  // needs it yet).
+  assignedTo   User?     @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   supervisorId String? // supervisor userId
   assignedAt   DateTime?
 

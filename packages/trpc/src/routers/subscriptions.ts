@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { notify } from "../notify";
+import { awardSubscriptionCommission } from "../commission";
 import { sendTemplateIfConfigured } from "../bhashsms";
 import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server";
 import {
@@ -33,6 +34,7 @@ async function findOwnerPlan(planId: string) {
     id: dbPlan.id,
     name: dbPlan.name,
     price: dbPlan.price,
+    type: dbPlan.type,
     validityDays: dbPlan.validity,
     cycle: dbPlan.validity <= 7 ? "weekly" : "monthly",
   };
@@ -310,6 +312,14 @@ export const subscriptionsRouter = router({
         [plan.name, String(plan.credits), String(plan.price)],
       );
 
+      // Auto ₹500 commission to the attributed sales rep — self-skips buyer
+      // credit packs (only subscription plan types qualify). Best-effort.
+      await awardSubscriptionCommission(
+        ctx.user.id,
+        { id: plan.id, type: plan.type, price: plan.price, name: plan.name },
+        { paymentId: input.razorpayPaymentId },
+      );
+
       return { ok: true, credits: updated.credits, planName: plan.name };
     }),
 
@@ -518,6 +528,14 @@ export const subscriptionsRouter = router({
         }),
       ]);
 
+      // Auto ₹500 commission to the attributed sales rep (owner/designer/decor
+      // are all subscription types, so this qualifies here). Best-effort.
+      await awardSubscriptionCommission(
+        ctx.user.id,
+        { id: plan.id, type: plan.type, price: plan.price, name: plan.name },
+        { paymentId: input.razorpayPaymentId },
+      );
+
       return { ok: true, planName: plan.name, endDate };
     }),
 
@@ -713,6 +731,14 @@ export const subscriptionsRouter = router({
           },
         }),
       ]);
+
+      // Auto ₹500 commission to the attributed sales rep (owner/designer/decor
+      // are all subscription types, so this qualifies here). Best-effort.
+      await awardSubscriptionCommission(
+        ctx.user.id,
+        { id: plan.id, type: plan.type, price: plan.price, name: plan.name },
+        { paymentId: input.razorpayPaymentId },
+      );
 
       return { ok: true, planName: plan.name, endDate };
     }),

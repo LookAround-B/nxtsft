@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "node:crypto";
 import prisma from "@nxtsft/db";
+import { awardSubscriptionCommission } from "@nxtsft/trpc/commission";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://nxtsft.com";
 
@@ -105,6 +106,24 @@ export async function POST(req: NextRequest) {
           },
         }),
       ]);
+
+      // Auto ₹500 commission to the attributed sales rep (self-serve channel).
+      // Best-effort — never blocks the payment. Load the plan for its type/price;
+      // the helper self-skips non-subscription plan types.
+      const planId = meta.planId ?? udf2;
+      const plan = planId
+        ? await prisma.plan.findUnique({
+            where: { id: planId },
+            select: { id: true, type: true, price: true, name: true },
+          })
+        : null;
+      if (plan) {
+        await awardSubscriptionCommission(
+          userId,
+          { id: plan.id, type: plan.type, price: plan.price, name: plan.name },
+          { paymentId: mihpayid || txnid },
+        );
+      }
 
       return NextResponse.redirect(
         `${BASE_URL}/payment/success?txnid=${txnid}&plan=${encodeURIComponent(meta.planName ?? productinfo)}&type=subscription`,
