@@ -209,6 +209,12 @@ model Property {
   //   dummy       — staff test listing (status "Test")
   //   bulk_import — admin CSV import
   source      String  @default("self")
+  // Marketing attribution: the ad/channel code the seller entered on the list
+  // form (e.g. FB10, INSTA20, SALES_RAJU). Stored uppercased and only when it
+  // matches an active ChannelCode; unrecognised codes are dropped (null). Used
+  // by the admin channel report to see which channel drives listings. Distinct
+  // from `source` (internal pipeline) and from discount coupons (never a price).
+  channelCode String?
   // Staff member who actually created the row, when that isn't the owner.
   // Null on self-serve listings and on rows created before this column existed.
   createdById String?
@@ -228,6 +234,7 @@ model Property {
   @@index([featured])
   @@index([freeListing])
   @@index([source])
+  @@index([channelCode])
   @@index([createdById])
   @@index([createdAt])
   @@index([projectId])
@@ -793,6 +800,22 @@ model ReviewHelpful {
 
   @@unique([reviewId, userId])
   @@index([userId])
+}
+
+// Marketing attribution code an admin registers for an ad/channel (FB10,
+// INSTA20, SALES_RAJU). A seller types it on the list form; when it matches an
+// active code the listing's Property.channelCode is stamped, so the admin report
+// can show which channel produces listings. Tracking only — never a discount.
+model ChannelCode {
+  id          String   @id @default(cuid())
+  code        String   @unique // uppercased, e.g. "FB10"
+  label       String // human channel name, e.g. "Facebook Ads"
+  active      Boolean  @default(true)
+  createdById String? // admin userId (plain string, no FK)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

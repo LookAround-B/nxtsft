@@ -28,6 +28,7 @@ import {
   Flame,
   Layers,
   TicketPercent,
+  Radio,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -67,6 +68,7 @@ import { BulkListingsTab } from "@/components/admin-portal/tabs/BulkListingsTab"
 import { BulkPhotosTab } from "@/components/admin-portal/tabs/BulkPhotosTab";
 import { AgentsTab } from "@/components/admin-portal/tabs/AgentsTab";
 import { EscalationsTab } from "@/components/admin-portal/tabs/EscalationsTab";
+import { ChannelCodesTab } from "@/components/admin-portal/tabs/ChannelCodesTab";
 
 // Grouped nav — groups surface in the sidebar as section headings.
 // Badges come from admin.badgeCounts (hidden while loading or when 0).
@@ -102,8 +104,9 @@ const makeNav = (b?: BadgeCounts) => [
   { label: "Plans",          to: "/admin-portal#plans",        icon: <PackageOpen size={14} /> },
 
   // ── Intelligence ─────────────────────────────────────────────────────
-  { label: "Reports",    to: "/admin-portal#reports",    icon: <BarChart2 size={14} />, group: "Intelligence" },
-  { label: "Referrals",  to: "/admin-portal#referrals",  icon: <Gift size={14} /> },
+  { label: "Reports",     to: "/admin-portal#reports",      icon: <BarChart2 size={14} />, group: "Intelligence" },
+  { label: "Channel Codes",to: "/admin-portal#channel-codes",icon: <Radio size={14} /> },
+  { label: "Referrals",   to: "/admin-portal#referrals",    icon: <Gift size={14} /> },
 
   // ── Admin ─────────────────────────────────────────────────────────────
   { label: "Team Management",  to: "/admin-portal#team",         icon: <Users size={14} />,      group: "Admin" },
@@ -133,6 +136,7 @@ function renderTab(hash: string) {
     case "broadcast":     return <WaBroadcastTab />;
     case "dev":           return <DevTab />;
     case "reports":       return <ReportsTab />;
+    case "channel-codes": return <ChannelCodesTab />;
     case "plans":         return <AdminPlansTab />;
     case "coupons":       return <AdminCouponsTab />;
     case "commissions":   return <CommissionsTab />;
