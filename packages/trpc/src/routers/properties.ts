@@ -34,7 +34,8 @@ import { sweepExpiredBoosts } from "../boostSweep";
 import { notify, notifyAdmins, notifyCredit } from "../notify";
 import { sendTemplateIfConfigured } from "../bhashsms";
 import { findOrCreateCustomerAccount } from "../customerAccount";
-import { router, publicProcedure, protectedProcedure, adminProcedure, contactRateLimit } from "../server";
+import { router, publicProcedure, protectedProcedure, adminProcedure, staffProcedure, contactRateLimit } from "../server";
+import { PROPERTY_TAGS } from "@nxtsft/shared/constants";
 
 // Staff roles allowed to list a property on a customer's behalf (see the
 // `onBehalfOfLeadId` branch in `create`).
@@ -1240,6 +1241,41 @@ export const propertiesRouter = router({
         data: { featured: input.featured },
       });
       return { id: updated.id, featured: updated.featured };
+    }),
+
+  // Set the marketing tags on a listing (Gold/Silver/Premium/Urgent/Sold/…).
+  // Admins can tag any listing; a sales rep/supervisor can tag one tied to their
+  // own lead. Applied directly — tags are cosmetic labels, not listing content,
+  // so they don't need the edit-approval flow. Unknown tags are dropped.
+  setTags: staffProcedure
+    .input(z.object({ id: cuidSchema, tags: z.array(z.string().max(40)).max(10) }))
+    .mutation(async ({ input, ctx }) => {
+      const property = await prisma.property.findFirst({
+        where: { id: input.id, deletedAt: null },
+        select: { id: true },
+      });
+      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
+
+      const isAdmin = ["admin", "super-admin"].includes(ctx.user.role);
+      if (!isAdmin) {
+        const owns = await prisma.lead.findFirst({
+          where: { propertyId: property.id, OR: [{ assignedToId: ctx.user.id }, { supervisorId: ctx.user.id }] },
+          select: { id: true },
+        });
+        if (!owns) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "You can only tag listings tied to your own leads." });
+        }
+      }
+
+      // Keep only recognised tags, de-duped and in the canonical order.
+      const chosen = new Set(input.tags);
+      const tags = PROPERTY_TAGS.filter((t) => chosen.has(t));
+      const updated = await prisma.property.update({
+        where: { id: property.id },
+        data: { tags },
+        select: { id: true, tags: true },
+      });
+      return { id: updated.id, tags: updated.tags };
     }),
 
   // Strip a paid boost (abuse, refund, mistaken purchase). Admin only. Does not

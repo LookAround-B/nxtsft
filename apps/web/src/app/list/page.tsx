@@ -92,6 +92,7 @@ type FormData = {
   reraLabel: string;
   possession: string;
   channelCode: string;
+  videoUrl: string;
   listerName: string;
   listerEmail: string;
   listerPhone: string;
@@ -117,6 +118,7 @@ const EMPTY: FormData = {
   reraLabel: "RERA",
   possession: "",
   channelCode: "",
+  videoUrl: "",
   listerName: "",
   listerEmail: "",
   listerPhone: "",
@@ -518,6 +520,7 @@ export default function ListPropertyPage() {
           reraLabel: data.reraLabel || undefined,
           possession: data.possession || undefined,
           channelCode: data.channelCode.trim() || undefined,
+          walkthroughVideoUrl: data.videoUrl.trim() || undefined,
           projectId: selectedProject?.id,
         });
       } catch (err) {
@@ -1551,6 +1554,23 @@ export default function ListPropertyPage() {
                   onChange={(e) => set("channelCode", e.target.value.toUpperCase())}
                   placeholder="e.g. FB10"
                   maxLength={32}
+                  className="w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                />
+              </div>
+
+              <div className="mt-5">
+                <label className="block text-sm font-semibold text-foreground">
+                  Property video <span className="font-normal text-muted-foreground">(optional)</span>
+                </label>
+                <p className="mt-1 mb-1.5 text-xs text-muted-foreground">
+                  Paste a YouTube link — a walkthrough video gets far more enquiries.
+                </p>
+                <input
+                  type="url"
+                  value={data.videoUrl}
+                  onChange={(e) => set("videoUrl", e.target.value)}
+                  placeholder="https://youtube.com/watch?v=…"
+                  maxLength={500}
                   className="w-full rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
                 />
               </div>

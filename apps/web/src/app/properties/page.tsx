@@ -21,6 +21,7 @@ import {
   Check,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { tagClass } from "@/lib/propertyTags";
 import { CardGridSkeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
 
@@ -61,6 +62,7 @@ type PropertyItem = {
   boostTier: string | null;
   boostExpiry: string | null;
   freeListing: boolean;
+  tags: string[];
   location: { city: string; locality: string; state: string };
 };
 
@@ -192,6 +194,15 @@ function PropertyCard({ p }: { p: PropertyItem }) {
           <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold text-emerald-700 backdrop-blur-sm">
             <BadgeCheck size={11} />
             RERA
+          </div>
+        )}
+        {p.tags.length > 0 && (
+          <div className="absolute right-3 top-3 flex max-w-[60%] flex-wrap justify-end gap-1.5">
+            {p.tags.map((t) => (
+              <span key={t} className={`rounded-full px-2.5 py-1 text-[11px] font-bold text-white ${tagClass(t)}`}>
+                {t}
+              </span>
+            ))}
           </div>
         )}
       </div>

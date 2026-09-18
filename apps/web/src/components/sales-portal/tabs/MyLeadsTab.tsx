@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Phone, Calendar, Download, MessageSquare, Building2, Pencil } from "lucide-react";
+import { Phone, Calendar, Download, MessageSquare, Building2, Pencil, Tag } from "lucide-react";
+import { PROPERTY_TAGS } from "@nxtsft/shared/constants";
+import { tagClass } from "@/lib/propertyTags";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
@@ -19,7 +21,7 @@ export function MyLeadsTab() {
   const [filter, setFilter] = useState<"All" | "Hot" | "Warm" | "Cold">("All");
   // Which lead has its Note / Schedule / Payment / Call panel open, and the
   // in-progress input.
-  const [openAction, setOpenAction] = useState<{ id: string; kind: "note" | "schedule" | "payment" | "call" | "editListing" } | null>(null);
+  const [openAction, setOpenAction] = useState<{ id: string; kind: "note" | "schedule" | "payment" | "call" | "editListing" | "tags" } | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [visitAt, setVisitAt] = useState("");
   const [planDraft, setPlanDraft] = useState("");
@@ -99,6 +101,14 @@ export function MyLeadsTab() {
     onError: (e) => toast.error(e.message),
   });
 
+  const setTags = trpc.properties.setTags.useMutation({
+    onSuccess: () => {
+      utils.leads.list.invalidate();
+      toast.success("Tags updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const submitListingEdit = trpc.leads.submitListingEdit.useMutation({
     onSuccess: () => {
       utils.leads.list.invalidate();
@@ -112,7 +122,7 @@ export function MyLeadsTab() {
     onError: (e) => toast.error(e.message),
   });
 
-  function toggle(id: string, kind: "note" | "schedule" | "payment" | "call" | "editListing") {
+  function toggle(id: string, kind: "note" | "schedule" | "payment" | "call" | "editListing" | "tags") {
     setOpenAction((prev) => (prev?.id === id && prev.kind === kind ? null : { id, kind }));
     setNoteDraft("");
     setVisitAt("");
@@ -285,6 +295,18 @@ export function MyLeadsTab() {
                       <Pencil size={12} /> Edit listing
                     </button>
                   )}
+                  {l.property && (
+                    <button
+                      onClick={() => toggle(l.id, "tags")}
+                      className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold ${
+                        openAction?.id === l.id && openAction.kind === "tags"
+                          ? "border-accent text-accent"
+                          : "border-border hover:bg-muted"
+                      }`}
+                    >
+                      <Tag size={12} /> Tags
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -452,6 +474,34 @@ export function MyLeadsTab() {
                 </div>
                 );
               })()}
+
+              {openAction?.id === l.id && openAction.kind === "tags" && l.property && (
+                <div className="mt-3 flex flex-wrap gap-2 rounded-md border border-border bg-secondary/20 p-3">
+                  <span className="w-full text-[11px] font-semibold text-muted-foreground">
+                    Tag this listing — shows as a badge to buyers on the card &amp; detail page.
+                  </span>
+                  {PROPERTY_TAGS.map((t) => {
+                    const on = l.property!.tags.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        disabled={setTags.isPending}
+                        onClick={() => {
+                          const next = on
+                            ? l.property!.tags.filter((x) => x !== t)
+                            : [...l.property!.tags, t];
+                          setTags.mutate({ id: l.property!.id, tags: next });
+                        }}
+                        className={`rounded-full px-3 py-1 text-[11px] font-bold transition disabled:opacity-50 ${
+                          on ? `${tagClass(t)} text-white` : "border border-border text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {openAction?.id === l.id && openAction.kind === "editListing" && l.property && (
                 <div className="mt-3 flex flex-col gap-2 rounded-md border border-border bg-secondary/20 p-3">
