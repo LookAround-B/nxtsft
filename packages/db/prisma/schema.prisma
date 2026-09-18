@@ -150,6 +150,11 @@ model Property {
   virtualTourUrl      String? // 360° tour embed (PG + interiors)
   walkthroughVideoUrl String? // cinematic walkthrough
 
+  // Marketing labels an admin/rep sets on a listing (Gold, Silver, Premium,
+  // Urgent, Sold, Under Negotiation) — shown as badges on cards + detail.
+  // Cosmetic only; the real deal-state lives in `status`. See PROPERTY_TAGS.
+  tags                String[] @default([])
+
   // Optional hard link to a directory Project (set when listed against a known project)
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)

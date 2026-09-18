@@ -48,6 +48,8 @@ import { useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { SITE_URL } from "@/lib/site";
+import { toEmbedUrl } from "@/lib/youtube";
+import { tagClass } from "@/lib/propertyTags";
 
 function formatPrice(price: number): string {
   if (price >= 1_00_00_000) return `₹${(price / 1_00_00_000).toFixed(2)} Cr`;
@@ -82,6 +84,7 @@ type FullProperty = {
   builder: string | null;
   featured: boolean;
   freeListing: boolean;
+  tags: string[];
   boostTier: string | null;
   boostExpiry: string | null;
   views: number;
@@ -594,13 +597,18 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                   </>
                 )}
 
-                {/* Purpose badge */}
-                <div className="absolute left-4 top-4">
+                {/* Purpose + marketing tag badges */}
+                <div className="absolute left-4 top-4 flex max-w-[70%] flex-wrap gap-2">
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-bold text-white ${property.purpose === "Sale" ? "bg-accent" : "bg-emerald-500"}`}
                   >
                     For {property.purpose}
                   </span>
+                  {property.tags?.map((t) => (
+                    <span key={t} className={`rounded-full px-3 py-1 text-xs font-bold text-white ${tagClass(t)}`}>
+                      {t}
+                    </span>
+                  ))}
                 </div>
                 {/* Actions */}
                 <div className="absolute right-4 top-4 flex gap-2">
@@ -879,7 +887,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                         <Rotate3d size={12} /> 360° Virtual Tour
                       </div>
                       <div className="aspect-video overflow-hidden rounded-xl border border-border">
-                        <iframe src={property.virtualTourUrl} className="h-full w-full" allowFullScreen title="360° virtual tour" />
+                        <iframe src={toEmbedUrl(property.virtualTourUrl) ?? undefined} className="h-full w-full" allowFullScreen title="360° virtual tour" />
                       </div>
                     </div>
                   )}
@@ -889,7 +897,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                         <Play size={12} /> Walkthrough Video
                       </div>
                       <div className="aspect-video overflow-hidden rounded-xl border border-border">
-                        <iframe src={property.walkthroughVideoUrl} className="h-full w-full" allowFullScreen title="Walkthrough video" />
+                        <iframe src={toEmbedUrl(property.walkthroughVideoUrl) ?? undefined} className="h-full w-full" allowFullScreen title="Walkthrough video" />
                       </div>
                     </div>
                   )}

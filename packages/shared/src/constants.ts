@@ -64,6 +64,12 @@ export const RATE_LIMITS = {
  */
 export const TEST_LISTING_STATUS = "Test";
 
+// Marketing labels an admin/rep can put on a listing (Property.tags). Fixed set
+// so badges stay consistent across cards and the detail page. Cosmetic only —
+// the real deal-state lives in Property.status.
+export const PROPERTY_TAGS = ["Gold", "Silver", "Premium", "Urgent", "Sold", "Under Negotiation"] as const;
+export type PropertyTag = (typeof PROPERTY_TAGS)[number];
+
 /**
  * Property.source — how a listing reached us. Written once at creation and
  * never rewritten, so the admin queue can say who submitted a listing without
