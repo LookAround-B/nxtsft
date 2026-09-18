@@ -367,7 +367,9 @@ export const reportsRouter = router({
       });
 
       // ── Staff performance (one row per sales rep) ─────────────
-      const salesReps = staff.filter((s) => s.role === "sales");
+      // A sales rep sees only their own row here (the rest of the snapshot is
+      // already rep-scoped above); supervisors/admins still see the whole team.
+      const salesReps = staff.filter((s) => s.role === "sales" && (!isSales || s.id === ctx.user.id));
       const staffPerf = salesReps.map((rep) => {
         const repLeads = dbLeadsAll.filter((l) => l.assignedToId === rep.id);
         const repVisits = dbVisitsRaw.filter((v) => v.salesRepId === rep.id);

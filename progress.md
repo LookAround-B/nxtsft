@@ -18,6 +18,11 @@
 
 ## ✅ Completed
 
+### Rep reports scoping + rep listing edits *(09-18)*
+- [x] **Reports scoping** — `reports.snapshot` already rep-scopes leads/visits/subs/commissions, but the "Target vs Achievement" table (`staffPerf`) still listed the whole team. Now a `sales` rep sees only their own row; supervisors/admins unchanged. Server-side, so other reps' revenue/commission never reaches the rep's browser.
+- [x] **Rep listing edit → admin approval** — new `leads.submitListingEdit` (staffProcedure): a rep edits the listing attached to one of their own leads; it creates a `PropertyEditRequest` and flows through the **existing** admin review pipeline (`admin.editRequests.approve/reject`) — nothing goes live without admin sign-off. Auth: sales must own the lead, supervisor must be in team scope. UI: "Edit listing" button + form (title/price/BHK/description, blank = keep) on lead cards with a linked property (`MyLeadsTab`).
+- [x] No schema migration (reuses `PropertyEditRequest`). Verified: `tsc` clean (trpc + web) + web build passes. ⚠️ **e2e NOT run** — prod DB `appuser` is locked out (`P1010`, from local shells incl. the user's); `_e2e-reports-edit.ts` is ready to run once access is restored.
+
 ### Discount coupons for sales reps *(09-16)*
 - [x] New `Coupon` model (code, `discountRupees`, `maxUses`, `usedCount`, `validUntil`, `active`, `createdById`). `Lead` gains `couponCode` / `couponDiscount` / `originalAmount`. **Additive schema — new table + nullable columns.** ⚠️ Client generated locally; **`prisma db push` to the VPS is a separate step** (local `appuser` can't push).
 - [x] New `coupons` router: admin `create` / `list` / `setActive` / `remove` (hard-delete only if unused, else deactivate); rep `available` (active + in-date + not-exhausted).

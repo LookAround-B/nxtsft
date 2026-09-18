@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Phone, Calendar, Download, MessageSquare, Building2 } from "lucide-react";
+import { Phone, Calendar, Download, MessageSquare, Building2, Pencil } from "lucide-react";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
@@ -19,13 +19,18 @@ export function MyLeadsTab() {
   const [filter, setFilter] = useState<"All" | "Hot" | "Warm" | "Cold">("All");
   // Which lead has its Note / Schedule / Payment / Call panel open, and the
   // in-progress input.
-  const [openAction, setOpenAction] = useState<{ id: string; kind: "note" | "schedule" | "payment" | "call" } | null>(null);
+  const [openAction, setOpenAction] = useState<{ id: string; kind: "note" | "schedule" | "payment" | "call" | "editListing" } | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [visitAt, setVisitAt] = useState("");
   const [planDraft, setPlanDraft] = useState("");
   const [amountDraft, setAmountDraft] = useState("");
   const [couponDraft, setCouponDraft] = useState(""); // "" = no coupon
   const [callRemark, setCallRemark] = useState("");
+  // Edit-listing form (only the fields the rep wants to change; blank = keep).
+  const [editTitle, setEditTitle] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editBhk, setEditBhk] = useState("");
+  const [editDesc, setEditDesc] = useState("");
 
   const utils = trpc.useUtils();
   const leadsQ = trpc.leads.list.useQuery({
@@ -94,13 +99,30 @@ export function MyLeadsTab() {
     onError: (e) => toast.error(e.message),
   });
 
-  function toggle(id: string, kind: "note" | "schedule" | "payment" | "call") {
+  const submitListingEdit = trpc.leads.submitListingEdit.useMutation({
+    onSuccess: () => {
+      utils.leads.list.invalidate();
+      toast.success("Listing changes sent for admin approval");
+      setOpenAction(null);
+      setEditTitle("");
+      setEditPrice("");
+      setEditBhk("");
+      setEditDesc("");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function toggle(id: string, kind: "note" | "schedule" | "payment" | "call" | "editListing") {
     setOpenAction((prev) => (prev?.id === id && prev.kind === kind ? null : { id, kind }));
     setNoteDraft("");
     setVisitAt("");
     setPlanDraft("");
     setAmountDraft("");
     setCallRemark("");
+    setEditTitle("");
+    setEditPrice("");
+    setEditBhk("");
+    setEditDesc("");
   }
 
   const hotCount = items.filter((l) => l.status === "Hot").length;
@@ -249,6 +271,18 @@ export function MyLeadsTab() {
                       className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
                     >
                       ₹ Payment Link
+                    </button>
+                  )}
+                  {l.property && (
+                    <button
+                      onClick={() => toggle(l.id, "editListing")}
+                      className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold ${
+                        openAction?.id === l.id && openAction.kind === "editListing"
+                          ? "border-accent text-accent"
+                          : "border-border hover:bg-muted"
+                      }`}
+                    >
+                      <Pencil size={12} /> Edit listing
                     </button>
                   )}
                 </div>
@@ -418,6 +452,66 @@ export function MyLeadsTab() {
                 </div>
                 );
               })()}
+
+              {openAction?.id === l.id && openAction.kind === "editListing" && l.property && (
+                <div className="mt-3 flex flex-col gap-2 rounded-md border border-border bg-secondary/20 p-3">
+                  <div className="text-[11px] font-semibold text-muted-foreground">
+                    Edit “{l.property.title}” — leave a field blank to keep it. Changes need admin approval before going live.
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={`Title: ${l.property.title}`}
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="New price ₹ (blank = keep)"
+                      value={editPrice}
+                      onChange={(e) => setEditPrice(e.target.value)}
+                      className="w-44 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                    <input
+                      type="text"
+                      placeholder="BHK e.g. 3 BHK (blank = keep)"
+                      value={editBhk}
+                      onChange={(e) => setEditBhk(e.target.value)}
+                      className="w-48 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                  </div>
+                  <textarea
+                    placeholder="New description (blank = keep)"
+                    value={editDesc}
+                    onChange={(e) => setEditDesc(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const changes: { title?: string; price?: number; bhk?: string; description?: string } = {};
+                        if (editTitle.trim() && editTitle.trim() !== l.property!.title) changes.title = editTitle.trim();
+                        if (editPrice && Number(editPrice) > 0) changes.price = Number(editPrice);
+                        if (editBhk.trim()) changes.bhk = editBhk.trim();
+                        if (editDesc.trim()) changes.description = editDesc.trim();
+                        if (Object.keys(changes).length === 0) {
+                          toast.error("Enter at least one change");
+                          return;
+                        }
+                        submitListingEdit.mutate({ leadId: l.id, ...changes });
+                      }}
+                      disabled={submitListingEdit.isPending}
+                      className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
+                    >
+                      {submitListingEdit.isPending ? "Submitting…" : "Submit for approval"}
+                    </button>
+                    <span className="text-[11px] text-muted-foreground">Title needs 10+ characters.</span>
+                  </div>
+                </div>
+              )}
 
               {openAction?.id === l.id && openAction.kind === "call" && (
                 <div className="mt-3 flex items-center gap-2">

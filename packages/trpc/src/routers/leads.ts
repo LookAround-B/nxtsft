@@ -18,6 +18,16 @@ import {
   cursorSchema,
   limitSchema,
   datetimeSchema,
+  descriptionSchema,
+  priceSchema,
+  areaSchema,
+  areaUnitSchema,
+  roomCountSchema,
+  furnishingSchema,
+  amenitiesSchema,
+  safeUrlArraySchema,
+  latitudeSchema,
+  longitudeSchema,
 } from "../sanitize";
 import { leadScope, teamRepIds } from "../teamScope";
 
@@ -705,6 +715,92 @@ export const leadsRouter = router({
           status: "Payment Pending",
         },
       });
+    }),
+
+  // Rep edits the listing attached to one of their leads (created on the
+  // customer's behalf). The change is NOT applied directly — it goes through the
+  // same admin-review pipeline as a seller's own edit (PropertyEditRequest →
+  // admin.editRequests.approve), so nothing goes live without final admin sign-off.
+  submitListingEdit: staffProcedure
+    .input(
+      z.object({
+        leadId: cuidSchema,
+        title: safeString(200, 10).optional(),
+        description: descriptionSchema.optional(),
+        price: priceSchema.optional(),
+        area: areaSchema.optional(),
+        areaUnit: areaUnitSchema.optional(),
+        builtUpArea: areaSchema.optional(),
+        bhk: safeString(20).optional(),
+        bedrooms: roomCountSchema.optional(),
+        bathrooms: roomCountSchema.optional(),
+        balconies: roomCountSchema.optional(),
+        parking: roomCountSchema.optional(),
+        furnishing: furnishingSchema.optional(),
+        facing: safeString(30).optional(),
+        possession: safeString(30).optional(),
+        amenities: amenitiesSchema.optional(),
+        images: safeUrlArraySchema.optional(),
+        locality: geoTextSchema.optional(),
+        latitude: latitudeSchema.optional(),
+        longitude: longitudeSchema.optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { leadId, ...changes } = input;
+
+      const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+      if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
+      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (ctx.user.role === "supervisor" && !(await inTeamScope(ctx, lead))) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (!lead.propertyId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This lead has no linked listing to edit." });
+      }
+
+      const property = await prisma.property.findFirst({
+        where: { id: lead.propertyId, deletedAt: null },
+        select: { id: true, ownerId: true, title: true },
+      });
+      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Linked listing not found." });
+
+      // Keep only fields the rep actually changed, so the admin's review diff is clean.
+      const proposed = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
+      if (Object.keys(proposed).length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No changes to submit." });
+      }
+
+      // Reuse the seller edit-approval pipeline: one pending request per property.
+      // ownerId stays the customer, so approval notifies them (admin.editRequests).
+      await prisma.propertyEditRequest.deleteMany({ where: { propertyId: property.id, status: "Pending" } });
+      await prisma.propertyEditRequest.create({
+        data: { propertyId: property.id, ownerId: property.ownerId, changes: proposed },
+      });
+
+      await prisma.salesActivity
+        .create({
+          data: {
+            salesRepId: ctx.user.id,
+            type: "listing_edit",
+            leadId: lead.id,
+            action: `Submitted listing edit for "${property.title}"`,
+            outcome: "Pending admin approval",
+          },
+        })
+        .catch(() => {});
+
+      await notify({
+        userId: ctx.user.id,
+        type: "listing_edit_submitted",
+        title: "Listing edit submitted",
+        content: `Your changes to "${property.title}" are pending admin approval.`,
+        actionUrl: "/sales-portal",
+      }).catch(() => {});
+
+      return { ok: true as const };
     }),
 
   // Nudge a customer who has a link but hasn't paid. WhatsApp only (the number
