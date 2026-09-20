@@ -77,9 +77,9 @@ const SOCIALS = [
   {
     key: "linkedin",
     Icon: Linkedin,
-    href: "https://www.linkedin.com/company/truenxtsft/",
+    href: "https://www.linkedin.com/company/nxtsft/",
     label: "LinkedIn",
-    handle: "truenxtsft",
+    handle: "nxtsft",
     tile: "bg-[#0A66C2]",
     stats: [{ label: "Followers", value: "162" }],
   },
