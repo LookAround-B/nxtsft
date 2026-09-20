@@ -57,6 +57,7 @@ export function verifyPayUHash(
   fields: HashFields,
   status: string,
   receivedHash: string,
+  additionalCharges?: string,
 ): boolean {
   const { key, salt } = payuSecrets();
   const { txnid, amount, productinfo, firstname, email } = fields;
@@ -65,8 +66,9 @@ export function verifyPayUHash(
   const udf3 = fields.udf3 ?? "";
   const udf4 = fields.udf4 ?? "";
   const udf5 = fields.udf5 ?? "";
-  // PayU reverse hash: salt|status|udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key
-  const str = `${salt}|${status}|${udf5}|${udf4}|${udf3}|${udf2}|${udf1}|${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
+  // https://docs.payu.in/docs/hashing-request-and-response
+  // Five reserved empty fields precede udf5 in the response hash.
+  const str = `${additionalCharges ? `${additionalCharges}|` : ""}${salt}|${status}||||||${udf5}|${udf4}|${udf3}|${udf2}|${udf1}|${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
   const expected = createHash("sha512").update(str).digest("hex");
   return hexEqual(expected, receivedHash);
 }

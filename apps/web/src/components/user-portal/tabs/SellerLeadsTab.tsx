@@ -1,161 +1,221 @@
 "use client";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { Users, Phone, Mail, MapPin } from "lucide-react";
-import { Badge, Section } from "@/components/portal/PortalShell";
-import { useAuth } from "@/lib/auth";
+import { useSearchParams } from "next/navigation";
+import { LockKeyhole, Users, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { Head, fmtDate } from "./shared";
-
-type Lead = {
-  id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  city: string | null;
-  interest: string | null;
-  source: string | null;
-  status: string;
-  value: number | null;
-  createdAt: string;
-  property: { id: string; title: string; slug: string } | null;
-};
-
-type Unlock = {
-  buyer: { id: string; name: string; phone: string } | null;
-  property: { id: string; title: string; slug: string } | null;
-  createdAt: string;
-};
-
-// Lead status → Badge tone. Falls back to "default" for anything unmapped.
-const leadTone: Record<string, "success" | "warm" | "cold" | "new" | "hot" | "default"> = {
-  Hot: "hot",
-  Warm: "warm",
-  Cold: "cold",
-  New: "new",
-  Converted: "success",
-  Lost: "default",
-};
+import { useAuth } from "@/lib/auth";
+import { ListingInsights } from "@/components/ListingInsights";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Head } from "./shared";
 
 export function SellerLeadsTab() {
-  const { session } = useAuth();
-  const leadsQ = trpc.users.sellerLeads.useQuery(undefined, {
-    enabled: session?.role === "home-seller",
-  });
-  const unlocksQ = trpc.users.sellerUnlocks.useQuery(undefined, {
-    enabled: session?.role === "home-seller",
-  });
-
-  if (session?.role !== "home-seller") {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <Users size={40} className="mb-4 text-muted-foreground/30" />
-        <p className="text-sm font-semibold text-navy">This section is for Home Sellers</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Leads are buyers who enquired on your listings.
-        </p>
-      </div>
-    );
-  }
-
-  const enquiries = (leadsQ.data ?? []) as unknown as Lead[];
-  const unlocks = (unlocksQ.data ?? []) as unknown as Unlock[];
-
-  // Contact-unlock events are leads too (buyer paid a credit to see the owner's
-  // number) — merge them into the same list so they don't hide in a section
-  // below the fold. LA-327: reporter expected unlocks to show under "Leads".
-  const unlockLeads: Lead[] = unlocks
-    .filter((u) => u.buyer)
-    .map((u) => ({
-      id: `unlock-${u.property?.id ?? "x"}-${u.buyer!.id}-${u.createdAt}`,
-      name: u.buyer!.name,
-      phone: u.buyer!.phone,
-      email: null,
-      city: null,
-      interest: null,
-      source: "Contact Unlock",
-      status: "New",
-      value: null,
-      createdAt: u.createdAt,
-      property: u.property,
-    }));
-
-  const items = [...enquiries, ...unlockLeads].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  return (
+    <Suspense fallback={<p>Loading leads…</p>}>
+      <SellerLeadsContent />
+    </Suspense>
   );
+}
 
+function SellerLeadsContent() {
+  const params = useSearchParams();
+  const propertyId = params.get("propertyId") || undefined;
+  const { session } = useAuth();
+  const eligible = session?.role === "home-seller" || session?.role === "agent";
+  const query = trpc.sellerInsights.leads.useQuery(
+    { propertyId },
+    { enabled: eligible, refetchOnMount: "always" },
+  );
+  const [upgradeProperty, setUpgradeProperty] = useState<string | null>(null);
+  const utils = trpc.useUtils();
+  const share = trpc.sellerInsights.shareSellerContact.useMutation({
+    onSuccess: async () => {
+      toast.success("Your contact details have been shared with the buyer.");
+      await utils.sellerInsights.leads.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  if (!eligible) return <p>This section is for Home Sellers and Agents.</p>;
+  if (query.isError)
+    return (
+      <p role="alert">
+        Unable to load leads: {query.error.message}{" "}
+        <button className="underline" onClick={() => query.refetch()}>
+          Retry
+        </button>
+      </p>
+    );
+  const data = query.data;
+  const selected = data?.properties.find((p) => p.id === upgradeProperty);
+  const selectedCount =
+    data?.items.filter((item) => item.property?.id === upgradeProperty).length ?? 0;
+  const pricing = `/pricing?source=masked-leads${upgradeProperty ? `&propertyId=${encodeURIComponent(upgradeProperty)}` : ""}#seller`;
   return (
     <>
-      <Head t="Leads" s="Buyers who enquired or unlocked contact on your listings." />
-      <Section title={items.length ? `${items.length} lead${items.length > 1 ? "s" : ""}` : "Leads"}>
-        {leadsQ.isLoading || unlocksQ.isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 animate-pulse rounded-lg border border-border bg-secondary/40" />
-            ))}
+      <Head
+        t="Leads"
+        s={
+          propertyId
+            ? (data?.properties[0]?.title ?? "Buyers interested in your listing.")
+            : "Buyer enquiries, contact unlocks, and site visits across your listings."
+        }
+      />
+      {propertyId && (
+        <Link href="/user-portal#leads" className="text-sm text-accent underline">
+          All listing leads
+        </Link>
+      )}
+      <ListingInsights propertyId={propertyId} />
+      {!data ? (
+        <div className="h-48 animate-pulse rounded-xl bg-secondary" />
+      ) : (
+        <>
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <Users size={18} /> Buyer requests · {data.items.length}
           </div>
-        ) : items.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-secondary/20 py-14 text-center">
-            <Users size={32} className="mx-auto mb-3 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">No leads yet.</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              When a buyer enquires or unlocks contact on one of your listings, they&apos;ll appear here.
+          {!data.unlocked && data.items.length > 0 && (
+            <p className="mb-5 text-sm text-muted-foreground">
+              Free users can preview requests. Activate a seller plan to view buyer contacts and
+              share your details.
             </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {items.map((l) => (
-              <div key={l.id} className="rounded-lg border border-border p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-navy">{l.name}</span>
-                      <Badge tone={leadTone[l.status] ?? "default"}>{l.status}</Badge>
-                      {l.source && <Badge tone="default">{l.source}</Badge>}
+          )}
+          {!data.items.length ? (
+            <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
+              No buyer requests yet. New enquiries and visits will appear here.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {data.items.map((item) => (
+                <article
+                  key={`${item.kind}-${item.id}`}
+                  className="rounded-xl border border-border bg-white p-5 shadow-sm"
+                >
+                  <div className="flex items-start gap-4">
+                    <div
+                      aria-hidden
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-xl font-semibold text-white"
+                    >
+                      {item.name.charAt(0)}
                     </div>
-                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      {l.phone && (
-                        <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1 font-bold text-accent hover:underline">
-                          <Phone size={11} /> {l.phone}
-                        </a>
-                      )}
-                      {l.email && (
-                        <span className="inline-flex items-center gap-1 truncate">
-                          <Mail size={11} /> {l.email}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="font-display text-lg font-bold text-navy">{item.name}</h3>
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs ${item.status === "Visit cancelled" ? "bg-amber-50 text-amber-800" : "bg-teal-50 text-teal-800"}`}
+                        >
+                          {item.status}
                         </span>
-                      )}
-                      {l.city && (
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin size={11} /> {l.city}
-                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.kind === "enquiry"
+                          ? "Enquiry"
+                          : item.kind === "visit"
+                            ? "Site visit"
+                            : "Contact unlock"}{" "}
+                        · {new Date(item.createdAt).toLocaleString("en-IN")}
+                      </p>
+                      <div className="mt-3 space-y-1 text-sm">
+                        {item.phone &&
+                          (data.unlocked ? (
+                            <a
+                              className="block font-semibold text-accent"
+                              href={`tel:${item.phone}`}
+                            >
+                              {item.phone}
+                            </a>
+                          ) : (
+                            <p>{item.phone}</p>
+                          ))}
+                        {item.email &&
+                          (data.unlocked ? (
+                            <a
+                              className="block break-all text-accent"
+                              href={`mailto:${item.email}`}
+                            >
+                              {item.email}
+                            </a>
+                          ) : (
+                            <p>{item.email}</p>
+                          ))}
+                        {data.unlocked && !item.phone && !item.email && (
+                          <p>No contact details provided.</p>
+                        )}
+                      </div>
+                      {item.property && (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          {item.property.title}
+                          {item.property.location?.city ? ` · ${item.property.location.city}` : ""}
+                        </p>
                       )}
                     </div>
                   </div>
-                  <div className="shrink-0 text-right text-xs text-muted-foreground">
-                    {fmtDate(l.createdAt)}
-                  </div>
-                </div>
-                {(l.interest || l.property) && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3 text-xs">
-                    {l.interest && (
-                      <span className="text-muted-foreground">
-                        Interested in <span className="font-medium text-navy">{l.interest}</span>
-                      </span>
-                    )}
-                    {l.property && (
-                      <Link
-                        href={`/properties/${l.property.slug}`}
-                        className="ml-auto rounded-md border border-border px-2.5 py-1 font-semibold text-navy transition hover:border-accent hover:text-accent"
+                  <div className="mt-4 border-t border-border pt-4">
+                    {!data.unlocked ? (
+                      <button
+                        onClick={() => setUpgradeProperty(item.property!.id)}
+                        className="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white"
                       >
-                        {l.property.title}
-                      </Link>
+                        View Contact
+                      </button>
+                    ) : item.shared ? (
+                      <p className="flex items-center gap-2 text-sm text-teal-700">
+                        <CheckCircle2 size={17} /> Your contact details have been shared with the
+                        buyer.
+                      </p>
+                    ) : (
+                      <>
+                        <button
+                          disabled={!!item.shareUnavailable || share.isPending}
+                          onClick={() => share.mutate({ kind: item.kind, id: item.id })}
+                          className="w-full rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                        >
+                          {share.isPending && share.variables?.id === item.id
+                            ? "Sharing…"
+                            : "Share My Contact With Buyer"}
+                        </button>
+                        {item.shareUnavailable && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {item.shareUnavailable}
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
+                </article>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      <Dialog
+        open={upgradeProperty !== null}
+        onOpenChange={(open) => {
+          if (!open) setUpgradeProperty(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <LockKeyhole className="text-accent" size={28} />
+          <DialogTitle>Unlock Buyer Contacts</DialogTitle>
+          <DialogDescription>
+            {selectedCount} buyer request{selectedCount === 1 ? "" : "s"} for your property
+            {selected?.location?.city ? ` in ${selected.location.city}` : ""}. Free users can&apos;t
+            see contact details. Activate a seller plan to connect.
+          </DialogDescription>
+          <Link
+            href={pricing}
+            className="rounded-lg bg-accent px-5 py-3 text-center font-semibold text-white"
+          >
+            View Seller Plans →
+          </Link>
+          <button
+            onClick={() => setUpgradeProperty(null)}
+            className="rounded-lg border border-border px-5 py-3 text-sm"
+          >
+            Maybe Later
+          </button>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

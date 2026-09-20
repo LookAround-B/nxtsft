@@ -1,76 +1,93 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { verifyPayUHash } from "@nxtsft/trpc/payu";
 import prisma from "@nxtsft/db";
 import { awardSubscriptionCommission } from "@nxtsft/trpc/commission";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://nxtsft.com";
 
-function verifyHash(
-  fields: { txnid: string; amount: string; productinfo: string; firstname: string; email: string; udf1: string; udf2: string },
-  status: string,
-  receivedHash: string,
-): boolean {
-  const salt = process.env.PAYU_MERCHANT_SALT;
-  const key  = process.env.PAYU_MERCHANT_KEY;
-  // Not configured → reject rather than computing a hash with a literal
-  // "undefined" salt/key, which would be forgeable.
-  if (!salt || !key) return false;
-  const { txnid, amount, productinfo, firstname, email, udf1, udf2 } = fields;
-  // PayU reverse hash: salt|status|udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key
-  const str = `${salt}|${status}||||||${udf2}|${udf1}|${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
-  const expected = createHash("sha512").update(str).digest("hex");
-  const expectedBuf = Buffer.from(expected, "hex");
-  const receivedBuf = Buffer.from(receivedHash, "hex");
-  // Constant-time comparison — avoids leaking the digest via timing.
-  return expectedBuf.length === receivedBuf.length && timingSafeEqual(expectedBuf, receivedBuf);
-}
-
 // Guard against direct browser GET hits (PayU always POSTs, but a browser
 // navigating to this URL directly would otherwise get a Next.js 405).
 export async function GET() {
-  return NextResponse.redirect(`${BASE_URL}/payment/failure?reason=invalid`);
+  return NextResponse.redirect(`${BASE_URL}/payment/failure?reason=invalid`, 303);
 }
 
 // PayU POSTs here after every payment (success and failure both arrive here).
 export async function POST(req: NextRequest) {
   const form = await req.formData();
-  const get  = (k: string) => (form.get(k) as string | null) ?? "";
+  const get = (k: string) => (form.get(k) as string | null) ?? "";
 
-  const txnid       = get("txnid");
-  const status      = get("status");   // "success" | "failure" | "pending"
-  const hash        = get("hash");
-  const mihpayid    = get("mihpayid");
-  const amount      = get("amount");
+  const txnid = get("txnid");
+  const status = get("status"); // "success" | "failure" | "pending"
+  const hash = get("hash");
+  const mihpayid = get("mihpayid");
+  const amount = get("amount");
   const productinfo = get("productinfo");
-  const firstname   = get("firstname");
-  const email       = get("email");
-  const udf1        = get("udf1"); // userId
-  const udf2        = get("udf2"); // planId
+  const firstname = get("firstname");
+  const email = get("email");
+  const udf1 = get("udf1"); // userId
+  const udf2 = get("udf2"); // planId
 
   if (!txnid || !hash) {
-    return NextResponse.redirect(`${BASE_URL}/payment/failure?reason=invalid`);
+    return NextResponse.redirect(`${BASE_URL}/payment/failure?reason=invalid`, 303);
   }
 
-  if (!verifyHash({ txnid, amount, productinfo, firstname, email, udf1, udf2 }, status, hash)) {
-    return NextResponse.redirect(`${BASE_URL}/payment/failure?reason=tampered`);
+  let verified = false;
+  try {
+    verified = verifyPayUHash(
+      {
+        txnid,
+        amount,
+        productinfo,
+        firstname,
+        email,
+        udf1,
+        udf2,
+        udf3: get("udf3"),
+        udf4: get("udf4"),
+        udf5: get("udf5"),
+      },
+      status,
+      hash,
+      get("additionalCharges") || get("additional_charges"),
+    );
+  } catch {
+    /* Unconfigured gateway must fail closed. */
+  }
+  if (!verified) {
+    return NextResponse.redirect(`${BASE_URL}/payment/failure?reason=tampered`, 303);
   }
 
   const payment = await prisma.payment.findFirst({ where: { payuTxnId: txnid } });
   if (!payment) {
-    return NextResponse.redirect(`${BASE_URL}/payment/failure?reason=not_found`);
+    return NextResponse.redirect(`${BASE_URL}/payment/failure?reason=not_found`, 303);
   }
+
+  const returnPath = (payment.metadata as { returnPath?: string } | null)?.returnPath;
+  // Only server-created internal lead routes are accepted.
+  const leadsReturn =
+    returnPath && /^\/user-portal(?:\?propertyId=[a-z0-9]+)?#leads$/.test(returnPath)
+      ? `${BASE_URL}${returnPath}`
+      : null;
 
   // Idempotency — PayU may POST multiple times
   if (payment.status !== "Pending") {
     return NextResponse.redirect(
       payment.status === "Success"
-        ? `${BASE_URL}/payment/success?txnid=${txnid}`
+        ? (leadsReturn ?? `${BASE_URL}/payment/success?txnid=${txnid}`)
         : `${BASE_URL}/payment/failure?txnid=${txnid}`,
+      303,
     );
   }
 
-  const userId = udf1 || payment.userId;
-  const meta   = payment.metadata as { credits?: number; type?: string; validityDays?: number; planName?: string; planId?: string; cycle?: string } | null;
+  const userId = payment.userId;
+  const meta = payment.metadata as {
+    credits?: number;
+    type?: string;
+    validityDays?: number;
+    planName?: string;
+    planId?: string;
+    cycle?: string;
+  } | null;
 
   if (status === "success") {
     // Defense in depth: the hash makes `amount` authentic to PayU, but also
@@ -78,34 +95,38 @@ export async function POST(req: NextRequest) {
     // Stored amount is paise (BigInt); PayU sends rupees as a decimal string.
     const paidPaise = Math.round(Number(amount) * 100);
     if (!Number.isFinite(paidPaise) || paidPaise !== Number(payment.amount)) {
-      return NextResponse.redirect(`${BASE_URL}/payment/failure?txnid=${txnid}&reason=amount_mismatch`);
+      return NextResponse.redirect(
+        `${BASE_URL}/payment/failure?txnid=${txnid}&reason=amount_mismatch`,
+        303,
+      );
     }
 
     if (meta?.type === "owner_subscription") {
       // Owner subscription — create Subscription record
       const validityDays = meta.validityDays ?? 30;
-      const now     = new Date();
+      const now = new Date();
       const endDate = new Date(now);
       endDate.setDate(endDate.getDate() + validityDays);
 
-      await Promise.all([
-        prisma.payment.update({
-          where: { id: payment.id },
+      await prisma.$transaction(async (tx) => {
+        const claimed = await tx.payment.updateMany({
+          where: { id: payment.id, status: "Pending" },
           data: { status: "Success", payuMihpayId: mihpayid || null },
-        }),
-        prisma.subscription.create({
+        });
+        if (!claimed.count) return;
+        await tx.subscription.create({
           data: {
             userId,
-            planId:   meta.planId ?? udf2,
+            planId: meta.planId ?? udf2,
             planName: meta.planName ?? productinfo,
-            amount:   payment.amount,
-            status:   "Active",
-            cycle:    meta.cycle ?? "monthly",
+            amount: payment.amount,
+            status: "Active",
+            cycle: meta.cycle ?? "monthly",
             startDate: now,
             endDate,
           },
-        }),
-      ]);
+        });
+      });
 
       // Auto ₹500 commission to the attributed sales rep (self-serve channel).
       // Best-effort — never blocks the payment. Load the plan for its type/price;
@@ -126,7 +147,9 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.redirect(
-        `${BASE_URL}/payment/success?txnid=${txnid}&plan=${encodeURIComponent(meta.planName ?? productinfo)}&type=subscription`,
+        leadsReturn ??
+          `${BASE_URL}/payment/success?txnid=${txnid}&plan=${encodeURIComponent(meta.planName ?? productinfo)}&type=subscription`,
+        303,
       );
     }
 
@@ -148,15 +171,20 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.redirect(
       `${BASE_URL}/payment/success?txnid=${txnid}&credits=${credits}`,
+      303,
     );
   }
 
-  await prisma.payment.update({
-    where: { id: payment.id },
+  if (status === "pending") {
+    return NextResponse.redirect(`${BASE_URL}/payment/success?txnid=${txnid}&pending=1`, 303);
+  }
+  await prisma.payment.updateMany({
+    where: { id: payment.id, status: "Pending" },
     data: { status: "Failed" },
   });
 
   return NextResponse.redirect(
     `${BASE_URL}/payment/failure?txnid=${txnid}&reason=${encodeURIComponent(status)}`,
+    303,
   );
 }

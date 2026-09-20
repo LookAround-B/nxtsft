@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { ListingInsights } from "@/components/ListingInsights";
 import Image from "next/image";
 import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { useRouter } from "next/navigation";
@@ -558,6 +559,8 @@ export function MyListingsTab() {
                     <WatermarkOverlay src={img} />
                   </div>
                   <div className="p-4">
+                    <ListingInsights propertyId={p.id} />
+                    <Link href={`/user-portal?propertyId=${encodeURIComponent(p.id)}#leads`} className="mb-3 inline-block text-sm font-semibold text-accent underline">View Leads →</Link>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-navy">{p.title}</div>
@@ -573,15 +576,6 @@ export function MyListingsTab() {
                         <Badge tone="warm">
                           <span className="flex items-center gap-1"><Clock size={11} /> Changes under review</span>
                         </Badge>
-                      )}
-                      <Badge tone="new">
-                        <span className="flex items-center gap-1"><Eye size={11} /> {p.views} views</span>
-                      </Badge>
-                      {p._count && (
-                        <>
-                          <Badge tone="hot">{p._count.leads} interested</Badge>
-                          <Badge tone="warm">{p._count.favoritedBy} wishlisted</Badge>
-                        </>
                       )}
                       {p.bhk && <Badge tone="default">{p.bhk}</Badge>}
                       {boostIsActive(p.boostTier ?? null, p.boostExpiry ?? null) && (

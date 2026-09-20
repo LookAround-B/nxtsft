@@ -1,3 +1,5 @@
+import { hasSellerContactAccess } from "../sellerInsights";
+import { maskContact } from "../sellerContactPolicy";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
@@ -63,11 +65,11 @@ export const leadsRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      let property: { title: string; owner: { phone: string | null } | null } | null = null;
+      let property: { ownerId: string; title: string; owner: { phone: string | null } | null } | null = null;
       if (input.propertyId) {
         property = await prisma.property.findFirst({
           where: { id: input.propertyId, deletedAt: null },
-          select: { title: true, owner: { select: { phone: true } } },
+          select: { ownerId: true, title: true, owner: { select: { phone: true } } },
         });
         if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
       }
@@ -76,6 +78,7 @@ export const leadsRouter = router({
         data: {
           propertyId: input.propertyId,
           userId: ctx.user.id,
+          buyerUserId: ["user", "home-seller", "agent"].includes(ctx.user.role) ? ctx.user.id : null,
           name: input.name,
           phone: input.phone,
           email: input.email,
@@ -93,16 +96,21 @@ export const leadsRouter = router({
       // Best-effort WhatsApp: alert the owner of the new lead, ack the buyer.
       // No-ops until the template env vars are set (see docs). Never awaited.
       if (property) {
-        void sendTemplateIfConfigured(
-          "BHASHSMS_TEMPLATE_NEW_LEAD_ALERT",
-          property.owner?.phone,
-          [input.name, input.phone, property.title],
-        );
-        void sendTemplateIfConfigured(
-          "BHASHSMS_TEMPLATE_ENQUIRY_ACK",
-          input.phone,
-          [input.name, property.title],
-        );
+        try {
+          const preview = maskContact({ name: input.name, phone: input.phone }, await hasSellerContactAccess(property.ownerId));
+          void sendTemplateIfConfigured(
+            "BHASHSMS_TEMPLATE_NEW_LEAD_ALERT",
+            property.owner?.phone,
+            [preview.name, preview.phone ?? "Contact locked", property.title],
+          );
+          void sendTemplateIfConfigured(
+            "BHASHSMS_TEMPLATE_ENQUIRY_ACK",
+            input.phone,
+            [input.name, property.title],
+          );
+        } catch {
+          // The enquiry is saved; a failed entitlement lookup must not leak contacts or invite a duplicate submission.
+        }
       }
 
       return lead;

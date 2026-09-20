@@ -23,6 +23,7 @@ import { useAuth } from "@/lib/auth";
 import { usePortalGuard } from "@/lib/use-portal-guard";
 import { trpc } from "@/lib/trpc";
 import { OverviewDashboard } from "@/components/user-portal/tabs/OverviewDashboard";
+import { WatchingTab } from "@/components/user-portal/tabs/WatchingTab";
 import { SavedTab } from "@/components/user-portal/tabs/SavedTab";
 import { MyListingsTab } from "@/components/user-portal/tabs/MyListingsTab";
 import { RecentlyViewedTab } from "@/components/user-portal/tabs/RecentlyViewedTab";
@@ -65,6 +66,7 @@ export default function UserPortal() {
     { label: "Overview",         to: "/user-portal",          icon: <HomeIcon size={14} />, group: "Overview" },
 
     { label: "Saved",            to: "/user-portal#saved",    icon: <Heart size={14} />, group: "My Search", badge: b?.saved },
+    { label: "Watching", to: "/user-portal#watching", icon: <Bell size={14} /> },
     { label: "Recently Viewed",  to: "/user-portal#viewed",   icon: <Eye size={14} /> },
     { label: "Search Alerts",    to: "/user-portal#alerts",   icon: <Bell size={14} /> },
     { label: "Scheduled Tours",  to: "/user-portal#visits",   icon: <Calendar size={14} />, badge: b?.tours },
@@ -109,6 +111,7 @@ export default function UserPortal() {
 
 function renderTab(h: string, isSeller: boolean) {
   switch (h) {
+    case "watching": return <WatchingTab />;
     case "saved":   return <SavedTab />;
     case "mylist":  return <MyListingsTab />;
     // Hash-gated the same way the nav item is — the hash is guessable and

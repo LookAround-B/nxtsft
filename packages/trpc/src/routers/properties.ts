@@ -1,3 +1,4 @@
+import { buyerLeadWhere } from "../sellerInsights";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -298,6 +299,8 @@ export const propertiesRouter = router({
   engagement: publicProcedure
     .input(z.object({ id: cuidSchema }))
     .query(async ({ input }) => {
+      const visible = await prisma.property.findFirst({ where: { id: input.id, status: "Active", deletedAt: null }, select: { id: true } });
+      if (!visible) throw new TRPCError({ code: "NOT_FOUND" });
       const propertyId = input.id;
       const since7d = new Date(Date.now() - 7 * 86_400_000);
       const unlockWhere = { propertyId, reason: "contact_unlock" } as const;
@@ -305,7 +308,7 @@ export const propertiesRouter = router({
       const [leads, favorites, unlocks, interested, wishlisted, contactRequested, l7, f7, u7] =
         await Promise.all([
           prisma.lead.findMany({
-            where: { propertyId }, orderBy: { createdAt: "desc" }, take: 8,
+            where: { propertyId, ...buyerLeadWhere }, orderBy: { createdAt: "desc" }, take: 8,
             select: { name: true, createdAt: true, user: { select: { name: true } } },
           }),
           prisma.favorite.findMany({
@@ -316,10 +319,10 @@ export const propertiesRouter = router({
             where: unlockWhere, orderBy: { createdAt: "desc" }, take: 8,
             select: { userId: true, createdAt: true },
           }),
-          prisma.lead.count({ where: { propertyId } }),
+          prisma.lead.count({ where: { propertyId, ...buyerLeadWhere } }),
           prisma.favorite.count({ where: { propertyId } }),
           prisma.creditTransaction.count({ where: unlockWhere }),
-          prisma.lead.count({ where: { propertyId, createdAt: { gte: since7d } } }),
+          prisma.lead.count({ where: { propertyId, ...buyerLeadWhere, createdAt: { gte: since7d } } }),
           prisma.favorite.count({ where: { propertyId, createdAt: { gte: since7d } } }),
           prisma.creditTransaction.count({ where: { ...unlockWhere, createdAt: { gte: since7d } } }),
         ]);
@@ -506,15 +509,8 @@ export const propertiesRouter = router({
       const sellerBadges =
         property.status === TEST_LISTING_STATUS ? true : await hasSellerBadges(property.ownerId);
 
-      const boosted = property.featured || boostIsActive(property.boostTier, property.boostExpiry);
-
-      // Fabricated social-proof numbers ("Activity On This Property" + the
-      // viewed/viewing badges) are a boost perk, nothing else: no boost, no
-      // counts, so they stay a reason to buy one. A running boost, an admin
-      // feature push to the home page, or a dummy listing turns them on.
-      // Deliberately NOT keyed on freeListing — that flag only marks the rep
-      // Fresh Lead path, so it can't tell a paid listing from an unpaid one.
-      const showActivity = property.status === TEST_LISTING_STATUS || boosted;
+      // Insights are available on every live listing, including free listings.
+      const showActivity = property.status === "Active";
 
       return serializeProperty({ ...property, sellerBadges, showActivity });
     }),

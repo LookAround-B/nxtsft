@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { Head } from "./shared";
 
 type Visit = {
+  contactUnlocked: boolean;
   id: string;
   scheduledAt: string;
   status: string;
@@ -93,7 +94,7 @@ export function SellerVisitsTab() {
                             <>
                               <span className="text-border">·</span>
                               <a
-                                href={`tel:${v.buyer.phone}`}
+                                href={v.contactUnlocked ? `tel:${v.buyer.phone}` : "/user-portal#leads"}
                                 className="inline-flex items-center gap-1 font-bold text-accent hover:underline"
                               >
                                 <Phone size={11} /> {v.buyer.phone}

@@ -27,7 +27,6 @@ import {
   Maximize2,
   ImageOff,
   Eye,
-  Flame,
   Users,
   UtensilsCrossed,
   Rotate3d,
@@ -43,7 +42,6 @@ import { PhotoUnavailable } from "@/components/ui/PhotoUnavailable";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { trpc } from "@/lib/trpc";
 import { formatArea } from "@/lib/area";
-import { propertyActivity } from "@/lib/propertyActivity";
 import { ShareMenu } from "@/components/ShareMenu";
 import { amenityIcon } from "@/data/amenities";
 import { useAuth } from "@/lib/auth";
@@ -167,67 +165,6 @@ function PgFact({ icon, label, value }: { icon: React.ReactNode; label: string; 
       <div className="flex items-center gap-1.5 text-accent">{icon}</div>
       <div className="mt-1.5 text-sm font-bold text-navy">{value}</div>
       <div className="text-[10px] text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
-/* Simulated live viewer badge — random jitter every 45s, seeded by viewBase.
-   Gated by `show` (properties.get → showActivity): unpaid listings get no
-   fabricated counts, same rule as PropertyEngagement. */
-function ViewerBadge({
-  propertyId,
-  createdAt,
-  viewBase,
-  show,
-}: {
-  propertyId: string;
-  createdAt: string;
-  viewBase: number;
-  show: boolean;
-}) {
-  const seed = (viewBase % 9) + 3; // 3–11 starting live count
-  const [live, setLive] = useState(seed);
-  // Mass (total) views must always exceed Unique Views shown in "Activity On
-  // This Property". Both derive from the same fabricated source so they stay
-  // consistent: total = unique viewers × a repeat-view factor (1.3–1.6×).
-  // Computed after mount (date-dependent) to avoid SSR/CSR hydration mismatch.
-  const [massViews, setMassViews] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!show) return;
-    const activity = propertyActivity(propertyId, new Date(createdAt));
-    const factor = 1.3 + (viewBase % 4) * 0.1; // 1.3–1.6, deterministic per listing
-    setMassViews(Math.round(activity.counts.views * factor));
-  }, [propertyId, createdAt, viewBase, show]);
-
-  useEffect(() => {
-    const tick = () => {
-      setLive((n) => {
-        const delta = Math.random() < 0.5 ? 1 : -1;
-        return Math.max(2, Math.min(18, n + delta));
-      });
-    };
-    const id = setInterval(tick, 38_000 + Math.random() * 14_000);
-    return () => clearInterval(id);
-  }, []);
-
-  if (!show) return null;
-
-  return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      {massViews !== null && massViews > 0 && (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200 px-3 py-1 text-xs font-semibold text-orange-700">
-          <Flame size={12} className="text-orange-500" />
-          {massViews.toLocaleString("en-IN")} people viewed this month
-        </span>
-      )}
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/8 border border-accent/20 px-3 py-1 text-xs font-semibold text-accent">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-        </span>
-        {live} people viewing right now
-      </span>
     </div>
   );
 }
@@ -769,24 +706,11 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                 )}
 
               {/* Social-proof viewer badge */}
-              <ViewerBadge
-                propertyId={property.id}
-                createdAt={property.createdAt}
-                viewBase={property.viewBase}
-                show={property.showActivity ?? false}
-              />
             </div>
 
             {/* Activity on this property (fabricated social proof — Active,
                 paid/boosted/featured only) */}
-            <PropertyEngagement
-              propertyId={property.id}
-              createdAt={property.createdAt}
-              status={property.status}
-              state={property.location.state}
-              city={property.location.city}
-              show={property.showActivity ?? false}
-            />
+            <PropertyEngagement propertyId={property.id} status={property.status} />
 
             {/* Report incorrect info */}
             <PropertyReport propertyId={property.id} />

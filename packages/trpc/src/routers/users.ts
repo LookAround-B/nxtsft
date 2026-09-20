@@ -1,3 +1,5 @@
+import { hasSellerContactAccess, buyerLeadWhere } from "../sellerInsights";
+import { maskContact } from "../sellerContactPolicy";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -530,13 +532,14 @@ export const usersRouter = router({
       }),
       prisma.property.count({ where: { ownerId: ctx.user.id, deletedAt: null } }),
       prisma.lead.count({
-        where: { status: "New", property: { is: { ownerId: ctx.user.id, deletedAt: null } } },
+        where: { status: "New", ...buyerLeadWhere, property: { is: { ownerId: ctx.user.id, deletedAt: null } } },
       }),
     ]);
     return { saved, tours, openTickets, myListings, sellerNewLeads };
   }),
 
   sellerLeads: protectedProcedure.query(async ({ ctx }) => {
+    const unlocked = await hasSellerContactAccess(ctx.user.id);
     const myProps = await prisma.property.findMany({
       where: { ownerId: ctx.user.id, deletedAt: null },
       select: { id: true, title: true, slug: true },
@@ -545,7 +548,7 @@ export const usersRouter = router({
     const byId = new Map(myProps.map((p) => [p.id, p]));
 
     const leads = await prisma.lead.findMany({
-      where: { propertyId: { in: myProps.map((p) => p.id) } },
+      where: { propertyId: { in: myProps.map((p) => p.id) }, ...buyerLeadWhere },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -563,7 +566,8 @@ export const usersRouter = router({
     });
 
     return leads.map((l) => ({
-      ...l,
+      ...maskContact(l, unlocked),
+      interest: unlocked ? l.interest : null,
       property: l.propertyId ? (byId.get(l.propertyId) ?? null) : null,
     }));
   }),
@@ -572,6 +576,7 @@ export const usersRouter = router({
   // `siteVisits` above). SiteVisit has no Prisma relation to Property or the
   // buyer User, so we join both manually by id.
   sellerVisits: protectedProcedure.query(async ({ ctx }) => {
+    const unlocked = await hasSellerContactAccess(ctx.user.id);
     const myProps = await prisma.property.findMany({
       where: { ownerId: ctx.user.id, deletedAt: null },
       select: { id: true, title: true, slug: true, location: { select: { city: true } } },
@@ -595,9 +600,10 @@ export const usersRouter = router({
       id: v.id,
       scheduledAt: v.scheduledAt,
       status: v.status,
-      notes: v.notes,
+      notes: unlocked ? v.notes : null,
+      contactUnlocked: unlocked,
       property: propById.get(v.propertyId) ?? null,
-      buyer: buyerById.get(v.userId) ?? null,
+      buyer: buyerById.has(v.userId) ? maskContact(buyerById.get(v.userId)!, unlocked) : null,
     }));
   }),
 
@@ -605,6 +611,7 @@ export const usersRouter = router({
   // sellerLeads (formal enquiry-form submissions). Buyer identity resolved
   // from CreditTransaction the same way properties.engagement already does.
   sellerUnlocks: protectedProcedure.query(async ({ ctx }) => {
+    const unlocked = await hasSellerContactAccess(ctx.user.id);
     const myProps = await prisma.property.findMany({
       where: { ownerId: ctx.user.id, deletedAt: null },
       select: { id: true, title: true, slug: true },
@@ -627,7 +634,7 @@ export const usersRouter = router({
     const buyerById = new Map(buyers.map((b) => [b.id, b]));
 
     return unlocks.map((u) => ({
-      buyer: buyerById.get(u.userId) ?? null,
+      buyer: buyerById.has(u.userId) ? maskContact(buyerById.get(u.userId)!, unlocked) : null,
       property: u.propertyId ? propById.get(u.propertyId) ?? null : null,
       createdAt: u.createdAt,
     }));
@@ -645,9 +652,9 @@ export const usersRouter = router({
 
     const [leadsReceived, newLeadsThisWeek, visitsBooked, upcomingVisits] = propIds.length
       ? await Promise.all([
-          prisma.lead.count({ where: { propertyId: { in: propIds } } }),
+          prisma.lead.count({ where: { propertyId: { in: propIds }, ...buyerLeadWhere } }),
           prisma.lead.count({
-            where: { propertyId: { in: propIds }, createdAt: { gte: weekAgo } },
+            where: { propertyId: { in: propIds }, ...buyerLeadWhere, createdAt: { gte: weekAgo } },
           }),
           prisma.siteVisit.count({ where: { propertyId: { in: propIds } } }),
           prisma.siteVisit.count({

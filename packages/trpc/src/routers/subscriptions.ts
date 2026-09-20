@@ -1,3 +1,5 @@
+import { ownedSellerProperties } from "../sellerInsights";
+import { sellerLeadsReturnPath } from "../sellerContactPolicy";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -50,6 +52,12 @@ async function findSeekerPlan(planId: string) {
 }
 
 export const subscriptionsRouter = router({
+  ownerPaymentStatus: protectedProcedure.input(z.object({ txnid: safeString(200, 1) })).query(async ({ input, ctx }) => {
+    const payment = await prisma.payment.findFirst({ where: { payuTxnId: input.txnid, userId: ctx.user.id }, select: { status: true, metadata: true } });
+    if (!payment) throw new TRPCError({ code: "NOT_FOUND" });
+    const meta = payment.metadata as { returnPath?: string } | null;
+    return { status: payment.status, returnPath: payment.status === "Success" ? meta?.returnPath ?? "/user-portal" : null };
+  }),
   // List available plans — DB is the single source of truth (managed via the
   // Plans Manager). No static fallback: an unseeded DB shows no plans.
   plans: publicProcedure
@@ -325,8 +333,10 @@ export const subscriptionsRouter = router({
 
   // Create a Razorpay order for an owner/landlord subscription plan
   createOwnerOrder: protectedProcedure
-    .input(z.object({ planId: z.string().min(1) }))
+    .input(z.object({ planId: z.string().min(1), leadsReturn: z.object({ propertyId: cuidSchema.optional() }).optional() }))
     .mutation(async ({ input, ctx }) => {
+      if (input.leadsReturn?.propertyId) await ownedSellerProperties(ctx.user.id, input.leadsReturn.propertyId);
+      const returnPath = input.leadsReturn ? sellerLeadsReturnPath(input.leadsReturn.propertyId) : null;
       const plan = await findOwnerPlan(input.planId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
@@ -369,7 +379,7 @@ export const subscriptionsRouter = router({
           gateway: "razorpay",
           razorpayOrderId: order.id,
           description: `${plan.name} subscription`,
-          metadata: { planId: input.planId, type: "owner_subscription" },
+          metadata: { returnPath, planId: input.planId, type: "owner_subscription" },
         },
       });
 
@@ -390,8 +400,10 @@ export const subscriptionsRouter = router({
 
   // Create a PayU order for an owner subscription plan (redirect flow)
   createOwnerPayUOrder: protectedProcedure
-    .input(z.object({ planId: z.string().min(1) }))
+    .input(z.object({ planId: z.string().min(1), leadsReturn: z.object({ propertyId: cuidSchema.optional() }).optional() }))
     .mutation(async ({ input, ctx }) => {
+      if (input.leadsReturn?.propertyId) await ownedSellerProperties(ctx.user.id, input.leadsReturn.propertyId);
+      const returnPath = input.leadsReturn ? sellerLeadsReturnPath(input.leadsReturn.propertyId) : null;
       const plan = await findOwnerPlan(input.planId);
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
@@ -420,7 +432,7 @@ export const subscriptionsRouter = router({
           payuTxnId: txnid,
           description: `${plan.name} subscription`,
           // type + validityDays stored so callback can create Subscription without importing plan data
-          metadata: { planId: input.planId, type: "owner_subscription", validityDays: plan.validityDays, planName: plan.name, cycle: plan.cycle },
+          metadata: { returnPath, planId: input.planId, type: "owner_subscription", validityDays: plan.validityDays, planName: plan.name, cycle: plan.cycle },
         },
       });
 
@@ -469,13 +481,6 @@ export const subscriptionsRouter = router({
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Payment gateway not configured." });
       }
 
-      const existingPayment = await prisma.payment.findFirst({
-        where: { razorpayId: input.razorpayPaymentId },
-      });
-      if (existingPayment) {
-        throw new TRPCError({ code: "CONFLICT", message: "Payment already processed." });
-      }
-
       // Bind the plan to the pending order — never trust the client planId (see
       // verifyPayment). Prevents paying for a cheap tier then activating a higher
       // one via a replayed-but-valid signature.
@@ -485,6 +490,12 @@ export const subscriptionsRouter = router({
       if (!pendingOrder) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Order not found." });
       }
+      const returnPath = (pendingOrder.metadata as { returnPath?: string } | null)?.returnPath ?? null;
+      if (pendingOrder.status === "Success") {
+        if (pendingOrder.razorpayId !== input.razorpayPaymentId) throw new TRPCError({ code: "CONFLICT", message: "Order already processed." });
+        return { ok: true, returnPath };
+      }
+      if (pendingOrder.status !== "Pending") throw new TRPCError({ code: "CONFLICT", message: "Order is no longer pending." });
       const boundPlanId = (pendingOrder.metadata as { planId?: string } | null)?.planId;
       if (!boundPlanId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Order is missing plan information." });
@@ -497,36 +508,19 @@ export const subscriptionsRouter = router({
       const endDate = new Date(now);
       endDate.setDate(endDate.getDate() + plan.validityDays);
 
-      await Promise.all([
-        prisma.subscription.create({
-          data: {
-            userId: ctx.user.id,
-            planId: boundPlanId,
-            planName: plan.name,
-            amount: BigInt(plan.price * 100),
-            status: "Active",
-            cycle: plan.cycle,
-            razorpayId: input.razorpayPaymentId,
-            razorpayOrderId: input.razorpayOrderId,
-            startDate: now,
-            endDate,
-          },
-        }),
-        prisma.payment.upsert({
-          where: { razorpayOrderId: input.razorpayOrderId },
-          update: { status: "Success", razorpayId: input.razorpayPaymentId },
-          create: {
-            userId: ctx.user.id,
-            amount: BigInt(plan.price * 100),
-            status: "Success",
-            method: "Razorpay",
-            gateway: "razorpay",
-            razorpayId: input.razorpayPaymentId,
-            razorpayOrderId: input.razorpayOrderId,
-            description: `${plan.name} subscription`,
-          },
-        }),
-      ]);
+      await prisma.$transaction(async tx => {
+        const claimed = await tx.payment.updateMany({
+          where: { id: pendingOrder.id, status: "Pending" },
+          data: { status: "Success", razorpayId: input.razorpayPaymentId },
+        });
+        if (!claimed.count) return;
+        await tx.subscription.create({ data: {
+          userId: ctx.user.id, planId: boundPlanId, planName: plan.name,
+          amount: pendingOrder.amount, status: "Active", cycle: plan.cycle,
+          razorpayId: input.razorpayPaymentId, razorpayOrderId: input.razorpayOrderId,
+          startDate: now, endDate,
+        } });
+      });
 
       // Auto ₹500 commission to the attributed sales rep (owner/designer/decor
       // are all subscription types, so this qualifies here). Best-effort.
@@ -536,7 +530,7 @@ export const subscriptionsRouter = router({
         { paymentId: input.razorpayPaymentId },
       );
 
-      return { ok: true, planName: plan.name, endDate };
+      return { ok: true, planName: plan.name, endDate, returnPath };
     }),
 
   // Create a Razorpay order for a designer/decor "Business Listing" plan.

@@ -1,6 +1,7 @@
 "use client";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { trpc } from "@/lib/trpc";
 import { CheckCircle, Mail, ArrowRight } from "lucide-react";
 
 function SuccessContent() {
@@ -11,16 +12,29 @@ function SuccessContent() {
   const txnid   = params.get("txnid");
   const type    = params.get("type"); // "subscription" | "credits"
 
+  const pending = params.get("pending") === "1";
+  const payment = trpc.subscriptions.ownerPaymentStatus.useQuery({ txnid: txnid ?? "" }, { enabled: pending && !!txnid, refetchInterval: pending ? 3000 : false, retry: false });
+  useEffect(() => {
+    if (pending && payment.data?.status === "Success") router.replace(payment.data.returnPath ?? "/user-portal");
+  }, [pending, payment.data, router]);
+
   const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
+    if (pending) return;
     if (countdown <= 0) {
       router.replace("/user-portal");
       return;
     }
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(t);
-  }, [countdown, router]);
+  }, [countdown, router, pending]);
+
+  if (pending) return <div className="mx-auto max-w-md space-y-4 px-5 py-20 text-center">
+    <h1 className="text-2xl font-bold">{payment.data?.status === "Failed" ? "Payment unsuccessful" : "Payment verification pending"}</h1>
+    <p>{payment.isError ? "Sign in to check this payment, or return to your dashboard." : "Your contacts will unlock after payment is confirmed. You can check back from your dashboard."}</p>
+    <button className="rounded-lg bg-accent px-5 py-3 text-white" onClick={() => router.replace("/user-portal#leads")}>Go to Leads</button>
+  </div>;
 
   const isSubscription = type === "subscription";
 

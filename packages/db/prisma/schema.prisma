@@ -53,6 +53,10 @@ model User {
   leads                 Lead[]                 @relation("LeadUser")
   assignedLeads         Lead[]                 @relation("LeadAssignee")
   messages              Message[]
+  propertyWatches       PropertyWatch[]
+  buyerRequests         Lead[] @relation("LeadBuyer")
+  sentContactShares     SellerContactShare[] @relation("ContactShareSeller")
+  receivedContactShares SellerContactShare[] @relation("ContactShareBuyer")
   favorites             Favorite[]
   reviews               Review[]
   reviewHelpfulVotes    ReviewHelpful[]
@@ -107,6 +111,8 @@ model Session {
 // ═══════════════════════════════════════════════════════════════════════════
 
 model Property {
+  watchers PropertyWatch[]
+  contactShares SellerContactShare[]
   id          String  @id @default(cuid())
   slug        String  @unique
   title       String
@@ -303,6 +309,9 @@ model Listing {
 }
 
 model Lead {
+  // Explicit recipient; userId can instead be the staff member who created a CRM lead.
+  buyerUserId String?
+  buyer User? @relation("LeadBuyer", fields: [buyerUserId], references: [id], onDelete: SetNull)
   id String @id @default(cuid())
 
   // Optional: a referral-sourced lead (general "looking for a home", no
@@ -1300,4 +1309,29 @@ model RepCall {
 
   @@index([repId, createdAt])
   @@index([contactId, createdAt])
+}
+
+
+model PropertyWatch {
+  id String @id @default(cuid())
+  userId String
+  propertyId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([userId, propertyId])
+  @@index([propertyId])
+}
+
+model SellerContactShare {
+  id String @id @default(cuid())
+  sellerId String
+  buyerId String
+  propertyId String
+  seller User @relation("ContactShareSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  buyer User @relation("ContactShareBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([sellerId, buyerId, propertyId])
+  @@index([propertyId])
 }

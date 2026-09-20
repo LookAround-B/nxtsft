@@ -1,3 +1,4 @@
+import { sellerInsightsRouter } from "./routers/sellerInsights";
 import { router } from "./server";
 import { authRouter } from "./routers/auth";
 import { propertiesRouter } from "./routers/properties";
@@ -31,6 +32,7 @@ import { couponsRouter } from "./routers/coupons";
 import { channelCodesRouter } from "./routers/channelCodes";
 
 export const appRouter = router({
+  sellerInsights: sellerInsightsRouter,
   auth: authRouter,
   properties: propertiesRouter,
   builders: buildersRouter,

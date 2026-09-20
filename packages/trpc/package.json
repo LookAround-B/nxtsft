@@ -15,7 +15,8 @@
     "./dailyLeadReport": "./src/dailyLeadReport.ts",
     "./whatsapp": "./src/whatsapp.ts",
     "./bhashsms": "./src/bhashsms.ts",
-    "./waBroadcast": "./src/waBroadcast.ts"
+    "./waBroadcast": "./src/waBroadcast.ts",
+    "./payu": "./src/payu.ts"
   },
   "dependencies": {
     "@nxtsft/db": "workspace:*",

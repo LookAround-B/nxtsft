@@ -105,11 +105,13 @@ export default function PricingPage() {
       toast.error("Please sign in to purchase a plan.");
       return;
     }
+    const params = new URLSearchParams(window.location.search);
+    const leadsReturn = params.get("source") === "masked-leads" ? { propertyId: params.get("propertyId") || undefined } : undefined;
     const gateway = gatewayQ.data?.gateway ?? "razorpay";
     setBuyingPlanId(plan.id);
     try {
       if (gateway === "razorpay") {
-        const order = await createOwnerOrder.mutateAsync({ planId: plan.id });
+        const order = await createOwnerOrder.mutateAsync({ planId: plan.id, leadsReturn });
         await openRazorpayCheckout({
           keyId: order.keyId,
           orderId: order.orderId,
@@ -119,14 +121,14 @@ export default function PricingPage() {
           onDismiss: () => setBuyingPlanId(null),
           onSuccess: async (resp) => {
             try {
-              await verifyOwnerPayment.mutateAsync({
+              const result = await verifyOwnerPayment.mutateAsync({
                 razorpayOrderId: resp.razorpay_order_id,
                 razorpayPaymentId: resp.razorpay_payment_id,
                 razorpaySignature: resp.razorpay_signature,
                 planId: plan.id,
               });
               router.push(
-                `/payment/success?plan=${encodeURIComponent(plan.name)}&type=subscription`,
+                result.returnPath ?? `/payment/success?plan=${encodeURIComponent(plan.name)}&type=subscription`,
               );
             } catch (verifyErr) {
               toast.error(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.");
@@ -137,7 +139,7 @@ export default function PricingPage() {
         });
       } else {
         // PayU — redirect flow
-        const fields = await createOwnerPayUOrder.mutateAsync({ planId: plan.id });
+        const fields = await createOwnerPayUOrder.mutateAsync({ planId: plan.id, leadsReturn });
         submitPayUForm(fields);
       }
     } catch (err) {
