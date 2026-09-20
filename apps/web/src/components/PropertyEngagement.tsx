@@ -1,15 +1,21 @@
 "use client";
 import { trpc } from "@/lib/trpc";
-import { InsightsBar } from "./ListingInsights";
+import { DemoPropertyActivity } from "./ListingInsights";
 import { WatchPropertyButton } from "./WatchPropertyButton";
 
 export function PropertyEngagement({
   propertyId,
   status,
+  createdAt,
+  region,
+  freeListing,
   className,
 }: {
   propertyId: string;
   status: string;
+  createdAt: string;
+  region: { state: string; city: string; locality?: string | null };
+  freeListing: boolean;
   className?: string;
 }) {
   const metrics = trpc.sellerInsights.publicMetrics.useQuery(
@@ -27,7 +33,13 @@ export function PropertyEngagement({
     >
       <h3 className="font-display text-base font-bold text-navy">Activity On This Property</h3>
       {metrics.data ? (
-        <InsightsBar counts={metrics.data} />
+        <DemoPropertyActivity
+          propertyId={propertyId}
+          createdAt={createdAt}
+          freeListing={freeListing}
+          region={region}
+          counts={metrics.data}
+        />
       ) : metrics.isError ? (
         <p role="alert">
           Insights unavailable.{" "}

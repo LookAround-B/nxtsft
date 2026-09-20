@@ -1,17 +1,7 @@
-// Deterministic, fabricated "social proof" activity for a property listing (GOL-123).
-//
-// The client wanted realistic-looking engagement numbers that change every day,
-// plus a rotating feed of buyer names. There is no real per-property tracking
-// behind this — everything is derived purely from the property id + the current
-// date, so it is:
-//   • stable within a single day (same numbers on every render / every visitor),
-//   • monotonically trending up as the listing ages (never looks "dead"),
-//   • rotated daily (the name feed reshuffles each calendar day).
-//
-// Only shown on Active listings (the caller gates on status). "Dummy"/non-active
-// listings get nothing — see PropertyEngagement.
+// Deterministic sample activity for the explicitly labeled demo section.
+// These names and counts are not recorded buyer activity.
 
-import { NAMES_BY_STATE, DEFAULT_NAMES, type DummyName } from "@/data/dummyNames";
+import { NAMES_BY_STATE, type DummyName } from "@/data/dummyNames";
 
 export type ActivityAction = "interested" | "wishlisted" | "contact";
 
@@ -19,23 +9,52 @@ export type ActivityAction = "interested" | "wishlisted" | "contact";
 // so the region-name lookup has to fall back to the city. Maps each city the
 // listing form offers to the state whose name pool it should draw from.
 const CITY_TO_STATE: Record<string, string> = {
-  Mumbai: "Maharashtra", Pune: "Maharashtra", Bengaluru: "Karnataka",
-  Bangalore: "Karnataka", Hyderabad: "Telangana", Chennai: "Tamil Nadu",
-  "Delhi NCR": "Delhi", Delhi: "Delhi", Noida: "Uttar Pradesh",
-  Gurgaon: "Haryana", Gurugram: "Haryana", Ahmedabad: "Gujarat",
-  Surat: "Gujarat", Kolkata: "West Bengal", Kochi: "Kerala",
-  Jaipur: "Rajasthan", Lucknow: "Uttar Pradesh",
+  Mumbai: "Maharashtra",
+  Pune: "Maharashtra",
+  Bengaluru: "Karnataka",
+  Bangalore: "Karnataka",
+  Hyderabad: "Telangana",
+  Chennai: "Tamil Nadu",
+  "Delhi NCR": "Delhi",
+  Delhi: "Delhi",
+  Noida: "Uttar Pradesh",
+  Gurgaon: "Haryana",
+  Gurugram: "Haryana",
+  Ahmedabad: "Gujarat",
+  Surat: "Gujarat",
+  Kolkata: "West Bengal",
+  Kochi: "Kerala",
+  Jaipur: "Rajasthan",
+  Lucknow: "Uttar Pradesh",
+  Mangalore: "Karnataka",
+  Mangaluru: "Karnataka",
+  Warangal: "Telangana",
+  Visakhapatnam: "Andhra Pradesh",
+  Vishakhapatnam: "Andhra Pradesh",
+  Vishakapatnam: "Andhra Pradesh",
+  Amaravati: "Andhra Pradesh",
+  Haridwar: "Uttarakhand",
 };
 
 // Resolve the region-appropriate name pool. Prefer an exact state match; else
-// map the city (or a city-valued state field) to its state; else a blend.
-function namePool(state?: string | null, city?: string | null): DummyName[] {
-  if (state && NAMES_BY_STATE[state]) return NAMES_BY_STATE[state];
-  for (const v of [city, state]) {
-    const mapped = v ? CITY_TO_STATE[v.trim()] : undefined;
-    if (mapped && NAMES_BY_STATE[mapped]) return NAMES_BY_STATE[mapped];
+// map the city/locality to its state. Do not substitute unrelated regional names.
+function namePool(
+  state?: string | null,
+  city?: string | null,
+  locality?: string | null,
+): DummyName[] {
+  const matchedState = Object.keys(NAMES_BY_STATE).find(
+    (name) => name.toLowerCase() === state?.trim().toLowerCase(),
+  );
+  if (matchedState) return NAMES_BY_STATE[matchedState];
+  for (const v of [city, state, locality]) {
+    const key = Object.keys(CITY_TO_STATE).find(
+      (name) => name.toLowerCase() === v?.trim().toLowerCase(),
+    );
+    const mapped = key ? CITY_TO_STATE[key] : undefined;
+    if (mapped) return NAMES_BY_STATE[mapped] ?? [];
   }
-  return DEFAULT_NAMES;
+  return [];
 }
 
 export interface ActivityEvent {
@@ -46,7 +65,7 @@ export interface ActivityEvent {
 }
 
 export interface PropertyActivity {
-  counts: { views: number; shortlists: number; contacted: number };
+  counts: { views: number; watching: number; shortlists: number; contacted: number };
   recent: ActivityEvent[];
   trending: boolean;
 }
@@ -87,33 +106,27 @@ function dayNumber(d: Date): number {
 export function propertyActivity(
   propertyId: string,
   createdAt: Date,
-  region?: { state?: string | null; city?: string | null } | null,
+  region?: { state?: string | null; city?: string | null; locality?: string | null } | null,
   now: Date = new Date(),
+  freeListing = true,
 ): PropertyActivity {
   // Region-appropriate buyer names (Hyderabad listing → Telangana names, etc.).
-  const names: DummyName[] = namePool(region?.state, region?.city);
+  const names: DummyName[] = namePool(region?.state, region?.city, region?.locality);
 
   const today = dayNumber(now);
-  const born = dayNumber(createdAt);
-  const ageDays = Math.max(1, today - born);
-
-  // Per-property "personality": a steady views/day rate, fixed for the listing.
+  // Simulated views grow by completed hours since listing creation.
   const base = rng(hash(propertyId));
-  const viewsPerDay = 6 + Math.floor(base() * 13); // 6–18 views/day
-
-  // Daily jitter — keeps the number moving day to day without dropping the trend.
-  const day = rng(hash(`${propertyId}:${today}`));
-  const jitter = Math.floor(day() * viewsPerDay);
-
-  const views = ageDays * viewsPerDay + jitter;
+  const ageHours = Math.max(0, Math.floor((now.getTime() - createdAt.getTime()) / 3_600_000));
+  const views = ageHours * (freeListing ? 1 : 2);
+  const watching = Math.floor(views * 0.03);
   // Realistic conversion ratios: ~1.5% shortlist, ~6% contacted.
-  const shortlists = Math.max(1, Math.round(views * (0.012 + base() * 0.013)));
-  const contacted = Math.max(1, Math.round(views * (0.04 + base() * 0.04)));
+  const shortlists = Math.round(views * (0.012 + base() * 0.013));
+  const contacted = Math.round(views * (0.04 + base() * 0.04));
 
   // Rotating buyer feed: pick a handful of names from the dataset, seeded by the
   // day so it reshuffles every 24h but stays stable within the day.
   const feedRng = rng(hash(`${propertyId}:feed:${today}`));
-  const count = 5 + Math.floor(feedRng() * 4); // 5–8 entries
+  const count = Math.min(names.length, 5 + Math.floor(feedRng() * 4)); // 5–8 entries
   const used = new Set<number>();
   const actions: ActivityAction[] = ["interested", "wishlisted", "contact"];
   const recent: ActivityEvent[] = [];
@@ -141,8 +154,8 @@ export function propertyActivity(
   recent.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
   return {
-    counts: { views, shortlists, contacted },
+    counts: { views, watching, shortlists, contacted },
     recent,
-    trending: viewsPerDay >= 12,
+    trending: views >= 100,
   };
 }

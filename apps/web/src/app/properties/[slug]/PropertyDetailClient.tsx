@@ -710,7 +710,13 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
 
             {/* Activity on this property (fabricated social proof — Active,
                 paid/boosted/featured only) */}
-            <PropertyEngagement propertyId={property.id} status={property.status} />
+            <PropertyEngagement
+              propertyId={property.id}
+              status={property.status}
+              createdAt={property.createdAt}
+              region={property.location}
+              freeListing={property.freeListing}
+            />
 
             {/* Report incorrect info */}
             <PropertyReport propertyId={property.id} />

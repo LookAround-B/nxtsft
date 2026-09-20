@@ -56,4 +56,6 @@ next-env.d.ts
 .env*
 .agents/*
 .claude/*
+StateWiseExcels/
+
 

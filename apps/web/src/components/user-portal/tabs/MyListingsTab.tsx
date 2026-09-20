@@ -25,12 +25,12 @@ type ListingItem = {
   bhk: string | null;
   images: string[];
   createdAt: string;
-  location: { city: string; locality: string } | null;
+  location: { city: string; locality: string; state: string } | null;
   _count?: { leads: number; favoritedBy: number };
   hasPendingEdit?: boolean;
   boostTier?: string | null;
   boostExpiry?: string | null;
-  freeListing?: boolean;
+  freeListing: boolean;
 };
 
 const STARTER_FEATURES = [
@@ -559,7 +559,14 @@ export function MyListingsTab() {
                     <WatermarkOverlay src={img} />
                   </div>
                   <div className="p-4">
-                    <ListingInsights propertyId={p.id} />
+                    <ListingInsights
+                      propertyId={p.id}
+                      demoListing={{
+                        createdAt: p.createdAt,
+                        freeListing: p.freeListing,
+                        region: p.location,
+                      }}
+                    />
                     <Link href={`/user-portal?propertyId=${encodeURIComponent(p.id)}#leads`} className="mb-3 inline-block text-sm font-semibold text-accent underline">View Leads →</Link>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
