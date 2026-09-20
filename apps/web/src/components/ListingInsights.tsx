@@ -31,7 +31,8 @@ export function InsightsBar({
         ))}
       </div>
       <p className="mt-2 text-right text-xs text-muted-foreground">
-        NxtSft Insights · {demo ? "Includes simulated activity" : "Recorded activity"}
+        NxtSft Insights ·{" "}
+        {demo ? "Estimated activity includes simulated interest" : "Recorded activity"}
       </p>
     </div>
   );

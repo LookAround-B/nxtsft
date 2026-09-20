@@ -58,7 +58,7 @@ function SellerLeadsContent() {
         s={
           propertyId
             ? (data?.properties[0]?.title ?? "Buyers interested in your listing.")
-            : "Buyer enquiries, contact unlocks, and site visits across your listings."
+            : "Actual buyer enquiries, contact unlocks, and site visits across your listings."
         }
       />
       {propertyId && (
@@ -82,7 +82,7 @@ function SellerLeadsContent() {
           )}
           {!data.items.length ? (
             <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
-              No buyer requests yet. New enquiries and visits will appear here.
+              No buyer requests yet. Only actual enquiries and visits appear here.
             </div>
           ) : (
             <div className="space-y-4">

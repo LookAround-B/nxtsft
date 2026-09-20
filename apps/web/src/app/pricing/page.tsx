@@ -17,10 +17,7 @@ import { PlanChooser } from "@/components/pricing/PlanChooser";
 import { CTABanner } from "@/components/pricing/CTABanner";
 import { PRICING_TABS, seekerFaqs, ownerSellFaqs } from "@/components/pricing/pricingData";
 
-const TAB_ICONS = [
-  <Building2 size={15} key="b" />,
-  <Users size={15} key="u" />,
-];
+const TAB_ICONS = [<Building2 size={15} key="b" />, <Users size={15} key="u" />];
 
 function PlanSkeletons({ count }: { count: number }) {
   return (
@@ -106,7 +103,10 @@ export default function PricingPage() {
       return;
     }
     const params = new URLSearchParams(window.location.search);
-    const leadsReturn = params.get("source") === "masked-leads" ? { propertyId: params.get("propertyId") || undefined } : undefined;
+    const leadsReturn =
+      params.get("source") === "masked-leads"
+        ? { propertyId: params.get("propertyId") || undefined }
+        : undefined;
     const gateway = gatewayQ.data?.gateway ?? "razorpay";
     setBuyingPlanId(plan.id);
     try {
@@ -128,10 +128,13 @@ export default function PricingPage() {
                 planId: plan.id,
               });
               router.push(
-                result.returnPath ?? `/payment/success?plan=${encodeURIComponent(plan.name)}&type=subscription`,
+                result.returnPath ??
+                  `/payment/success?plan=${encodeURIComponent(plan.name)}&type=subscription`,
               );
             } catch (verifyErr) {
-              toast.error(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.");
+              toast.error(
+                verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.",
+              );
             } finally {
               setBuyingPlanId(null);
             }
@@ -178,7 +181,9 @@ export default function PricingPage() {
                 `/payment/success?credits=${plan.credits}&plan=${encodeURIComponent(plan.name)}`,
               );
             } catch (verifyErr) {
-              toast.error(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.");
+              toast.error(
+                verifyErr instanceof Error ? verifyErr.message : "Payment verification failed.",
+              );
             } finally {
               setBuyingPlanId(null);
             }
@@ -217,7 +222,6 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-
       {/* Hero */}
       <section className="bg-linear-to-br from-navy-deep via-navy to-mid-blue py-20 text-white">
         <div className="mx-auto max-w-3xl px-6 text-center">
@@ -228,8 +232,8 @@ export default function PricingPage() {
             Pay once. Talk directly. <span className="text-gold">No commissions.</span>
           </h1>
           <p className="mt-5 text-base text-white/70 sm:text-lg">
-            Whether you are selling, renting out, or searching for your next property — NxtSft.com has
-            a plan sized exactly for you.
+            Whether you are selling, renting out, or searching for your next property — NxtSft.com
+            has a plan sized exactly for you.
           </p>
         </div>
       </section>
@@ -283,78 +287,84 @@ export default function PricingPage() {
           {/* ── Boost packs ──────────────────────────────────────────────
               Target of the "upgrade" link on a free listing. */}
           {showBoostSection && (
-          <section id="boost" className="scroll-mt-32 border-y border-border bg-secondary/30">
-            <div className="mx-auto max-w-6xl px-5 py-12 sm:px-6">
-              <div className="text-center">
-                <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-sky-700">
-                  <Rocket size={12} /> Move to the first page
+            <section id="boost" className="scroll-mt-32 border-y border-border bg-secondary/30">
+              <div className="mx-auto max-w-6xl px-5 py-12 sm:px-6">
+                <div className="text-center">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-sky-700">
+                    <Rocket size={12} /> Move to the first page
+                  </div>
+                  <h2 className="mt-4 font-display text-2xl font-black text-navy sm:text-3xl">
+                    Boost your listing
+                  </h2>
+                  <p className="mx-auto mt-3 max-w-2xl text-sm text-muted-foreground">
+                    Free listings appear on the last page of search. A boost lifts yours above every
+                    unboosted listing for the length of the pack — no subscription, pay once.
+                  </p>
+                  <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
+                    Paid listings include 2 estimated views per hour after publishing. Free listings
+                    include 1 per hour.
+                  </p>
                 </div>
-                <h2 className="mt-4 font-display text-2xl font-black text-navy sm:text-3xl">
-                  Boost your listing
-                </h2>
-                <p className="mx-auto mt-3 max-w-2xl text-sm text-muted-foreground">
-                  Free listings appear on the last page of search. A boost lifts yours above every
-                  unboosted listing for the length of the pack — no subscription, pay once.
+
+                <div className="mt-8 grid grid-cols-1 items-stretch gap-6 sm:grid-cols-3">
+                  {boostPlansQuery.isLoading ? (
+                    <PlanSkeletons count={3} />
+                  ) : (
+                    boostPlans.map((plan) => (
+                      <div
+                        key={plan.id}
+                        className="flex h-full flex-col rounded-2xl border border-border bg-white p-6 shadow-sm"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="font-display text-lg font-black text-navy">
+                            {plan.name}
+                          </div>
+                          {plan.tag && (
+                            <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-navy">
+                              {plan.tag}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-3 font-display text-3xl font-black text-accent">
+                          {plan.priceLabel}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {plan.validity} days · {plan.tagline}
+                        </div>
+                        <ul className="mt-4 flex-1 space-y-2 text-sm text-foreground">
+                          {plan.features.map((f) => (
+                            <li key={f} className="flex gap-2">
+                              <span className="text-accent">✓</span>
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+                        <button
+                          onClick={() => {
+                            if (!session) {
+                              toast.error("Sign in to boost one of your listings.");
+                              router.push("/login");
+                              return;
+                            }
+                            // The buy flow lives in the portal because a boost is
+                            // bought FOR a specific listing.
+                            router.push("/user-portal#mylist");
+                          }}
+                          className="mt-5 w-full rounded-xl bg-accent px-4 py-3 text-sm font-bold text-white transition hover:opacity-90"
+                        >
+                          Boost a listing
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <p className="mt-6 text-center text-xs text-muted-foreground">
+                  You pick which listing to boost in your portal, then pay — the boost applies to
+                  that listing only.
                 </p>
               </div>
-
-              <div className="mt-8 grid grid-cols-1 items-stretch gap-6 sm:grid-cols-3">
-                {boostPlansQuery.isLoading ? (
-                  <PlanSkeletons count={3} />
-                ) : (
-                  boostPlans.map((plan) => (
-                    <div
-                      key={plan.id}
-                      className="flex h-full flex-col rounded-2xl border border-border bg-white p-6 shadow-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="font-display text-lg font-black text-navy">{plan.name}</div>
-                        {plan.tag && (
-                          <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-navy">
-                            {plan.tag}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-3 font-display text-3xl font-black text-accent">
-                        {plan.priceLabel}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {plan.validity} days · {plan.tagline}
-                      </div>
-                      <ul className="mt-4 flex-1 space-y-2 text-sm text-foreground">
-                        {plan.features.map((f) => (
-                          <li key={f} className="flex gap-2">
-                            <span className="text-accent">✓</span>
-                            {f}
-                          </li>
-                        ))}
-                      </ul>
-                      <button
-                        onClick={() => {
-                          if (!session) {
-                            toast.error("Sign in to boost one of your listings.");
-                            router.push("/login");
-                            return;
-                          }
-                          // The buy flow lives in the portal because a boost is
-                          // bought FOR a specific listing.
-                          router.push("/user-portal#mylist");
-                        }}
-                        className="mt-5 w-full rounded-xl bg-accent px-4 py-3 text-sm font-bold text-white transition hover:opacity-90"
-                      >
-                        Boost a listing
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <p className="mt-6 text-center text-xs text-muted-foreground">
-                You pick which listing to boost in your portal, then pay — the boost applies to that
-                listing only.
-              </p>
-            </div>
-          </section>
+            </section>
           )}
 
           <PlanChooser variant="owner-sell" plans={ownerPlans} onScrollToPlans={scrollToPlan} />
@@ -400,7 +410,6 @@ export default function PricingPage() {
           <CTABanner session={session} />
         </>
       )}
-
     </div>
   );
 }
