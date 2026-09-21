@@ -126,6 +126,15 @@ export async function POST(req: NextRequest) {
             endDate,
           },
         });
+        // Stop surfacing the free-plan dummy-lead teaser now that this seller
+        // has real contact access — permanent, not cleared on lapse (showing
+        // fabricated leads again to someone who has already paid is worse
+        // than showing none). Account-scoped: a subscription covers every
+        // free listing this seller owns, not just the one being paid for.
+        await tx.dummyLeadAssignment.updateMany({
+          where: { sellerId: userId, suppressedAt: null },
+          data: { suppressedAt: now },
+        });
       });
 
       // Auto ₹500 commission to the attributed sales rep (self-serve channel).

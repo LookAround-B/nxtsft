@@ -2,7 +2,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { LockKeyhole, Users, CheckCircle2 } from "lucide-react";
+import { LockKeyhole, Users, CheckCircle2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";
@@ -27,7 +27,13 @@ function SellerLeadsContent() {
     { propertyId },
     { enabled: eligible, refetchOnMount: "always" },
   );
+  const dummyQuery = trpc.sellerInsights.dummyLeads.useQuery(
+    { propertyId },
+    { enabled: eligible, refetchOnMount: "always" },
+  );
+  const trackDummyClick = trpc.sellerInsights.trackDummyLeadClick.useMutation();
   const [upgradeProperty, setUpgradeProperty] = useState<string | null>(null);
+  const [upgradeDummyProperty, setUpgradeDummyProperty] = useState<string | null>(null);
   const utils = trpc.useUtils();
   const share = trpc.sellerInsights.shareSellerContact.useMutation({
     onSuccess: async () => {
@@ -188,6 +194,81 @@ function SellerLeadsContent() {
           )}
         </>
       )}
+      {!!dummyQuery.data?.items.length && (
+        <div className="mt-8">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-amber-700">
+            <Eye size={18} /> Buyers also viewing your listing · {dummyQuery.data.items.length}
+          </div>
+          <p className="mb-5 text-sm text-muted-foreground">
+            Preview only — upgrade to see full contact details and connect directly.
+          </p>
+          <div className="space-y-4">
+            {dummyQuery.data.items.map((item) => (
+              <article
+                key={item.id}
+                className="rounded-xl border border-amber-200 bg-amber-50/40 p-5 shadow-sm"
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    aria-hidden
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500 text-xl font-semibold text-white"
+                  >
+                    {item.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-display text-lg font-bold text-navy">{item.name}</h3>
+                    <div className="mt-3 space-y-1 text-sm">
+                      {item.phone && <p>{item.phone}</p>}
+                      {item.email && <p>{item.email}</p>}
+                    </div>
+                    {item.property && (
+                      <p className="mt-3 text-xs text-muted-foreground">{item.property.title}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-amber-200 pt-4">
+                  <button
+                    onClick={() => {
+                      trackDummyClick.mutate({ id: item.id });
+                      setUpgradeDummyProperty(item.property!.id);
+                    }}
+                    className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white"
+                  >
+                    View Contact
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+      <Dialog
+        open={upgradeDummyProperty !== null}
+        onOpenChange={(open) => {
+          if (!open) setUpgradeDummyProperty(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <LockKeyhole className="text-accent" size={28} />
+          <DialogTitle>Unlock Buyer Contacts</DialogTitle>
+          <DialogDescription>
+            Free users can&apos;t see contact details. Activate a seller plan to connect with
+            buyers.
+          </DialogDescription>
+          <Link
+            href={`/pricing?source=masked-leads${upgradeDummyProperty ? `&propertyId=${encodeURIComponent(upgradeDummyProperty)}` : ""}#seller`}
+            className="rounded-lg bg-accent px-5 py-3 text-center font-semibold text-white"
+          >
+            View Seller Plans →
+          </Link>
+          <button
+            onClick={() => setUpgradeDummyProperty(null)}
+            className="rounded-lg border border-border px-5 py-3 text-sm"
+          >
+            Maybe Later
+          </button>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={upgradeProperty !== null}
         onOpenChange={(open) => {
