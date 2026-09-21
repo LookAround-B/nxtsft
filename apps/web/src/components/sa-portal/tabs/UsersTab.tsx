@@ -22,12 +22,13 @@ type AdminUser = {
   lastActive: string;
 };
 
-const SA_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin", "user", "home-seller", "agent"] as const;
+const SA_ROLES = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin", "user", "home-seller", "agent"] as const;
 const SA_ROLE_LABEL: Record<string, string> = {
   "super-admin": "Super Admin",
   admin: "Admin",
   supervisor: "Supervisor",
   sales: "Sales Rep",
+  "virtual-rep": "Virtual Rep",
   "support-admin": "Support Admin",
   user: "Home Buyer",
   "home-seller": "Home Seller",
@@ -66,7 +67,7 @@ export function UsersTab() {
   const [pendingOnly, setPendingOnly] = useState(false);
 
   const adminCount = users.filter((u) => u.role === "admin" || u.role === "super-admin").length;
-  const salesCount = users.filter((u) => u.role === "sales").length;
+  const salesCount = users.filter((u) => u.role === "sales" || u.role === "virtual-rep").length;
   const consumerCount = users.filter((u) => u.role === "user" || u.role === "home-seller").length;
   const pendingCount = users.filter((u) => u.role === "home-seller" && !u.verified).length;
 

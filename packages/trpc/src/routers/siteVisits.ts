@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, protectedProcedure, staffProcedure } from "../server";
-import { repScope } from "../teamScope";
+import { isSalesRep, repScope } from "../teamScope";
 import {
   cuidSchema,
   cursorSchema,
@@ -27,7 +27,7 @@ export const siteVisitsRouter = router({
       const where: any = {};
 
       // Role-based visibility
-      if (ctx.user.role === "sales") {
+      if (isSalesRep(ctx.user.role)) {
         where.salesRepId = ctx.user.id;
       } else if (["user", "home-seller"].includes(ctx.user.role)) {
         where.userId = ctx.user.id;
@@ -205,7 +205,7 @@ export const siteVisitsRouter = router({
       if (!visit) throw new TRPCError({ code: "NOT_FOUND", message: "Site visit not found." });
 
       // Sales reps can only complete visits assigned to them
-      if (ctx.user.role === "sales" && visit.salesRepId !== ctx.user.id) {
+      if (isSalesRep(ctx.user.role) && visit.salesRepId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to complete this site visit." });
       }
 

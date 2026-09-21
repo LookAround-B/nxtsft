@@ -17,6 +17,7 @@ export type Role =
   | "admin"
   | "supervisor"
   | "sales"
+  | "virtual-rep"
   | "support-admin"
   | "user"
   | "home-seller"
@@ -27,6 +28,7 @@ export const ROLES: readonly Role[] = [
   "admin",
   "supervisor",
   "sales",
+  "virtual-rep",
   "support-admin",
   "user",
   "home-seller",
@@ -77,7 +79,7 @@ export const PORTAL_ACCESS: Record<string, readonly Role[]> = {
   "/sa-portal": ["super-admin"],
   "/admin-portal": ["super-admin", "admin"],
   "/supervisor-portal": ["super-admin", "supervisor"],
-  "/sales-portal": ["super-admin", "sales"],
+  "/sales-portal": ["super-admin", "sales", "virtual-rep"],
   "/support-portal": ["super-admin", "support-admin"],
   "/user-portal": ["user", "home-seller", "agent"],
 };
@@ -88,6 +90,7 @@ export const HOME_FOR_ROLE: Record<Role, string> = {
   admin: "/admin-portal",
   supervisor: "/supervisor-portal",
   sales: "/sales-portal",
+  "virtual-rep": "/sales-portal",
   "support-admin": "/support-portal",
   user: "/user-portal",
   "home-seller": "/user-portal",
@@ -100,6 +103,7 @@ export const STAFF_ROLES: readonly Role[] = [
   "admin",
   "supervisor",
   "sales",
+  "virtual-rep",
   "support-admin",
 ];
 

@@ -1,4 +1,5 @@
 import prisma from "@nxtsft/db";
+import { isSalesRep } from "./teamScope";
 import { notify } from "./notify";
 
 // Flat commission paid to the attributed sales rep on each successful
@@ -56,7 +57,7 @@ export async function awardSubscriptionCommission(
       where: { id: lead.assignedToId },
       select: { id: true, role: true, active: true },
     });
-    if (!rep || rep.role !== "sales" || !rep.active) return;
+    if (!rep || !isSalesRep(rep.role) || !rep.active) return;
 
     const now = new Date();
     const periodMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;

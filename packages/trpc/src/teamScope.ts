@@ -1,6 +1,8 @@
 import prisma from "@nxtsft/db";
 
 type Ctx = { user: { id: string; role: string } };
+export const SALES_REP_ROLES = ["sales", "virtual-rep"] as const;
+export const isSalesRep = (role: string) => SALES_REP_ROLES.includes(role as (typeof SALES_REP_ROLES)[number]);
 
 /** Roles that see every team's data, unscoped. */
 const UNSCOPED_ROLES = ["admin", "super-admin", "support-admin"];
@@ -12,7 +14,7 @@ const UNSCOPED_ROLES = ["admin", "super-admin", "support-admin"];
 export async function teamRepIds(ctx: Ctx): Promise<string[]> {
   if (ctx.user.role !== "supervisor") return [];
   const reps = await prisma.user.findMany({
-    where: { supervisorId: ctx.user.id, role: "sales" },
+    where: { supervisorId: ctx.user.id, role: { in: [...SALES_REP_ROLES] } },
     select: { id: true },
   });
   return reps.map((r) => r.id);
@@ -25,7 +27,7 @@ export async function teamRepIds(ctx: Ctx): Promise<string[]> {
  * admin/SA   → everything
  */
 export async function leadScope(ctx: Ctx) {
-  if (ctx.user.role === "sales") return { assignedToId: ctx.user.id };
+  if (isSalesRep(ctx.user.role)) return { assignedToId: ctx.user.id };
   if (ctx.user.role === "supervisor") {
     const repIds = await teamRepIds(ctx);
     return {
@@ -44,7 +46,7 @@ export async function leadScope(ctx: Ctx) {
  * matches nothing rather than everything.
  */
 export async function repScope(ctx: Ctx, field: string) {
-  if (ctx.user.role === "sales") return { [field]: ctx.user.id };
+  if (isSalesRep(ctx.user.role)) return { [field]: ctx.user.id };
   if (ctx.user.role === "supervisor") return { [field]: { in: await teamRepIds(ctx) } };
   return {};
 }

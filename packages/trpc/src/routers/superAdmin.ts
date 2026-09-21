@@ -49,7 +49,7 @@ type PlatformConfig = z.infer<typeof platformConfigSchema>;
 // browsing. These helpers back `activityStats` / `activityFeed`, which unify
 // real events across User / AuditLog / PropertyView / Lead / SiteVisit /
 // Property, scoped to consumer (non-staff) users and classified by intent.
-const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin"];
 const windowDaysSchema = z.union([z.literal(1), z.literal(7), z.literal(30)]).default(7);
 const activityKindSchema = z.enum(["all", "signup", "login", "browsing", "buying", "listing"]);
 

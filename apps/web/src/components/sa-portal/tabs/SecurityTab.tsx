@@ -37,7 +37,7 @@ export function SecurityTab() {
     }
   }, [ipQ.data]);
 
-  type Role = "super-admin" | "admin" | "supervisor" | "sales" | "support-admin" | "user" | "home-seller";
+  type Role = "super-admin" | "admin" | "supervisor" | "sales" | "virtual-rep" | "support-admin" | "user" | "home-seller";
   const [policy, setPolicy] = useState({
     passwordMinLength: 8,
     passwordComplexity: "medium" as "low" | "medium" | "high",
@@ -58,7 +58,7 @@ export function SecurityTab() {
   const removeIp = (list: "w" | "b", ip: string) =>
     list === "w" ? setWhitelist((p) => p.filter((x) => x !== ip)) : setBlacklist((p) => p.filter((x) => x !== ip));
 
-  const ROLES_FOR_2FA: Role[] = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+  const ROLES_FOR_2FA: Role[] = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin"];
   const toggle2faRole = (role: Role) =>
     setPolicy((p) => ({
       ...p,

@@ -31,7 +31,7 @@ import {
   latitudeSchema,
   longitudeSchema,
 } from "../sanitize";
-import { leadScope, teamRepIds } from "../teamScope";
+import { isSalesRep, leadScope, teamRepIds } from "../teamScope";
 
 /** True when a lead sits in the calling supervisor's team scope. */
 async function inTeamScope(
@@ -176,7 +176,7 @@ export const leadsRouter = router({
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
 
       // Sales can only access their own leads
-      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+      if (isSalesRep(ctx.user.role) && lead.assignedToId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       // Supervisors are limited to their own team's leads.
@@ -193,7 +193,7 @@ export const leadsRouter = router({
       const lead = await prisma.lead.findUnique({ where: { id: input.id } });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
 
-      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+      if (isSalesRep(ctx.user.role) && lead.assignedToId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       // Supervisors are limited to their own team's leads.
@@ -251,7 +251,7 @@ export const leadsRouter = router({
       const lead = await prisma.lead.findUnique({ where: { id: input.id } });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
 
-      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+      if (isSalesRep(ctx.user.role) && lead.assignedToId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       // Supervisors are limited to their own team's leads.
@@ -276,7 +276,7 @@ export const leadsRouter = router({
 
       // Verify the assignee exists and is a sales rep
       const assignee = await prisma.user.findUnique({ where: { id: input.assignedToId } });
-      if (!assignee || assignee.role !== "sales") {
+      if (!assignee || !isSalesRep(assignee.role)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Assignee must be a sales rep." });
       }
 
@@ -289,7 +289,7 @@ export const leadsRouter = router({
         data: {
           leadIds: [input.id],
           fromRole: ctx.user.role,
-          toRole: "sales",
+          toRole: assignee.role,
           assignedById: ctx.user.id,
           assignedToId: input.assignedToId,
         },
@@ -337,7 +337,7 @@ export const leadsRouter = router({
       });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
 
-      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+      if (isSalesRep(ctx.user.role) && lead.assignedToId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       // Supervisors are limited to their own team's leads.
@@ -472,7 +472,7 @@ export const leadsRouter = router({
       }
 
       const assignee = await prisma.user.findUnique({ where: { id: input.assignedToId } });
-      if (!assignee || assignee.role !== "sales") {
+      if (!assignee || !isSalesRep(assignee.role)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Assignee must be a sales rep." });
       }
       // A supervisor may only route leads to their own attributed reps, and
@@ -498,7 +498,7 @@ export const leadsRouter = router({
         data: {
           leadIds: input.leadIds,
           fromRole: ctx.user.role,
-          toRole: "sales",
+          toRole: assignee.role,
           assignedById: ctx.user.id,
           assignedToId: input.assignedToId,
         },
@@ -588,7 +588,7 @@ export const leadsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const lead = await prisma.lead.findUnique({ where: { id: input.id } });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
-      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+      if (isSalesRep(ctx.user.role) && lead.assignedToId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       // Supervisors are limited to their own team's leads.
@@ -634,7 +634,7 @@ export const leadsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const lead = await prisma.lead.findUnique({ where: { id: input.leadId } });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
-      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+      if (isSalesRep(ctx.user.role) && lead.assignedToId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       // Supervisors are limited to their own team's leads.
@@ -759,7 +759,7 @@ export const leadsRouter = router({
 
       const lead = await prisma.lead.findUnique({ where: { id: leadId } });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
-      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+      if (isSalesRep(ctx.user.role) && lead.assignedToId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       if (ctx.user.role === "supervisor" && !(await inTeamScope(ctx, lead))) {
@@ -819,7 +819,7 @@ export const leadsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const lead = await prisma.lead.findUnique({ where: { id: input.leadId } });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
-      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+      if (isSalesRep(ctx.user.role) && lead.assignedToId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       // Supervisors are limited to their own team's leads.
@@ -884,7 +884,7 @@ export const leadsRouter = router({
         },
       });
       if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
-      if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+      if (isSalesRep(ctx.user.role) && lead.assignedToId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       // Supervisors are limited to their own team's leads.
@@ -1049,7 +1049,7 @@ export const leadsRouter = router({
     // The telecalling book is rep-owned, so its badges scope by ownerId even
     // for staff who see every lead.
     const contactWhere =
-      ctx.user.role === "sales"
+      isSalesRep(ctx.user.role)
         ? { ownerId: ctx.user.id }
         : ctx.user.role === "supervisor"
           ? { ownerId: { in: [ctx.user.id, ...(await teamRepIds(ctx))] } }

@@ -468,7 +468,7 @@ export const authRouter = router({
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password." });
       }
 
-      const staffRoles = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+      const staffRoles = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin"];
       if (!staffRoles.includes(user.role)) {
         void logFailedLogin(input.email, user.id);
         throw new TRPCError({ code: "FORBIDDEN", message: "Use the consumer login page." });

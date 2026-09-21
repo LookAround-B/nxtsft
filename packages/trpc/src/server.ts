@@ -11,7 +11,7 @@ import {
   trustedClientIp,
 } from "@nxtsft/shared";
 
-const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"] as const;
+const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin"] as const;
 const ADMIN_ROLES = ["admin", "super-admin"] as const;
 
 const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;

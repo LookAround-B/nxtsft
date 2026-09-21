@@ -166,7 +166,7 @@ type PickedProject = { id: string; name: string; builderName: string };
 // Staff who may list a property for a customer they're on a call with. The
 // listing is created on the CUSTOMER's account (see onBehalfOfLeadId in
 // properties.create) — the rep never owns it.
-const REP_LISTING_ROLES = ["sales", "admin", "super-admin"];
+const REP_LISTING_ROLES = ["sales", "virtual-rep", "admin", "super-admin"];
 
 // Sentinel value for the "Dummy" entry in the lead dropdown. A dummy listing
 // belongs to no customer: the rep owns it, it is created with status "Test"

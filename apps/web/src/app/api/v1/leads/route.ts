@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     //  - buyer/customer → only leads they created (their own enquiries)
     const isStaff = ["super-admin", "admin", "supervisor", "support-admin"].includes(user.role);
     let where: { assignedToId?: string; userId?: string } = {};
-    if (user.role === "sales") where = { assignedToId: user.id };
+    if (["sales", "virtual-rep"].includes(user.role)) where = { assignedToId: user.id };
     else if (!isStaff) where = { userId: user.id };
 
     const leads = await prisma.lead.findMany({

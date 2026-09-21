@@ -5,7 +5,7 @@ import { getAuthUser, serializeBigInt, rateLimitOrResponse } from "../helper";
 
 export const dynamic = "force-dynamic";
 
-const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin"];
 
 export async function GET(req: NextRequest) {
   const limited = await rateLimitOrResponse(req);

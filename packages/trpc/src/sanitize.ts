@@ -179,6 +179,7 @@ export const roleSchema = z.enum([
   "admin",
   "supervisor",
   "sales",
+  "virtual-rep",
   "support-admin",
   "user",
   "home-seller",
@@ -190,6 +191,7 @@ export const staffRoleSchema = z.enum([
   "admin",
   "supervisor",
   "sales",
+  "virtual-rep",
   "support-admin",
 ]);
 

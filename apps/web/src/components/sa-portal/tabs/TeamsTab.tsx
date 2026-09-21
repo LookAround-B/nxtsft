@@ -20,7 +20,7 @@ type TeamMember = {
   joined: string;
 };
 
-const STAFF_ROLES = ["admin", "supervisor", "sales", "support-admin"] as const;
+const STAFF_ROLES = ["admin", "supervisor", "sales", "virtual-rep", "support-admin"] as const;
 type StaffRole = (typeof STAFF_ROLES)[number];
 
 const ROLE_LABEL: Record<string, string> = {
@@ -28,6 +28,7 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
   supervisor: "Supervisor",
   sales: "Sales Rep",
+  "virtual-rep": "Virtual Rep",
   "support-admin": "Support Admin",
 };
 
@@ -36,6 +37,7 @@ const ROLE_PORTAL: Record<string, string> = {
   admin: "Admin Portal",
   supervisor: "Supervisor",
   sales: "Sales Portal",
+  "virtual-rep": "Sales Portal",
   "support-admin": "Support",
 };
 

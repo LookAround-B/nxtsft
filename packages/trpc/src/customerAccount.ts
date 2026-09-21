@@ -14,7 +14,7 @@ import { sendTemplateIfConfigured } from "./bhashsms";
 // customer log in with a phone OTP and take over their own listing.
 
 /** Roles that must never be repurposed as a listing owner. */
-const NON_CUSTOMER_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+const NON_CUSTOMER_ROLES = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin"];
 
 export type ResolvedCustomer = {
   id: string;

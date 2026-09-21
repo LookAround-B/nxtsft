@@ -57,7 +57,7 @@ const safeUserSelect = {
   lastActive: true,
 };
 
-const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "support-admin"];
+const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin"];
 
 // BigInt columns can't be JSON-serialized — convert before returning rows
 // to the client (interiorDesigner / decorStore both carry startingBudget).
@@ -1723,7 +1723,7 @@ export const adminRouter = router({
         select: { id: true, role: true },
       });
       if (!rep) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
-      if (rep.role !== "sales") {
+      if (!["sales", "virtual-rep"].includes(rep.role)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Only sales reps can be assigned a supervisor." });
       }
       if (input.supervisorId) {

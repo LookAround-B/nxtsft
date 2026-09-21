@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const isStaff = ["super-admin", "admin", "supervisor", "sales", "support-admin"].includes(user.role);
+    const isStaff = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin"].includes(user.role);
     if (!isStaff) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // leads.updateStatus guard); other staff roles may update any lead.
     const existing = await prisma.lead.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (user.role === "sales" && existing.assignedToId !== user.id) {
+    if (["sales", "virtual-rep"].includes(user.role) && existing.assignedToId !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

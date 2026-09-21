@@ -174,6 +174,14 @@ async function main() {
       verified: true,
     },
     {
+      email: "virtualrep@nxtsft.com",
+      phone: "9000000006",
+      name: "Virtual Rep",
+      role: "virtual-rep",
+      city: "Mumbai",
+      verified: true,
+    },
+    {
       email: "support@nxtsft.com",
       phone: "9000000005",
       name: "Kiran Nair",
@@ -1050,7 +1058,7 @@ async function main() {
 
   // ── Listings ────────────────────────────────────────────────────────────
   const propertiesForListings = await prisma.property.findMany({ take: 25 });
-  const salesReps = await prisma.user.findMany({ where: { role: "sales" } });
+  const salesReps = await prisma.user.findMany({ where: { role: { in: ["sales", "virtual-rep"] } } });
   let listingCount = 0;
 
   for (const property of propertiesForListings) {

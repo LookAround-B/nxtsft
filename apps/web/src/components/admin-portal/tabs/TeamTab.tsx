@@ -15,6 +15,7 @@ const INVITE_ROLES: { label: string; value: NewMemberInput["role"] }[] = [
   { label: "Admin", value: "admin" },
   { label: "Supervisor", value: "supervisor" },
   { label: "Sales Rep", value: "sales" },
+  { label: "Virtual Rep", value: "virtual-rep" },
   { label: "Support Admin", value: "support-admin" },
 ];
 
@@ -327,7 +328,7 @@ export function TeamTab() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all">All roles</SelectItem>
-                {["admin", "supervisor", "sales", "support-admin"].map((r) => (
+                {["admin", "supervisor", "sales", "virtual-rep", "support-admin"].map((r) => (
                   <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
                 ))}
               </SelectContent>
@@ -370,7 +371,7 @@ export function TeamTab() {
                     <td className="text-xs">{ROLE_LABEL[m.role] ?? m.role}</td>
                     <td className="text-xs">{m.city}</td>
                     <td className="text-xs">
-                      {m.role === "sales" ? (
+                      {["sales", "virtual-rep"].includes(m.role) ? (
                         <Select
                           value={m.supervisorId ?? "__none"}
                           onValueChange={(v) =>

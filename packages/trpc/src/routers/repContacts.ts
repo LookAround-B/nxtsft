@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
+import { isSalesRep, SALES_REP_ROLES } from "../teamScope";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared";
 import { notify } from "../notify";
 import { router, staffProcedure, adminProcedure, generalRateLimit } from "../server";
@@ -33,7 +34,7 @@ async function ownerScope(ctx: Ctx): Promise<{ ownerId?: string | { in: string[]
   if (isAdmin(ctx.user.role)) return {};
   if (ctx.user.role === "supervisor") {
     const reps = await prisma.user.findMany({
-      where: { supervisorId: ctx.user.id, role: "sales" },
+      where: { supervisorId: ctx.user.id, role: { in: [...SALES_REP_ROLES] } },
       select: { id: true },
     });
     return { ownerId: { in: [ctx.user.id, ...reps.map((r) => r.id)] } };
@@ -447,7 +448,7 @@ export const repContactsRouter = router({
         where: { id: input.toRepId },
         select: { id: true, role: true, name: true },
       });
-      if (!rep || rep.role !== "sales") {
+      if (!rep || !isSalesRep(rep.role)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Pick a sales rep to reassign to." });
       }
 
@@ -473,7 +474,7 @@ export const repContactsRouter = router({
           data: {
             leadIds: movable,
             fromRole: ctx.user.role,
-            toRole: "sales",
+            toRole: rep.role,
             assignedById: ctx.user.id,
             assignedToId: rep.id,
           },
@@ -485,7 +486,7 @@ export const repContactsRouter = router({
 
   reps: adminProcedure.query(() =>
     prisma.user.findMany({
-      where: { role: "sales", active: true },
+      where: { role: { in: [...SALES_REP_ROLES] }, active: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

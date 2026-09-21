@@ -19,7 +19,7 @@ export type NewMemberInput = {
   email: string;
   phone: string;
   password: string;
-  role: "admin" | "supervisor" | "sales" | "support-admin";
+  role: "admin" | "supervisor" | "sales" | "virtual-rep" | "support-admin";
   city: string;
 };
 
@@ -42,5 +42,6 @@ export const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
   supervisor: "Supervisor",
   sales: "Sales Rep",
+  "virtual-rep": "Virtual Rep",
   "support-admin": "Support Admin",
 };

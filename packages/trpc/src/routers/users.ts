@@ -881,7 +881,7 @@ export const usersRouter = router({
 
   getTeamMembers: adminProcedure.query(async () => {
     const teamMembers = await prisma.user.findMany({
-      where: { role: "sales" },
+      where: { role: { in: ["sales", "virtual-rep"] } },
       select: {
         id: true,
         name: true,

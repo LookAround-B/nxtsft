@@ -66,8 +66,8 @@ export const supervisorRouter = router({
   myReps: supervisorProcedure.query(({ ctx }) =>
     prisma.user.findMany({
       where: seesAllTeams(ctx.user.role)
-        ? { role: "sales", active: true }
-        : { role: "sales", active: true, supervisorId: ctx.user.id },
+        ? { role: { in: ["sales", "virtual-rep"] }, active: true }
+        : { role: { in: ["sales", "virtual-rep"] }, active: true, supervisorId: ctx.user.id },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
@@ -78,8 +78,8 @@ export const supervisorRouter = router({
   teamOverview: supervisorProcedure.query(async ({ ctx }) => {
     const reps = await prisma.user.findMany({
       where: seesAllTeams(ctx.user.role)
-        ? { role: "sales", active: true }
-        : { role: "sales", active: true, supervisorId: ctx.user.id },
+        ? { role: { in: ["sales", "virtual-rep"] }, active: true }
+        : { role: { in: ["sales", "virtual-rep"] }, active: true, supervisorId: ctx.user.id },
       select: { id: true, name: true, city: true, phone: true },
       orderBy: { name: "asc" },
     });
@@ -122,8 +122,8 @@ export const supervisorRouter = router({
     const [reps, assignedCounts, convertedCounts, recentConverted] = await Promise.all([
       prisma.user.findMany({
         where: seesAllTeams(ctx.user.role)
-          ? { role: "sales" }
-          : { role: "sales", supervisorId: ctx.user.id },
+          ? { role: { in: ["sales", "virtual-rep"] } }
+          : { role: { in: ["sales", "virtual-rep"] }, supervisorId: ctx.user.id },
         select: { id: true, name: true, city: true },
       }),
       prisma.lead.groupBy({

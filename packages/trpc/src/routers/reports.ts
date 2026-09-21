@@ -6,7 +6,7 @@ import { deriveTicketRow } from "./tickets";
 type ReportCategory = "Buyer" | "Seller" | "Agent" | "Owner" | "Tenant";
 
 function roleToCategory(role: string, interest?: string | null): ReportCategory {
-  if (role === "sales") return "Agent";
+  if (["sales", "virtual-rep"].includes(role)) return "Agent";
   if (role === "home-seller") return "Owner";
   const i = (interest ?? "").toLowerCase();
   if (i.includes("rent") || i.includes("lease") || i.includes("tenant") || i.includes("pg")) {
@@ -21,6 +21,7 @@ function roleToJobCategory(role: string): string {
     case "admin": return "Admin";
     case "supervisor": return "Supervisor";
     case "sales": return "Sales Rep";
+    case "virtual-rep": return "Virtual Rep";
     case "user": return "Customer";
     case "home-seller": return "Agent";
     default: return "—";
@@ -57,7 +58,7 @@ export const reportsRouter = router({
       const from = new Date(input.from + "T00:00:00.000Z");
       const to = new Date(input.to + "T23:59:59.999Z");
 
-      const isSales = ctx.user.role === "sales";
+      const isSales = ["sales", "virtual-rep"].includes(ctx.user.role);
       let repBuyerIds: string[] | null = null;
       if (isSales) {
         const repLeads = await prisma.lead.findMany({
@@ -176,7 +177,7 @@ export const reportsRouter = router({
 
       // ── Staff lookup (sales + supervisors with role) ─────────
       const staff = await prisma.user.findMany({
-        where: { role: { in: ["sales", "supervisor"] } },
+        where: { role: { in: ["sales", "virtual-rep", "supervisor"] } },
         select: { id: true, name: true, supervisorId: true, role: true },
       });
       const staffById = new Map(staff.map((s) => [s.id, s]));
@@ -369,7 +370,7 @@ export const reportsRouter = router({
       // ── Staff performance (one row per sales rep) ─────────────
       // A sales rep sees only their own row here (the rest of the snapshot is
       // already rep-scoped above); supervisors/admins still see the whole team.
-      const salesReps = staff.filter((s) => s.role === "sales" && (!isSales || s.id === ctx.user.id));
+      const salesReps = staff.filter((s) => ["sales", "virtual-rep"].includes(s.role) && (!isSales || s.id === ctx.user.id));
       const staffPerf = salesReps.map((rep) => {
         const repLeads = dbLeadsAll.filter((l) => l.assignedToId === rep.id);
         const repVisits = dbVisitsRaw.filter((v) => v.salesRepId === rep.id);
@@ -459,7 +460,7 @@ export const reportsRouter = router({
         const dbAgents = await prisma.user.findMany({
           where: {
             joined: { gte: from, lte: to },
-            role: "sales",
+            role: { in: ["sales", "virtual-rep"] },
           },
           select: {
             id: true, name: true, email: true, city: true, state: true, joined: true,

@@ -63,6 +63,11 @@ const roleActions: Record<Role, Array<{ label: string; to: string; Icon: LucideI
     { label: "My Leads", to: "/sales-portal", Icon: Target },
     { label: "Today's Calls", to: "/sales-portal#call", Icon: Phone },
   ],
+  "virtual-rep": [
+    { label: "Field App", to: "/sales-portal", Icon: Smartphone },
+    { label: "My Leads", to: "/sales-portal", Icon: Target },
+    { label: "Today's Calls", to: "/sales-portal#call", Icon: Phone },
+  ],
   user: [
     { label: "My Dashboard", to: "/user-portal", Icon: Home },
     { label: "Shortlist", to: "/user-portal#saved", Icon: Heart },
@@ -111,6 +116,12 @@ const roleStats: Record<Role, Array<{ label: string; value: string; sub?: string
     { label: "Avg Response", value: "11 min", sub: "Team average" },
   ],
   sales: [
+    { label: "Open Leads", value: "14", sub: "3 hot" },
+    { label: "Closed MTD", value: "4", sub: "Target: 6" },
+    { label: "Target", value: "72%", sub: "8 days remaining" },
+    { label: "Commission", value: "₹1.24 L", sub: "This month" },
+  ],
+  "virtual-rep": [
     { label: "Open Leads", value: "14", sub: "3 hot" },
     { label: "Closed MTD", value: "4", sub: "Target: 6" },
     { label: "Target", value: "72%", sub: "8 days remaining" },

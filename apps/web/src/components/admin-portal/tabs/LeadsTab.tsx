@@ -17,8 +17,8 @@ export function LeadsTab() {
   const dbLeadsQ = trpc.admin.leads.list.useQuery({ limit: 50, status: filter === "All" ? undefined : filter });
   const dbLeads = dbLeadsQ.data?.items ?? [];
 
-  const repsQ = trpc.admin.users.list.useQuery({ role: "sales", limit: 100 });
-  const reps = repsQ.data?.items ?? [];
+  const repsQ = trpc.admin.teamMembers.useQuery({ page: 1, limit: 100 });
+  const reps = (repsQ.data?.items ?? []).filter((user) => ["sales", "virtual-rep"].includes(user.role));
 
   const unassignedQ = trpc.leads.unassigned.useQuery({ limit: 50 });
   const unassigned = unassignedQ.data?.items ?? [];

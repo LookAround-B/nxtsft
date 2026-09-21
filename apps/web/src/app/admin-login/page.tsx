@@ -17,7 +17,7 @@ import {
 import { ROLE_META, useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
-type AdminRole = "super-admin" | "admin" | "supervisor" | "sales" | "support-admin";
+type AdminRole = "super-admin" | "admin" | "supervisor" | "sales" | "virtual-rep" | "support-admin";
 
 
 const ROLES: {
@@ -73,6 +73,17 @@ const ROLES: {
     borderAccent: "border-amber-400/40",
     ringAccent: "ring-amber-400/30",
     badgeBg: "bg-amber-50 text-amber-700",
+    description: "Leads, pipeline, closings & commissions",
+  },
+  {
+    role: "virtual-rep",
+    icon: <TrendingUp size={22} />,
+    accent: "from-violet-500 to-violet-600",
+    cardAccent: "bg-violet-500",
+    textAccent: "text-violet-700",
+    borderAccent: "border-violet-400/40",
+    ringAccent: "ring-violet-400/30",
+    badgeBg: "bg-violet-50 text-violet-700",
     description: "Leads, pipeline, closings & commissions",
   },
   {

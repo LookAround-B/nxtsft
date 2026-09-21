@@ -40,7 +40,7 @@ import { PROPERTY_TAGS } from "@nxtsft/shared/constants";
 
 // Staff roles allowed to list a property on a customer's behalf (see the
 // `onBehalfOfLeadId` branch in `create`).
-const REP_LISTING_ROLES = ["sales", "admin", "super-admin"];
+const REP_LISTING_ROLES = ["sales", "virtual-rep", "admin", "super-admin"];
 
 // How long a dummy listing's (free) gold boost runs — long enough that a rep
 // testing the flow always sees the premium treatment on the card.
@@ -649,7 +649,7 @@ export const propertiesRouter = router({
           select: { id: true, name: true, phone: true, email: true, city: true, assignedToId: true, propertyId: true },
         });
         if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found." });
-        if (ctx.user.role === "sales" && lead.assignedToId !== ctx.user.id) {
+        if (["sales", "virtual-rep"].includes(ctx.user.role) && lead.assignedToId !== ctx.user.id) {
           throw new TRPCError({ code: "FORBIDDEN", message: "This lead isn't assigned to you." });
         }
         if (lead.propertyId) {
@@ -805,7 +805,7 @@ export const propertiesRouter = router({
         // target is a sales rep, so an admin self-assigning here would plant a
         // lead that violates that invariant; an admin's fresh lead is left
         // unassigned for the normal routing queue.
-        const selfAssign = ctx.user.role === "sales";
+        const selfAssign = ["sales", "virtual-rep"].includes(ctx.user.role);
         const lead = await prisma.lead.create({
           data: {
             userId: freshCustomer.id,
@@ -1079,7 +1079,7 @@ export const propertiesRouter = router({
       const isAssignedRep =
         !isOwner &&
         !isAdmin &&
-        ctx.user.role === "sales" &&
+        ["sales", "virtual-rep"].includes(ctx.user.role) &&
         (await prisma.lead.count({ where: { propertyId: id, assignedToId: ctx.user.id } })) > 0;
       if (!isOwner && !isAdmin && !isAssignedRep) throw new TRPCError({ code: "FORBIDDEN" });
 

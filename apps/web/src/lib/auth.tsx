@@ -9,6 +9,7 @@ export type Role =
   | "admin"
   | "supervisor"
   | "sales"
+  | "virtual-rep"
   | "support-admin"
   | "user"
   | "home-seller"
@@ -68,6 +69,15 @@ export const ROLE_META: Record<
     demoName: "Priya Sharma",
     city: "Mumbai",
     phone: "+91 9800012042",
+  },
+  "virtual-rep": {
+    label: "Virtual Rep",
+    portal: "/sales-portal",
+    portalName: "NxtSft.com Virtual Field",
+    demoEmail: "virtualrep@nxtsft.com",
+    demoName: "Virtual Rep",
+    city: "Mumbai",
+    phone: "+91 9800000006",
   },
   "support-admin": {
     label: "Support Admin",

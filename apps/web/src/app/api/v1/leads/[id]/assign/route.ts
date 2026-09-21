@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!result.success) return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
 
     const assignee = await prisma.user.findUnique({ where: { id: result.data.assignedToId } });
-    if (!assignee || assignee.role !== "sales") {
+    if (!assignee || !["sales", "virtual-rep"].includes(assignee.role)) {
       return NextResponse.json({ error: "Assignee must be a sales rep" }, { status: 400 });
     }
 

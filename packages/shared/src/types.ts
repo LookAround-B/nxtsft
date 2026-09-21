@@ -11,6 +11,7 @@ export type Role =
   | "admin"
   | "supervisor"
   | "sales"
+  | "virtual-rep"
   | "support-admin"
   | "user"
   | "home-seller";
