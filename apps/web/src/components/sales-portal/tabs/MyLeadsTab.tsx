@@ -205,7 +205,7 @@ export function MyLeadsTab() {
         ) : (
           items.map((l) => (
             <div key={l.id} className="border-b border-border py-4 last:border-0">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-navy">{l.name}</span>
