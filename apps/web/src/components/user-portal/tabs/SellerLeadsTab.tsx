@@ -64,7 +64,7 @@ function SellerLeadsContent() {
         s={
           propertyId
             ? (data?.properties[0]?.title ?? "Buyers interested in your listing.")
-            : "Actual buyer enquiries, contact unlocks, and site visits across your listings."
+            : "Online buyer enquiries, contact unlocks, and site visits across your listings."
         }
       />
       {propertyId && (
@@ -78,7 +78,7 @@ function SellerLeadsContent() {
       ) : (
         <>
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            <Users size={18} /> Buyer requests · {data.items.length}
+            <Users size={18} /> Online buyer request · {data.items.length}
           </div>
           {!data.unlocked && data.items.length > 0 && (
             <p className="mb-5 text-sm text-muted-foreground">
