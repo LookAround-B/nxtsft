@@ -57,6 +57,7 @@ model User {
   buyerRequests         Lead[] @relation("LeadBuyer")
   sentContactShares     SellerContactShare[] @relation("ContactShareSeller")
   receivedContactShares SellerContactShare[] @relation("ContactShareBuyer")
+  dummyLeadAssignments  DummyLeadAssignment[] @relation("DummyLeadAssignmentsSeller")
   favorites             Favorite[]
   reviews               Review[]
   reviewHelpfulVotes    ReviewHelpful[]
@@ -113,6 +114,7 @@ model Session {
 model Property {
   watchers PropertyWatch[]
   contactShares SellerContactShare[]
+  dummyLeadAssignments DummyLeadAssignment[] @relation("DummyLeadAssignments")
   id          String  @id @default(cuid())
   slug        String  @unique
   title       String
@@ -149,6 +151,11 @@ model Property {
   pgFood              String? // Included | Optional | Not Available
   virtualTourUrl      String? // 360° tour embed (PG + interiors)
   walkthroughVideoUrl String? // cinematic walkthrough
+
+  // Marketing labels an admin/rep sets on a listing (Gold, Silver, Premium,
+  // Urgent, Sold, Under Negotiation) — shown as badges on cards + detail.
+  // Cosmetic only; the real deal-state lives in `status`. See PROPERTY_TAGS.
+  tags                String[] @default([])
 
   // Optional hard link to a directory Project (set when listed against a known project)
   projectId String?
@@ -1311,6 +1318,74 @@ model RepCall {
   @@index([contactId, createdAt])
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DUMMY LEAD FUNNEL (free-plan conversion teaser)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Seed pool of fabricated buyer identities backing the free-plan conversion
+// teaser. Never a real person and never contacted — the funnel only ever
+// renders these through maskContact(), which exposes the first two and last
+// two digits of `phone`, so those digits are chosen to vary across the pool
+// while the number as a whole stays obviously fake (see seed-dummy-buyers.ts).
+model DummyBuyer {
+  id    String  @id @default(cuid())
+  name  String
+  phone String  @unique
+  email String? // only the domain survives masking
+  state String? // drives region-matched assignment
+
+  active Boolean @default(true) // soft-retire; assignments reference these rows
+
+  createdAt DateTime @default(now())
+
+  assignments DummyLeadAssignment[]
+
+  @@index([state])
+  @@index([active])
+}
+
+// One dummy buyer attached to one free listing, plus the click state that
+// drives sales escalation. Deliberately not a Lead row: Lead has no
+// click-count shape, and dummy rows in that table would contaminate every
+// real-lead query (seller counts, admin views, commission) that reads it.
+model DummyLeadAssignment {
+  id String @id @default(cuid())
+
+  propertyId String
+  property   Property @relation("DummyLeadAssignments", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  // Denormalized owner, mirroring how Lead.userId sits beside Lead.propertyId —
+  // seller-scoped reads are the common case and shouldn't join through Property.
+  sellerId String
+  seller   User   @relation("DummyLeadAssignmentsSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  dummyBuyerId String
+  dummyBuyer   DummyBuyer @relation(fields: [dummyBuyerId], references: [id])
+
+  clickCount    Int       @default(0)
+  lastClickedAt DateTime?
+  assignedAt    DateTime  @default(now())
+
+  // Set (never cleared, never deleted) once the seller buys a plan. Permanent
+  // by design: showing fabricated leads again to someone who has already paid
+  // is worse than showing none. Preserves the row for escalation provenance.
+  suppressedAt DateTime?
+
+  // Escalation ledger: a non-null value on ANY of a seller's rows means sales
+  // has already been told about them, so escalation fires at most once.
+  repContactId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Makes assignment idempotent: concurrent callers computing the same
+  // deterministic picks collide here instead of over-assigning.
+  @@unique([propertyId, dummyBuyerId])
+  @@index([sellerId, suppressedAt])
+  @@index([propertyId])
+  @@index([dummyBuyerId])
+}
 
 model PropertyWatch {
   id String @id @default(cuid())

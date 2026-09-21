@@ -18,6 +18,12 @@
 
 ## ✅ Completed
 
+### Property tags (#8) + property videos (#9) *(09-18)* — ON BRANCH `feat/tags-and-videos`, NOT on main
+- [x] **#9 Videos (no migration)** — list form gets a "Property video (YouTube link)" input → stored in existing `walkthroughVideoUrl`. New `toEmbedUrl` helper normalizes YouTube/Vimeo links to embeddable form; detail page already rendered video, now wrapped in the normalizer so pasted links actually embed. *(Follow-up: add video to the /list/edit existing-listing form + submitEdit + approve allow-list — deferred.)*
+- [x] **#8 Tags** — new `Property.tags String[]`; shared `PROPERTY_TAGS` (Gold/Silver/Premium/Urgent/Sold/Under Negotiation). `properties.setTags` (staff): admin tags any listing, rep/supervisor only listings tied to their own lead; applied directly (cosmetic, no edit-approval). Tag badges render on browse cards + detail page (`tagClass` colour map). Rep tag setter on lead cards (`MyLeadsTab`). *(Admin tag-setter UI in the big Listings tab deferred — backend already supports it.)*
+- ⚠️ **Deploy gate:** #8 adds a `tags` column. `include`-based property reads will select it, so deploying before `prisma db push` breaks **all** listing reads in prod. The push is blocked by the current `appuser` DB lockout (`P1010`). So this branch must NOT merge to main until the DB access is restored and the column is pushed. #9 alone is migration-free.
+- [x] Verified: `tsc` clean (trpc + web), web build passes. Live e2e blocked by the same DB lockout.
+
 ### Rep reports scoping + rep listing edits *(09-18)*
 - [x] **Reports scoping** — `reports.snapshot` already rep-scopes leads/visits/subs/commissions, but the "Target vs Achievement" table (`staffPerf`) still listed the whole team. Now a `sales` rep sees only their own row; supervisors/admins unchanged. Server-side, so other reps' revenue/commission never reaches the rep's browser.
 - [x] **Rep listing edit → admin approval** — new `leads.submitListingEdit` (staffProcedure): a rep edits the listing attached to one of their own leads; it creates a `PropertyEditRequest` and flows through the **existing** admin review pipeline (`admin.editRequests.approve/reject`) — nothing goes live without admin sign-off. Auth: sales must own the lead, supervisor must be in team scope. UI: "Edit listing" button + form (title/price/BHK/description, blank = keep) on lead cards with a linked property (`MyLeadsTab`).

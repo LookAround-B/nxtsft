@@ -42,6 +42,7 @@ export type DbLead = {
     status: string;
     freeListing: boolean;
     boostExpiry: string | null;
+    tags: string[];
   } | null;
   // LA-342 payment-link pipeline fields
   plan?: string | null;

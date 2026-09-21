@@ -147,7 +147,7 @@ export const leadsRouter = router({
           // `status` drives the sales portal's Listings tab (draft vs live);
           // freeListing + boostExpiry drive the "send upgrade reminder" button.
           property: {
-            select: { id: true, title: true, slug: true, status: true, freeListing: true, boostExpiry: true },
+            select: { id: true, title: true, slug: true, status: true, freeListing: true, boostExpiry: true, tags: true },
           },
           user: { select: { id: true, name: true, email: true } },
           assignedTo: { select: { id: true, name: true } },
