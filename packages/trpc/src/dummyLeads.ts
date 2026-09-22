@@ -10,11 +10,14 @@ import prisma from "@nxtsft/db";
  * `createMany({ skipDuplicates: true })`. It only ever needs to run once per
  * property, not on a schedule.
  *
- * Callers MUST filter out sellers who already have contact access before
- * calling this — see the `hasSellerContactAccess` gate in
- * sellerInsights.ts's `dummyLeads` resolver. That gate is what actually
- * guarantees a paying seller never gets fresh dummy leads (e.g. on a new
- * free listing created after upgrading); this function has no such check.
+ * Callers decide who gets samples — this function has no entitlement or
+ * status check of its own. See the `dummyLeads` resolver in
+ * sellerInsights.ts: free sellers always, paid sellers while the
+ * `leads.samples_for_paid_sellers` switch is on, Active listings only.
+ *
+ * Requires a seeded, active `DummyBuyer` pool (`prisma/seed-dummy-buyers.ts`
+ * in packages/db). With an empty pool this silently no-ops and no sample
+ * card can ever appear.
  */
 
 const DUMMY_LEADS_PER_PROPERTY = 5;

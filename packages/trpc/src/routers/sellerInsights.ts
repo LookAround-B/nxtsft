@@ -144,11 +144,15 @@ export const sellerInsightsRouter = router({
     const paid = await hasSellerContactAccess(ctx.user.id);
     if (paid && !(await samplesForPaidSellersEnabled())) return { items: [], paid };
 
-    const full = await prisma.property.findMany({
+    // Ownership and sample-eligibility are two separate questions. NOT_FOUND
+    // must mean "not your listing" only — a seller deep-linking from My
+    // Listings ("View Leads →") on a Pending/Inactive/Sold listing owns it
+    // perfectly well, and that page must still render. Filtering by status
+    // inside this query conflated the two and 404'd those links.
+    const owned = await prisma.property.findMany({
       where: {
         ownerId: ctx.user.id,
         deletedAt: null,
-        status: "Active",
         ...(input?.propertyId ? { id: input.propertyId } : {}),
       },
       select: {
@@ -156,11 +160,17 @@ export const sellerInsightsRouter = router({
         title: true,
         slug: true,
         price: true,
+        status: true,
         location: { select: { city: true, state: true } },
       },
     });
-    if (input?.propertyId && !full.length)
+    if (input?.propertyId && !owned.length)
       throw new TRPCError({ code: "NOT_FOUND", message: "Listing not found." });
+    // Only live listings get samples: interest in a listing buyers cannot see
+    // would be indefensible.
+    const full = owned
+      .filter((p) => p.status === "Active")
+      .map(({ status, ...p }) => p);
 
     await ensureDummyLeadsAssigned(full.map((p) => ({ ...p, sellerId: ctx.user.id })));
 

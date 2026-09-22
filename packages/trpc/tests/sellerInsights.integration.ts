@@ -159,6 +159,35 @@ try {
     "A non-freeListing Active listing also receives sample-interest cards",
   );
   assert(paidListingSamples.items.every((item) => item.property.id === property.id));
+  // Regression: "View Leads →" from My Listings deep-links by propertyId on
+  // listings of any status. A listing the seller owns but that isn't live must
+  // return no samples, never NOT_FOUND — that 404 broke the whole deep link.
+  const inactive = await prisma.property.create({
+    data: {
+      ownerId: seller.id,
+      title: "Inactive listing",
+      slug: `${run}-inactive`,
+      type: "Villa",
+      purpose: "Sale",
+      price: 8500000n,
+      area: 1200,
+      status: "Inactive",
+    },
+  });
+  assert.equal(
+    (await api.dummyLeads({ propertyId: inactive.id })).items.length,
+    0,
+    "An owned non-Active listing returns no samples rather than throwing",
+  );
+  assert.equal(
+    await prisma.dummyLeadAssignment.count({ where: { propertyId: inactive.id } }),
+    0,
+    "No sample rows are seeded for a listing buyers cannot see",
+  );
+  await assert.rejects(
+    api.dummyLeads({ propertyId: property.id.replace(/.$/, "z") }),
+    "NOT_FOUND still fires for a listing the seller does not own",
+  );
 
   // Two-type seller lead flow: a real (active, phone-verified, linked,
   // property-specific) enquiry is unmasked for free, with the verified
