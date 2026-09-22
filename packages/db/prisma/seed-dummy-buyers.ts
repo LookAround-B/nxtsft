@@ -128,20 +128,51 @@ function fakePhone(i: number): string {
 }
 
 async function main() {
-  for (const [i, b] of DUMMY_BUYERS.entries()) {
-    const phone = fakePhone(i);
+  const pool = DUMMY_BUYERS.map((b, i) => ({
+    name: b.name,
+    state: b.state,
+    phone: fakePhone(i),
+    email: `${b.name.toLowerCase().replace(/\s+/g, ".")}@gmail.com`,
+  }));
+
+  // fakePhone's digits all come from `i` modulo 4/10/100, so it only yields
+  // 100 distinct numbers. Since `phone` is the upsert key, a 101st entry would
+  // quietly reuse a number and drop that name from the pool.
+  const phones = new Set(pool.map((p) => p.phone));
+  if (phones.size !== pool.length)
+    throw new Error(
+      `fakePhone yields only ${phones.size} distinct numbers for ${pool.length} buyers — widen the scheme.`,
+    );
+
+  for (const buyer of pool) {
+    const { phone, ...rest } = buyer;
     await prisma.dummyBuyer.upsert({
       where: { phone },
-      create: {
-        name: b.name,
-        phone,
-        email: `${b.name.toLowerCase().replace(/\s+/g, ".")}@gmail.com`,
-        state: b.state,
-      },
-      update: {},
+      create: { phone, ...rest },
+      update: rest, // corrections to a name/state/email in this list propagate
     });
   }
-  console.log(`Seeded ${DUMMY_BUYERS.length} dummy buyers.`);
+
+  // Reconcile, don't just add. `phone` is the key but it is a *derived* value,
+  // so editing fakePhone or reordering this list renames every key: a plain
+  // upsert pass would leave the previous rows behind and every name would
+  // exist twice, with two different masked numbers on the same seller's cards.
+  // Assigned buyers are part of a seller's history, so only unreferenced rows
+  // are removable — anything still referenced is reported for a human to judge.
+  const stale = await prisma.dummyBuyer.findMany({
+    where: { phone: { notIn: [...phones] } },
+    select: { id: true, name: true, _count: { select: { assignments: true } } },
+  });
+  const removable = stale.filter((s) => s._count.assignments === 0);
+  if (removable.length)
+    await prisma.dummyBuyer.deleteMany({ where: { id: { in: removable.map((s) => s.id) } } });
+  const kept = stale.length - removable.length;
+
+  console.log(
+    `Seeded ${pool.length} dummy buyers.` +
+      (removable.length ? ` Removed ${removable.length} stale unreferenced.` : "") +
+      (kept ? ` Kept ${kept} stale but assigned — review manually.` : ""),
+  );
 }
 
 main().finally(() => prisma.$disconnect());
