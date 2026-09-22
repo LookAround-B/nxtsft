@@ -54,14 +54,14 @@ function SellerLeadsContent() {
   });
   const requestMatch = trpc.sellerInsights.requestSampleMatch.useMutation({
     onSuccess: async () => {
-      toast.success("Request sent — NxtSft will reach out if a verified buyer matches.");
+      toast.success("Request sent. If a verified buyer matches, the full number appears here.");
       await utils.sellerInsights.dummyLeads.invalidate();
     },
     onError: (error) => toast.error(error.message),
   });
   const shareSampleContact = trpc.sellerInsights.shareSampleSellerContact.useMutation({
     onSuccess: async () => {
-      toast.success("Thanks — NxtSft will contact you if a verified buyer matches.");
+      toast.success("Your number has been shared. Expect a call if a verified buyer matches.");
       setPhoneFormFor(null);
       await utils.sellerInsights.dummyLeads.invalidate();
     },
@@ -261,11 +261,9 @@ function SellerLeadsContent() {
             <Sparkles size={18} /> Sample interest previews
           </div>
           <p className="mb-5 max-w-2xl text-sm text-muted-foreground">
-            These are illustrative previews of the interest data a seller plan helps you manage.
-            They are not verified buyer requests — no one here has accepted, received, or
-            withdrawn anything. Use Share Intent or Share My Number below and NxtSft will contact
-            you if a genuine, verified buyer matches. Verified enquiries appear above and can be
-            contacted directly, free of charge.
+            {dummyQuery.data?.paid
+              ? "These are illustrative previews of the kind of interest your listings attract. They are not verified buyer requests — no one here has accepted, received, or withdrawn anything, and their numbers stay privacy-masked. Use Share Intent or Share Your Number below and NxtSft will contact you if a genuine, verified buyer matches. Your verified enquiries appear above with full contact details."
+              : "These are illustrative previews of the interest data a seller plan helps you manage. They are not verified buyer requests — no one here has accepted, received, or withdrawn anything. Use Share Intent or Share Your Number below and NxtSft will contact you if a genuine, verified buyer matches. Verified enquiries appear above and can be contacted directly, free of charge."}
           </p>
           <div className="space-y-8">
             {sampleGroups.map(([propertyId, group]) => (
@@ -320,10 +318,16 @@ function SellerLeadsContent() {
                         </div>
                       </div>
                       <div className="mt-4 border-t border-amber-200 pt-3">
-                        {item.matchRequested || item.sellerContactShared ? (
+                        {item.sellerContactShared ? (
                           <p className="flex items-center gap-2 text-sm text-teal-700">
-                            <CheckCircle2 size={17} /> NxtSft has received your request and will
-                            contact you if a verified buyer matches.
+                            <CheckCircle2 size={17} /> Your number has been shared. Expect a call if
+                            a verified buyer matches.
+                          </p>
+                        ) : item.matchRequested ? (
+                          <p className="flex items-center gap-2 text-sm text-teal-700">
+                            <CheckCircle2 size={17} /> Request sent. Buyer numbers are
+                            privacy-masked. If a verified buyer matches, the full number appears
+                            here.
                           </p>
                         ) : phoneFormFor === item.id ? (
                           <form
@@ -374,7 +378,7 @@ function SellerLeadsContent() {
                               }}
                               className="rounded-lg border border-amber-600 px-4 py-2.5 text-sm font-semibold text-amber-700"
                             >
-                              Share My Number
+                              Share Your Number
                             </button>
                           </div>
                         )}

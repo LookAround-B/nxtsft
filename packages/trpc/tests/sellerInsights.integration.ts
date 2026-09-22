@@ -148,7 +148,17 @@ try {
   assert(!JSON.stringify(samples).includes(previewBuyers[0]!.phone));
   assert(samples.items.every((item) => item.leadType === "dummy"));
   assert(samples.items.every((item) => !item.matchRequested && !item.sellerContactShared));
+  assert.equal(samples.paid, false);
   await assert.rejects(stranger.dummyLeads({ propertyId: freeProperty.id }));
+  // Samples are no longer limited to free listings — every Active listing the
+  // seller owns gets its own set.
+  const paidListingSamples = await api.dummyLeads({ propertyId: property.id });
+  assert.equal(
+    paidListingSamples.items.length,
+    5,
+    "A non-freeListing Active listing also receives sample-interest cards",
+  );
+  assert(paidListingSamples.items.every((item) => item.property.id === property.id));
 
   // Two-type seller lead flow: a real (active, phone-verified, linked,
   // property-specific) enquiry is unmasked for free, with the verified
@@ -306,8 +316,41 @@ try {
   for (const type of ["owner-sell", "owner-rent"]) {
     await prisma.plan.update({ where: { id: plan.id }, data: { type } });
     assert.equal((await api.leads()).unlocked, true);
-    assert.equal((await api.dummyLeads({ propertyId: freeProperty.id })).items.length, 0);
+    // Paid sellers now keep their sample cards (default-on ops switch), and
+    // the payload says so, so the UI can drop the upsell wording.
+    const paidSamples = await api.dummyLeads({ propertyId: freeProperty.id });
+    assert.equal(paidSamples.items.length, 5, "Paid sellers see samples while the switch is on");
+    assert.equal(paidSamples.paid, true);
   }
+  // Ops kill switch: off hides samples from paid sellers only.
+  await prisma.siteSetting.upsert({
+    where: { key: "leads.samples_for_paid_sellers" },
+    create: { key: "leads.samples_for_paid_sellers", value: false },
+    update: { value: false },
+  });
+  assert.equal((await api.dummyLeads({ propertyId: freeProperty.id })).items.length, 0);
+  const freeSellerApi = sellerInsightsRouter.createCaller(context(other));
+  const otherFree = await prisma.property.create({
+    data: {
+      ownerId: other.id,
+      title: "Other seller listing",
+      slug: `${run}-other`,
+      type: "Villa",
+      purpose: "Sale",
+      price: 8500000n,
+      area: 1200,
+      freeListing: true,
+    },
+  });
+  assert.equal(
+    (await freeSellerApi.dummyLeads({ propertyId: otherFree.id })).items.length,
+    5,
+    "The switch never hides samples from free sellers",
+  );
+  await prisma.siteSetting.update({
+    where: { key: "leads.samples_for_paid_sellers" },
+    data: { value: true },
+  });
   for (const status of ["Cancelled", "Expired", "Failed"]) {
     await prisma.subscription.update({ where: { id: sub.id }, data: { status } });
     assert.equal((await api.leads()).unlocked, false);
@@ -395,12 +438,18 @@ try {
     await prisma.dummyLeadAssignment.count({
       where: { propertyId: freeProperty.id, sellerId: seller.id, suppressedAt: { not: null } },
     }),
-    5,
-    "Successful seller-plan payment permanently suppresses sample previews",
+    0,
+    "Payment no longer suppresses sample previews — the ops switch gates them instead",
   );
+  await api.requestSampleMatch({ id: samples.items[2]!.id });
+  // suppressedAt survives as a manual per-row kill switch.
+  await prisma.dummyLeadAssignment.update({
+    where: { id: samples.items[3]!.id },
+    data: { suppressedAt: new Date() },
+  });
   await assert.rejects(
-    api.requestSampleMatch({ id: samples.items[2]!.id }),
-    "Suppressed sample rows reject new actions too",
+    api.requestSampleMatch({ id: samples.items[3]!.id }),
+    "Suppressed sample rows reject new actions",
   );
   assert.equal((await billing.verifyOwnerPayment(verification)).returnPath, results[0]!.returnPath);
   assert.equal(
@@ -470,7 +519,7 @@ try {
   assert.equal((await billing.ownerPaymentStatus({ txnid: failedOrder.txnid })).status, "Failed");
   assert.equal(await prisma.subscription.count({ where: { userId: seller.id } }), subsBefore + 1);
   console.log(
-    "PASS: masking, ownership, entitlements, metrics, watching alerts, atomic sharing, real/dummy lead typing, sample-card actions, Razorpay and PayU replay/return context",
+    "PASS: masking, ownership, entitlements, metrics, watching alerts, atomic sharing, real/dummy lead typing, sample-card actions, paid-seller sample switch, Razorpay and PayU replay/return context",
   );
 } finally {
   await prisma.$disconnect();

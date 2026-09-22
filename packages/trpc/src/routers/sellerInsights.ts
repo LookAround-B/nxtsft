@@ -17,9 +17,20 @@ const filter = z.object({ propertyId: cuidSchema.optional() }).optional();
 const propertyInput = z.object({ propertyId: cuidSchema });
 
 // Fires at most once per seller (see the repContactId ledger check in
-// escalateSellerFollowUp) — a free seller whose total clicks across
+// escalateSellerFollowUp) — a seller whose total clicks across
 // their dummy leads crosses this crosses into "ready for a call".
 const DUMMY_LEAD_ENGAGEMENT_THRESHOLD = 2;
+
+// Ops switch for showing sample-interest previews to sellers who already
+// have paid contact access. Default on: the sample cards are the engagement
+// surface for every paid seller now, and this exists so support can turn
+// them off without a deploy if complaints appear.
+const SAMPLES_FOR_PAID_KEY = "leads.samples_for_paid_sellers";
+
+async function samplesForPaidSellersEnabled(): Promise<boolean> {
+  const setting = await prisma.siteSetting.findUnique({ where: { key: SAMPLES_FOR_PAID_KEY } });
+  return (setting?.value as boolean | undefined) ?? true;
+}
 
 /**
  * Sales follow-up signal, shared by every seller-facing trigger on dummy
@@ -32,8 +43,11 @@ const DUMMY_LEAD_ENGAGEMENT_THRESHOLD = 2;
 async function escalateSellerFollowUp(
   sellerId: string,
   triggeringRowId: string,
-  opts: { interest: string; reasonPhrase: string; phoneOverride?: string },
+  opts: { interest: string; reasonPhrase: string; phoneOverride?: string; paid: boolean },
 ): Promise<void> {
+  // A paid seller asking for a match is a stronger signal than a free one,
+  // not an upsell target — only the wording differs, the signal still fires.
+  const who = opts.paid ? "paid-plan seller" : "free-plan seller";
   // Fire at most once per seller. Without this, every trigger past the
   // first would re-upsert and re-notify, spamming the rep's bell.
   const already = await prisma.dummyLeadAssignment.findFirst({
@@ -52,7 +66,7 @@ async function escalateSellerFollowUp(
     // is possible. Tell ops rather than silently dropping the signal.
     await notifyAdmins({
       type: "dummy_lead_high_engagement_no_phone",
-      title: "High-intent free seller has no phone on file",
+      title: "High-intent seller has no phone on file",
       content: `${seller?.name ?? sellerId} triggered a sales follow-up but has no phone; can't create a RepContact.`,
       hash: "sellers",
     });
@@ -68,7 +82,7 @@ async function escalateSellerFollowUp(
       type: "dummy_lead_triage_rep_unset",
       title: "DUMMY_LEAD_TRIAGE_REP_ID is not configured",
       content:
-        "A free seller triggered a sales follow-up but no triage rep is configured, so no RepContact was created.",
+        "A seller triggered a sales follow-up but no triage rep is configured, so no RepContact was created.",
       hash: "config",
     });
     return;
@@ -96,8 +110,8 @@ async function escalateSellerFollowUp(
   await notify({
     userId: ownerId,
     type: "dummy_lead_high_engagement",
-    title: "High-intent free seller ready for a call",
-    content: `${seller?.name ?? "A free-plan seller"} ${opts.reasonPhrase}.`,
+    title: `High-intent ${who} ready for a call`,
+    content: `${seller?.name ?? `A ${who}`} ${opts.reasonPhrase}.`,
     actionUrl: "/sales-portal#contacts",
   });
 }
@@ -115,24 +129,25 @@ export const sellerInsightsRouter = router({
     const properties = await ownedSellerProperties(ctx.user.id, input?.propertyId);
     return listingInsights(properties.map((p) => p.id));
   }),
-  // Free-plan conversion teaser: transparent sample-interest cards shown to
-  // sellers who don't yet have paid contact access. Deliberately a separate
-  // query from `leads` (not merged into its response), so the two can never
-  // be confused in the UI and a paying seller's real-lead flow stays
-  // untouched by anything here.
+  // Transparent sample-interest cards. Shown to every seller now — free
+  // sellers as a conversion teaser, paid sellers as the engagement surface
+  // for interest that has no verified buyer behind it yet. Deliberately a
+  // separate query from `leads` (not merged into its response), so the two
+  // can never be confused in the UI and the real-lead flow stays untouched
+  // by anything here.
   dummyLeads: protectedProcedure.input(filter).query(async ({ input, ctx }) => {
-    // The load-bearing correctness guard: a paying seller must never see
-    // sample-interest previews, on any listing, via any payment path (including one
-    // added after this code is written). Gating on live entitlement — rather
-    // than relying on every payment webhook having been caught — is what
-    // guarantees that, independent of whether suppressedAt got set anywhere.
-    if (await hasSellerContactAccess(ctx.user.id)) return { items: [] };
+    // Entitlement no longer decides *whether* samples exist, only which rule
+    // applies: free sellers always see them, paid sellers see them while the
+    // ops switch is on. Checked live rather than trusting a suppression flag
+    // written by some payment path, so flipping the switch takes effect for
+    // everyone immediately.
+    const paid = await hasSellerContactAccess(ctx.user.id);
+    if (paid && !(await samplesForPaidSellersEnabled())) return { items: [], paid };
 
     const full = await prisma.property.findMany({
       where: {
         ownerId: ctx.user.id,
         deletedAt: null,
-        freeListing: true,
         status: "Active",
         ...(input?.propertyId ? { id: input.propertyId } : {}),
       },
@@ -156,6 +171,7 @@ export const sellerInsightsRouter = router({
     });
     const propertyById = new Map(full.map((p) => [p.id, p]));
     return {
+      paid,
       items: rows.flatMap((row) => {
         const property = propertyById.get(row.propertyId);
         if (!property) return [];
@@ -202,10 +218,13 @@ export const sellerInsightsRouter = router({
         // stale/misconfigured triage rep id would otherwise surface as a
         // failed mutation on a buyer-facing button.
         try {
+          const paid = await hasSellerContactAccess(ctx.user.id);
           await escalateSellerFollowUp(ctx.user.id, row.id, {
-            interest: "High-intent free-plan seller — crossed dummy-lead engagement threshold",
-            reasonPhrase:
-              "has been added to your contacts — repeatedly viewed masked buyer leads without upgrading",
+            paid,
+            interest: "High-intent seller — crossed dummy-lead engagement threshold",
+            reasonPhrase: paid
+              ? "has been added to your contacts — repeatedly viewed masked sample leads and wants real buyers"
+              : "has been added to your contacts — repeatedly viewed masked buyer leads without upgrading",
           });
         } catch {
           // swallow — escalation is non-critical to the click
@@ -234,7 +253,8 @@ export const sellerInsightsRouter = router({
       }
       try {
         await escalateSellerFollowUp(ctx.user.id, row.id, {
-          interest: "Free-plan seller requested a match for a sample lead",
+          paid: await hasSellerContactAccess(ctx.user.id),
+          interest: "Seller requested a match for a sample lead",
           reasonPhrase: "asked NxtSft to find a matching verified buyer for a sample lead",
         });
       } catch {
@@ -242,7 +262,7 @@ export const sellerInsightsRouter = router({
       }
       return { ok: true };
     }),
-  // "Share My Number" on a sample card: seller-provided consent to be
+  // "Share Your Number" on a sample card: seller-provided consent to be
   // contacted by NxtSft about a match, with the phone to reach them on for
   // this request (may differ from their account phone).
   shareSampleSellerContact: protectedProcedure
@@ -262,7 +282,8 @@ export const sellerInsightsRouter = router({
       }
       try {
         await escalateSellerFollowUp(ctx.user.id, row.id, {
-          interest: "Free-plan seller shared their contact for a sample-lead match",
+          paid: await hasSellerContactAccess(ctx.user.id),
+          interest: "Seller shared their contact for a sample-lead match",
           reasonPhrase: "shared their contact for NxtSft to follow up on a sample-lead match",
           phoneOverride: input.phone,
         });

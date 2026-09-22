@@ -520,14 +520,6 @@ export const subscriptionsRouter = router({
           razorpayId: input.razorpayPaymentId, razorpayOrderId: input.razorpayOrderId,
           startDate: now, endDate,
         } });
-        // Stop surfacing the free-plan dummy-lead teaser now that this seller
-        // has real contact access. Same write as the PayU callback's
-        // owner_subscription branch — this is the Razorpay equivalent path.
-        // Permanent, account-scoped: see that callback for the full reasoning.
-        await tx.dummyLeadAssignment.updateMany({
-          where: { sellerId: ctx.user.id, suppressedAt: null },
-          data: { suppressedAt: now },
-        });
       });
 
       // Auto ₹500 commission to the attributed sales rep (owner/designer/decor

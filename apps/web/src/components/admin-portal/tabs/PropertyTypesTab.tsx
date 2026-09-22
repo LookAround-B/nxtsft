@@ -20,6 +20,24 @@ export function PropertyTypesTab() {
   const utils = trpc.useUtils();
   const typesQ = trpc.admin.propertyTypes.useQuery();
   const reraQ = trpc.admin.reraRequired.useQuery();
+  const samplesQ = trpc.admin.samplesForPaidSellers.useQuery();
+
+  const toggleSamples = trpc.admin.setSamplesForPaidSellers.useMutation({
+    onMutate: async ({ enabled }) => {
+      await utils.admin.samplesForPaidSellers.cancel();
+      const prev = utils.admin.samplesForPaidSellers.getData();
+      utils.admin.samplesForPaidSellers.setData(undefined, { enabled });
+      return { prev };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.prev) utils.admin.samplesForPaidSellers.setData(undefined, ctx.prev);
+      toast.error(err.message);
+    },
+    onSuccess: ({ enabled }) => {
+      toast.success(`Sample lead previews ${enabled ? "shown to" : "hidden from"} paid sellers`);
+    },
+    onSettled: () => utils.admin.samplesForPaidSellers.invalidate(),
+  });
 
   const toggleRera = trpc.admin.setReraRequired.useMutation({
     onMutate: async ({ enabled }) => {
@@ -95,6 +113,37 @@ export function PropertyTypesTab() {
             <span
               className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
                 reraQ.data?.enabled ? "left-[22px]" : "left-0.5"
+              }`}
+            />
+          </button>
+        </div>
+
+        <div
+          className={`mt-3 flex items-center gap-3 rounded-2xl border p-4 transition ${
+            samplesQ.data?.enabled ? "border-border bg-white" : "border-dashed border-border bg-secondary/40 opacity-70"
+          }`}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-navy">Sample lead previews for paid sellers</div>
+            <div className="text-xs text-muted-foreground">
+              When on, sellers with an active plan also see masked sample-interest cards with Share
+              Intent / Share Your Number. Free sellers always see them. Verified buyer enquiries are
+              unaffected either way.
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!samplesQ.data?.enabled}
+            disabled={samplesQ.isLoading || toggleSamples.isPending}
+            onClick={() => toggleSamples.mutate({ enabled: !samplesQ.data?.enabled })}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${
+              samplesQ.data?.enabled ? "bg-emerald-500" : "bg-muted-foreground/30"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                samplesQ.data?.enabled ? "left-[22px]" : "left-0.5"
               }`}
             />
           </button>

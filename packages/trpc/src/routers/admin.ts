@@ -1666,6 +1666,25 @@ export const adminRouter = router({
       return { enabled: input.enabled };
     }),
 
+  // Sample-interest previews for sellers who already have paid contact
+  // access (see sellerInsights.dummyLeads). On by default — this is the kill
+  // switch, so support can hide them from paying sellers without a deploy.
+  samplesForPaidSellers: adminProcedure.query(async () => {
+    const setting = await prisma.siteSetting.findUnique({ where: { key: "leads.samples_for_paid_sellers" } });
+    return { enabled: (setting?.value as boolean | undefined) ?? true };
+  }),
+
+  setSamplesForPaidSellers: adminProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      await prisma.siteSetting.upsert({
+        where: { key: "leads.samples_for_paid_sellers" },
+        create: { key: "leads.samples_for_paid_sellers", value: input.enabled, editorId: ctx.user.id },
+        update: { value: input.enabled, editorId: ctx.user.id },
+      });
+      return { enabled: input.enabled };
+    }),
+
   teamMembers: adminProcedure
     .input(
       z.object({
