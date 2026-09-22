@@ -1,6 +1,6 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-09-22 (auto web-push on new listing)
+> Last updated: 2026-09-22 (home page video section)
 > Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
@@ -18,7 +18,11 @@
 
 ## ✅ Completed
 
-### Auto web-push on new listing *(09-22)*
+### Home page video section (#13) *(09-22)*
+- [x] **Admin-editable YouTube/Vimeo video section on the home page** — boss ask #13 (promote plans / testimonials). No schema change, no new deps; reuses the existing `siteContent` key/value store (same pattern as `home.hero` / `home.banners`) and the `toEmbedUrl` helper from #9.
+- [x] New public component `home/VideoSection.tsx`: reads `siteContent.get({key:"home.videos"})`, renders an optional heading/subheading + a **responsive grid** of lazy-loaded embeds; keeps only URLs that normalize to an embeddable src, and **renders nothing when unconfigured** (section hidden by default). Placed **after ReviewsSection** in `page.tsx`. Re-runs the reveal observer on load (mirrors BannerSection).
+- [x] New admin editor `admin-portal/tabs/HomeVideosManager.tsx` (mirrors `HomeBannersManager`): add/edit/reorder/remove up to 6 videos (pasted link + optional caption) + section heading/subheading, with a live embed preview per row; blocks save on links that won't embed. Saved under the `home.videos` key. Surfaced via `SiteContentTab`, so it appears in **both** admin-portal and sa-portal `#site-content`.
+- [x] Verified: `tsc --noEmit` clean + `pnpm --filter web build` clean. Populated render is an admin-driven, reversible prod action (add a video in Site Content → it appears on the home page); not yet exercised live.
 - [x] **Auto "New Property in {area}" push to all subscribers** when a listing goes live — boss ask #11 ("build traffic"). Reuses the **existing** web-push stack (LA-332: `PushSubscription`, `public/sw.js`, admin broadcast); no schema change, no new deps.
 - [x] New shared helper `@nxtsft/trpc/push` (`packages/trpc/src/push.ts`): `sendPushToAll` (the send-and-prune loop, **lifted out** of the broadcast router so it's no longer duplicated) + `notifyNewProperty(id)` — formats title/body (`New property in {locality||city}` / `{bhk} {type} · {formatPrice} — tap to view`), deep-links `/properties/{slug}`, uses the cover image. **No-ops if VAPID unconfigured**, guards on `status==="Active"` (so test/dummy `Test` listings and pending listings never fire), fully wrapped so a push failure can't affect the publish.
 - [x] Wired into the two genuine go-live transitions: `admin.approve` (self-serve/free/rep-assisted pending → Active) and the **Razorpay webhook** publish branch (paid rep-assisted). Both `void`-called (fire-and-forget). Broadcast router refactored to call the shared helper — same behavior, no duplicated webpush code.

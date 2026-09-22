@@ -7,6 +7,7 @@ import { PageHead } from "./PageHead";
 import { trpc } from "@/lib/trpc";
 import { validateImageFile } from "@/lib/file-validation";
 import { HomeBannersManager } from "./HomeBannersManager";
+import { HomeVideosManager } from "./HomeVideosManager";
 
 const HERO_KEY = "home.hero";
 const MAX_HERO = 6;
@@ -196,6 +197,7 @@ export function SiteContentTab() {
       </Section>
 
       <HomeBannersManager />
+      <HomeVideosManager />
     </>
   );
 }

@@ -10,6 +10,7 @@ import { CategoriesSection } from "@/components/home/CategoriesSection";
 import { ServicesSection } from "@/components/home/ServicesSection";
 import { CitiesSection } from "@/components/home/CitiesSection";
 import { ReviewsSection } from "@/components/home/ReviewsSection";
+import { VideoSection } from "@/components/home/VideoSection";
 import { WhySection } from "@/components/home/WhySection";
 import { BannerSection } from "@/components/home/BannerSection";
 // import { PortalsSection } from "@/components/home/PortalsSection";
@@ -46,6 +47,7 @@ export default function HomePage() {
       <ServicesSection />
       <CitiesSection />
       <ReviewsSection />
+      <VideoSection />
       <WhySection />
       <BannerSection />
       {/* <PortalsSection /> */}
