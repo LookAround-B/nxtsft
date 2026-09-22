@@ -1376,6 +1376,12 @@ model DummyLeadAssignment {
   // has already been told about them, so escalation fires at most once.
   repContactId String?
 
+  // Two-type seller lead flow: additive, non-clearing timestamps recording
+  // that the seller took a sample-card action (before purchase). Neither
+  // implies a real buyer accepted anything — see escalateSellerFollowUp.
+  matchRequestedAt      DateTime? // "Share Intent" clicked
+  sellerContactSharedAt DateTime? // "Share My Number" submitted
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

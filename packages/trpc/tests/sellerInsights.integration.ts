@@ -39,6 +39,10 @@ try {
     createUser("Buyer"),
     createUser("Buyer2"),
   ]);
+  // `buyer` is the two-type flow's "real lead" fixture: an active, phone-OTP
+  // verified account. `buyer2` stays unverified so it can stand in for the
+  // "not real" comparison later.
+  await prisma.user.update({ where: { id: buyer.id }, data: { phoneVerified: true } });
   const property = await prisma.property.create({
     data: {
       ownerId: seller.id,
@@ -137,12 +141,29 @@ try {
   assert(samples.items.every((item) => item.budget.startsWith("₹")));
   assert(samples.items.every((item) => item.requestType.endsWith("interest")));
   assert(samples.items.every((item) => item.relativeTime.endsWith("ago")));
-  assert(!JSON.stringify(samples).includes(previewBuyers[0]!.phone));
+  // Pre-existing gotcha, not from this change: samples[].property.price is a
+  // BigInt (raw JSON.stringify throws on it), so this needs a replacer.
+  const bigintSafeStringify = (v: unknown) =>
+    JSON.stringify(v, (_k, val) => (typeof val === "bigint" ? val.toString() : val));
+  assert(!bigintSafeStringify(samples).includes(previewBuyers[0]!.phone));
+  assert(samples.items.every((item) => item.leadType === "dummy"));
+  assert(samples.items.every((item) => !item.matchRequested && !item.sellerContactShared));
   await assert.rejects(stranger.dummyLeads({ propertyId: freeProperty.id }));
-  const masked = JSON.stringify(await api.leads());
-  assert(!(await api.leads()).items.some((item) => item.name.includes("Staff test")));
-  assert(!masked.includes(buyer.phone!));
-  assert(!masked.includes(buyer.email));
+
+  // Two-type seller lead flow: a real (active, phone-verified, linked,
+  // property-specific) enquiry is unmasked for free, with the verified
+  // account phone rather than the form-entered one. Everything else on the
+  // free plan — an unlinked legacy enquiry, an internal "Dummy"-source
+  // record — stays masked exactly as before.
+  const leadsResult = await api.leads();
+  const realItem = leadsResult.items.find((item) => item.id === lead.id)!;
+  assert.equal(realItem.leadType, "real");
+  assert.equal(realItem.phone, buyer.phone, "real leads show the verified account phone");
+  assert.equal(realItem.email, buyer.email, "real leads are unmasked, not just the phone");
+  assert(!leadsResult.items.some((item) => item.name.includes("Staff test")));
+  const legacyItem = leadsResult.items.find((item) => item.id === legacy.id)!;
+  assert.notEqual(legacyItem.leadType, "real", "an unlinked buyer never becomes a real lead");
+  assert(legacyItem.phone?.includes("XXXXXX"), "non-real leads stay masked pre-plan");
   for (const result of [
     await users.sellerLeads(),
     await users.sellerUnlocks(),
@@ -190,6 +211,75 @@ try {
   await assert.rejects(api.publicMetrics({ propertyId: property.id }));
   await buyerApi.setWatching({ propertyId: property.id, watching: false });
   assert.equal((await buyerApi.watching()).length, 0);
+
+  // A linked-but-unverified buyer's enquiry stays "not real" (masked,
+  // plan-gated) — verification, not just linkage, is what makes a lead real.
+  const unverifiedBuyer = await createUser("UnverifiedBuyer");
+  const unverifiedLead = await prisma.lead.create({
+    data: {
+      propertyId: property.id,
+      userId: unverifiedBuyer.id,
+      buyerUserId: unverifiedBuyer.id,
+      name: unverifiedBuyer.name,
+      phone: unverifiedBuyer.phone!,
+      email: unverifiedBuyer.email,
+    },
+  });
+  const unverifiedItem = (await api.leads()).items.find((item) => item.id === unverifiedLead.id)!;
+  assert.notEqual(unverifiedItem.leadType, "real", "unverified-phone buyer is never a real lead");
+  assert(unverifiedItem.phone?.includes("XXXXXX"));
+
+  // Sample-card actions: "Share Intent" and "Share My Number" both trigger
+  // the same idempotent sales follow-up (dedup'd per seller via repContactId
+  // on any DummyLeadAssignment row, same ledger the click-threshold path
+  // uses), and each records its own timestamp on its own row regardless.
+  const triageRep = await createUser("TriageRep", "sales");
+  process.env.DUMMY_LEAD_TRIAGE_REP_ID = triageRep.id;
+  await assert.rejects(stranger.requestSampleMatch({ id: samples.items[2]!.id }));
+  await assert.rejects(api.shareSampleSellerContact({ id: samples.items[1]!.id, phone: "123" }));
+
+  await api.requestSampleMatch({ id: samples.items[0]!.id });
+  assert(
+    (await prisma.dummyLeadAssignment.findUnique({ where: { id: samples.items[0]!.id } }))!
+      .matchRequestedAt !== null,
+  );
+  assert.equal(
+    await prisma.repContact.count({ where: { ownerId: triageRep.id, phone: seller.phone! } }),
+    1,
+  );
+  assert.equal(
+    await prisma.notification.count({
+      where: { userId: triageRep.id, type: "dummy_lead_high_engagement" },
+    }),
+    1,
+  );
+
+  await api.shareSampleSellerContact({ id: samples.items[1]!.id, phone: "9876543210" });
+  assert(
+    (await prisma.dummyLeadAssignment.findUnique({ where: { id: samples.items[1]!.id } }))!
+      .sellerContactSharedAt !== null,
+  );
+  assert.equal(
+    await prisma.repContact.count({ where: { ownerId: triageRep.id } }),
+    1,
+    "a second sample action for the same seller stays idempotent on the CRM side",
+  );
+  assert.equal(
+    await prisma.notification.count({
+      where: { userId: triageRep.id, type: "dummy_lead_high_engagement" },
+    }),
+    1,
+  );
+
+  const samplesAfterActions = await api.dummyLeads({ propertyId: freeProperty.id });
+  assert.equal(
+    samplesAfterActions.items.find((i) => i.id === samples.items[0]!.id)!.matchRequested,
+    true,
+  );
+  assert.equal(
+    samplesAfterActions.items.find((i) => i.id === samples.items[1]!.id)!.sellerContactShared,
+    true,
+  );
 
   const plan = await prisma.plan.create({
     data: {
@@ -308,6 +398,10 @@ try {
     5,
     "Successful seller-plan payment permanently suppresses sample previews",
   );
+  await assert.rejects(
+    api.requestSampleMatch({ id: samples.items[2]!.id }),
+    "Suppressed sample rows reject new actions too",
+  );
   assert.equal((await billing.verifyOwnerPayment(verification)).returnPath, results[0]!.returnPath);
   assert.equal(
     (await prisma.siteVisit.findUnique({ where: { id: visit.id } }))!.status,
@@ -376,7 +470,7 @@ try {
   assert.equal((await billing.ownerPaymentStatus({ txnid: failedOrder.txnid })).status, "Failed");
   assert.equal(await prisma.subscription.count({ where: { userId: seller.id } }), subsBefore + 1);
   console.log(
-    "PASS: masking, ownership, entitlements, metrics, watching alerts, atomic sharing, Razorpay and PayU replay/return context",
+    "PASS: masking, ownership, entitlements, metrics, watching alerts, atomic sharing, real/dummy lead typing, sample-card actions, Razorpay and PayU replay/return context",
   );
 } finally {
   await prisma.$disconnect();

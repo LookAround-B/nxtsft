@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import prisma from "@nxtsft/db";
 import { router, publicProcedure, protectedProcedure, generalRateLimit } from "../server";
-import { cuidSchema } from "../sanitize";
+import { cuidSchema, phoneSchema } from "../sanitize";
 import {
   hasSellerContactAccess,
   listingInsights,
@@ -17,13 +17,25 @@ const filter = z.object({ propertyId: cuidSchema.optional() }).optional();
 const propertyInput = z.object({ propertyId: cuidSchema });
 
 // Fires at most once per seller (see the repContactId ledger check in
-// escalateHighEngagementSeller) — a free seller whose total clicks across
+// escalateSellerFollowUp) — a free seller whose total clicks across
 // their dummy leads crosses this crosses into "ready for a call".
 const DUMMY_LEAD_ENGAGEMENT_THRESHOLD = 2;
 
-async function escalateHighEngagementSeller(sellerId: string, triggeringRowId: string): Promise<void> {
-  // Fire at most once per seller. Without this, every click past the
-  // threshold would re-upsert and re-notify, spamming the rep's bell.
+/**
+ * Sales follow-up signal, shared by every seller-facing trigger on dummy
+ * leads (click-threshold, "Share Intent", "Share My Number"). Idempotent
+ * per seller via the repContactId ledger check below — whichever trigger
+ * fires first wins, later triggers become no-ops for the CRM side (the
+ * caller's own state, e.g. matchRequestedAt, is still recorded by the
+ * caller regardless of this function's outcome).
+ */
+async function escalateSellerFollowUp(
+  sellerId: string,
+  triggeringRowId: string,
+  opts: { interest: string; reasonPhrase: string; phoneOverride?: string },
+): Promise<void> {
+  // Fire at most once per seller. Without this, every trigger past the
+  // first would re-upsert and re-notify, spamming the rep's bell.
   const already = await prisma.dummyLeadAssignment.findFirst({
     where: { sellerId, repContactId: { not: null } },
     select: { id: true },
@@ -34,13 +46,14 @@ async function escalateHighEngagementSeller(sellerId: string, triggeringRowId: s
     where: { id: sellerId },
     select: { id: true, name: true, phone: true, email: true, city: true },
   });
-  if (!seller?.phone) {
+  const phone = opts.phoneOverride ?? seller?.phone;
+  if (!phone) {
     // RepContact.phone is required and is the dedup key — no fallback upsert
     // is possible. Tell ops rather than silently dropping the signal.
     await notifyAdmins({
       type: "dummy_lead_high_engagement_no_phone",
       title: "High-intent free seller has no phone on file",
-      content: `${seller?.name ?? sellerId} crossed the dummy-lead engagement threshold but has no phone; can't create a RepContact.`,
+      content: `${seller?.name ?? sellerId} triggered a sales follow-up but has no phone; can't create a RepContact.`,
       hash: "sellers",
     });
     return;
@@ -50,26 +63,26 @@ async function escalateHighEngagementSeller(sellerId: string, triggeringRowId: s
   if (!ownerId) {
     // Fail closed, but never silently: an unset env var disables the entire
     // staff-follow-up half of this feature. The repContactId ledger check
-    // above keeps this from firing per-click.
+    // above keeps this from firing per-trigger.
     await notifyAdmins({
       type: "dummy_lead_triage_rep_unset",
       title: "DUMMY_LEAD_TRIAGE_REP_ID is not configured",
       content:
-        "A free seller crossed the dummy-lead engagement threshold but no triage rep is configured, so no RepContact was created.",
+        "A free seller triggered a sales follow-up but no triage rep is configured, so no RepContact was created.",
       hash: "config",
     });
     return;
   }
 
   const contact = await prisma.repContact.upsert({
-    where: { ownerId_phone: { ownerId, phone: seller.phone } },
+    where: { ownerId_phone: { ownerId, phone } },
     create: {
       ownerId,
-      name: seller.name,
-      phone: seller.phone,
-      email: seller.email,
-      city: seller.city,
-      interest: "High-intent free-plan seller — crossed dummy-lead engagement threshold",
+      name: seller?.name ?? "Seller",
+      phone,
+      email: seller?.email,
+      city: seller?.city,
+      interest: opts.interest,
       source: "dummy_lead_signal",
       status: "New",
       callbackAt: new Date(), // surfaces immediately in repContacts.list's callbackAt-first ordering
@@ -84,7 +97,7 @@ async function escalateHighEngagementSeller(sellerId: string, triggeringRowId: s
     userId: ownerId,
     type: "dummy_lead_high_engagement",
     title: "High-intent free seller ready for a call",
-    content: `${seller.name} has been added to your contacts — repeatedly viewed masked buyer leads without upgrading.`,
+    content: `${seller?.name ?? "A free-plan seller"} ${opts.reasonPhrase}.`,
     actionUrl: "/sales-portal#contacts",
   });
 }
@@ -150,6 +163,9 @@ export const sellerInsightsRouter = router({
           id: row.id,
           property,
           createdAt: row.assignedAt,
+          leadType: "dummy" as const,
+          matchRequested: !!row.matchRequestedAt,
+          sellerContactShared: !!row.sellerContactSharedAt,
           ...sampleInterestPreview(row.id, property.price),
           ...maskContact(
             { name: row.dummyBuyer.name, phone: row.dummyBuyer.phone, email: row.dummyBuyer.email },
@@ -182,10 +198,72 @@ export const sellerInsightsRouter = router({
         // stale/misconfigured triage rep id would otherwise surface as a
         // failed mutation on a buyer-facing button.
         try {
-          await escalateHighEngagementSeller(ctx.user.id, row.id);
+          await escalateSellerFollowUp(ctx.user.id, row.id, {
+            interest: "High-intent free-plan seller — crossed dummy-lead engagement threshold",
+            reasonPhrase:
+              "has been added to your contacts — repeatedly viewed masked buyer leads without upgrading",
+          });
         } catch {
           // swallow — escalation is non-critical to the click
         }
+      }
+      return { ok: true };
+    }),
+  // "Share Intent" on a sample card: records that the seller asked NxtSft to
+  // match this sample lead's profile with a real, verified buyer. Never
+  // implies a real buyer exists or responded — see the confirmation copy
+  // in the UI.
+  requestSampleMatch: protectedProcedure
+    .use(generalRateLimit)
+    .input(z.object({ id: cuidSchema }))
+    .mutation(async ({ input, ctx }) => {
+      const row = await prisma.dummyLeadAssignment.findFirst({
+        where: { id: input.id, sellerId: ctx.user.id, suppressedAt: null },
+      });
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+
+      if (!row.matchRequestedAt) {
+        await prisma.dummyLeadAssignment.update({
+          where: { id: row.id },
+          data: { matchRequestedAt: new Date() },
+        });
+      }
+      try {
+        await escalateSellerFollowUp(ctx.user.id, row.id, {
+          interest: "Free-plan seller requested a match for a sample lead",
+          reasonPhrase: "asked NxtSft to find a matching verified buyer for a sample lead",
+        });
+      } catch {
+        // swallow — the request is already recorded above regardless
+      }
+      return { ok: true };
+    }),
+  // "Share My Number" on a sample card: seller-provided consent to be
+  // contacted by NxtSft about a match, with the phone to reach them on for
+  // this request (may differ from their account phone).
+  shareSampleSellerContact: protectedProcedure
+    .use(generalRateLimit)
+    .input(z.object({ id: cuidSchema, phone: phoneSchema }))
+    .mutation(async ({ input, ctx }) => {
+      const row = await prisma.dummyLeadAssignment.findFirst({
+        where: { id: input.id, sellerId: ctx.user.id, suppressedAt: null },
+      });
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+
+      if (!row.sellerContactSharedAt) {
+        await prisma.dummyLeadAssignment.update({
+          where: { id: row.id },
+          data: { sellerContactSharedAt: new Date() },
+        });
+      }
+      try {
+        await escalateSellerFollowUp(ctx.user.id, row.id, {
+          interest: "Free-plan seller shared their contact for a sample-lead match",
+          reasonPhrase: "shared their contact for NxtSft to follow up on a sample-lead match",
+          phoneOverride: input.phone,
+        });
+      } catch {
+        // swallow — the consent is already recorded above regardless
       }
       return { ok: true };
     }),
@@ -234,7 +312,7 @@ export const sellerInsightsRouter = router({
     ];
     const buyers = await prisma.user.findMany({
       where: { id: { in: buyerIds }, active: true },
-      select: { id: true, name: true, phone: true, email: true },
+      select: { id: true, name: true, phone: true, email: true, phoneVerified: true },
     });
     const buyerById = new Map(buyers.map((b) => [b.id, b]));
     const propertyById = new Map(properties.map((p) => [p.id, p]));
@@ -265,10 +343,30 @@ export const sellerInsightsRouter = router({
       items: rows
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .map((row) => {
-          const contact = maskContact(
-            { name: row.name, phone: row.phone ?? null, email: row.email ?? null },
-            unlocked,
-          );
+          // "real": an enquiry tied to an active, phone-OTP-verified buyer
+          // account, on one of this seller's own properties (guaranteed by
+          // the `where` filter above, so it's always property-specific).
+          // Only enquiry rows carry this distinction — unlock/visit rows
+          // keep the existing plan-gated masking untouched.
+          const buyerAccount = row.buyerId ? buyerById.get(row.buyerId) : undefined;
+          const isReal =
+            row.kind === "enquiry" &&
+            !!row.buyerId &&
+            row.buyerId !== ctx.user.id &&
+            buyerAccount?.phoneVerified === true &&
+            !!buyerAccount.phone;
+          const contact = isReal
+            ? {
+                name: row.name,
+                // The verified account phone, not the (possibly stale or
+                // form-entered) number recorded on the enquiry itself.
+                phone: buyerAccount!.phone,
+                email: row.email ?? null,
+              }
+            : maskContact(
+                { name: row.name, phone: row.phone ?? null, email: row.email ?? null },
+                unlocked,
+              );
           const shared = shares.some(
             (s) => s.buyerId === row.buyerId && s.propertyId === row.propertyId,
           );
@@ -284,6 +382,7 @@ export const sellerInsightsRouter = router({
             status: row.status,
             createdAt: row.createdAt,
             property: propertyById.get(row.propertyId!),
+            leadType: isReal ? ("real" as const) : undefined,
             ...contact,
             shared,
             shareUnavailable,

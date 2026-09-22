@@ -2,13 +2,23 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { LockKeyhole, Users, CheckCircle2, Mail, Phone, Sparkles } from "lucide-react";
+import { LockKeyhole, Users, CheckCircle2, Mail, Phone, Sparkles, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";
 import { ListingInsights } from "@/components/ListingInsights";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Head } from "./shared";
+
+// Indian numbers are stored as 10 digits; wa.me needs the country code and
+// no punctuation. Prefilled with a seller-side opener since the seller is
+// the one reaching out to a buyer's verified enquiry.
+function realLeadWaHref(phone: string, propertyTitle?: string) {
+  const digits = phone.replace(/\D/g, "");
+  const withCc = digits.length === 10 ? `91${digits}` : digits;
+  const text = `Hi, I saw your enquiry${propertyTitle ? ` about ${propertyTitle}` : ""} on NxtSft.`;
+  return `https://wa.me/${withCc}?text=${encodeURIComponent(text)}`;
+}
 
 export function SellerLeadsTab() {
   return (
@@ -31,14 +41,29 @@ function SellerLeadsContent() {
     { propertyId },
     { enabled: eligible, refetchOnMount: "always" },
   );
-  const trackDummyClick = trpc.sellerInsights.trackDummyLeadClick.useMutation();
   const [upgradeProperty, setUpgradeProperty] = useState<string | null>(null);
-  const [upgradeDummyProperty, setUpgradeDummyProperty] = useState<string | null>(null);
+  const [phoneFormFor, setPhoneFormFor] = useState<string | null>(null);
+  const [phoneInput, setPhoneInput] = useState("");
   const utils = trpc.useUtils();
   const share = trpc.sellerInsights.shareSellerContact.useMutation({
     onSuccess: async () => {
       toast.success("Your contact details have been shared with the buyer.");
       await utils.sellerInsights.leads.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const requestMatch = trpc.sellerInsights.requestSampleMatch.useMutation({
+    onSuccess: async () => {
+      toast.success("Request sent — NxtSft will reach out if a verified buyer matches.");
+      await utils.sellerInsights.dummyLeads.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const shareSampleContact = trpc.sellerInsights.shareSampleSellerContact.useMutation({
+    onSuccess: async () => {
+      toast.success("Thanks — NxtSft will contact you if a verified buyer matches.");
+      setPhoneFormFor(null);
+      await utils.sellerInsights.dummyLeads.invalidate();
     },
     onError: (error) => toast.error(error.message),
   });
@@ -91,10 +116,10 @@ function SellerLeadsContent() {
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <Users size={18} /> Online buyer request · {data.items.length}
           </div>
-          {!data.unlocked && data.items.length > 0 && (
+          {!data.unlocked && data.items.some((item) => item.leadType !== "real") && (
             <p className="mb-5 text-sm text-muted-foreground">
-              Free users can preview requests. Activate a seller plan to view buyer contacts and
-              share your details.
+              Verified buyer enquiries are free to contact directly. Activate a seller plan to
+              unlock older or unlinked requests and to share your own contact with buyers.
             </p>
           )}
           {!data.items.length ? (
@@ -114,104 +139,118 @@ function SellerLeadsContent() {
             </div>
           ) : (
             <div className="space-y-4">
-              {data.items.map((item) => (
-                <article
-                  key={`${item.kind}-${item.id}`}
-                  className="rounded-xl border border-border bg-white p-5 shadow-sm"
-                >
-                  <div className="flex items-start gap-4">
-                    <div
-                      aria-hidden
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-xl font-semibold text-white"
-                    >
-                      {item.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="font-display text-lg font-bold text-navy">{item.name}</h3>
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs ${item.status === "Visit cancelled" ? "bg-amber-50 text-amber-800" : "bg-teal-50 text-teal-800"}`}
-                        >
-                          {item.status}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {item.kind === "enquiry"
-                          ? "Enquiry"
-                          : item.kind === "visit"
-                            ? "Site visit"
-                            : "Contact unlock"}{" "}
-                        · {new Date(item.createdAt).toLocaleString("en-IN")}
-                      </p>
-                      <div className="mt-3 space-y-1 text-sm">
-                        {item.phone &&
-                          (data.unlocked ? (
-                            <a
-                              className="block font-semibold text-accent"
-                              href={`tel:${item.phone}`}
-                            >
-                              {item.phone}
-                            </a>
-                          ) : (
-                            <p>{item.phone}</p>
-                          ))}
-                        {item.email &&
-                          (data.unlocked ? (
-                            <a
-                              className="block break-all text-accent"
-                              href={`mailto:${item.email}`}
-                            >
-                              {item.email}
-                            </a>
-                          ) : (
-                            <p>{item.email}</p>
-                          ))}
-                        {data.unlocked && !item.phone && !item.email && (
-                          <p>No contact details provided.</p>
-                        )}
-                      </div>
-                      {item.property && (
-                        <p className="mt-3 text-xs text-muted-foreground">
-                          {item.property.title}
-                          {item.property.location?.city ? ` · ${item.property.location.city}` : ""}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-4 border-t border-border pt-4">
-                    {!data.unlocked ? (
-                      <button
-                        onClick={() => setUpgradeProperty(item.property!.id)}
-                        className="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white"
+              {data.items.map((item) => {
+                const isReal = item.leadType === "real";
+                const showContact = isReal || data.unlocked;
+                return (
+                  <article
+                    key={`${item.kind}-${item.id}`}
+                    className="rounded-xl border border-border bg-white p-5 shadow-sm"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        aria-hidden
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-xl font-semibold text-white"
                       >
-                        View Contact
-                      </button>
-                    ) : item.shared ? (
-                      <p className="flex items-center gap-2 text-sm text-teal-700">
-                        <CheckCircle2 size={17} /> Your contact details have been shared with the
-                        buyer.
-                      </p>
-                    ) : (
-                      <>
-                        <button
-                          disabled={!!item.shareUnavailable || share.isPending}
-                          onClick={() => share.mutate({ kind: item.kind, id: item.id })}
-                          className="w-full rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
-                        >
-                          {share.isPending && share.variables?.id === item.id
-                            ? "Sharing…"
-                            : "Share My Contact With Buyer"}
-                        </button>
-                        {item.shareUnavailable && (
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {item.shareUnavailable}
+                        {item.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h3 className="font-display text-lg font-bold text-navy">{item.name}</h3>
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs ${item.status === "Visit cancelled" ? "bg-amber-50 text-amber-800" : "bg-teal-50 text-teal-800"}`}
+                          >
+                            {item.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {item.kind === "enquiry"
+                            ? "Enquiry"
+                            : item.kind === "visit"
+                              ? "Site visit"
+                              : "Contact unlock"}{" "}
+                          · {new Date(item.createdAt).toLocaleString("en-IN")}
+                        </p>
+                        <div className="mt-3 space-y-1 text-sm">
+                          {item.phone &&
+                            (showContact ? (
+                              <a
+                                className="block font-semibold text-accent"
+                                href={`tel:${item.phone}`}
+                              >
+                                {item.phone}
+                              </a>
+                            ) : (
+                              <p>{item.phone}</p>
+                            ))}
+                          {item.email &&
+                            (showContact ? (
+                              <a
+                                className="block break-all text-accent"
+                                href={`mailto:${item.email}`}
+                              >
+                                {item.email}
+                              </a>
+                            ) : (
+                              <p>{item.email}</p>
+                            ))}
+                          {showContact && !item.phone && !item.email && (
+                            <p>No contact details provided.</p>
+                          )}
+                        </div>
+                        {isReal && item.phone && (
+                          <a
+                            href={realLeadWaHref(item.phone, item.property?.title)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white"
+                          >
+                            <MessageCircle size={16} /> WhatsApp
+                          </a>
+                        )}
+                        {item.property && (
+                          <p className="mt-3 text-xs text-muted-foreground">
+                            {item.property.title}
+                            {item.property.location?.city ? ` · ${item.property.location.city}` : ""}
                           </p>
                         )}
-                      </>
-                    )}
-                  </div>
-                </article>
-              ))}
+                      </div>
+                    </div>
+                    <div className="mt-4 border-t border-border pt-4">
+                      {!showContact ? (
+                        <button
+                          onClick={() => setUpgradeProperty(item.property!.id)}
+                          className="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white"
+                        >
+                          View Contact
+                        </button>
+                      ) : !data.unlocked ? null : item.shared ? (
+                        <p className="flex items-center gap-2 text-sm text-teal-700">
+                          <CheckCircle2 size={17} /> Your contact details have been shared with the
+                          buyer.
+                        </p>
+                      ) : (
+                        <>
+                          <button
+                            disabled={!!item.shareUnavailable || share.isPending}
+                            onClick={() => share.mutate({ kind: item.kind, id: item.id })}
+                            className="w-full rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                          >
+                            {share.isPending && share.variables?.id === item.id
+                              ? "Sharing…"
+                              : "Share My Contact With Buyer"}
+                          </button>
+                          {item.shareUnavailable && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {item.shareUnavailable}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </>
@@ -223,8 +262,10 @@ function SellerLeadsContent() {
           </div>
           <p className="mb-5 max-w-2xl text-sm text-muted-foreground">
             These are illustrative previews of the interest data a seller plan helps you manage.
-            They are not verified buyer requests. Verified enquiries appear above and can be
-            contacted after plan activation.
+            They are not verified buyer requests — no one here has accepted, received, or
+            withdrawn anything. Use Share Intent or Share My Number below and NxtSft will contact
+            you if a genuine, verified buyer matches. Verified enquiries appear above and can be
+            contacted directly, free of charge.
           </p>
           <div className="space-y-8">
             {sampleGroups.map(([propertyId, group]) => (
@@ -279,15 +320,64 @@ function SellerLeadsContent() {
                         </div>
                       </div>
                       <div className="mt-4 border-t border-amber-200 pt-3">
-                        <button
-                          onClick={() => {
-                            trackDummyClick.mutate({ id: item.id });
-                            setUpgradeDummyProperty(item.property.id);
-                          }}
-                          className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white"
-                        >
-                          View Contact
-                        </button>
+                        {item.matchRequested || item.sellerContactShared ? (
+                          <p className="flex items-center gap-2 text-sm text-teal-700">
+                            <CheckCircle2 size={17} /> NxtSft has received your request and will
+                            contact you if a verified buyer matches.
+                          </p>
+                        ) : phoneFormFor === item.id ? (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              shareSampleContact.mutate({ id: item.id, phone: phoneInput });
+                            }}
+                            className="flex flex-wrap items-center gap-2"
+                          >
+                            <input
+                              type="tel"
+                              required
+                              value={phoneInput}
+                              onChange={(e) => setPhoneInput(e.target.value)}
+                              placeholder="10-digit mobile number"
+                              className="rounded-lg border border-border px-3 py-2 text-sm"
+                            />
+                            <button
+                              type="submit"
+                              disabled={shareSampleContact.isPending}
+                              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                            >
+                              {shareSampleContact.isPending ? "Sending…" : "Submit"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPhoneFormFor(null)}
+                              className="text-sm text-muted-foreground underline"
+                            >
+                              Cancel
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => requestMatch.mutate({ id: item.id })}
+                              disabled={requestMatch.isPending}
+                              className="rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                            >
+                              {requestMatch.isPending && requestMatch.variables?.id === item.id
+                                ? "Sending…"
+                                : "Share Intent"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setPhoneInput(session?.phone?.replace(/\D/g, "").slice(-10) ?? "");
+                                setPhoneFormFor(item.id);
+                              }}
+                              className="rounded-lg border border-amber-600 px-4 py-2.5 text-sm font-semibold text-amber-700"
+                            >
+                              Share My Number
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </article>
                   ))}
@@ -297,33 +387,6 @@ function SellerLeadsContent() {
           </div>
         </div>
       )}
-      <Dialog
-        open={upgradeDummyProperty !== null}
-        onOpenChange={(open) => {
-          if (!open) setUpgradeDummyProperty(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <LockKeyhole className="text-accent" size={28} />
-          <DialogTitle>Unlock Buyer Contacts</DialogTitle>
-          <DialogDescription>
-            Seller plans unlock contact details for verified buyers who enquire on your listing.
-            These sample-interest previews remain illustrative.
-          </DialogDescription>
-          <Link
-            href={`/pricing?source=masked-leads${upgradeDummyProperty ? `&propertyId=${encodeURIComponent(upgradeDummyProperty)}` : ""}#seller`}
-            className="rounded-lg bg-accent px-5 py-3 text-center font-semibold text-white"
-          >
-            View Seller Plans →
-          </Link>
-          <button
-            onClick={() => setUpgradeDummyProperty(null)}
-            className="rounded-lg border border-border px-5 py-3 text-sm"
-          >
-            Maybe Later
-          </button>
-        </DialogContent>
-      </Dialog>
       <Dialog
         open={upgradeProperty !== null}
         onOpenChange={(open) => {
