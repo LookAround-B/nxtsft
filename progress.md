@@ -1,6 +1,6 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-09-22 (careers listings + apply form)
+> Last updated: 2026-09-22 (masked buyer<->seller messaging)
 > Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
@@ -17,6 +17,15 @@
 ---
 
 ## ✅ Completed
+
+### Masked buyer↔seller messaging (#10) *(09-22)*
+- [x] **In-app messaging with email alerts** (chosen over true email relay) — boss ask #10 "masked email". Users message each other from the dashboard; the other party is alerted by an in-app notification + an email that shows the sender's NAME only and links back to the dashboard. **Neither party's email address is ever exposed.**
+- [x] **Schema:** reused the previously-unused `Message` model; added a nullable `propertyId` scalar (+ index) for listing context — a conversation is keyed on (other user, property). ⚠️ **Needs `prisma db push` to prod BEFORE deploy** (send/threads select the new column). Additive.
+- [x] **Email:** new `@nxtsft/trpc/email` `sendEmailIfConfigured` via **Resend REST API**, env-gated no-op until `RESEND_API_KEY` + `EMAIL_FROM` are set (mirrors bhashsms.ts). So the feature deploys safely now; email alerts start flowing once you add the key + a verified sending domain. In-app notifications work regardless.
+- [x] **Backend `messages` router:** `threads` (grouped conversation list + unread counts), `thread` (full convo, marks read), `send` (rate-limited; in-app notify + best-effort email), `unreadCount` (nav badge). Free + rate-limited channel (masked, so no contact-info leak; distinct from the credit-gated phone unlock).
+- [x] **UI:** user-portal **Messages** tab (two-pane inbox + reply, unread badge in nav) + a **"Message owner"** button on the listing page (`MessageOwnerButton`) with a compose modal (hidden on your own listing; "sign in to message" when logged out).
+- [x] Verified: `tsc` clean (trpc + web) + `pnpm --filter web build` clean. Live E2E (message → recipient's inbox + notification; email once Resend configured) pending the prod `prisma db push`.
+- [ ] **Follow-up (your setup):** create a Resend account, verify a sending domain/subdomain, set `RESEND_API_KEY` + `EMAIL_FROM` (e.g. `NxtSft <noreply@mail.nxtsft.com>`) in Vercel — then email alerts go live (in-app messaging already works without it).
 
 ### Careers — job listings + apply form (#14) *(09-22)*
 - [x] **Open Positions + application flow on the existing careers page** — boss ask #14. The page was a polished "mailto jobs@" marketing page with no listings/form; now it has admin-managed roles and a real apply form.

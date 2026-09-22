@@ -1001,6 +1001,10 @@ model Message {
   senderId    String
   sender      User      @relation(fields: [senderId], references: [id])
   recipientId String
+  // Listing a message is about (masked buyer<->seller messaging, #10). Plain
+  // scalar (no relation) to keep the change additive — the router resolves the
+  // property title separately. A conversation is keyed on (other user, property).
+  propertyId  String?
   content     String    @db.Text
   type        String    @default("text") // text | image | document
   read        Boolean   @default(false)
@@ -1009,6 +1013,7 @@ model Message {
 
   @@index([senderId])
   @@index([recipientId])
+  @@index([propertyId])
   @@index([createdAt])
 }
 

@@ -31,6 +31,7 @@ import { repContactsRouter } from "./routers/repContacts";
 import { couponsRouter } from "./routers/coupons";
 import { channelCodesRouter } from "./routers/channelCodes";
 import { careersRouter } from "./routers/careers";
+import { messagesRouter } from "./routers/messages";
 
 export const appRouter = router({
   sellerInsights: sellerInsightsRouter,
@@ -65,6 +66,7 @@ export const appRouter = router({
   coupons: couponsRouter,
   channelCodes: channelCodesRouter,
   careers: careersRouter,
+  messages: messagesRouter,
 });
 
 export type AppRouter = typeof appRouter;

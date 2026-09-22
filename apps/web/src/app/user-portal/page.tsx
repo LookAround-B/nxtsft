@@ -15,6 +15,7 @@ import {
   LifeBuoy,
   Briefcase,
   Images,
+  MessageSquare,
 } from "lucide-react";
 import { Home as HomeIcon } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
@@ -39,6 +40,7 @@ import { SellerVisitsTab } from "@/components/user-portal/tabs/SellerVisitsTab";
 import { SupportTicketsTab } from "@/components/user-portal/tabs/SupportTicketsTab";
 import { MyBusinessTab } from "@/components/user-portal/tabs/MyBusinessTab";
 import { BulkPhotosTab } from "@/components/user-portal/tabs/BulkPhotosTab";
+import { MessagesTab } from "@/components/user-portal/tabs/MessagesTab";
 
 export default function UserPortal() {
   const { session } = useAuth();
@@ -56,6 +58,12 @@ export default function UserPortal() {
   });
   const b = badgesQ.data;
 
+  // Unread message count for the Messages nav badge (separate from badgeCounts).
+  const unreadQ = trpc.messages.unreadCount.useQuery(undefined, {
+    enabled: ready && !!session,
+    refetchInterval: 60_000,
+  });
+
   if (!ready || !session) return null;
 
   // Agents list & manage properties like Home Sellers, so they get the same
@@ -65,7 +73,8 @@ export default function UserPortal() {
   const nav = [
     { label: "Overview",         to: "/user-portal",          icon: <HomeIcon size={14} />, group: "Overview" },
 
-    { label: "Saved",            to: "/user-portal#saved",    icon: <Heart size={14} />, group: "My Search", badge: b?.saved },
+    { label: "Messages",         to: "/user-portal#messages", icon: <MessageSquare size={14} />, group: "My Search", badge: unreadQ.data || undefined },
+    { label: "Saved",            to: "/user-portal#saved",    icon: <Heart size={14} />, badge: b?.saved },
     { label: "Watching", to: "/user-portal#watching", icon: <Bell size={14} /> },
     { label: "Recently Viewed",  to: "/user-portal#viewed",   icon: <Eye size={14} /> },
     { label: "Search Alerts",    to: "/user-portal#alerts",   icon: <Bell size={14} /> },
@@ -111,6 +120,7 @@ export default function UserPortal() {
 
 function renderTab(h: string, isSeller: boolean) {
   switch (h) {
+    case "messages": return <MessagesTab />;
     case "watching": return <WatchingTab />;
     case "saved":   return <SavedTab />;
     case "mylist":  return <MyListingsTab />;

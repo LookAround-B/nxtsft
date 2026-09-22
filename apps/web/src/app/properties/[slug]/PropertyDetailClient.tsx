@@ -45,6 +45,7 @@ import { formatArea } from "@/lib/area";
 import { ShareMenu } from "@/components/ShareMenu";
 import { amenityIcon } from "@/data/amenities";
 import { useAuth } from "@/lib/auth";
+import { MessageOwnerButton } from "./MessageOwnerButton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { SITE_URL } from "@/lib/site";
@@ -339,6 +340,19 @@ function ContactCard({
             </>
           )}
         </button>
+      )}
+
+      {/* Masked in-app messaging (#10) — free channel; email stays private. */}
+      {property.owner && (
+        <MessageOwnerButton
+          propertyId={property.id}
+          ownerId={property.owner.id}
+          ownerName={displayName ?? "the owner"}
+          propertyTitle={property.title}
+          propertySlug={property.slug}
+          isLoggedIn={!!session}
+          isOwnListing={!!session && session.id === property.owner.id}
+        />
       )}
 
       {!session && (
