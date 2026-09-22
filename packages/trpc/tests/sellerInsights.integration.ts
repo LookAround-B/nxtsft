@@ -141,11 +141,11 @@ try {
   assert(samples.items.every((item) => item.budget.startsWith("₹")));
   assert(samples.items.every((item) => item.requestType.endsWith("interest")));
   assert(samples.items.every((item) => item.relativeTime.endsWith("ago")));
-  // Pre-existing gotcha, not from this change: samples[].property.price is a
-  // BigInt (raw JSON.stringify throws on it), so this needs a replacer.
-  const bigintSafeStringify = (v: unknown) =>
-    JSON.stringify(v, (_k, val) => (typeof val === "bigint" ? val.toString() : val));
-  assert(!bigintSafeStringify(samples).includes(previewBuyers[0]!.phone));
+  // Plain JSON.stringify on purpose: this stack has no superjson transformer,
+  // so anything BigInt left in the payload throws here exactly as it would in
+  // the real tRPC response. Do not "fix" this with a replacer — that hides a
+  // 500 (it already did once).
+  assert(!JSON.stringify(samples).includes(previewBuyers[0]!.phone));
   assert(samples.items.every((item) => item.leadType === "dummy"));
   assert(samples.items.every((item) => !item.matchRequested && !item.sellerContactShared));
   await assert.rejects(stranger.dummyLeads({ propertyId: freeProperty.id }));

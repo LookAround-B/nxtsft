@@ -159,14 +159,18 @@ export const sellerInsightsRouter = router({
       items: rows.flatMap((row) => {
         const property = propertyById.get(row.propertyId);
         if (!property) return [];
+        // price is BigInt and this stack has no superjson transformer, so
+        // returning it would throw at serialization time. It is only needed
+        // to derive the sample budget string below.
+        const { price, ...propertyForClient } = property;
         return [{
           id: row.id,
-          property,
+          property: propertyForClient,
           createdAt: row.assignedAt,
           leadType: "dummy" as const,
           matchRequested: !!row.matchRequestedAt,
           sellerContactShared: !!row.sellerContactSharedAt,
-          ...sampleInterestPreview(row.id, property.price),
+          ...sampleInterestPreview(row.id, price),
           ...maskContact(
             { name: row.dummyBuyer.name, phone: row.dummyBuyer.phone, email: row.dummyBuyer.email },
             false, // samples are always masked and never unlockable
