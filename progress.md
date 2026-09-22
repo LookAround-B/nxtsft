@@ -1,6 +1,6 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-09-22 (home page video section)
+> Last updated: 2026-09-22 (anonymous push capture)
 > Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
@@ -18,7 +18,12 @@
 
 ## ✅ Completed
 
-### Home page video section (#13) *(09-22)*
+### Anonymous push capture — makes #11 reach visitors *(09-22)*
+- [x] **Site-wide push opt-in for anyone (incl. logged-out visitors)** — the missing half of #11. Previously the only way to subscribe was a toggle buried in the logged-in user-portal Profile tab, so almost nobody was subscribed and the new-listing push reached no one. This adds broad capture (boss goal: "push to all users → build traffic").
+- [x] **Schema:** `PushSubscription.userId` made **nullable** (+ relation optional) so a logged-out device can be stored; a signed-in caller's id is still attached for attribution. ⚠️ **Needs `prisma db push` to prod BEFORE the code deploys** — until the column is nullable in prod, an anonymous "Enable" click hits the old NOT NULL constraint and fails (logged-in still works). Non-destructive change (relaxes a constraint).
+- [x] **Backend:** `push.subscribe` + `push.unsubscribe` changed from `protectedProcedure` → `publicProcedure` (subscribe is IP-rate-limited via `generalRateLimit`). `subscribe` sets `userId: ctx.user?.id ?? null` on create, and only (re)attaches a user on update when one is signed in (an anonymous re-subscribe never wipes an existing attribution). The Profile toggle keeps working unchanged.
+- [x] **Frontend:** new `site/PushPrompt.tsx` — a dismissible, delayed (4s) site-wide card ("Get new-property alerts") shown on public pages (via `SiteChrome`) to anyone whose browser supports push, has push configured, hasn't decided yet, and hasn't dismissed in the last 14 days. Skips already-subscribed devices. On Enable → `subscribeToPush()` → public `push.subscribe`.
+- [x] Verified: `tsc` clean (trpc + web) + `pnpm --filter web build` clean. ⚠️ Live E2E pending: (1) the prod `prisma db push`, (2) confirming the base send pipeline (the Profile-toggle device test — VAPID keys). `stats` now buckets all anonymous subs under one null userId (cosmetic; device count is unaffected).
 - [x] **Admin-editable YouTube/Vimeo video section on the home page** — boss ask #13 (promote plans / testimonials). No schema change, no new deps; reuses the existing `siteContent` key/value store (same pattern as `home.hero` / `home.banners`) and the `toEmbedUrl` helper from #9.
 - [x] New public component `home/VideoSection.tsx`: reads `siteContent.get({key:"home.videos"})`, renders an optional heading/subheading + a **responsive grid** of lazy-loaded embeds; keeps only URLs that normalize to an embeddable src, and **renders nothing when unconfigured** (section hidden by default). Placed **after ReviewsSection** in `page.tsx`. Re-runs the reveal observer on load (mirrors BannerSection).
 - [x] New admin editor `admin-portal/tabs/HomeVideosManager.tsx` (mirrors `HomeBannersManager`): add/edit/reorder/remove up to 6 videos (pasted link + optional caption) + section heading/subheading, with a live embed preview per row; blocks save on links that won't embed. Saved under the `home.videos` key. Surfaced via `SiteContentTab`, so it appears in **both** admin-portal and sa-portal `#site-content`.

@@ -1028,8 +1028,11 @@ model Notification {
 // are pruned by the broadcaster.
 model PushSubscription {
   id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation("UserPushSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
+  // Nullable: a logged-out visitor can subscribe from the public site-wide
+  // prompt (traffic-building goal of the new-listing push). Attaches to a user
+  // when one is signed in at subscribe time; stays null for anonymous devices.
+  userId    String?
+  user      User?    @relation("UserPushSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
   endpoint  String   @unique
   p256dh    String
   auth      String

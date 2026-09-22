@@ -1,14 +1,17 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import prisma from "@nxtsft/db";
-import { router, protectedProcedure, adminProcedure, broadcastRateLimit } from "../server";
+import { router, publicProcedure, adminProcedure, broadcastRateLimit, generalRateLimit } from "../server";
 import { safeString } from "../sanitize";
 import { sendPushToAll, pushConfigured } from "../push";
 
 export const pushRouter = router({
-  // Store a browser's push subscription for the current user. Idempotent on
-  // endpoint — re-subscribing from the same browser just refreshes the keys.
-  subscribe: protectedProcedure
+  // Store a browser's push subscription. Public + rate-limited so a logged-out
+  // visitor can opt in from the site-wide prompt (traffic-building goal); a
+  // signed-in caller's id is attached for attribution. Idempotent on endpoint —
+  // re-subscribing from the same browser just refreshes the keys.
+  subscribe: publicProcedure
+    .use(generalRateLimit)
     .input(
       z.object({
         endpoint: z.string().url().max(2000),
@@ -23,14 +26,17 @@ export const pushRouter = router({
       await prisma.pushSubscription.upsert({
         where: { endpoint: input.endpoint },
         create: {
-          userId: ctx.user.id,
+          userId: ctx.user?.id ?? null,
           endpoint: input.endpoint,
           p256dh: input.keys.p256dh,
           auth: input.keys.auth,
           userAgent: input.userAgent,
         },
         update: {
-          userId: ctx.user.id,
+          // Only (re)attach a user when one is signed in — an anonymous
+          // re-subscribe from the same device must not wipe an existing
+          // attribution.
+          ...(ctx.user ? { userId: ctx.user.id } : {}),
           p256dh: input.keys.p256dh,
           auth: input.keys.auth,
           userAgent: input.userAgent,
@@ -39,7 +45,10 @@ export const pushRouter = router({
       return { ok: true };
     }),
 
-  unsubscribe: protectedProcedure
+  // Public: a device removing its own subscription by endpoint (the Profile
+  // toggle and the site-wide prompt both call this). Endpoints are opaque and
+  // device-held, so this is safe without auth.
+  unsubscribe: publicProcedure
     .input(z.object({ endpoint: z.string().url().max(2000) }))
     .mutation(async ({ input }) => {
       await prisma.pushSubscription.deleteMany({ where: { endpoint: input.endpoint } });
