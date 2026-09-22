@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { router, protectedProcedure, publicProcedure } from "../server";
+import { router, protectedProcedure, publicProcedure, generalRateLimit } from "../server";
 import { uploadToR2, isR2Configured, presignUploadUrl, publicUrlFor } from "../r2";
 
 const EXTENSION: Record<string, string> = {
@@ -14,7 +14,7 @@ const EXTENSION: Record<string, string> = {
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const CONTENT_TYPE = z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
-const FOLDER = z.enum(["properties", "avatars", "kyc", "site", "referrals", "interiors", "decor", "bulk-photos"]);
+const FOLDER = z.enum(["properties", "avatars", "kyc", "site", "referrals", "interiors", "decor", "bulk-photos", "careers"]);
 
 // Confirm the decoded bytes actually start with the magic number for the
 // declared content type. The client-supplied `contentType` is untrusted — a
@@ -111,6 +111,32 @@ export const mediaRouter = router({
 
       const key = `${input.folder}/${ctx.user.id}/${randomUUID()}.${EXTENSION[input.contentType]}`;
       const url = await uploadToR2(key, bytes, input.contentType);
+      return { url };
+    }),
+
+  // Public résumé upload for job applicants (Careers page, #14). Anyone can
+  // apply without an account, so this can't be a protectedProcedure — it's
+  // instead IP-rate-limited, PDF-only, size-capped, and magic-byte verified so
+  // the public bucket can't be used to stash arbitrary files.
+  uploadResume: publicProcedure
+    .use(generalRateLimit)
+    .input(z.object({ data: z.string().min(1).max(8_000_000) })) // base64-encoded PDF
+    .mutation(async ({ input }) => {
+      if (!isR2Configured()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "File storage is not configured." });
+      }
+      const bytes = Buffer.from(input.data, "base64");
+      if (bytes.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Empty file." });
+      }
+      if (bytes.length > MAX_BYTES) {
+        throw new TRPCError({ code: "PAYLOAD_TOO_LARGE", message: "Résumé exceeds the 5 MB limit." });
+      }
+      if (!magicMatches(bytes, "application/pdf")) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Please upload a valid PDF file." });
+      }
+      const key = `careers/${randomUUID()}.pdf`;
+      const url = await uploadToR2(key, bytes, "application/pdf");
       return { url };
     }),
 });

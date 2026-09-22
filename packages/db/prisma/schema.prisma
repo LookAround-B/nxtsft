@@ -512,6 +512,33 @@ model Enquiry {
   @@index([createdAt])
 }
 
+// A candidate's application to a job posting (Careers page, #14). Jobs themselves
+// are admin-managed content (SiteSetting "careers.jobs"); this stores who applied.
+// jobTitle is denormalized so an application stays readable even if the posting
+// is later edited or removed. Résumé is either an uploaded PDF (R2) or a pasted
+// link — at least one is expected but neither is hard-required at the DB level.
+model JobApplication {
+  id        String  @id @default(cuid())
+  jobId     String? // client-generated id of the SiteSetting job entry, if any
+  jobTitle  String
+
+  name    String
+  email   String
+  phone   String?
+  message String? // short cover note
+
+  resumeUrl  String? // uploaded PDF in R2
+  resumeLink String? // pasted external link (Drive/LinkedIn)
+
+  status String @default("New") // New | Shortlisted | Rejected | Hired
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
 // Wishlist / "liked" — explicit join with a timestamp so engagement is time-ordered.
 model Favorite {
   id         String   @id @default(cuid())

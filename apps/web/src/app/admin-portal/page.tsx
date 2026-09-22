@@ -29,6 +29,7 @@ import {
   Layers,
   TicketPercent,
   Radio,
+  Briefcase,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -60,6 +61,7 @@ import { PushNotificationsTab } from "@/components/admin-portal/tabs/PushNotific
 import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
 import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprovalsTab";
 import { SiteContentTab } from "@/components/admin-portal/tabs/SiteContentTab";
+import { CareersTab } from "@/components/admin-portal/tabs/CareersTab";
 import { ReferralsTab } from "@/components/admin-portal/tabs/ReferralsTab";
 import { ReviewsTab } from "@/components/admin-portal/tabs/ReviewsTab";
 import { InteriorsTab } from "@/components/admin-portal/tabs/InteriorsTab";
@@ -114,6 +116,7 @@ const makeNav = (b?: BadgeCounts) => [
   { label: "WhatsApp Broadcast",to: "/admin-portal#broadcast",   icon: <Send size={14} /> },
   { label: "Push Notifications",to: "/admin-portal#push",        icon: <BellRing size={14} /> },
   { label: "Home Page Content",to: "/admin-portal#site-content", icon: <ImageIcon size={14} /> },
+  { label: "Careers",          to: "/admin-portal#careers",      icon: <Briefcase size={14} /> },
   { label: "Bulk Listings",    to: "/admin-portal#bulk-listings",icon: <UploadCloud size={14} /> },
   { label: "Bulk Photos",      to: "/admin-portal#bulk-photos",  icon: <ImageIcon size={14} /> },
   { label: "Dev Tools",        to: "/admin-portal#dev",          icon: <Building size={14} /> },
@@ -147,6 +150,7 @@ function renderTab(hash: string) {
     case "seller-approvals": return <SellerApprovalsTab />;
     case "kyc":           return <KYCReviewTab />;
     case "site-content":  return <SiteContentTab />;
+    case "careers":       return <CareersTab />;
     case "referrals":     return <ReferralsTab />;
     case "reviews":       return <ReviewsTab />;
     case "interiors":     return <InteriorsTab />;

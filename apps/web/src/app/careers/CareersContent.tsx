@@ -18,6 +18,7 @@ import {
   Camera,
   Mail,
 } from "lucide-react";
+import { CareersOpenings } from "./CareersOpenings";
 
 /* ── Scroll-reveal ──────────────────────────────────────────── */
 function useScrollReveal(key?: unknown) {
@@ -287,10 +288,10 @@ export function CareersContent() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
-              href="mailto:jobs@nxtsft.com"
+              href="#openings"
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 font-display text-sm font-bold text-white shadow-lg shadow-accent/40 transition hover:opacity-90"
             >
-              <Mail size={15} /> Send us your CV
+              <Mail size={15} /> View open roles
             </a>
             <button
               onClick={() => setTab("teams")}
@@ -621,6 +622,9 @@ export function CareersContent() {
           </section>
         </div>
       )}
+
+      {/* ── OPEN POSITIONS ──────────────────────────────────────── */}
+      <CareersOpenings />
 
       {/* ── CTA ─────────────────────────────────────────────────── */}
       <section className="px-6 pb-16 pt-4 sm:pb-20">

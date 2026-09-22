@@ -1,6 +1,6 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-09-22 (anonymous push capture)
+> Last updated: 2026-09-22 (careers listings + apply form)
 > Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
@@ -17,6 +17,14 @@
 ---
 
 ## ✅ Completed
+
+### Careers — job listings + apply form (#14) *(09-22)*
+- [x] **Open Positions + application flow on the existing careers page** — boss ask #14. The page was a polished "mailto jobs@" marketing page with no listings/form; now it has admin-managed roles and a real apply form.
+- [x] **Schema:** new `JobApplication` model (jobId?, jobTitle, name/email/phone, message?, resumeUrl?/resumeLink?, status, timestamps). ⚠️ **Needs `prisma db push` to prod BEFORE deploy** — otherwise submitting an application (and the admin applications list) errors on the missing table. Additive (new table only); job *browsing* works without it (jobs live in siteContent).
+- [x] **Jobs = admin-managed content** (siteContent key `careers.jobs`, same pattern as home videos/banners) — no model for jobs. Résumé = **PDF upload + optional link** (user's choice).
+- [x] **Backend `careers` router:** `listJobs` (public), `setJobs` (admin), `submitApplication` (public, rate-limited; requires an uploaded PDF or a link; notifies admins) — **named `submitApplication`, NOT `apply`, because tRPC reserves `apply` as a router key** (build-time "Reserved words used in router()" error). `listApplications` + `setApplicationStatus` (admin). Plus `media.uploadResume`: a **public, IP-rate-limited, PDF-only** (magic-byte-checked, 5 MB cap) R2 upload in a new `careers` folder — applicants have no account, so it can't be protected.
+- [x] **Public UI:** `careers/CareersOpenings.tsx` — "Current openings" section (hidden roles → friendly empty state) with an Apply modal (name/email/phone, PDF upload or link, note). Hero primary CTA repointed to `#openings`. **Admin UI:** `CareersTab.tsx` (jobs manager mirroring HomeVideosManager + applications review with résumé links + status pipeline), wired into admin-portal nav/switch (`#careers`). Not added to sa-portal (super-admins have admin access).
+- [x] Verified: `tsc` clean (trpc + web) + `pnpm --filter web build` clean. Live E2E (apply → row + résumé in R2 → admin sees it) pending the prod `prisma db push`.
 
 ### Anonymous push capture — makes #11 reach visitors *(09-22)*
 - [x] **Site-wide push opt-in for anyone (incl. logged-out visitors)** — the missing half of #11. Previously the only way to subscribe was a toggle buried in the logged-in user-portal Profile tab, so almost nobody was subscribed and the new-listing push reached no one. This adds broad capture (boss goal: "push to all users → build traffic").
