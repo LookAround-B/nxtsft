@@ -5,6 +5,7 @@ import prisma from "@nxtsft/db";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 import { notify, notifyCredit } from "../notify";
 import { sendTemplateIfConfigured } from "../bhashsms";
+import { notifyNewProperty } from "../push";
 import { router, adminProcedure, superAdminProcedure } from "../server";
 import {
   cuidSchema,
@@ -692,6 +693,9 @@ export const adminRouter = router({
           property.owner?.phone,
           [property.ownerName ?? property.owner?.name ?? "there", property.title],
         );
+        // Best-effort web push to all subscribers — the listing is now live and
+        // visible to buyers. Fire-and-forget; never blocks the approval.
+        void notifyNewProperty(property.id);
         return {
           ...updated,
           price: Number(updated.price),

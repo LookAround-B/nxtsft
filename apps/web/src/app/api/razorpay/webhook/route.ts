@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import prisma from "@nxtsft/db";
 import { recordPaymentCommission } from "@nxtsft/trpc/salesCommission";
+import { notifyNewProperty } from "@nxtsft/trpc/push";
 import { TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
 
 // Razorpay webhook (LA-342) — completion signal for sales payment links.
@@ -141,6 +142,9 @@ export async function POST(req: NextRequest) {
     } else if (property.status !== "Active") {
       await prisma.property.update({ where: { id: property.id }, data: { status: "Active" } });
       published = property;
+      // Best-effort web push to all subscribers — this is a genuine "just went
+      // live" transition. Fire-and-forget; a push failure never fails the webhook.
+      void notifyNewProperty(property.id);
     } else {
       published = property;
     }

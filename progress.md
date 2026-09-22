@@ -1,6 +1,6 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-09-16 (auto ₹500 subscription commission)
+> Last updated: 2026-09-22 (auto web-push on new listing)
 > Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
@@ -17,6 +17,13 @@
 ---
 
 ## ✅ Completed
+
+### Auto web-push on new listing *(09-22)*
+- [x] **Auto "New Property in {area}" push to all subscribers** when a listing goes live — boss ask #11 ("build traffic"). Reuses the **existing** web-push stack (LA-332: `PushSubscription`, `public/sw.js`, admin broadcast); no schema change, no new deps.
+- [x] New shared helper `@nxtsft/trpc/push` (`packages/trpc/src/push.ts`): `sendPushToAll` (the send-and-prune loop, **lifted out** of the broadcast router so it's no longer duplicated) + `notifyNewProperty(id)` — formats title/body (`New property in {locality||city}` / `{bhk} {type} · {formatPrice} — tap to view`), deep-links `/properties/{slug}`, uses the cover image. **No-ops if VAPID unconfigured**, guards on `status==="Active"` (so test/dummy `Test` listings and pending listings never fire), fully wrapped so a push failure can't affect the publish.
+- [x] Wired into the two genuine go-live transitions: `admin.approve` (self-serve/free/rep-assisted pending → Active) and the **Razorpay webhook** publish branch (paid rep-assisted). Both `void`-called (fire-and-forget). Broadcast router refactored to call the shared helper — same behavior, no duplicated webpush code.
+- [x] **Audience = all users** (boss decision). Deliberately excluded: admin **bulk import** (would blast N pushes) and the submit step (pending listings aren't public). ⚠️ Fatigue follow-up: approving many pending listings one-by-one fires one push each — revisit a daily-digest/throttle if listing volume climbs.
+- [x] Verified: `tsc --noEmit` clean (trpc + web), `pnpm --filter web build` clean, `next lint` clean; notification message composition checked against real `formatPrice` (matches boss example "New property in Kukatpally") and payload shape matches the SW contract (`title`/`body`/`image`/`tag`/`data.url`). **Not** live-exercised on a device yet — that needs the VAPID keys confirmed live in Vercel + a real subscription + approving a listing (the definitive functional test of the keys). VAPID keys already present in Vercel per the user; left untouched (rotating them would invalidate all existing subscriptions).
 
 ### Property tags (#8) + property videos (#9) *(09-18)* — ON BRANCH `feat/tags-and-videos`, NOT on main
 - [x] **#9 Videos (no migration)** — list form gets a "Property video (YouTube link)" input → stored in existing `walkthroughVideoUrl`. New `toEmbedUrl` helper normalizes YouTube/Vimeo links to embeddable form; detail page already rendered video, now wrapped in the normalizer so pasted links actually embed. *(Follow-up: add video to the /list/edit existing-listing form + submitEdit + approve allow-list — deferred.)*
