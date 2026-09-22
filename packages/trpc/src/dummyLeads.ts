@@ -1,7 +1,7 @@
 import prisma from "@nxtsft/db";
 
 /**
- * Lazy, deterministic assignment of dummy buyer leads to free listings.
+ * Lazy, deterministic assignment of sample-interest identities to free listings.
  *
  * Unlike boostSweep.ts this needs no time-window throttle or in-flight
  * coalescing: the 5 picks for a given property are a pure function of its id
@@ -18,6 +18,14 @@ import prisma from "@nxtsft/db";
  */
 
 const DUMMY_LEADS_PER_PROPERTY = 5;
+
+const SAMPLE_REQUEST_TYPES = [
+  "Site visit interest",
+  "Property details interest",
+  "Price discussion interest",
+] as const;
+
+const SAMPLE_AGES = ["2h ago", "10h ago", "1d ago", "2d ago", "3d ago"] as const;
 
 // FNV-1a string hash -> uint32. Same algorithm as
 // apps/web/src/lib/propertyActivity.ts, reimplemented here because
@@ -152,4 +160,34 @@ function shuffle<T>(arr: T[], draw: () => number): T[] {
     [copy[i], copy[j]] = [copy[j]!, copy[i]!];
   }
   return copy;
+}
+
+/**
+ * Presentation metadata for a transparent sample-interest card. These values
+ * are deterministic previews, not buyer-provided details or timestamps.
+ */
+export function sampleInterestPreview(assignmentId: string, propertyPrice: bigint) {
+  const draw = rng(hash(`${assignmentId}:sample-preview`));
+  const percentage = [82, 86, 89, 93, 97][Math.floor(draw() * 5)]!;
+  const budget = (propertyPrice * BigInt(percentage)) / 100n;
+  return {
+    requestType: SAMPLE_REQUEST_TYPES[Math.floor(draw() * SAMPLE_REQUEST_TYPES.length)]!,
+    relativeTime: SAMPLE_AGES[Math.floor(draw() * SAMPLE_AGES.length)]!,
+    budget: formatIndianAmount(budget),
+  };
+}
+
+function formatIndianAmount(amount: bigint): string {
+  const crore = 10_000_000n;
+  const lakh = 100_000n;
+  if (amount >= crore) return `₹${formatOneDecimal(amount, crore)}Cr`;
+  if (amount >= lakh) return `₹${formatOneDecimal(amount, lakh)}L`;
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
+function formatOneDecimal(amount: bigint, divisor: bigint): string {
+  const tenths = (amount * 10n) / divisor;
+  const whole = tenths / 10n;
+  const fraction = tenths % 10n;
+  return fraction === 0n ? whole.toString() : `${whole}.${fraction}`;
 }

@@ -10,7 +10,7 @@ import {
   buyerLeadWhere,
 } from "../sellerInsights";
 import { maskContact } from "../sellerContactPolicy";
-import { ensureDummyLeadsAssigned } from "../dummyLeads";
+import { ensureDummyLeadsAssigned, sampleInterestPreview } from "../dummyLeads";
 import { notify, notifyAdmins } from "../notify";
 
 const filter = z.object({ propertyId: cuidSchema.optional() }).optional();
@@ -102,14 +102,14 @@ export const sellerInsightsRouter = router({
     const properties = await ownedSellerProperties(ctx.user.id, input?.propertyId);
     return listingInsights(properties.map((p) => p.id));
   }),
-  // Free-plan conversion-urgency teaser: fabricated buyer leads shown to
+  // Free-plan conversion teaser: transparent sample-interest cards shown to
   // sellers who don't yet have paid contact access. Deliberately a separate
   // query from `leads` (not merged into its response), so the two can never
   // be confused in the UI and a paying seller's real-lead flow stays
   // untouched by anything here.
   dummyLeads: protectedProcedure.input(filter).query(async ({ input, ctx }) => {
     // The load-bearing correctness guard: a paying seller must never see
-    // fabricated leads, on any listing, via any payment path (including one
+    // sample-interest previews, on any listing, via any payment path (including one
     // added after this code is written). Gating on live entitlement — rather
     // than relying on every payment webhook having been caught — is what
     // guarantees that, independent of whether suppressedAt got set anywhere.
@@ -127,6 +127,7 @@ export const sellerInsightsRouter = router({
         id: true,
         title: true,
         slug: true,
+        price: true,
         location: { select: { city: true, state: true } },
       },
     });
@@ -142,15 +143,20 @@ export const sellerInsightsRouter = router({
     });
     const propertyById = new Map(full.map((p) => [p.id, p]));
     return {
-      items: rows.map((row) => ({
-        id: row.id,
-        property: propertyById.get(row.propertyId),
-        createdAt: row.assignedAt,
-        ...maskContact(
-          { name: row.dummyBuyer.name, phone: row.dummyBuyer.phone, email: row.dummyBuyer.email },
-          false, // dummy leads are always masked, never unlockable
-        ),
-      })),
+      items: rows.flatMap((row) => {
+        const property = propertyById.get(row.propertyId);
+        if (!property) return [];
+        return [{
+          id: row.id,
+          property,
+          createdAt: row.assignedAt,
+          ...sampleInterestPreview(row.id, property.price),
+          ...maskContact(
+            { name: row.dummyBuyer.name, phone: row.dummyBuyer.phone, email: row.dummyBuyer.email },
+            false, // samples are always masked and never unlockable
+          ),
+        }];
+      }),
     };
   }),
   trackDummyLeadClick: protectedProcedure

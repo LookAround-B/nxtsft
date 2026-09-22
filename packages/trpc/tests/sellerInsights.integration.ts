@@ -50,6 +50,30 @@ try {
       area: 1200,
     },
   });
+  const freeProperty = await prisma.property.create({
+    data: {
+      ownerId: seller.id,
+      title: "Free listing",
+      slug: `${run}-free`,
+      type: "Villa",
+      purpose: "Sale",
+      price: 8500000n,
+      area: 1200,
+      freeListing: true,
+    },
+  });
+  const previewBuyers = await Promise.all(
+    Array.from({ length: 5 }, (_, i) =>
+      prisma.dummyBuyer.create({
+        data: {
+          name: `Sample buyer ${i + 1}`,
+          phone: `6${i}${run.slice(-8)}`,
+          email: `sample${i + 1}@example.test`,
+          state: "Telangana",
+        },
+      }),
+    ),
+  );
   const lead = await prisma.lead.create({
     data: {
       propertyId: property.id,
@@ -104,6 +128,17 @@ try {
   const buyerApi = sellerInsightsRouter.createCaller(context(buyer));
   const users = usersRouter.createCaller(context(seller));
   assert.equal((await api.leads()).unlocked, false);
+  const samples = await api.dummyLeads({ propertyId: freeProperty.id });
+  assert.equal(samples.items.length, 5, "A free listing receives five sample-interest cards");
+  assert(samples.items.every((item) => item.property.id === freeProperty.id));
+  assert(samples.items.every((item) => item.name.endsWith("••••")));
+  assert(samples.items.every((item) => item.phone?.includes("XXXXXX")));
+  assert(samples.items.every((item) => item.email?.includes("••••@")));
+  assert(samples.items.every((item) => item.budget.startsWith("₹")));
+  assert(samples.items.every((item) => item.requestType.endsWith("interest")));
+  assert(samples.items.every((item) => item.relativeTime.endsWith("ago")));
+  assert(!JSON.stringify(samples).includes(previewBuyers[0]!.phone));
+  await assert.rejects(stranger.dummyLeads({ propertyId: freeProperty.id }));
   const masked = JSON.stringify(await api.leads());
   assert(!(await api.leads()).items.some((item) => item.name.includes("Staff test")));
   assert(!masked.includes(buyer.phone!));
@@ -181,6 +216,7 @@ try {
   for (const type of ["owner-sell", "owner-rent"]) {
     await prisma.plan.update({ where: { id: plan.id }, data: { type } });
     assert.equal((await api.leads()).unlocked, true);
+    assert.equal((await api.dummyLeads({ propertyId: freeProperty.id })).items.length, 0);
   }
   for (const status of ["Cancelled", "Expired", "Failed"]) {
     await prisma.subscription.update({ where: { id: sub.id }, data: { status } });
@@ -265,6 +301,13 @@ try {
   ]);
   assert.equal(results[0]!.returnPath, `/user-portal?propertyId=${property.id}#leads`);
   assert.equal(await prisma.subscription.count({ where: { razorpayOrderId: order.orderId } }), 1);
+  assert.equal(
+    await prisma.dummyLeadAssignment.count({
+      where: { propertyId: freeProperty.id, sellerId: seller.id, suppressedAt: { not: null } },
+    }),
+    5,
+    "Successful seller-plan payment permanently suppresses sample previews",
+  );
   assert.equal((await billing.verifyOwnerPayment(verification)).returnPath, results[0]!.returnPath);
   assert.equal(
     (await prisma.siteVisit.findUnique({ where: { id: visit.id } }))!.status,

@@ -1323,8 +1323,8 @@ model RepCall {
 // DUMMY LEAD FUNNEL (free-plan conversion teaser)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Seed pool of fabricated buyer identities backing the free-plan conversion
-// teaser. Never a real person and never contacted — the funnel only ever
+// Seed pool of sample identities backing the free-plan conversion preview.
+// Never real people and never contacted — the funnel only ever
 // renders these through maskContact(), which exposes the first two and last
 // two digits of `phone`, so those digits are chosen to vary across the pool
 // while the number as a whole stays obviously fake (see seed-dummy-buyers.ts).

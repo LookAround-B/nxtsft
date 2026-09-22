@@ -2,7 +2,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { LockKeyhole, Users, CheckCircle2, Eye } from "lucide-react";
+import { LockKeyhole, Users, CheckCircle2, Mail, Phone, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/lib/auth";
@@ -57,6 +57,17 @@ function SellerLeadsContent() {
   const selectedCount =
     data?.items.filter((item) => item.property?.id === upgradeProperty).length ?? 0;
   const pricing = `/pricing?source=masked-leads${upgradeProperty ? `&propertyId=${encodeURIComponent(upgradeProperty)}` : ""}#seller`;
+  const sampleItems = dummyQuery.data?.items ?? [];
+  type SampleItem = (typeof sampleItems)[number];
+  const sampleGroups = Array.from(
+    sampleItems.reduce((groups, item) => {
+      const key = item.property.id;
+      const group = groups.get(key) ?? { property: item.property, items: [] as SampleItem[] };
+      group.items.push(item);
+      groups.set(key, group);
+      return groups;
+    }, new Map<string, { property: SampleItem["property"]; items: SampleItem[] }>()),
+  );
   return (
     <>
       <Head
@@ -88,7 +99,18 @@ function SellerLeadsContent() {
           )}
           {!data.items.length ? (
             <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
-              No buyer requests yet. Only actual enquiries and visits appear here.
+              <p>No verified buyer requests yet.</p>
+              {data.unlocked && (
+                <Link
+                  href="/pricing#boost"
+                  className="mt-4 inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white"
+                >
+                  Improve My Listing
+                </Link>
+              )}
+              {!data.unlocked && (
+                <p className="mt-2 text-sm">Only actual enquiries and visits appear here.</p>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -194,50 +216,83 @@ function SellerLeadsContent() {
           )}
         </>
       )}
-      {!!dummyQuery.data?.items.length && (
+      {!!sampleGroups.length && (
         <div className="mt-8">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-amber-700">
-            <Eye size={18} /> Buyers also viewing your listing · {dummyQuery.data.items.length}
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-amber-700">
+            <Sparkles size={18} /> Sample interest previews
           </div>
-          <p className="mb-5 text-sm text-muted-foreground">
-            Preview only — upgrade to see full contact details and connect directly.
+          <p className="mb-5 max-w-2xl text-sm text-muted-foreground">
+            These are illustrative previews of the interest data a seller plan helps you manage.
+            They are not verified buyer requests. Verified enquiries appear above and can be
+            contacted after plan activation.
           </p>
-          <div className="space-y-4">
-            {dummyQuery.data.items.map((item) => (
-              <article
-                key={item.id}
-                className="rounded-xl border border-amber-200 bg-amber-50/40 p-5 shadow-sm"
-              >
-                <div className="flex items-start gap-4">
-                  <div
-                    aria-hidden
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500 text-xl font-semibold text-white"
-                  >
-                    {item.name.charAt(0)}
+          <div className="space-y-8">
+            {sampleGroups.map(([propertyId, group]) => (
+              <section key={propertyId} aria-label={`Sample interest for ${group.property.title}`}>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="font-display text-lg font-bold text-navy">{group.property.title}</h2>
+                    {group.property.location?.city && <p className="text-xs text-muted-foreground">{group.property.location.city}</p>}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-display text-lg font-bold text-navy">{item.name}</h3>
-                    <div className="mt-3 space-y-1 text-sm">
-                      {item.phone && <p>{item.phone}</p>}
-                      {item.email && <p>{item.email}</p>}
-                    </div>
-                    {item.property && (
-                      <p className="mt-3 text-xs text-muted-foreground">{item.property.title}</p>
-                    )}
-                  </div>
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                    {group.items.length} sample previews
+                  </span>
                 </div>
-                <div className="mt-4 border-t border-amber-200 pt-4">
-                  <button
-                    onClick={() => {
-                      trackDummyClick.mutate({ id: item.id });
-                      setUpgradeDummyProperty(item.property!.id);
-                    }}
-                    className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white"
-                  >
-                    View Contact
-                  </button>
+                <div className="space-y-3">
+                  {group.items.map((item) => (
+                    <article
+                      key={item.id}
+                      className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 shadow-sm"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          aria-hidden
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-500 text-lg font-semibold text-white"
+                        >
+                          {item.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="font-display text-base font-bold text-navy">
+                              {item.name}
+                            </h3>
+                            <span className="rounded-full bg-teal-50 px-2 py-1 text-[11px] font-semibold text-teal-800">
+                              SAMPLE · {item.relativeTime}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm font-medium text-muted-foreground">
+                            {item.requestType}
+                          </p>
+                          <div className="mt-3 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
+                            {item.phone && (
+                              <p className="flex items-center gap-2">
+                                <Phone size={14} /> {item.phone}
+                              </p>
+                            )}
+                            {item.email && (
+                              <p className="flex min-w-0 items-center gap-2 truncate">
+                                <Mail size={14} /> {item.email}
+                              </p>
+                            )}
+                          </div>
+                          <p className="mt-2 text-sm font-medium text-navy">Sample budget: {item.budget}</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 border-t border-amber-200 pt-3">
+                        <button
+                          onClick={() => {
+                            trackDummyClick.mutate({ id: item.id });
+                            setUpgradeDummyProperty(item.property.id);
+                          }}
+                          className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white"
+                        >
+                          View Contact
+                        </button>
+                      </div>
+                    </article>
+                  ))}
                 </div>
-              </article>
+              </section>
             ))}
           </div>
         </div>
@@ -252,8 +307,8 @@ function SellerLeadsContent() {
           <LockKeyhole className="text-accent" size={28} />
           <DialogTitle>Unlock Buyer Contacts</DialogTitle>
           <DialogDescription>
-            Free users can&apos;t see contact details. Activate a seller plan to connect with
-            buyers.
+            Seller plans unlock contact details for verified buyers who enquire on your listing.
+            These sample-interest previews remain illustrative.
           </DialogDescription>
           <Link
             href={`/pricing?source=masked-leads${upgradeDummyProperty ? `&propertyId=${encodeURIComponent(upgradeDummyProperty)}` : ""}#seller`}

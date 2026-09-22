@@ -1,5 +1,5 @@
 /**
- * One-off seed for the dummy-lead conversion-urgency funnel.
+ * One-off seed for the transparent sample-interest preview.
  *
  *   pnpm --filter @nxtsft/db exec tsx prisma/seed-dummy-buyers.ts
  *
