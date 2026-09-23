@@ -1,6 +1,6 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-09-22 (masked buyer<->seller messaging)
+> Last updated: 2026-09-23 (View Leads 2-flow — free locked / paid engagement)
 > Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 16 · Tailwind CSS 4
 
 ---
@@ -17,6 +17,15 @@
 ---
 
 ## ✅ Completed
+
+### View Leads — 2-flow (free locked / paid engagement) *(09-23)*
+- [x] **Rebuilt the seller "Recent buyer requests" sample cards to the boss's "FINAL 2-FLOW" spec.** The two-lead-type architecture already existed (real leads unmasked + WhatsApp; dummy/sample leads masked with Share Intent / Share Your Number) — this is a UI/copy pass on the dummy-sample surface in `SellerLeadsTab.tsx` plus two derived fields server-side. No schema change, no new mutations.
+- [x] **Server:** `sampleInterestPreview` now returns a deterministic `activity` chip (`ONLINE • Active now` / `OFFLINE • Last active 1hr ago` / `REQUESTED • Xhrs ago`); the `dummyLeads` resolver exposes the buyer `firstName` for the "{name} and N others" banner (card name + phone stay server-masked).
+- [x] **Free flow:** `FREE USER` badge, blue "requested to connect… active now" banner, locked cards (blurred number + 🔒, activity pill, "Recent Requests • Valid for 24 Hours" tag), `🔒 Upgrade to View` → **Popup 1** upsell, sticky footer upsell.
+- [x] **Paid flow:** `PAID USER • PREMIUM` badge, teal "You are Premium!" banner, **UP `Share Intent`** (outline) / **DOWN `Share Your Number`** (solid teal) → **Popup 2A/2B** confirmations, status flips to `Intent Shared • Pending • Waiting for Buyer Acceptance` / `Number Shared • Waiting for Buyer Call`, two-column bottom legend.
+- [x] Verified: `tsc --noEmit` clean (trpc + web).
+- ⚠️ **Live browser E2E NOT run** (needs a seeded `DummyBuyer` pool + a free and a paid seller account on the VPS DB). Walk both seller types before demoing.
+- ⚠️ **Compliance note:** Popup 2A/2B + banner copy are the "buyer requested privacy… if buyer accepts, number will be shown" / "buyer will contact you" claims previously removed under LA-340-343 (unfair-trade-practice risk, Consumer Protection Act 2019). **Reintroduced by explicit owner decision (akhil, 09-23)** per management's spec — recorded as an authorized override in `docs/seller-insights.md`, not an accidental regression. Recommend written sign-off before it reaches real paying sellers.
 
 ### Masked buyer↔seller messaging (#10) *(09-22)*
 - [x] **In-app messaging with email alerts** (chosen over true email relay) — boss ask #10 "masked email". Users message each other from the dashboard; the other party is alerted by an in-app notification + an email that shows the sender's NAME only and links back to the dashboard. **Neither party's email address is ever exposed.**

@@ -196,6 +196,10 @@ export const sellerInsightsRouter = router({
           leadType: "dummy" as const,
           matchRequested: !!row.matchRequestedAt,
           sellerContactShared: !!row.sellerContactSharedAt,
+          // First name only, for the "<name> and N others" banner copy. Not a
+          // privacy leak: there is no real buyer behind a DummyBuyer row, and
+          // the card itself still shows the masked name + masked phone.
+          firstName: row.dummyBuyer.name.split(" ")[0] ?? "A buyer",
           ...sampleInterestPreview(row.id, price),
           ...maskContact(
             { name: row.dummyBuyer.name, phone: row.dummyBuyer.phone, email: row.dummyBuyer.email },

@@ -30,6 +30,18 @@ const SAMPLE_REQUEST_TYPES = [
 
 const SAMPLE_AGES = ["2h ago", "10h ago", "1d ago", "2d ago", "3d ago"] as const;
 
+// Presentation-only activity chips for the seller-facing sample cards. These
+// are deterministic per assignment, not a real presence signal — there is no
+// live buyer behind a DummyBuyer row. Kept as a fixed set so the "online now"
+// framing the product asked for stays visually consistent across cards.
+const SAMPLE_ACTIVITY = [
+  { tone: "online" as const, headline: "ONLINE", detail: "Active now" },
+  { tone: "offline" as const, headline: "OFFLINE", detail: "Last active 1hr ago" },
+  { tone: "requested" as const, headline: "REQUESTED", detail: "2hrs ago" },
+  { tone: "requested" as const, headline: "REQUESTED", detail: "10hrs ago" },
+  { tone: "requested" as const, headline: "REQUESTED", detail: "15hrs ago" },
+] as const;
+
 // FNV-1a string hash -> uint32. Same algorithm as
 // apps/web/src/lib/propertyActivity.ts, reimplemented here because
 // packages/trpc cannot depend on apps/web (wrong dependency direction).
@@ -176,6 +188,7 @@ export function sampleInterestPreview(assignmentId: string, propertyPrice: bigin
   return {
     requestType: SAMPLE_REQUEST_TYPES[Math.floor(draw() * SAMPLE_REQUEST_TYPES.length)]!,
     relativeTime: SAMPLE_AGES[Math.floor(draw() * SAMPLE_AGES.length)]!,
+    activity: SAMPLE_ACTIVITY[Math.floor(draw() * SAMPLE_ACTIVITY.length)]!,
     budget: formatIndianAmount(budget),
   };
 }
