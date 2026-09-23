@@ -388,7 +388,7 @@ function SellerLeadsContent() {
                             )}
                           </div>
                           <p className="mt-2 text-sm font-medium text-navy">
-                            Sample budget: {item.budget}
+                            Buyer Budget range: {item.budget}
                           </p>
                           <p className="mt-1 text-[11px] font-medium text-amber-700">
                             Recent Requests • Valid for 24 Hours
