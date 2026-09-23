@@ -1,7 +1,7 @@
 # NxtSft — Build Progress
 
-> Last updated: 2026-09-23 (View Leads 2-flow — free locked / paid engagement)
-> Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 16 · Tailwind CSS 4
+> Last updated: 2026-09-23 (View Leads 2-flow shipped; prod DB SSL fix)
+> Stack: Next.js 15 · tRPC v11 · Prisma 7 · PostgreSQL 18 · Tailwind CSS 4
 
 ---
 
@@ -9,7 +9,8 @@
 
 **Phase:** v1.0 Demo / Prototype  
 **DB:** ✅ LIVE — **production DB = teammate's VPS PostgreSQL** at `187.77.185.220:5433/nxtsft` *(team decision 06-13; moved off Neon)*. Accessed via **Prisma** (the ORM — unchanged; we did NOT switch to "Prisma Postgres"). Schema pushed (18 tables), seeded with 7 users, 11 plans, **53 properties + varied galleries**, 8 leads (→ Priya), 5 tickets, 2 site visits + favorites (→ Rohan), 3 subscriptions. `DATABASE_URL` set in Vercel (Neon integration disconnected). Same box also serves local dev via root `.env`, so local now hits prod data.  
-> ⚠️ VPS-as-prod follow-ups: open port 5433 to Vercel (dynamic IPs → effectively public), add `?sslmode=require` (traffic currently unencrypted), add PgBouncer before real traffic (serverless connection limits). Neon (06-12, now retired) can be deleted once VPS cutover is verified.  
+> ✅ **SSL fixed (09-23):** VPS upgraded to **PG18**; its `pg_hba.conf` now requires SSL for remote `nxtsft` (`hostssl … 0.0.0.0/0`). App connected without SSL → refused as Prisma **P1010 / DatabaseAccessDenied** (looked like an `appuser` lockout, but grants were intact — `appuser` still owns the DB). Fix = append **`?sslmode=no-verify`** to `DATABASE_URL` in Vercel (prod + preview, redeployed) **and** root `.env`. NOT `?sslmode=require`: `psql` accepts it but **node-postgres verifies the (self-signed) cert on `require` and fails** — only `no-verify` works for the app. Verified app-layer connect to prod (2702 users / 2729 properties / 100 active DummyBuyers). `no-verify` encrypts but skips cert verification (user-approved; still better than the prior plaintext link — a real DB cert is the clean long-term upgrade).  
+> ⚠️ VPS-as-prod follow-ups still open: confirm port 5433 firewall to Vercel's dynamic IPs, add PgBouncer before real traffic (serverless connection limits). Neon (06-12, retired) can be deleted once VPS cutover is verified.  
 **Auth:** ✅ Verified end-to-end against the live DB — login/loginStaff (bcrypt), role enforcement, and protected-procedure auth guard all confirmed working.
 
 > ⚠️ DB password contains an `@` — it MUST be percent-encoded as `%40` in the connection string or the URL parser reads the host wrong. The root `.env` already uses the encoded form.
@@ -23,8 +24,8 @@
 - [x] **Server:** `sampleInterestPreview` now returns a deterministic `activity` chip (`ONLINE • Active now` / `OFFLINE • Last active 1hr ago` / `REQUESTED • Xhrs ago`); the `dummyLeads` resolver exposes the buyer `firstName` for the "{name} and N others" banner (card name + phone stay server-masked).
 - [x] **Free flow:** `FREE USER` badge, blue "requested to connect… active now" banner, locked cards (blurred number + 🔒, activity pill, "Recent Requests • Valid for 24 Hours" tag), `🔒 Upgrade to View` → **Popup 1** upsell, sticky footer upsell.
 - [x] **Paid flow:** `PAID USER • PREMIUM` badge, teal "You are Premium!" banner, **UP `Share Intent`** (outline) / **DOWN `Share Your Number`** (solid teal) → **Popup 2A/2B** confirmations, status flips to `Intent Shared • Pending • Waiting for Buyer Acceptance` / `Number Shared • Waiting for Buyer Call`, two-column bottom legend.
-- [x] Verified: `tsc --noEmit` clean (trpc + web).
-- ⚠️ **Live browser E2E NOT run** (needs a seeded `DummyBuyer` pool + a free and a paid seller account on the VPS DB). Walk both seller types before demoing.
+- [x] Verified: `tsc --noEmit` clean (trpc + web), **plus full browser E2E on a disposable local Postgres mirror (09-23)** — free seller (FREE badge, blue banner, locked cards, ONLINE/OFFLINE/REQUESTED pills, 24h tag, Upgrade-to-View → Popup 1, sticky footer) and paid seller (PREMIUM badge, teal banner, Share Intent/Share Your Number → Popup 2A/2B with the boss's verbatim copy, statuses persisting across reload as `Intent Shared • Pending…` / `Number Shared • Waiting for Buyer Call`). Zero console errors; 6 screenshots captured. Ran on a throwaway local cluster, not prod, to avoid injecting fake sellers/listings into the live 2.7k-user DB — code + schema are identical, so the result transfers.
+- [x] **Shipped to prod** (commit `3982cfc` on `main`, live after the 09-23 SSL-fix redeploy). Prod prereqs already present: 100 active DummyBuyers seeded, `leads.samples_for_paid_sellers` SiteSetting absent → defaults ON.
 - ⚠️ **Compliance note:** Popup 2A/2B + banner copy are the "buyer requested privacy… if buyer accepts, number will be shown" / "buyer will contact you" claims previously removed under LA-340-343 (unfair-trade-practice risk, Consumer Protection Act 2019). **Reintroduced by explicit owner decision (akhil, 09-23)** per management's spec — recorded as an authorized override in `docs/seller-insights.md`, not an accidental regression. Recommend written sign-off before it reaches real paying sellers.
 
 ### Masked buyer↔seller messaging (#10) *(09-22)*
