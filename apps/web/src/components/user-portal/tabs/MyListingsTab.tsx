@@ -5,7 +5,7 @@ import { ListingInsights } from "@/components/ListingInsights";
 import Image from "next/image";
 import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
 import { useRouter } from "next/navigation";
-import { Building2, Eye, Clock, Pencil, Camera, Check, Coins, Rocket, Trash2, Loader2 } from "lucide-react";
+import { Building2, Eye, Clock, Pencil, Camera, Check, Coins, Rocket, Trash2, Loader2, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Badge, Section } from "@/components/portal/PortalShell";
 import { useAuth } from "@/lib/auth";
@@ -552,6 +552,7 @@ export function MyListingsTab() {
           <div className="grid gap-4 sm:grid-cols-2">
             {items.map((p) => {
               const img = p.images?.[0] ?? "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=70";
+              const isBoosted = boostIsActive(p.boostTier ?? null, p.boostExpiry ?? null);
               return (
                 <div key={p.id} className="overflow-hidden rounded-lg border border-border">
                   <div className="relative h-40 w-full">
@@ -578,6 +579,16 @@ export function MyListingsTab() {
                       <div className="shrink-0 font-display text-sm font-bold text-accent">{fmtPrice(p.price)}</div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
+                      {/* Plan at a glance: Premium when a boost is active, else Free. */}
+                      {isBoosted ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-gradient-to-r from-amber-100 to-yellow-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                          <Star size={11} className="fill-amber-500 text-amber-500" /> Premium
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
+                          Free
+                        </span>
+                      )}
                       <Badge tone={listingTone[p.status] ?? "default"}>{p.status}</Badge>
                       {p.hasPendingEdit && (
                         <Badge tone="warm">
@@ -585,7 +596,7 @@ export function MyListingsTab() {
                         </Badge>
                       )}
                       {p.bhk && <Badge tone="default">{p.bhk}</Badge>}
-                      {boostIsActive(p.boostTier ?? null, p.boostExpiry ?? null) && (
+                      {isBoosted && (
                         <Badge tone="hot">
                           <span className="flex items-center gap-1">
                             <Rocket size={11} /> Boosted till {fmtDate(p.boostExpiry!)}
@@ -594,13 +605,11 @@ export function MyListingsTab() {
                       )}
                       {/* Free tier and not boosted — it is on the last page of
                           search. The Boost button below is the way off it. */}
-                      {p.freeListing &&
-                        p.status === "Active" &&
-                        !boostIsActive(p.boostTier ?? null, p.boostExpiry ?? null) && (
-                          <Badge tone="default">
-                            Free Listing · on the last page
-                          </Badge>
-                        )}
+                      {p.freeListing && p.status === "Active" && !isBoosted && (
+                        <Badge tone="default">
+                          Free Listing · on the last page
+                        </Badge>
+                      )}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {boostEnabled && (
