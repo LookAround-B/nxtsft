@@ -1294,6 +1294,57 @@ export const propertiesRouter = router({
       return { id: updated.id };
     }),
 
+  // Admin comps a boost on a listing (no payment) — the manual counterpart to a
+  // purchased boost, used when a customer paid out-of-band or as a goodwill push.
+  // boostScore mirrors BOOST_TIERS so search ranks it exactly like a paid boost.
+  applyBoost: adminProcedure
+    .input(
+      z.object({
+        id: cuidSchema,
+        tier: z.enum(["bronze", "silver", "gold"]).default("gold"),
+        days: z.number().int().min(1).max(365).default(30),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const score: Record<string, number> = { bronze: 40, silver: 70, gold: 100 };
+      const expiry = new Date(Date.now() + input.days * 24 * 60 * 60 * 1000);
+      const updated = await prisma.property.update({
+        where: { id: input.id },
+        data: { boostTier: input.tier, boostScore: score[input.tier], boostExpiry: expiry },
+        select: { id: true, ownerId: true, title: true, boostTier: true, boostExpiry: true },
+      });
+      await notify({
+        userId: updated.ownerId,
+        type: "listing_updated",
+        title: "Your listing is boosted",
+        content: `"${updated.title}" was boosted (${input.tier}) until ${expiry.toLocaleDateString("en-IN")} by an administrator.`,
+        actionUrl: "/user-portal#mylist",
+      });
+      return { id: updated.id, boostTier: updated.boostTier, boostExpiry: updated.boostExpiry };
+    }),
+
+  // Move a listing on/off the free tier. Clearing `freeListing` ("push to paid")
+  // lifts it off the last-page ranking — used when a free-tier customer has paid.
+  setFreeListing: adminProcedure
+    .input(z.object({ id: cuidSchema, freeListing: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const updated = await prisma.property.update({
+        where: { id: input.id },
+        data: { freeListing: input.freeListing },
+        select: { id: true, ownerId: true, title: true, freeListing: true },
+      });
+      if (!input.freeListing) {
+        await notify({
+          userId: updated.ownerId,
+          type: "listing_updated",
+          title: "Listing upgraded to paid",
+          content: `"${updated.title}" was moved off the free tier by an administrator.`,
+          actionUrl: "/user-portal#mylist",
+        });
+      }
+      return { id: updated.id, freeListing: updated.freeListing };
+    }),
+
   // Whether the current user already unlocked this property's contact —
   // lets the detail page show the owner contact on load without re-charging.
   contactUnlockStatus: protectedProcedure

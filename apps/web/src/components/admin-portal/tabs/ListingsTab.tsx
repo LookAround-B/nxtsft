@@ -438,6 +438,20 @@ export function ListingsTab() {
     },
     onError: (err: { message: string }) => toast.error(err.message),
   });
+  const applyBoostMutation = trpc.properties.applyBoost.useMutation({
+    onSuccess: () => {
+      void dbListingsQ.refetch();
+      toast.success("Boosted (Gold, 30 days).");
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+  const setFreeListingMutation = trpc.properties.setFreeListing.useMutation({
+    onSuccess: (res) => {
+      void dbListingsQ.refetch();
+      toast.success(res.freeListing ? "Marked as free listing." : "Pushed to paid.");
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
 
   const [localItems, setLocalItems] = useState<ListingItem[]>([]);
   const [checklistOpen, setChecklistOpen] = useState<string | null>(null);
@@ -900,7 +914,7 @@ export function ListingsTab() {
 
               {it.isDbProperty && (
                 <div className="mt-3 border-t border-border pt-3">
-                  <div className="flex items-center gap-2 text-xs">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
                     <Rocket
                       size={13}
                       className={
@@ -927,19 +941,41 @@ export function ListingsTab() {
                         </button>
                       </>
                     ) : (
-                      <span className="text-muted-foreground">Not boosted</span>
+                      <>
+                        <span className="text-muted-foreground">Not boosted</span>
+                        {/* Admin comp boost (no payment) — Gold, 30 days. */}
+                        <button
+                          onClick={() => applyBoostMutation.mutate({ id: it.id })}
+                          disabled={applyBoostMutation.isPending}
+                          title="Boost this listing to the top (Gold, 30 days — no charge)"
+                          className="ml-auto inline-flex items-center gap-1 rounded-md border border-accent px-2.5 py-1 font-semibold text-accent transition hover:bg-accent/5 disabled:opacity-50"
+                        >
+                          <Rocket size={11} /> Boost
+                        </button>
+                      </>
                     )}
                     {/* Free tier — approved without payment and ranked last
                         until the owner buys a boost. Sub-label shows who
                         actually created it (Home seller / Sales rep / …). */}
                     {it.freeListing && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
-                        Free Listing
-                        <span className="font-normal text-sky-700/70">
-                          · {listingSourceLabel(it.source)}
-                          {it.createdByName ? ` (${it.createdByName})` : ""}
+                      <>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                          Free Listing
+                          <span className="font-normal text-sky-700/70">
+                            · {listingSourceLabel(it.source)}
+                            {it.createdByName ? ` (${it.createdByName})` : ""}
+                          </span>
                         </span>
-                      </span>
+                        {/* Push a paid customer off the free tier (e.g. paid out-of-band). */}
+                        <button
+                          onClick={() => setFreeListingMutation.mutate({ id: it.id, freeListing: false })}
+                          disabled={setFreeListingMutation.isPending}
+                          title="Move off the free tier — for a customer who has paid"
+                          className="inline-flex items-center gap-1 rounded-md border border-emerald-300 px-2.5 py-1 font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
+                        >
+                          Push to Paid
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
