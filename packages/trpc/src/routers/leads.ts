@@ -9,6 +9,7 @@ import { createRazorpayPaymentLink } from "../razorpayLinks";
 import { router, protectedProcedure, staffProcedure, adminProcedure, generalRateLimit } from "../server";
 import {
   cuidSchema,
+  planIdSchema,
   nameSchema,
   phoneSchema,
   emailSchema,
@@ -621,6 +622,10 @@ export const leadsRouter = router({
         leadId: cuidSchema,
         amount: z.coerce.number().int().min(1).max(10_000_000), // rupees, pre-discount
         plan: safeString(100, 1),
+        // Optional: the seller subscription plan being sold. When set, the link
+        // is tagged with plan_id so the paid webhook auto-activates the plan for
+        // the customer (not just publishing the listing). Omit for boosts/custom.
+        planId: planIdSchema.optional(),
         // Optional discount coupon (see coupons router). Uppercased before use.
         couponCode: z
           .string()
@@ -648,6 +653,20 @@ export const leadsRouter = router({
       // The rep who sends the link earns any commission — falls back to the
       // acting user when the lead was never formally assigned.
       const salesRepId = lead.assignedToId ?? ctx.user.id;
+
+      // If a subscription plan is attached, verify it's an active owner plan so
+      // a bad id can't tag the link — the webhook only auto-grants for a real one.
+      let planId: string | null = null;
+      if (input.planId) {
+        const p = await prisma.plan.findFirst({
+          where: { id: input.planId, type: { startsWith: "owner" }, active: true },
+          select: { id: true },
+        });
+        if (!p) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Selected plan is not an active seller plan." });
+        }
+        planId = p.id;
+      }
 
       // Re-creating a link supersedes any prior one: release the coupon this lead
       // had reserved so we don't leak a use (guarded above: an already-Paid lead
@@ -698,7 +717,12 @@ export const leadsRouter = router({
         amountRupees: chargeAmount,
         description: `NxtSft ${input.plan} — ${lead.name}`,
         customer: { name: lead.name, contact: lead.phone, email: lead.email ?? undefined },
-        notes: { lead_id: lead.id, salesrep_id: salesRepId, plan: input.plan },
+        notes: {
+          lead_id: lead.id,
+          salesrep_id: salesRepId,
+          plan: input.plan,
+          ...(planId ? { plan_id: planId } : {}),
+        },
       }).catch(async (err) => {
         // The link failed after we reserved the coupon — give the use back.
         if (couponCode) {

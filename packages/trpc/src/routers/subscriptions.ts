@@ -533,8 +533,10 @@ export const subscriptionsRouter = router({
       return { ok: true, planName: plan.name, endDate, returnPath };
     }),
 
-  // Admin: active seller (owner-*) plans, for the manual "Grant plan" control.
-  ownerPlans: adminProcedure.query(async () => {
+  // Active seller (owner-*) plans — used by the admin "Grant plan" control and
+  // the sales rep payment-link form. Non-sensitive (same plans as the public
+  // pricing page), so any signed-in staff/admin may read them.
+  ownerPlans: protectedProcedure.query(async () => {
     return prisma.plan.findMany({
       where: { type: { in: ["owner-sell", "owner-rent"] }, active: true },
       select: { id: true, name: true, price: true, validity: true, type: true },

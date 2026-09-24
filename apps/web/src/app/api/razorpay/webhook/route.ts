@@ -36,7 +36,7 @@ function verifySignature(body: string, signature: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-type Notes = { lead_id?: string; salesrep_id?: string; plan?: string };
+type Notes = { lead_id?: string; salesrep_id?: string; plan?: string; plan_id?: string };
 
 type PaymentLinkPaidPayload = {
   event?: string;
@@ -160,6 +160,51 @@ export async function POST(req: NextRequest) {
         actionUrl: `/properties/${published.slug}`,
       },
     });
+  }
+
+  // If the link was tagged with a seller subscription plan (plan_id in notes,
+  // set at link creation), auto-activate it for the customer — the automatic
+  // counterpart to the admin "Grant plan" control. Only for a real active owner
+  // plan, and idempotent against an existing active subscription. The listing
+  // publish above is unchanged; this just adds the subscription the rep sold.
+  const planId = notes?.plan_id;
+  const subCustomerId = property?.ownerId ?? lead.buyerUserId ?? null;
+  if (planId && subCustomerId) {
+    const plan = await prisma.plan.findFirst({
+      where: { id: planId, type: { startsWith: "owner" }, active: true },
+    });
+    if (plan) {
+      const activeSub = await prisma.subscription.findFirst({
+        where: { userId: subCustomerId, status: "Active", endDate: { gt: now } },
+        select: { id: true },
+      });
+      if (!activeSub) {
+        const subEnd = new Date(now);
+        subEnd.setDate(subEnd.getDate() + plan.validity);
+        await prisma.subscription.create({
+          data: {
+            userId: subCustomerId,
+            planId: plan.id,
+            planName: plan.name,
+            amount: BigInt(plan.price * 100),
+            status: "Active",
+            cycle: plan.validity <= 7 ? "weekly" : "monthly",
+            razorpayId: paymentId !== "unknown" ? paymentId : null,
+            startDate: now,
+            endDate: subEnd,
+          },
+        });
+        await prisma.notification.create({
+          data: {
+            userId: subCustomerId,
+            type: "payment_success",
+            title: `${plan.name} activated`,
+            content: `Your ${plan.name} is active until ${subEnd.toLocaleDateString("en-IN")}.`,
+            actionUrl: "/user-portal#credits",
+          },
+        });
+      }
+    }
   }
 
   let commission: { qualified: boolean; reason: string } = { qualified: false, reason: "no sales rep" };

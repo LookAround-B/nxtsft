@@ -26,6 +26,7 @@ export function MyLeadsTab() {
   const [visitAt, setVisitAt] = useState("");
   const [planDraft, setPlanDraft] = useState("");
   const [amountDraft, setAmountDraft] = useState("");
+  const [planIdDraft, setPlanIdDraft] = useState(""); // seller plan id → auto-activates on payment
   const [couponDraft, setCouponDraft] = useState(""); // "" = no coupon
   const [callRemark, setCallRemark] = useState("");
   // Edit-listing form (only the fields the rep wants to change; blank = keep).
@@ -64,6 +65,7 @@ export function MyLeadsTab() {
     onError: (e) => toast.error(e.message),
   });
 
+  const ownerPlansQ = trpc.subscriptions.ownerPlans.useQuery();
   const createLink = trpc.leads.createPaymentLink.useMutation({
     onSuccess: (lead) => {
       utils.leads.list.invalidate();
@@ -76,6 +78,7 @@ export function MyLeadsTab() {
       setOpenAction(null);
       setPlanDraft("");
       setAmountDraft("");
+      setPlanIdDraft("");
       setCouponDraft("");
     },
     onError: (e) => toast.error(e.message),
@@ -413,6 +416,29 @@ export function MyLeadsTab() {
                 const payable = amt > 0 ? Math.max(0, amt - discount) : 0;
                 return (
                 <div className="mt-3 flex flex-col gap-2">
+                  {/* Pick a seller plan → the paid link auto-activates that
+                      subscription for the customer. Selecting one fills the name
+                      + amount; leave on "Custom" for boosts/ad-hoc sales. */}
+                  <select
+                    value={planIdDraft}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setPlanIdDraft(id);
+                      const pl = (ownerPlansQ.data ?? []).find((p) => p.id === id);
+                      if (pl) {
+                        setPlanDraft(pl.name);
+                        setAmountDraft(String(pl.price));
+                      }
+                    }}
+                    className="rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                  >
+                    <option value="">Custom / boost (no auto-activation)</option>
+                    {(ownerPlansQ.data ?? []).map((pl) => (
+                      <option key={pl.id} value={pl.id}>
+                        {pl.name} · ₹{pl.price} — auto-activates on payment
+                      </option>
+                    ))}
+                  </select>
                   <div className="flex flex-wrap items-center gap-2">
                     <input
                       type="text"
@@ -453,6 +479,7 @@ export function MyLeadsTab() {
                           leadId: l.id,
                           plan: planDraft.trim(),
                           amount: amt,
+                          planId: planIdDraft || undefined,
                           couponCode: couponDraft || undefined,
                         })
                       }
