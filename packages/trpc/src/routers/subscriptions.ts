@@ -533,6 +533,65 @@ export const subscriptionsRouter = router({
       return { ok: true, planName: plan.name, endDate, returnPath };
     }),
 
+  // Admin: active seller (owner-*) plans, for the manual "Grant plan" control.
+  ownerPlans: adminProcedure.query(async () => {
+    return prisma.plan.findMany({
+      where: { type: { in: ["owner-sell", "owner-rent"] }, active: true },
+      select: { id: true, name: true, price: true, validity: true, type: true },
+      orderBy: { price: "asc" },
+    });
+  }),
+
+  // Admin grants an owner subscription to a listing's owner — the manual
+  // counterpart to a completed purchase, for a customer who paid out-of-band
+  // (e.g. a rep payment link the webhook missed). Same rules as
+  // verifyOwnerPayment: Active from now for the plan's validity, amount = price.
+  grantByAdmin: adminProcedure
+    .input(z.object({ propertyId: cuidSchema, planId: planIdSchema }))
+    .mutation(async ({ input }) => {
+      const property = await prisma.property.findFirst({
+        where: { id: input.propertyId, deletedAt: null },
+        select: { ownerId: true },
+      });
+      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Listing not found." });
+      const plan = await findOwnerPlan(input.planId);
+      if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Not an active seller plan." });
+      const active = await prisma.subscription.findFirst({
+        where: { userId: property.ownerId, status: "Active", endDate: { gt: new Date() } },
+        select: { planName: true },
+      });
+      if (active) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Owner already has an active plan (${active.planName}).`,
+        });
+      }
+      const now = new Date();
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + plan.validityDays);
+      const sub = await prisma.subscription.create({
+        data: {
+          userId: property.ownerId,
+          planId: plan.id,
+          planName: plan.name,
+          amount: BigInt(plan.price * 100),
+          status: "Active",
+          cycle: plan.cycle,
+          startDate: now,
+          endDate,
+        },
+        select: { id: true, planName: true, endDate: true },
+      });
+      await notify({
+        userId: property.ownerId,
+        type: "payment_success",
+        title: `${plan.name} activated`,
+        content: `An administrator activated your ${plan.name} until ${endDate.toLocaleDateString("en-IN")}.`,
+        actionUrl: "/user-portal#credits",
+      });
+      return { id: sub.id, planName: sub.planName, endDate: sub.endDate };
+    }),
+
   // Create a Razorpay order for a designer/decor "Business Listing" plan.
   // Same shape as createOwnerOrder, but sourced from the DB Plan table
   // (not a hardcoded array) so pricing changes don't need a deploy.

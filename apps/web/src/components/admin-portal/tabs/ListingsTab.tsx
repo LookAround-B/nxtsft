@@ -452,6 +452,16 @@ export function ListingsTab() {
     },
     onError: (err: { message: string }) => toast.error(err.message),
   });
+  const ownerPlansQ = trpc.subscriptions.ownerPlans.useQuery();
+  const grantSubMutation = trpc.subscriptions.grantByAdmin.useMutation({
+    onSuccess: (res) => {
+      void dbListingsQ.refetch();
+      toast.success(`Granted ${res.planName}.`);
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+  // Selected plan per listing for the manual "Grant plan" control.
+  const [grantPlan, setGrantPlan] = useState<Record<string, string>>({});
 
   const [localItems, setLocalItems] = useState<ListingItem[]>([]);
   const [checklistOpen, setChecklistOpen] = useState<string | null>(null);
@@ -977,6 +987,30 @@ export function ListingsTab() {
                         </button>
                       </>
                     )}
+                    {/* Manual grant of a seller plan to this listing's owner —
+                        for a customer who paid out-of-band (rep link, etc.). */}
+                    <select
+                      value={grantPlan[it.id] ?? ""}
+                      onChange={(e) => setGrantPlan((m) => ({ ...m, [it.id]: e.target.value }))}
+                      className="rounded-md border border-border bg-white px-2 py-1 text-xs"
+                    >
+                      <option value="">Grant plan…</option>
+                      {(ownerPlansQ.data ?? []).map((pl) => (
+                        <option key={pl.id} value={pl.id}>
+                          {pl.name} · ₹{pl.price}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() =>
+                        grantSubMutation.mutate({ propertyId: it.id, planId: grantPlan[it.id]! })
+                      }
+                      disabled={!grantPlan[it.id] || grantSubMutation.isPending}
+                      title="Activate this plan for the listing owner (manual reconciliation)"
+                      className="inline-flex items-center gap-1 rounded-md border border-accent px-2.5 py-1 font-semibold text-accent transition hover:bg-accent/5 disabled:opacity-40"
+                    >
+                      Grant
+                    </button>
                   </div>
                 </div>
               )}
