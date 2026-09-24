@@ -368,6 +368,7 @@ export function ListingsTab() {
   const [page, setPage] = useState(1);
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<ListingStatusFilter>("");
+  const [planFilter, setPlanFilter] = useState<"" | "paid" | "free">("");
   // Free-text lookup by property id / slug / pasted public URL / title. Held in
   // two pieces: what's typed, and what's actually sent (on submit) so every
   // keystroke doesn't hit the server.
@@ -376,13 +377,14 @@ export function ListingsTab() {
   // Reset to the first page whenever a filter changes.
   useEffect(() => {
     setPage(1);
-  }, [typeFilter, statusFilter, search]);
+  }, [typeFilter, statusFilter, planFilter, search]);
   const dbListingsQ = trpc.admin.properties.list.useQuery(
     {
       page,
       limit: 18,
       type: typeFilter || undefined,
       status: statusFilter || undefined,
+      plan: planFilter || undefined,
       search: search || undefined,
     },
     { placeholderData: keepPreviousData },
@@ -713,6 +715,19 @@ export function ListingsTab() {
                 <SelectItem value="Sold">Sold</SelectItem>
                 <SelectItem value="Rented">Rented</SelectItem>
                 <SelectItem value="Test">Dummy / test</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={planFilter || "__all"}
+              onValueChange={(v) => setPlanFilter(v === "__all" ? "" : (v as "paid" | "free"))}
+            >
+              <SelectTrigger size="sm" className="min-w-[10rem]">
+                <SelectValue placeholder="All plans" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">All plans</SelectItem>
+                <SelectItem value="paid">Paid plan / subscribed</SelectItem>
+                <SelectItem value="free">Free (no plan)</SelectItem>
               </SelectContent>
             </Select>
           </div>

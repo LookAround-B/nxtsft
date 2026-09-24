@@ -591,6 +591,10 @@ export const adminRouter = router({
           type: safeString(50).optional(),
           // Free-text lookup: property id, slug, a pasted public URL, or title.
           search: searchSchema.optional(),
+          // Owner's seller-subscription status: "paid" = the listing's owner has
+          // an active seller plan, "free" = they don't. Lets admins filter the
+          // library to paid-plan vs free customers.
+          plan: z.enum(["paid", "free"]).optional(),
           page: pageSchema.optional(),
           limit: limitSchema,
         }),
@@ -603,6 +607,23 @@ export const adminRouter = router({
         if (status) where.status = status;
         if (type) where.type = type;
         if (city) where.location = { city: { equals: city, mode: "insensitive" } };
+        if (input.plan) {
+          const ownerPlanIds = (
+            await prisma.plan.findMany({
+              where: { type: { in: ["owner-sell", "owner-rent"] } },
+              select: { id: true },
+            })
+          ).map((p) => p.id);
+          const activeSub = {
+            status: "Active",
+            endDate: { gt: new Date() },
+            planId: { in: ownerPlanIds },
+          };
+          where.owner =
+            input.plan === "paid"
+              ? { subscriptions: { some: activeSub } }
+              : { subscriptions: { none: activeSub } };
+        }
         // A pasted URL (https://.../properties/<slug>) reduces to its last
         // path segment so admins can search by copy-pasting the live link.
         const term = input.search?.trim().replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop() ?? "";
