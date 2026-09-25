@@ -9,6 +9,9 @@ import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
 import { Head, latestNote, waHref, type DbLead, type OutcomeTone, daysSince, fmtRelative } from "./shared";
 
+// Sentinel for a deliberate non-plan sale (boost / ad-hoc) in the payment-link form.
+const CUSTOM_SALE = "__custom";
+
 const sourceTone: Record<string, OutcomeTone> = {
   WhatsApp: "hot",
   Portal: "new",
@@ -410,16 +413,21 @@ export function MyLeadsTab() {
 
               {openAction?.id === l.id && openAction.kind === "payment" && (() => {
                 const amt = Number(amountDraft);
+                // A picked seller plan owns the name + amount (read-only).
+                const planLocked = !!planIdDraft && planIdDraft !== CUSTOM_SALE;
                 const selected = couponDraft ? coupons.find((c) => c.code === couponDraft) : undefined;
                 const discount = selected?.discountRupees ?? 0;
                 const validCoupon = !selected || (amt > discount);
                 const payable = amt > 0 ? Math.max(0, amt - discount) : 0;
                 return (
                 <div className="mt-3 flex flex-col gap-2">
-                  {/* Pick a seller plan → the paid link auto-activates that
-                      subscription for the customer. Selecting one fills the name
-                      + amount; leave on "Custom" for boosts/ad-hoc sales. */}
+                  {/* Reps must say what they're selling. A seller plan fills (and
+                      locks) the name + amount and auto-activates the subscription
+                      on payment; "Custom / boost" is a deliberate choice for
+                      anything else. Free-typed plan names can't be matched to a
+                      plan, which is how paid customers ended up with no plan. */}
                   <select
+                    autoFocus
                     value={planIdDraft}
                     onChange={(e) => {
                       const id = e.target.value;
@@ -432,29 +440,33 @@ export function MyLeadsTab() {
                     }}
                     className="rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
                   >
-                    <option value="">Custom / boost (no auto-activation)</option>
+                    <option value="" disabled>
+                      Select what you&apos;re selling…
+                    </option>
                     {(ownerPlansQ.data ?? []).map((pl) => (
                       <option key={pl.id} value={pl.id}>
-                        {pl.name} · ₹{pl.price} — auto-activates on payment
+                        {pl.name} · ₹{pl.price} (activates on payment)
                       </option>
                     ))}
+                    <option value={CUSTOM_SALE}>Custom / boost (no plan activated)</option>
                   </select>
                   <div className="flex flex-wrap items-center gap-2">
                     <input
                       type="text"
-                      autoFocus
                       placeholder="Plan name (e.g. Silver ₹4,999)"
                       value={planDraft}
+                      readOnly={planLocked}
                       onChange={(e) => setPlanDraft(e.target.value)}
-                      className="min-w-0 flex-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                      className="min-w-0 flex-1 rounded-md border border-border bg-white read-only:bg-secondary read-only:text-muted-foreground px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
                     />
                     <input
                       type="number"
                       min={1}
                       placeholder="Amount ₹"
                       value={amountDraft}
+                      readOnly={planLocked}
                       onChange={(e) => setAmountDraft(e.target.value)}
-                      className="w-28 rounded-md border border-border bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                      className="w-28 rounded-md border border-border bg-white read-only:bg-secondary read-only:text-muted-foreground px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
                     />
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -479,11 +491,11 @@ export function MyLeadsTab() {
                           leadId: l.id,
                           plan: planDraft.trim(),
                           amount: amt,
-                          planId: planIdDraft || undefined,
+                          planId: planLocked ? planIdDraft : undefined,
                           couponCode: couponDraft || undefined,
                         })
                       }
-                      disabled={!planDraft.trim() || !amountDraft || amt <= 0 || !validCoupon || createLink.isPending}
+                      disabled={!planIdDraft || !planDraft.trim() || !amountDraft || amt <= 0 || !validCoupon || createLink.isPending}
                       className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
                     >
                       {createLink.isPending ? "Creating…" : "Create & send link"}
