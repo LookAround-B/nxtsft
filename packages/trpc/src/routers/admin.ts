@@ -698,15 +698,28 @@ export const adminRouter = router({
         if (reraRequired && !property.freeListing && !property.rera) {
           throw new TRPCError({ code: "PRECONDITION_FAILED", message: "RERA number required before approval." });
         }
-        const updated = await prisma.property.update({ where: { id: input.id }, data: { status: "Active" } });
+        // A free listing whose customer already paid (a rep's payment link paid
+        // while the listing was still Pending — the webhook only lifts the free
+        // tier on live listings) goes live as paid, not free.
+        const paidLead = property.freeListing
+          ? await prisma.lead.findFirst({
+              where: { propertyId: property.id, paymentStatus: "Paid" },
+              select: { id: true },
+            })
+          : null;
+        const stillFree = property.freeListing && !paidLead;
+        const updated = await prisma.property.update({
+          where: { id: input.id },
+          data: { status: "Active", ...(paidLead ? { freeListing: false } : {}) },
+        });
         await notify({
           userId: property.ownerId,
           type: "listing_approved",
           title: "Your listing is approved 🎉",
-          content: property.freeListing
+          content: stillFree
             ? `"${property.title}" is now live as a free listing. Upgrade to move it to the first page.`
             : `"${property.title}" is now live and visible to buyers.`,
-          actionUrl: property.freeListing ? "/pricing#boost" : `/properties/${property.slug}`,
+          actionUrl: stillFree ? "/pricing#boost" : `/properties/${property.slug}`,
         });
         // Best-effort WhatsApp to the seller (no-op until configured).
         void sendTemplateIfConfigured(
