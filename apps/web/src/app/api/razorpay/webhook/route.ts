@@ -148,6 +148,16 @@ export async function POST(req: NextRequest) {
     } else {
       published = property;
     }
+
+    // The customer has paid, so a live free-tier listing is no longer free:
+    // lift it off the free tier (last-page ranking + "Free Listing" badge).
+    // Active only — a Pending free listing stays on the admin-approval route,
+    // since clearing the flag there would newly require a RERA number to
+    // approve. No expiryDate is stamped for it (isFree above), so the validity
+    // sweep never unpublishes it.
+    if (isFree && property.status === "Active") {
+      await prisma.property.update({ where: { id: property.id }, data: { freeListing: false } });
+    }
   }
 
   if (published) {
