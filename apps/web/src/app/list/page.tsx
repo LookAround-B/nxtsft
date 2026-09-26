@@ -28,6 +28,7 @@ import { useAuth } from "@/lib/auth";
 import { submitListing, type ListerType, type PendingListing } from "@/lib/listings";
 import { trpc } from "@/lib/trpc";
 import { parseLatLng } from "@/lib/map";
+import { useIndiaLocations, findCity } from "@/lib/indiaLocations";
 import { AMENITIES } from "@/data/amenities";
 import {
   Select,
@@ -42,22 +43,10 @@ import { usePresignUploader } from "@/lib/upload";
 import { AREA_UNITS, areaEquivalents, toSqft, type AreaUnit } from "@/lib/area";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Plot", "Commercial", "PG / Co-living", "Studio"];
-const CITIES = [
-  "Mumbai",
-  "Bengaluru",
-  "Delhi NCR",
-  "Hyderabad",
-  "Pune",
-  "Chennai",
-  "Kolkata",
-  "Ahmedabad",
-  "Surat",
-  "Jaipur",
-  "Lucknow",
-  "Noida",
-  "Gurgaon",
-  "Other",
-];
+// City-picker option for a town missing from the India dataset — the seller
+// types it instead. Replaces the old 13-metro list whose "Other" option left
+// most non-metro listings titled "… for Sale in Other".
+const CITY_NOT_LISTED = "__not_listed";
 const BHK_OPTIONS = ["1 BHK", "2 BHK", "3 BHK", "4+ BHK", "Open Plot", "Studio"];
 
 // Property types that aren't sold by BHK config — a PG is priced per bed and a
@@ -76,6 +65,7 @@ type FormData = {
   listerType: ListerType | "";
   propertyType: string;
   purpose: "Sale" | "Rent";
+  state: string;
   city: string;
   locality: string;
   latitude: string;
@@ -102,6 +92,7 @@ const EMPTY: FormData = {
   listerType: "",
   propertyType: "",
   purpose: "Sale",
+  state: "",
   city: "",
   locality: "",
   latitude: "",
@@ -188,6 +179,7 @@ const DUMMY_FORM: Partial<FormData> = {
   listerType: "owner",
   propertyType: "Apartment",
   purpose: "Sale",
+  state: "Telangana",
   city: "Hyderabad",
   locality: "Gachibowli",
   latitude: "17.4401",
@@ -234,6 +226,9 @@ export default function ListPropertyPage() {
   const { upload } = usePresignUploader();
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { locations, failed: locationsFailed } = useIndiaLocations();
+  // True when the seller chose "My city isn't listed" and is typing the town.
+  const [cityNotListed, setCityNotListed] = useState(false);
   const [submitted, setSubmitted] = useState<PendingListing | null>(null);
   // Fetched once the listing is submitted — tells us whether this seller has
   // used up their plan's listing allowance so we can prompt an upgrade (LA-322).
@@ -295,10 +290,12 @@ export default function ListPropertyPage() {
     setSelectedProject({ id: p.id, name: p.name, builderName: p.builderName });
     setProjectQuery(`${p.name} · ${p.builderName}`);
     setShowProjectResults(false);
+    const hit = locations && p.city ? findCity(locations, p.city) : undefined;
+    if (hit) setCityNotListed(false);
     setData((d) => ({
       ...d,
       propertyType: PROJECT_TYPE_TO_FORM[p.type] ?? d.propertyType,
-      city: CITIES.includes(p.city) ? p.city : d.city,
+      ...(hit ? { state: hit.state, city: hit.city } : {}),
       locality: p.area || d.locality,
       price: p.priceMin ? String(p.priceMin) : d.price,
       area: p.sftMin ? String(p.sftMin) : d.area,
@@ -387,7 +384,8 @@ export default function ListPropertyPage() {
     }
     if (s === 2) {
       if (!data.propertyType) e.propertyType = "Select a property type";
-      if (!data.city) e.city = "Select a city";
+      if (!data.state.trim()) e.state = "Select a state";
+      if (!data.city.trim()) e.city = cityNotListed ? "Type your city or town" : "Select a city";
       if (!data.price) e.price = "Enter a price";
       if (!data.area) e.area = "Enter property area";
       if (showBhk && !data.bhk) e.bhk = "Select a configuration";
@@ -429,7 +427,7 @@ export default function ListPropertyPage() {
       return;
     }
     const title =
-      data.title.trim() || `${configLabel(data.bhk, data.propertyType)} in ${data.city}`;
+      data.title.trim() || `${configLabel(data.bhk, data.propertyType)} in ${data.city.trim()}`;
 
     // Upload each photo (in submitted order — first is the cover) straight to
     // Cloudflare R2 via presigned PUT — the browser talks to the bucket directly,
@@ -508,9 +506,9 @@ export default function ListPropertyPage() {
           builtUpArea: data.builtUpArea ? parseInt(data.builtUpArea) || undefined : undefined,
           bhk: data.bhk || undefined,
           bedrooms: parseBedrooms(data.bhk),
-          city: data.city,
-          state: "India",
-          locality: data.locality || data.city,
+          city: data.city.trim(),
+          state: data.state.trim(),
+          locality: data.locality || data.city.trim(),
           latitude: parseFloat(data.latitude) || 0,
           longitude: parseFloat(data.longitude) || 0,
           description: data.description || undefined,
@@ -818,7 +816,12 @@ export default function ListPropertyPage() {
                   set("listerName", lead.name);
                   set("listerPhone", lead.phone);
                   if (lead.email) set("listerEmail", lead.email);
-                  if (lead.city) set("city", lead.city);
+                  const hit = lead.city && locations ? findCity(locations, lead.city) : undefined;
+                  if (hit) {
+                    set("state", hit.state);
+                    set("city", hit.city);
+                    setCityNotListed(false);
+                  }
                 }
               }}
             >
@@ -1211,24 +1214,96 @@ export default function ListPropertyPage() {
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-foreground">City</label>
-                  <Select value={data.city || undefined} onValueChange={(v) => set("city", v)}>
-                    <SelectTrigger
-                      className={`mt-1.5 rounded-xl px-3.5 py-3 ${errors.city ? "border-rose-400" : ""}`}
+                  <label className="block text-sm font-semibold text-foreground">State</label>
+                  {locationsFailed ? (
+                    <input
+                      type="text"
+                      value={data.state}
+                      onChange={(e) => set("state", e.target.value)}
+                      placeholder="Type your state"
+                      className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.state ? "border-rose-400" : "border-input"}`}
+                    />
+                  ) : (
+                    <Select
+                      value={data.state || undefined}
+                      onValueChange={(v) => {
+                        set("state", v);
+                        set("city", "");
+                        setCityNotListed(false);
+                      }}
+                      disabled={!locations}
                     >
-                      <SelectValue placeholder="Select city…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CITIES.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.city && <p className="mt-1 text-xs text-rose-500">{errors.city}</p>}
+                      <SelectTrigger
+                        className={`mt-1.5 rounded-xl px-3.5 py-3 ${errors.state ? "border-rose-400" : ""}`}
+                      >
+                        <SelectValue placeholder={locations ? "Select state…" : "Loading states…"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.keys(locations ?? {}).map((st) => (
+                          <SelectItem key={st} value={st}>
+                            {st}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {errors.state && <p className="mt-1 text-xs text-rose-500">{errors.state}</p>}
                 </div>
                 <div>
+                  <label className="block text-sm font-semibold text-foreground">City / town</label>
+                  {cityNotListed || locationsFailed ? (
+                    <>
+                      <input
+                        type="text"
+                        value={data.city}
+                        onChange={(e) => set("city", e.target.value)}
+                        placeholder="Type your city or town"
+                        className={`mt-1.5 w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.city ? "border-rose-400" : "border-input"}`}
+                      />
+                      {!locationsFailed && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCityNotListed(false);
+                            set("city", "");
+                          }}
+                          className="mt-1 text-xs font-semibold text-accent underline"
+                        >
+                          Pick from the list instead
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <Select
+                      value={data.city || undefined}
+                      onValueChange={(v) => {
+                        if (v === CITY_NOT_LISTED) {
+                          setCityNotListed(true);
+                          set("city", "");
+                        } else {
+                          set("city", v);
+                        }
+                      }}
+                      disabled={!data.state}
+                    >
+                      <SelectTrigger
+                        className={`mt-1.5 rounded-xl px-3.5 py-3 ${errors.city ? "border-rose-400" : ""}`}
+                      >
+                        <SelectValue placeholder={data.state ? "Select city…" : "Select a state first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(locations?.[data.state] ?? []).map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={CITY_NOT_LISTED}>My city isn&apos;t listed (type it)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {errors.city && <p className="mt-1 text-xs text-rose-500">{errors.city}</p>}
+                </div>
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-semibold text-foreground">
                     Locality <span className="font-normal text-muted-foreground">(optional)</span>
                   </label>
@@ -1685,7 +1760,7 @@ export default function ListPropertyPage() {
                       {data.title || "Your property title"}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {[data.locality, data.city].filter(Boolean).join(", ") || "Locality, City"}
+                      {[data.locality, data.city, data.state].filter(Boolean).join(", ") || "Locality, City, State"}
                     </div>
                     {data.price && (
                       <div className="mt-1 font-display text-sm font-black text-navy">
