@@ -6,6 +6,7 @@ import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { notify } from "../notify";
 import { awardSubscriptionCommission } from "../commission";
+import { listingAllowance, liftFreeTier } from "../freeTier";
 import { sendTemplateIfConfigured } from "../bhashsms";
 import { router, publicProcedure, protectedProcedure, adminProcedure } from "../server";
 import {
@@ -508,19 +509,25 @@ export const subscriptionsRouter = router({
       const endDate = new Date(now);
       endDate.setDate(endDate.getDate() + plan.validityDays);
 
-      await prisma.$transaction(async tx => {
+      const created = await prisma.$transaction(async tx => {
         const claimed = await tx.payment.updateMany({
           where: { id: pendingOrder.id, status: "Pending" },
           data: { status: "Success", razorpayId: input.razorpayPaymentId },
         });
-        if (!claimed.count) return;
+        if (!claimed.count) return false;
         await tx.subscription.create({ data: {
           userId: ctx.user.id, planId: boundPlanId, planName: plan.name,
           amount: pendingOrder.amount, status: "Active", cycle: plan.cycle,
           razorpayId: input.razorpayPaymentId, razorpayOrderId: input.razorpayOrderId,
           startDate: now, endDate,
         } });
+        return true;
       });
+
+      // The paid plan takes the owner's live listing(s) off the free tier.
+      if (created) {
+        await liftFreeTier(ctx.user.id, boundPlanId).catch((err) => console.error("liftFreeTier", err));
+      }
 
       // Auto ₹500 commission to the attributed sales rep (owner/designer/decor
       // are all subscription types, so this qualifies here). Best-effort.
@@ -553,7 +560,7 @@ export const subscriptionsRouter = router({
     .mutation(async ({ input }) => {
       const property = await prisma.property.findFirst({
         where: { id: input.propertyId, deletedAt: null },
-        select: { ownerId: true },
+        select: { ownerId: true, freeListing: true },
       });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Listing not found." });
       const plan = await findOwnerPlan(input.planId);
@@ -584,6 +591,12 @@ export const subscriptionsRouter = router({
         },
         select: { id: true, planName: true, endDate: true },
       });
+      // A paid plan means this listing is no longer free: lift it off the free
+      // tier in the same click (previously a separate "Push to Paid" was needed,
+      // so granted customers stayed badged "Free Listing").
+      if (property.freeListing) {
+        await prisma.property.update({ where: { id: input.propertyId }, data: { freeListing: false } });
+      }
       await notify({
         userId: property.ownerId,
         type: "payment_success",
@@ -871,11 +884,7 @@ export const subscriptionsRouter = router({
     // Parse the listing allowance from the plan's feature list. "Unlimited"
     // → null (no cap). Otherwise the first "<n> listing(s)" number wins; if the
     // feature text ever drops the count, fall back to a 1-listing allowance.
-    const features = ownerPlanById.get(sub.planId)?.features ?? [];
-    const joined = features.join(" ").toLowerCase();
-    const unlimited = joined.includes("unlimited listing");
-    const match = joined.match(/(\d+)\s*listing/);
-    const allowance = unlimited ? null : match ? Number(match[1]) : 1;
+    const allowance = listingAllowance(ownerPlanById.get(sub.planId)?.features ?? []);
 
     const remaining = allowance === null ? null : Math.max(0, allowance - used);
     const exhausted = allowance !== null && used >= allowance;

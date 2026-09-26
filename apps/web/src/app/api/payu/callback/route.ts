@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyPayUHash } from "@nxtsft/trpc/payu";
 import prisma from "@nxtsft/db";
 import { awardSubscriptionCommission } from "@nxtsft/trpc/commission";
+import { liftFreeTier } from "@nxtsft/trpc/freeTier";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://nxtsft.com";
 
@@ -108,12 +109,12 @@ export async function POST(req: NextRequest) {
       const endDate = new Date(now);
       endDate.setDate(endDate.getDate() + validityDays);
 
-      await prisma.$transaction(async (tx) => {
+      const created = await prisma.$transaction(async (tx) => {
         const claimed = await tx.payment.updateMany({
           where: { id: payment.id, status: "Pending" },
           data: { status: "Success", payuMihpayId: mihpayid || null },
         });
-        if (!claimed.count) return;
+        if (!claimed.count) return false;
         await tx.subscription.create({
           data: {
             userId,
@@ -126,7 +127,14 @@ export async function POST(req: NextRequest) {
             endDate,
           },
         });
+        return true;
       });
+
+      // The paid plan takes the owner's live listing(s) off the free tier.
+      const boughtPlanId = meta.planId ?? udf2;
+      if (created && boughtPlanId) {
+        await liftFreeTier(userId, boughtPlanId).catch((err) => console.error("liftFreeTier", err));
+      }
 
       // Auto ₹500 commission to the attributed sales rep (self-serve channel).
       // Best-effort — never blocks the payment. Load the plan for its type/price;

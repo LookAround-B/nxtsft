@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import prisma from "@nxtsft/db";
 import { recordPaymentCommission } from "@nxtsft/trpc/salesCommission";
 import { notifyNewProperty } from "@nxtsft/trpc/push";
+import { liftFreeTier } from "@nxtsft/trpc/freeTier";
 import { TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
 
 // Razorpay webhook (LA-342) — completion signal for sales payment links.
@@ -213,6 +214,7 @@ export async function POST(req: NextRequest) {
             actionUrl: "/user-portal#credits",
           },
         });
+        await liftFreeTier(subCustomerId, plan.id).catch((err) => console.error("liftFreeTier", err));
       }
     }
   }

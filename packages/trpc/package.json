@@ -17,7 +17,8 @@
     "./whatsapp": "./src/whatsapp.ts",
     "./bhashsms": "./src/bhashsms.ts",
     "./waBroadcast": "./src/waBroadcast.ts",
-    "./payu": "./src/payu.ts"
+    "./payu": "./src/payu.ts",
+    "./freeTier": "./src/freeTier.ts"
   },
   "dependencies": {
     "@nxtsft/db": "workspace:*",
