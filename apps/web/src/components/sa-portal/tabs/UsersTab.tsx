@@ -28,7 +28,7 @@ const SA_ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
   supervisor: "Supervisor",
   sales: "Sales Rep",
-  "virtual-rep": "Virtual Rep",
+  "virtual-rep": "Property Consultant",
   "support-admin": "Support Admin",
   user: "Home Buyer",
   "home-seller": "Home Seller",

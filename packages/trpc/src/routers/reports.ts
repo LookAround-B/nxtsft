@@ -21,7 +21,7 @@ function roleToJobCategory(role: string): string {
     case "admin": return "Admin";
     case "supervisor": return "Supervisor";
     case "sales": return "Sales Rep";
-    case "virtual-rep": return "Virtual Rep";
+    case "virtual-rep": return "Property Consultant";
     case "user": return "Customer";
     case "home-seller": return "Agent";
     default: return "—";
