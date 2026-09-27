@@ -37,7 +37,7 @@ export async function uniqueAgentSlug(name: string): Promise<string> {
 export function defaultAgentMetadata(name: string, city: string) {
   return {
     initials: agentInitials(name),
-    rating: 5,
+    rating: 0,
     reviews: 0,
     deals: 0,
     since: new Date().getFullYear(),

@@ -175,11 +175,15 @@ export default function AgentProfileClient() {
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">Senior RERA Consultant · Partner since {agent.since}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Stars n={agent.rating ?? 0} size={15} />
-                    <span className="font-display text-base font-bold text-navy">{agent.rating}</span>
-                    <span className="text-sm text-muted-foreground">({agent.reviews} reviews)</span>
-                  </div>
+                  {(agent.reviews ?? 0) > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <Stars n={agent.rating ?? 0} size={15} />
+                      <span className="font-display text-base font-bold text-navy">{agent.rating}</span>
+                      <span className="text-sm text-muted-foreground">({agent.reviews} reviews)</span>
+                    </div>
+                  ) : (
+                    <span className=" rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">New</span>
+                  )}
                   <span className="hidden h-4 w-px bg-border sm:block" />
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Clock size={13} /> Replies {agent.responseTime ?? "within 24 hrs"}

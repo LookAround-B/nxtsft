@@ -19,6 +19,11 @@
 
 ## ✅ Completed
 
+### Admin onboarding of real Virtual Property Consultants *(09-27)*
+- [x] The existing Admin Portal "Agents" tab (create/edit/activate) is renamed **Virtual Property Consultants**, with an "+ Onboard Consultant" button and copy updated throughout. An onboarded consultant is verified and active, so their card goes live on /agents immediately. Deactivating hides it.
+- [x] **No default 5★:** a new consultant starts with rating 0 / reviews 0 (`admin.createAgent` and `defaultAgentMetadata`; the admin rating field is blank = New). Public cards, the top-rated sidebar and the profile header show a **NEW** pill instead of stars until reviews > 0. Existing profiles are unchanged.
+- [x] Verified: tsc clean. `admin.createAgent` was run in-process against prod with a synthetic admin ctx (no admin user or session minted). The consultant appeared in `getAgents`; the /agents card showed NEW with no stars; the profile loaded with Listings/Reviews/Callback. Test consultant deleted.
+
 ### Partner consultant profiles: working links *(09-27)*
 - [x] **/agents/[slug] now has a section bar:** Listings (n), Projects (n, shown only when listings are linked to a Project; prod has 0 Projects today), Reviews (n), plus **Request a callback** in the header, the section bar and the "Get in Touch" card.
 - [x] **Reviews section is real:** new `users.agentReviews` returns approved Review rows on the agent's listings (3 approved reviews across all partners today).

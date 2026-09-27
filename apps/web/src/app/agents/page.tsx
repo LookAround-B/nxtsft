@@ -114,6 +114,7 @@ function AgentCard({ agent, onContact }: { agent: Agent; onContact: (a: Agent) =
           </div>
           <div className="mt-0.5 text-xs text-muted-foreground">{agent.role}</div>
           <div className="mt-1.5 flex items-center gap-1.5">
+            {(agent.reviews ?? 0) > 0 ? (<>
             <span className="flex items-center gap-0.5">
               {[1, 2, 3, 4, 5].map((s) => (
                 <Star
@@ -129,6 +130,7 @@ function AgentCard({ agent, onContact }: { agent: Agent; onContact: (a: Agent) =
             </span>
             <span className="text-xs font-bold text-navy">{rating}</span>
             <span className="text-[11px] text-muted-foreground">({agent.reviews})</span>
+            </>) : <span className=" rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">New</span>}
           </div>
         </div>
       </div>
@@ -402,10 +404,12 @@ export default function AgentsPage() {
                                 {a.role} · {(a.cities ?? []).slice(0, 2).join(", ")}
                               </div>
                             </div>
-                            <span className="flex shrink-0 items-center gap-0.5 text-xs font-bold text-navy">
-                              <Star size={11} className="fill-amber-400 text-amber-400" />{" "}
-                              {a.rating}
-                            </span>
+                            {(a.reviews ?? 0) > 0 ? (
+                              <span className="flex shrink-0 items-center gap-0.5 text-xs font-bold text-navy">
+                                <Star size={11} className="fill-amber-400 text-amber-400" />{" "}
+                                {a.rating}
+                              </span>
+                            ) : <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">New</span>}
                           </Link>
                         </li>
                       ))}
@@ -662,8 +666,10 @@ export default function AgentsPage() {
                       <div className="font-display text-sm font-bold text-navy">{agent.name}</div>
                       <div className="text-[11px] text-muted-foreground">{agent.role}</div>
                       <div className="mt-1 flex items-center gap-1 text-xs">
-                        <Star size={10} className="fill-amber-400 text-amber-400" />
-                        <span className="font-bold text-navy">{agent.rating}</span>
+                        {(agent.reviews ?? 0) > 0 ? (<>
+                          <Star size={10} className="fill-amber-400 text-amber-400" />
+                          <span className="font-bold text-navy">{agent.rating}</span>
+                        </>) : <span className=" rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">New</span>}
                         <span className="text-muted-foreground">· {agent.deals} deals</span>
                       </div>
                     </div>

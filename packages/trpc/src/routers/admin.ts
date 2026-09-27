@@ -1965,7 +1965,7 @@ export const adminRouter = router({
 
       const metadata = {
         initials: agentInitials(input.name),
-        rating: input.rating ?? 5,
+        rating: input.rating ?? 0,
         reviews: 0,
         deals: input.deals ?? 0,
         since: input.since ?? new Date().getFullYear(),

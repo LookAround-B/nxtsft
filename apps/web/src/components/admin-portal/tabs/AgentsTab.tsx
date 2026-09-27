@@ -103,7 +103,7 @@ function AgentFormModal({
   const [password, setPassword] = useState("");
   const [city, setCity] = useState(agent?.city ?? "");
   const [avatar, setAvatar] = useState(agent?.avatar ?? "");
-  const [rating, setRating] = useState(String(m.rating ?? 5));
+  const [rating, setRating] = useState(m.rating != null ? String(m.rating) : "");
   const [deals, setDeals] = useState(String(m.deals ?? 0));
   const [since, setSince] = useState(String(m.since ?? new Date().getFullYear()));
   const [responseTime, setResponseTime] = useState(m.responseTime ?? "< 24 hrs");
@@ -118,10 +118,10 @@ function AgentFormModal({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (name.trim().length < 2) return toast.error("Enter the agent's full name.");
+    if (name.trim().length < 2) return toast.error("Enter the consultant's full name.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast.error("Enter a valid email.");
     if (!/^[6-9]\d{9}$/.test(phone)) return toast.error("Enter a valid 10-digit Indian mobile number.");
-    if (city.trim().length < 2) return toast.error("Enter the agent's base city.");
+    if (city.trim().length < 2) return toast.error("Enter the consultant's base city.");
     if (isCreate && password.length < 8) return toast.error("Temporary password must be at least 8 characters.");
     if (avatar && !/^https?:\/\//.test(avatar)) return toast.error("Photo URL must start with http(s)://");
 
@@ -132,7 +132,7 @@ function AgentFormModal({
         phone,
         city: city.trim(),
         avatar: avatar.trim() || undefined,
-        rating: Number(rating) || 0,
+        rating: rating.trim() ? Number(rating) : undefined,
         deals: Number(deals) || 0,
         since: Number(since) || new Date().getFullYear(),
         responseTime: responseTime.trim() || undefined,
@@ -158,12 +158,12 @@ function AgentFormModal({
           Agent Directory
         </div>
         <h3 className="font-display text-xl font-bold text-navy">
-          {isCreate ? "Add a new agent" : `Edit ${agent.name}`}
+          {isCreate ? "Onboard a Virtual Property Consultant" : `Edit ${agent.name}`}
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">
           {isCreate
-            ? "Creates a verified agent that appears on the public /agents directory."
-            : "Updates the public agent directory profile."}
+            ? "Creates a verified consultant. Their card appears on the public Property Consultants page (/agents) straight away."
+            : "Updates the consultant's public profile."}
         </p>
 
         <div className="mt-5 space-y-3">
@@ -212,7 +212,7 @@ function AgentFormModal({
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelCls}>Rating (0–5)</label>
-              <input type="number" step="0.1" min="0" max="5" value={rating} onChange={(e) => setRating(e.target.value)} className={inputCls} />
+              <input type="number" step="0.1" min="0" max="5" placeholder="blank = New" value={rating} onChange={(e) => setRating(e.target.value)} className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Deals closed</label>
@@ -274,7 +274,7 @@ function AgentFormModal({
             Cancel
           </button>
           <button type="submit" disabled={pending} className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow hover:opacity-95 disabled:opacity-50">
-            {pending ? "Saving…" : isCreate ? "Add agent" : "Save changes"}
+            {pending ? "Saving…" : isCreate ? "Onboard consultant" : "Save changes"}
           </button>
         </div>
       </form>
@@ -291,7 +291,7 @@ export function AgentsTab() {
     onSuccess: () => {
       agentsQ.refetch();
       setShowCreate(false);
-      toast.success("Agent added");
+      toast.success("Consultant onboarded. Their card is now live on /agents.");
     },
     onError: (e: { message: string }) => toast.error(e.message),
   });
@@ -299,14 +299,14 @@ export function AgentsTab() {
     onSuccess: () => {
       agentsQ.refetch();
       setEditing(null);
-      toast.success("Agent updated");
+      toast.success("Consultant updated");
     },
     onError: (e: { message: string }) => toast.error(e.message),
   });
   const setActive = trpc.admin.setAgentActive.useMutation({
     onSuccess: (_res, vars) => {
       agentsQ.refetch();
-      toast.success(vars.active ? "Agent activated" : "Agent deactivated");
+      toast.success(vars.active ? "Consultant activated" : "Consultant deactivated");
     },
     onError: (e: { message: string }) => toast.error(e.message),
   });
@@ -316,9 +316,9 @@ export function AgentsTab() {
 
   return (
     <>
-      <PageHead title="Agent Directory" subtitle={`${agents.length} agent${agents.length !== 1 ? "s" : ""}`} />
+      <PageHead title="Virtual Property Consultants" subtitle={`${agents.length} consultant${agents.length !== 1 ? "s" : ""}`} />
       <Section
-        title="Agents"
+        title="Consultants"
         action={
           <div className="flex items-center gap-2">
             <input
@@ -328,7 +328,7 @@ export function AgentsTab() {
               className="rounded-md border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-accent"
             />
             <button onClick={() => setShowCreate(true)} className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground">
-              + Add Agent
+              + Onboard Consultant
             </button>
           </div>
         }
@@ -336,7 +336,7 @@ export function AgentsTab() {
         {agentsQ.isLoading ? (
           <TableSkeleton rows={6} cols={6} />
         ) : agents.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No agents match this search.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">No consultants match this search.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="portal-table">
@@ -389,7 +389,7 @@ export function AgentsTab() {
                         <button
                           onClick={() => {
                             const verb = a.active ? "Deactivate" : "Activate";
-                            if (!confirm(`${verb} ${a.name}? Deactivated agents are hidden from the public directory.`)) return;
+                            if (!confirm(`${verb} ${a.name}? Deactivated consultants are hidden from the public page.`)) return;
                             setActive.mutate({ userId: a.id, active: !a.active });
                           }}
                           title={a.active ? "Deactivate" : "Activate"}
