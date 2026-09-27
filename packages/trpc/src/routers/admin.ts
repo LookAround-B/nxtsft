@@ -1,3 +1,4 @@
+import { totalRevenueRupees } from "../revenue";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -93,7 +94,7 @@ export const adminRouter = router({
         prisma.property.groupBy({ by: ["status"], where: { deletedAt: null }, _count: { _all: true } }),
         prisma.lead.groupBy({ by: ["status"], _count: { _all: true } }),
         prisma.siteVisit.count(),
-        prisma.payment.aggregate({ where: { status: "Success" }, _sum: { amount: true } }),
+        totalRevenueRupees(),
       ]);
 
     const propCount = (s: string) => propByStatus.find((g) => g.status === s)?._count._all ?? 0;
@@ -108,7 +109,7 @@ export const adminRouter = router({
       warmLeads: leadCount("Warm"),
       convertedLeads: leadCount("Converted"),
       siteVisitsCount,
-      totalRevenue: Number(totalRevenue._sum.amount ?? 0) / 100, // convert paise to rupees
+      totalRevenue,
     };
     adminStatsCache = { data, expires: Date.now() + ADMIN_STATS_TTL_MS };
     return data;

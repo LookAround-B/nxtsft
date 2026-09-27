@@ -51,6 +51,7 @@ import { toast } from "sonner";
 import { SITE_URL } from "@/lib/site";
 import { toEmbedUrl } from "@/lib/youtube";
 import { tagClass } from "@/lib/propertyTags";
+import { typeLabel } from "@/lib/propertyTypeLabel";
 
 function formatPrice(price: number): string {
   if (price >= 1_00_00_000) return `₹${(price / 1_00_00_000).toFixed(2)} Cr`;
@@ -812,7 +813,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
                     value={property.builder}
                   />
                 )}
-                <SpecItem icon={<Building2 size={18} />} label="Type" value={property.type} />
+                <SpecItem icon={<Building2 size={18} />} label="Type" value={typeLabel(property.type)} />
               </div>
             </div>
 

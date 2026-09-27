@@ -198,15 +198,18 @@ function KpiCard({
   sub,
   trend,
   icon,
+  href,
 }: {
   label: string;
   value: string;
   sub?: string;
   trend?: "up" | "down" | "neutral";
   icon?: ReactNode;
+  href?: string;
 }) {
+  const Wrapper = href ? "a" : "div";
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/25 hover:shadow-md">
+    <Wrapper {...(href ? { href } : {})} className="relative block overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/25 hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
         <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
           {label}
@@ -229,7 +232,8 @@ function KpiCard({
           {sub}
         </div>
       )}
-    </div>
+      {href && <div className="mt-2 text-[11px] font-semibold text-accent">View &amp; download →</div>}
+    </Wrapper>
   );
 }
 
@@ -334,6 +338,7 @@ export function OperationsTab() {
             />
             <KpiCard
               label="Open Leads"
+              href="#leads"
               value={s ? String(s.totalLeads) : "…"}
               sub={s ? `${s.hotLeads} hot` : "loading"}
               trend="up"

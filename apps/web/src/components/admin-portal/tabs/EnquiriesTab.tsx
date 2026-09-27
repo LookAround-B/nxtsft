@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Eye, X, Mail, Phone, MapPin, Calendar } from "lucide-react";
+import { Eye, X, Mail, Phone, MapPin, Calendar, Trash2 } from "lucide-react";
 import { Section, Badge, StatCard } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton } from "@/components/ui/skeleton";
@@ -151,6 +151,16 @@ export function EnquiriesTab() {
     onError: (err) => toast.error(err.message || "Couldn't update status"),
   });
 
+  const deleteEnquiry = trpc.contact.delete.useMutation({
+    onSuccess: (_data, vars) => {
+      utils.contact.list.invalidate();
+      utils.contact.stats.invalidate();
+      setSelected((prev) => (prev?.id === vars.id ? null : prev));
+      toast.success("Enquiry deleted");
+    },
+    onError: (err) => toast.error(err.message || "Couldn't delete enquiry"),
+  });
+
   const stats = statsQ.data;
 
   return (
@@ -199,7 +209,7 @@ export function EnquiriesTab() {
                   <th>Message</th>
                   <th>Status</th>
                   <th>Set status</th>
-                  <th>View</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -257,14 +267,29 @@ export function EnquiriesTab() {
                       </select>
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        onClick={() => setSelected(e as Enquiry)}
-                        aria-label="View enquiry"
-                        className="grid h-8 w-8 place-items-center rounded-lg border border-border text-muted-foreground transition hover:border-accent hover:text-accent"
-                      >
-                        <Eye size={15} />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelected(e as Enquiry)}
+                          aria-label="View enquiry"
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-border text-muted-foreground transition hover:border-accent hover:text-accent"
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deleteEnquiry.isPending}
+                          onClick={() => {
+                            if (confirm(`Delete the enquiry from ${e.name}? This can't be undone.`)) {
+                              deleteEnquiry.mutate({ id: e.id });
+                            }
+                          }}
+                          aria-label="Delete enquiry"
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-border text-muted-foreground transition hover:border-red-300 hover:text-red-600 disabled:opacity-50"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

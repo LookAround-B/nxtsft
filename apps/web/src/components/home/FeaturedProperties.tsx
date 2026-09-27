@@ -13,6 +13,7 @@ import {
   type FeaturedProp,
   fmtPrice,
 } from "@/components/home/homeData";
+import { typeLabel } from "@/lib/propertyTypeLabel";
 
 const PAGE_SIZE = 18;
 
@@ -147,7 +148,7 @@ export function FeaturedProperties() {
                             </div>
                           </div>
                           <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-semibold text-navy">
-                            {p.type}
+                            {typeLabel(p.type)}
                           </span>
                         </div>
                       </div>

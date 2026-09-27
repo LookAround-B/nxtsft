@@ -18,6 +18,12 @@ export function downloadCSV(
     href: URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })),
     download: filename,
   });
+  // Mobile Chrome/Firefox only download from an anchor that's in the document,
+  // and start the download asynchronously — revoking the blob URL right after
+  // click() cancelled it on phones. Revoke later instead.
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
 }

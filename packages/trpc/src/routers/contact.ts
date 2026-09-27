@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { router, publicProcedure, staffProcedure, contactRateLimit } from "../server";
+import { router, publicProcedure, staffProcedure, adminProcedure, contactRateLimit } from "../server";
 import {
   nameSchema,
   emailSchema,
@@ -136,5 +136,15 @@ export const contactRouter = router({
           handledById: enquiry.handledById ?? ctx.user.id,
         },
       });
+    }),
+
+  // Admin: permanently remove an enquiry (spam, tests, duplicates). Nothing
+  // else references an Enquiry, so a hard delete is safe.
+  delete: adminProcedure
+    .input(z.object({ id: z.string().cuid() }))
+    .mutation(async ({ input }) => {
+      const res = await prisma.enquiry.deleteMany({ where: { id: input.id } });
+      if (!res.count) throw new TRPCError({ code: "NOT_FOUND", message: "Enquiry not found." });
+      return { ok: true };
     }),
 });

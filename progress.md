@@ -19,6 +19,14 @@
 
 ## ✅ Completed
 
+### Admin dashboard fixes: revenue, enquiry delete, Commercial, leads download *(09-27)*
+- [x] **Total Revenue was wrong (₹999):** it summed only successful Payment rows, but admin grants and rep payment links (Razorpay webhook) create a Subscription with no Payment. New `packages/trpc/src/revenue.ts` counts subscriptions (status ≠ Failed) plus successful non-subscription payments (credit packs, boosts), so each sale is counted once. Used by `admin.stats` and `superAdmin.stats`. Prod now reads **₹8,991** (10 × Trail Plan, one of them ₹0).
+- [x] **Delete enquiry:** `contact.delete` (adminProcedure, hard delete; nothing references Enquiry) plus a trash button with confirm in the Contact Enquiries table. Sales staff get FORBIDDEN.
+- [x] **Office → "Commercial" (display only):** `lib/propertyTypeLabel.ts` is used by the admin Property Types toggles, the /properties filter and cards, the property detail "Type" and featured cards. The stored type stays "Office", so the 331 listings, filters and URLs are unchanged.
+- [x] **Leads download:** the server export already returned all 808 rows. On phones, `downloadCSV` revoked the blob URL straight after `click()` on a detached anchor, which cancels the download on mobile Chrome. It now attaches the anchor and revokes after 60s. The Open Leads KPI card now links to the Leads tab ("View & download →").
+- [x] Verified: tsc clean. In-process against prod: revenue 8991 on both dashboards; admin and super-admin delete works; sales gets FORBIDDEN; exportRows returns 808. Browser at 400px: the type filter lists Commercial and filtering works (18 cards labelled Commercial, 0 "Office"). Not verified on a real phone.
+- ⚠️ Flags: the header tile says "Revenue MTD" but shows all-time revenue. "Open Leads" counts every lead, including 3 Listed. The rep payment-link webhook still writes no Payment row, so the Transactions tab misses those sales and the WhatsApp follow-up cron (`paid` = Payment count) can keep nudging owners who already paid.
+
 ### "Callback only" consultants *(09-27)*
 - [x] Boss decision: keep only Callback on the test consultant profiles, and send callbacks to admin as a lead. New per-consultant **Callback only** flag (`metadata.callbackOnly`) with a checkbox in the admin onboarding/edit form. When it is on, `users.getAgent` returns no phone, so the profile shows no Call/WhatsApp and only "Request a callback" (unassigned lead + admin/supervisor alerts).
 - [x] The directory card "Contact" button used to show a dummy "Opening WhatsApp…" toast. It is now **Request callback**: it opens the profile with the callback dialog up (`?callback=1`), and signed-out buyers go through login and come back to it. Removed the dead "Contact details unavailable" text.

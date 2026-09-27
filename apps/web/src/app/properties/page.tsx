@@ -24,6 +24,7 @@ import { trpc } from "@/lib/trpc";
 import { tagClass } from "@/lib/propertyTags";
 import { CardGridSkeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
+import { typeLabel } from "@/lib/propertyTypeLabel";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Studio", "Office", "Bungalow", "Plot", "PG"] as const;
 const PURPOSES = ["Sale", "Rent"] as const;
@@ -233,7 +234,7 @@ function PropertyCard({ p }: { p: PropertyItem }) {
             {p.area.toLocaleString()} sq.ft
           </span>
           <span className="ml-auto rounded-lg bg-secondary px-2 py-0.5 text-[11px] font-semibold text-foreground/60">
-            {p.type}
+            {typeLabel(p.type)}
           </span>
         </div>
       </div>
@@ -261,11 +262,13 @@ function FilterSelect({
   onChange,
   options,
   placeholder,
+  labels = (v) => v,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: readonly string[];
   placeholder: string;
+  labels?: (v: string) => string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -304,7 +307,7 @@ function FilterSelect({
             : "border-border bg-white text-foreground/70 hover:border-accent/40"
         }`}
       >
-        {value || placeholder}
+        {value ? labels(value) : placeholder}
         <ChevronDown
           size={12}
           className={`transition-transform ${open ? "rotate-180" : ""} ${value ? "text-white" : "text-muted-foreground"}`}
@@ -341,7 +344,7 @@ function FilterSelect({
                   active ? "bg-accent/10 text-accent" : "text-foreground/70 hover:bg-secondary"
                 }`}
               >
-                {opt}
+                {labels(opt)}
                 {active && <Check size={13} className="text-accent" />}
               </button>
             );
@@ -463,6 +466,7 @@ function PropertiesInner() {
                 value={type}
                 onChange={setType}
                 options={availableTypes}
+                labels={typeLabel}
                 placeholder="Property Type"
               />
 

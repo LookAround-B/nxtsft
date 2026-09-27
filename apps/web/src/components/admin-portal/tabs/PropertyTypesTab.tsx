@@ -5,6 +5,7 @@ import { Section } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { PageHead } from "./PageHead";
+import { typeLabel } from "@/lib/propertyTypeLabel";
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   Apartment: <Building2 size={18} />,
@@ -70,7 +71,7 @@ export function PropertyTypesTab() {
       toast.error(err.message);
     },
     onSuccess: ({ type, enabled }) => {
-      toast.success(`${type} ${enabled ? "activated" : "deactivated"}`);
+      toast.success(`${typeLabel(type)} ${enabled ? "activated" : "deactivated"}`);
     },
     onSettled: () => {
       utils.admin.propertyTypes.invalidate();
@@ -166,7 +167,7 @@ export function PropertyTypesTab() {
                   {TYPE_ICON[t.type] ?? <Layers size={18} />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-navy">{t.type}</div>
+                  <div className="font-semibold text-navy">{typeLabel(t.type)}</div>
                   <div className="text-xs text-muted-foreground">
                     {t.count.toLocaleString("en-IN")} live listing{t.count === 1 ? "" : "s"}
                   </div>

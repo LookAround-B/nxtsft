@@ -1,3 +1,4 @@
+import { totalRevenueRupees } from "../revenue";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
@@ -74,12 +75,12 @@ export const superAdminRouter = router({
     const [
       propertiesCount,
       activeSessionsCount,
-      totalPayments,
+      totalRevenue,
       roleDistribution,
     ] = await Promise.all([
       prisma.property.count({ where: { deletedAt: null } }),
       prisma.session.count({ where: { expiresAt: { gte: new Date() } } }),
-      prisma.payment.aggregate({ where: { status: "Success" }, _sum: { amount: true } }),
+      totalRevenueRupees(),
       prisma.user.groupBy({
         by: ["role"],
         _count: { id: true },
@@ -93,7 +94,7 @@ export const superAdminRouter = router({
       usersCount,
       propertiesCount,
       activeSessionsCount,
-      totalRevenue: Number(totalPayments._sum.amount ?? 0) / 100,
+      totalRevenue,
       roleDistribution: roleDistribution.map((d) => ({
         role: d.role,
         count: d._count.id,
