@@ -74,9 +74,9 @@ export default function AgentProfileClient() {
   if (!agent) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <p className="text-lg font-bold text-navy">Agent not found</p>
+        <p className="text-lg font-bold text-navy">Consultant not found</p>
         <Link href="/agents" className="rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white hover:opacity-90">
-          Back to Agents
+          Back to Property Consultants
         </Link>
       </div>
     );
@@ -102,12 +102,12 @@ export default function AgentProfileClient() {
             <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
               <Link href="/" className="hover:text-accent">Home</Link>
               <span>/</span>
-              <Link href="/agents" className="hover:text-accent">Agents</Link>
+              <Link href="/agents" className="hover:text-accent">Property Consultants</Link>
               <span>/</span>
               <span className="font-semibold text-navy">{agent.name}</span>
             </div>
             <Link href="/agents" className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition hover:text-accent">
-              <ArrowLeft size={14} /> Back to agents
+              <ArrowLeft size={14} /> Back to consultants
             </Link>
             <div className="mt-4 flex flex-col gap-6 sm:flex-row sm:items-start">
               <div className="relative shrink-0">
@@ -134,7 +134,7 @@ export default function AgentProfileClient() {
                     </span>
                   )}
                 </div>
-                <div className="mt-1 text-sm text-muted-foreground">Senior RERA Agent · Partner since {agent.since}</div>
+                <div className="mt-1 text-sm text-muted-foreground">Senior RERA Consultant · Partner since {agent.since}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-2">
                     <Stars n={agent.rating ?? 0} size={15} />

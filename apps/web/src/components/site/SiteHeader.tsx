@@ -51,6 +51,7 @@ const NAV_ITEMS = [
   { to: "/", label: "Home" },
   { to: "/properties", label: "Properties", hasMega: true },
   { to: "/builders", label: "Builders" },
+  { to: "/agents", label: "Property Consultants" },
   { to: "/nri-guide", label: "For NRIs" },
   { to: "/pricing", label: "Pricing" },
   { to: "/refer", label: "Refer & Earn" },
