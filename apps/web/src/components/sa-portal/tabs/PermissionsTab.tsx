@@ -22,7 +22,7 @@ const ROLES: { key: string; label: string }[] = [
   { key: "admin", label: "Admin" },
   { key: "supervisor", label: "Supervisor" },
   { key: "sales", label: "Sales Rep" },
-  { key: "virtual-rep", label: "Property Consultant" },
+  { key: "virtual-rep", label: "Virtual Property Consultant" },
   { key: "support-admin", label: "Support" },
   { key: "user", label: "Home Buyer" },
   { key: "home-seller", label: "Home Seller" },

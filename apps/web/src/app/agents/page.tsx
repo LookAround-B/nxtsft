@@ -335,14 +335,14 @@ export default function AgentsPage() {
         />
         <div className="relative z-10 mx-auto max-w-4xl px-6 py-16 text-center sm:py-20">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-white/80 backdrop-blur-sm">
-            <Users size={12} /> Property Consultants Directory
+            <Users size={12} /> Virtual Property Consultants Directory
           </div>
           <h1 className="mt-5 font-display text-4xl font-black leading-tight text-white sm:text-5xl">
             Find the right
             <br className="hidden sm:block" /> property expert
           </h1>
           <p className="mt-4 text-base text-white/65">
-            Connect with RERA-verified property consultants, commercial leasing specialists, and builders across
+            Connect with RERA-verified virtual property consultants, commercial leasing specialists, and builders across
             India.
           </p>
 
@@ -746,7 +746,7 @@ export default function AgentsPage() {
               {
                 icon: Award,
                 title: "Build your brand",
-                desc: "Collect verified reviews, showcase closed deals, and become a top-rated property consultant.",
+                desc: "Collect verified reviews, showcase closed deals, and become a top-rated virtual property consultant.",
               },
             ].map((b) => (
               <div key={b.title} className="flex items-start gap-4">
@@ -763,7 +763,7 @@ export default function AgentsPage() {
           <div className="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-accent/20 bg-white p-8 text-center shadow-sm sm:flex-row sm:text-left">
             <div className="flex-1">
               <div className="text-xs font-bold uppercase tracking-widest text-accent">
-                Are you a RERA-certified property consultant?
+                Are you a RERA-certified virtual property consultant?
               </div>
               <div className="mt-1 font-display text-xl font-black text-navy">
                 Join NxtSft.com as a verified partner
@@ -777,7 +777,7 @@ export default function AgentsPage() {
                 href="/register?type=agent"
                 className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white shadow-sm shadow-accent/20 transition hover:opacity-90"
               >
-                Join as Property Consultant <ArrowRight size={15} />
+                Join as Virtual Property Consultant <ArrowRight size={15} />
               </Link>
               <Link
                 href="/contact"

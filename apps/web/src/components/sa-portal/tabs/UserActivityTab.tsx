@@ -51,7 +51,7 @@ const ICON_BG: Record<Kind, string> = {
 const ROLE_LABEL: Record<string, string> = {
   user: "Buyer",
   "home-seller": "Owner",
-  agent: "Agent",
+  agent: "Virtual Property Consultant (Partner)",
 };
 
 function timeAgo(iso: string): string {

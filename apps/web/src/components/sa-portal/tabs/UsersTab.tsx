@@ -28,11 +28,11 @@ const SA_ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
   supervisor: "Supervisor",
   sales: "Sales Rep",
-  "virtual-rep": "Property Consultant",
+  "virtual-rep": "Virtual Property Consultant",
   "support-admin": "Support Admin",
   user: "Home Buyer",
   "home-seller": "Home Seller",
-  agent: "Agent / Partner",
+  agent: "Virtual Property Consultant (Partner)",
 };
 
 export function UsersTab() {

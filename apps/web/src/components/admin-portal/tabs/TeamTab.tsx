@@ -15,7 +15,7 @@ const INVITE_ROLES: { label: string; value: NewMemberInput["role"] }[] = [
   { label: "Admin", value: "admin" },
   { label: "Supervisor", value: "supervisor" },
   { label: "Sales Rep", value: "sales" },
-  { label: "Property Consultant", value: "virtual-rep" },
+  { label: "Virtual Property Consultant", value: "virtual-rep" },
   { label: "Support Admin", value: "support-admin" },
 ];
 

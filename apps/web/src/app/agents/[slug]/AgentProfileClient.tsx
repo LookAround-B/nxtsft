@@ -76,7 +76,7 @@ export default function AgentProfileClient() {
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
         <p className="text-lg font-bold text-navy">Consultant not found</p>
         <Link href="/agents" className="rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white hover:opacity-90">
-          Back to Property Consultants
+          Back to Virtual Property Consultants
         </Link>
       </div>
     );
@@ -102,7 +102,7 @@ export default function AgentProfileClient() {
             <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
               <Link href="/" className="hover:text-accent">Home</Link>
               <span>/</span>
-              <Link href="/agents" className="hover:text-accent">Property Consultants</Link>
+              <Link href="/agents" className="hover:text-accent">Virtual Property Consultants</Link>
               <span>/</span>
               <span className="font-semibold text-navy">{agent.name}</span>
             </div>

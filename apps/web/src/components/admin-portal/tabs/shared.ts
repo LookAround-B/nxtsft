@@ -42,6 +42,6 @@ export const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
   supervisor: "Supervisor",
   sales: "Sales Rep",
-  "virtual-rep": "Property Consultant",
+  "virtual-rep": "Virtual Property Consultant",
   "support-admin": "Support Admin",
 };

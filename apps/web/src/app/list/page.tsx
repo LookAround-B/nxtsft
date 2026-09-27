@@ -1012,7 +1012,7 @@ export default function ListPropertyPage() {
                   {
                     type: "agent" as const,
                     Icon: Briefcase,
-                    label: "Agent",
+                    label: "Virtual Property Consultant",
                     desc: "I am a registered real estate agent",
                   },
                   {
