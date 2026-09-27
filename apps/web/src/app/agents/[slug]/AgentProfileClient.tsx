@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { WatermarkOverlay } from "@/components/ui/WatermarkOverlay";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Star, Phone, MessageCircle, Lock, ShieldCheck, MapPin, Globe,
@@ -61,12 +61,13 @@ export default function AgentProfileClient() {
   const { slug } = useParams<{ slug: string }>();
   const { session } = useAuth();
   const router = useRouter();
+  const autoCallback = useSearchParams().get("callback") === "1";
   const [agent, setAgent] = useState<AgentRow | null | undefined>(undefined);
   const [listings, setListings] = useState<AgentListing[]>([]);
   const [reviews, setReviews] = useState<AgentReview[]>([]);
   const [callbackOpen, setCallbackOpen] = useState(false);
   const [cbPhone, setCbPhone] = useState("");
-  const loginHref = `/login?redirect=${encodeURIComponent(`/agents/${slug}`)}`;
+  const loginHref = `/login?redirect=${encodeURIComponent(`/agents/${slug}?callback=1`)}`;
 
   const callback = trpc.leads.requestConsultantCallback.useMutation({
     onSuccess: (res) => {
@@ -100,6 +101,14 @@ export default function AgentProfileClient() {
       .then(setReviews)
       .catch(() => setReviews([]));
   }, [slug]);
+
+  // Arrived via a directory "Request callback" button → open the dialog once.
+  const [autoDone, setAutoDone] = useState(false);
+  useEffect(() => {
+    if (!autoCallback || autoDone || !agent) return;
+    setAutoDone(true);
+    openCallback();
+  }, [autoCallback, autoDone, agent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (agent === undefined) {
     return (
@@ -222,9 +231,7 @@ export default function AgentProfileClient() {
                       <MessageCircle size={15} /> WhatsApp
                     </a>
                   </>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Contact details unavailable</span>
-                )}
+                ) : null}
               </div>
             </div>
             <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -447,9 +454,7 @@ export default function AgentProfileClient() {
                   <a href={waHref} target="_blank" rel="noopener noreferrer" className="mt-4 block w-full rounded-xl bg-accent py-2.5 text-center text-sm font-bold text-white shadow-sm shadow-accent/30 transition hover:opacity-90">
                     Contact Now
                   </a>
-                ) : (
-                  <p className="mt-4 text-sm text-white/60">Contact details unavailable right now.</p>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

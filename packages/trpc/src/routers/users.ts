@@ -831,8 +831,10 @@ export const usersRouter = router({
       return {
         id: agent.id, name: agent.name, slug: agent.slug, email: agent.email,
         // Agents are public directory professionals — their business phone is
-        // meant to be reachable (unlike private owners, gated by credits).
-        phone: agent.phone,
+        // meant to be reachable (unlike private owners, gated by credits) —
+        // unless admin set "callback only": then buyers can only request a
+        // callback, which lands with the admin team as a lead.
+        phone: meta.callbackOnly === true ? null : agent.phone,
         avatar: agent.avatar, city: agent.city, verified: agent.verified,
         initials: meta.initials as string | undefined,
         rating: meta.rating as number | undefined,

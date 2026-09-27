@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Star,
@@ -16,6 +17,7 @@ import {
   Building2,
   SlidersHorizontal,
   X,
+  PhoneCall,
 } from "lucide-react";
 import {
   Select,
@@ -201,7 +203,7 @@ function AgentCard({ agent, onContact }: { agent: Agent; onContact: (a: Agent) =
           onClick={() => onContact(agent)}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent py-2.5 text-xs font-semibold text-white shadow-sm shadow-accent/20 transition hover:opacity-90"
         >
-          <MessageCircle size={12} /> Contact
+          <PhoneCall size={12} /> Request callback
         </button>
       </div>
     </div>
@@ -211,6 +213,7 @@ function AgentCard({ agent, onContact }: { agent: Agent; onContact: (a: Agent) =
 /* ─── Page ────────────────────────────────────────────────────────── */
 export default function AgentsPage() {
   const { session } = useAuth();
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [city, setCity] = useState("All");
   const [type, setType] = useState("All");
@@ -257,12 +260,10 @@ export default function AgentsPage() {
     loadAgents();
   }, []);
 
+  // "Request callback" opens the consultant's profile with the callback
+  // dialog up (the profile sends signed-out buyers to login and back).
   const handleContact = (agent: Agent) => {
-    if (!session) {
-      toast.error("Sign in required", { description: `Sign in to contact ${agent.name}.` });
-      return;
-    }
-    toast.success(`Opening WhatsApp…`, { description: `Connecting you with ${agent.name}.` });
+    router.push(`/agents/${agent.slug}?callback=1`);
   };
 
   const filtered = useMemo(() => {
@@ -685,7 +686,7 @@ export default function AgentsPage() {
                       onClick={() => handleContact(agent)}
                       className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-accent py-2 text-[11px] font-semibold text-white transition hover:opacity-90"
                     >
-                      <MessageCircle size={11} /> Contact
+                      <PhoneCall size={11} /> Callback
                     </button>
                   </div>
                 </div>

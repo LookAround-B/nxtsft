@@ -15,6 +15,7 @@ type AgentMeta = {
   since?: number;
   listings?: number;
   featured?: boolean;
+  callbackOnly?: boolean;
   color?: string;
   responseTime?: string;
   portfolioValue?: string;
@@ -51,6 +52,7 @@ type AgentProfile = {
   portfolioValue?: string;
   color?: string;
   featured?: boolean;
+  callbackOnly?: boolean;
   specialties?: string[];
   languages?: string[];
   cities?: string[];
@@ -110,6 +112,7 @@ function AgentFormModal({
   const [portfolioValue, setPortfolioValue] = useState(m.portfolioValue ?? "");
   const [color, setColor] = useState(m.color ?? "bg-accent");
   const [featured, setFeatured] = useState(m.featured ?? false);
+  const [callbackOnly, setCallbackOnly] = useState(m.callbackOnly ?? false);
   const [specialties, setSpecialties] = useState((m.specialties ?? []).join(", "));
   const [languages, setLanguages] = useState((m.languages ?? []).join(", "));
   const [cities, setCities] = useState((m.cities ?? []).join(", "));
@@ -139,6 +142,7 @@ function AgentFormModal({
         portfolioValue: portfolioValue.trim() || undefined,
         color,
         featured,
+        callbackOnly,
         specialties: toList(specialties),
         languages: toList(languages),
         cities: toList(cities),
@@ -267,6 +271,15 @@ function AgentFormModal({
               Featured
             </label>
           </div>
+          <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm font-semibold text-navy">
+            <input type="checkbox" checked={callbackOnly} onChange={(e) => setCallbackOnly(e.target.checked)} className="mt-0.5 h-4 w-4 accent-accent" />
+            <span>
+              Callback only
+              <span className="block text-xs font-normal text-muted-foreground">
+                Hide this consultant's phone and WhatsApp on the website. Buyers get "Request a callback" only, which comes to admin as a lead.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

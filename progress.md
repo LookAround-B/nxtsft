@@ -19,6 +19,12 @@
 
 ## ✅ Completed
 
+### "Callback only" consultants *(09-27)*
+- [x] Boss decision: keep only Callback on the test consultant profiles, and send callbacks to admin as a lead. New per-consultant **Callback only** flag (`metadata.callbackOnly`) with a checkbox in the admin onboarding/edit form. When it is on, `users.getAgent` returns no phone, so the profile shows no Call/WhatsApp and only "Request a callback" (unassigned lead + admin/supervisor alerts).
+- [x] The directory card "Contact" button used to show a dummy "Opening WhatsApp…" toast. It is now **Request callback**: it opens the profile with the callback dialog up (`?callback=1`), and signed-out buyers go through login and come back to it. Removed the dead "Contact details unavailable" text.
+- [x] Verified against prod on 09-27 with a throwaway consultant: phone hidden, then shown when toggled off, then hidden when toggled on again. Card shows View Profile + Request callback. The signed-out redirect kept `?callback=1`. Signed in, the dialog auto-opened, and submitting created 1 unassigned lead and 2 admin alerts. Test data deleted.
+- 🔲 **Pending:** tick "Callback only" on the 14 seed consultants (@nxtsft.com, 98200000xx). This was not bulk-applied; the prod data write was not authorised in-session.
+
 ### Admin onboarding of real Virtual Property Consultants *(09-27)*
 - [x] The existing Admin Portal "Agents" tab (create/edit/activate) is renamed **Virtual Property Consultants**, with an "+ Onboard Consultant" button and copy updated throughout. An onboarded consultant is verified and active, so their card goes live on /agents immediately. Deactivating hides it.
 - [x] **No default 5★:** a new consultant starts with rating 0 / reviews 0 (`admin.createAgent` and `defaultAgentMetadata`; the admin rating field is blank = New). Public cards, the top-rated sidebar and the profile header show a **NEW** pill instead of stars until reviews > 0. Existing profiles are unchanged.
