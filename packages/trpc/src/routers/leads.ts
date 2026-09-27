@@ -3,10 +3,10 @@ import { maskContact } from "../sellerContactPolicy";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { notify } from "../notify";
+import { notify, notifyAdmins } from "../notify";
 import { sendTemplateIfConfigured } from "../bhashsms";
 import { createRazorpayPaymentLink } from "../razorpayLinks";
-import { router, protectedProcedure, staffProcedure, adminProcedure, generalRateLimit } from "../server";
+import { router, protectedProcedure, staffProcedure, adminProcedure, generalRateLimit, contactRateLimit } from "../server";
 import {
   cuidSchema,
   planIdSchema,
@@ -48,6 +48,65 @@ async function inTeamScope(
 const REMINDER_COOLDOWN_HOURS = 6;
 
 export const leadsRouter = router({
+  // "Request a callback" from a Virtual Property Consultant card (/agents).
+  // Signed-in buyers only, so every lead carries an OTP-verified account and a
+  // real number. Created UNASSIGNED — a supervisor/admin hands it to a rep —
+  // and both are alerted. A repeat request for the same state within 24h reuses
+  // the open lead instead of piling up duplicates.
+  requestConsultantCallback: protectedProcedure
+    .use(contactRateLimit)
+    .input(
+      z.object({
+        consultantName: nameSchema,
+        state: geoTextSchema,
+        phone: phoneSchema.optional(), // defaults to the account's phone
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const user = await prisma.user.findUnique({
+        where: { id: ctx.user.id },
+        select: { name: true, phone: true, email: true, city: true },
+      });
+      const phone = input.phone ?? user?.phone;
+      if (!user || !phone) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Add a mobile number so our consultant can call you." });
+      }
+      const interest = `Callback request · Virtual Property Consultant ${input.consultantName} (${input.state})`;
+
+      const recent = await prisma.lead.findFirst({
+        where: {
+          buyerUserId: ctx.user.id,
+          interest: { contains: `(${input.state})` },
+          createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        },
+        select: { id: true },
+      });
+      if (recent) return { ok: true, duplicate: true };
+
+      await prisma.lead.create({
+        data: {
+          userId: ctx.user.id,
+          buyerUserId: ctx.user.id,
+          name: user.name,
+          phone,
+          email: user.email,
+          city: user.city,
+          interest,
+          source: "Portal",
+          status: "New",
+        },
+      });
+
+      const title = "New callback request";
+      const content = `${user.name} (${phone}) asked ${input.consultantName} for a callback — ${input.state}. Unassigned: please assign a rep.`;
+      await notifyAdmins({ type: "lead_new", title, content, hash: "leads" });
+      const supervisors = await prisma.user.findMany({ where: { role: "supervisor", active: true }, select: { id: true } });
+      for (const sup of supervisors) {
+        await notify({ userId: sup.id, type: "lead_new", title, content, actionUrl: "/supervisor-portal#leads" });
+      }
+      return { ok: true, duplicate: false };
+    }),
+
   // Buyer submits an inquiry from a property detail page. propertyId is
   // omitted for general leads with no specific listing yet (e.g. a
   // Refer & Earn buyer/tenant submission — see referrals.submit).

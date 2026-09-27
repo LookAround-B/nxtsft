@@ -28,6 +28,7 @@ import { ownerSlug } from "@/data/static";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { trpcClient } from "@/lib/trpcClient";
+import { VirtualConsultantDesk } from "@/components/agents/VirtualConsultantDesk";
 
 type Agent = {
   id: string;
@@ -426,7 +427,7 @@ export default function AgentsPage() {
           {/* Stats */}
           <div className="mt-10 flex flex-wrap justify-center gap-8">
             {[
-              ["500+", "Verified Consultants"],
+              ["36", "States covered"],
               ["10,000+", "Happy Clients"],
               ["₹5,000 Cr+", "Transacted"],
               ["25+", "Cities Active"],
@@ -597,6 +598,9 @@ export default function AgentsPage() {
           )}
         </div>
       )}
+
+      {/* ── Virtual Property Consultant desk (10 per state) ─────────── */}
+      <VirtualConsultantDesk />
 
       {/* ── Main content ──────────────────────────────────────────── */}
       <div className="mx-auto max-w-7xl px-6 py-8 sm:py-10">

@@ -19,6 +19,12 @@
 
 ## ✅ Completed
 
+### Virtual Property Consultant desk on /agents *(09-27)*
+- [x] **10 named Virtual Property Consultants per state, 36 states/UTs (360 cards)**: boss asked for dummy consultant profiles. Names are deterministic per state (`apps/web/src/data/virtualConsultants.ts`), gender-balanced, and cover the state's major cities. They speak English/Hindi, call back the same day, and handle Apartments/Villas/Plots/Commercial (boss-confirmed facts).
+- [x] **Declined by design:** fake ratings, "wow" reviews, dummy WhatsApp buttons, fake revenue/deal figures and RERA badges. These are team desk names, not verified agents, and fake reviews are a CCPA / Consumer Protection (E-Commerce) Rules 2020 risk.
+- [x] **"Request a callback" is real:** a new `leads.requestConsultantCallback` endpoint (signed-in only, `contactRateLimit`). It creates an **unassigned** Lead ("Callback request · Virtual Property Consultant <name> (<state>)") and alerts admins and supervisors, who assign a rep. Repeat requests for the same state within 24h are deduped. Signed-out users are sent to login and back.
+- [x] Verified: tsc clean (trpc + web). Browser E2E against prod on 09-27 at 1280px and 400px checked 10 cards per state, the state switch, the signed-out redirect, the prefilled phone, 1 lead (unassigned, New), 3 staff alerts and the dedupe. The test user, lead and alerts were deleted afterwards.
+
 ### View Leads — 2-flow (free locked / paid engagement) *(09-23)*
 - [x] **Rebuilt the seller "Recent buyer requests" sample cards to the boss's "FINAL 2-FLOW" spec.** The two-lead-type architecture already existed (real leads unmasked + WhatsApp; dummy/sample leads masked with Share Intent / Share Your Number) — this is a UI/copy pass on the dummy-sample surface in `SellerLeadsTab.tsx` plus two derived fields server-side. No schema change, no new mutations.
 - [x] **Server:** `sampleInterestPreview` now returns a deterministic `activity` chip (`ONLINE • Active now` / `OFFLINE • Last active 1hr ago` / `REQUESTED • Xhrs ago`); the `dummyLeads` resolver exposes the buyer `firstName` for the "{name} and N others" banner (card name + phone stay server-masked).
