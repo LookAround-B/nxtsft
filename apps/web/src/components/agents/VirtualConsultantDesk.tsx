@@ -161,7 +161,7 @@ export function VirtualConsultantDesk({ defaultState = "Karnataka" }: { defaultS
           <button
             disabled={phone.length !== 10 || request.isPending}
             onClick={() =>
-              target && request.mutate({ consultantName: target.name, state: target.state, phone })
+              target && request.mutate({ consultantName: target.name, area: target.state, phone })
             }
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
           >

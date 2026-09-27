@@ -872,11 +872,38 @@ export const usersRouter = router({
           area: true,
           images: true,
           location: { select: { city: true, locality: true } },
+          project: { select: { id: true, name: true, city: true, builder: { select: { companyName: true, slug: true } } } },
         },
         orderBy: { createdAt: "desc" },
         take: 12,
       });
       return properties.map((p) => ({ ...p, price: Number(p.price) }));
+    }),
+
+  // Approved buyer reviews left on the listings this agent markets — real
+  // Review rows only, so the profile's Reviews section can never overstate.
+  agentReviews: publicProcedure
+    .input(z.object({ slug: z.string().min(1).max(120).regex(/^[a-z0-9-]+$/, "Invalid slug") }))
+    .query(async ({ input }) => {
+      const agent = await prisma.user.findFirst({
+        where: { slug: input.slug, role: "agent" },
+        select: { id: true },
+      });
+      if (!agent) return [];
+      return prisma.review.findMany({
+        where: { status: "Approved", property: { agentId: agent.id, deletedAt: null } },
+        select: {
+          id: true,
+          rating: true,
+          title: true,
+          content: true,
+          createdAt: true,
+          author: { select: { name: true } },
+          property: { select: { title: true, slug: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      });
     }),
 
   getTeamMembers: adminProcedure.query(async () => {

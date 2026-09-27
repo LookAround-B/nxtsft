@@ -19,6 +19,13 @@
 
 ## ✅ Completed
 
+### Partner consultant profiles: working links *(09-27)*
+- [x] **/agents/[slug] now has a section bar:** Listings (n), Projects (n, shown only when listings are linked to a Project; prod has 0 Projects today), Reviews (n), plus **Request a callback** in the header, the section bar and the "Get in Touch" card.
+- [x] **Reviews section is real:** new `users.agentReviews` returns approved Review rows on the agent's listings (3 approved reviews across all partners today).
+- [x] **Callback:** `leads.requestConsultantCallback` takes an optional `partnerSlug`. The server looks up the partner's real name, the lead interest reads "Virtual Property Consultant <name> (Partner) (<city>)", and it is unassigned with admin and supervisor alerts, deduped per partner for 24h. The input `state` was renamed to `area`. "Sign in to contact" now returns to the profile after login.
+- [x] Verified in a browser against prod on 09-27 (meera-krishnan): section links scroll into view, listing links return 200, the signed-out callback goes to login and back, signed-in callbacks create 1 partner lead + 1 desk lead (separate dedupe keys), no horizontal scroll at 400px, 0 console errors. Test data deleted.
+- ⚠️ **Open (boss decision):** 14 of the 15 "partner" profiles are 06-16 seed accounts (@nxtsft.com, phones 98200000xx). Their rating, "(N reviews)", deals and portfolio figures are seeded, not real, so the header "4.9 (96 reviews)" contradicts the real Reviews (1) section. Their Call/WhatsApp buttons dial placeholder numbers that may belong to real people. Recommendation: hide Call/WhatsApp on seed accounts (callback only) and show real review counts.
+
 ### Virtual Property Consultant desk on /agents *(09-27)*
 - [x] **10 named Virtual Property Consultants per state, 36 states/UTs (360 cards)**: boss asked for dummy consultant profiles. Names are deterministic per state (`apps/web/src/data/virtualConsultants.ts`), gender-balanced, and cover the state's major cities. They speak English/Hindi, call back the same day, and handle Apartments/Villas/Plots/Commercial (boss-confirmed facts).
 - [x] **Declined by design:** fake ratings, "wow" reviews, dummy WhatsApp buttons, fake revenue/deal figures and RERA badges. These are team desk names, not verified agents, and fake reviews are a CCPA / Consumer Protection (E-Commerce) Rules 2020 risk.

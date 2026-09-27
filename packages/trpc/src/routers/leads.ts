@@ -48,17 +48,20 @@ async function inTeamScope(
 const REMINDER_COOLDOWN_HOURS = 6;
 
 export const leadsRouter = router({
-  // "Request a callback" from a Virtual Property Consultant card (/agents).
-  // Signed-in buyers only, so every lead carries an OTP-verified account and a
-  // real number. Created UNASSIGNED — a supervisor/admin hands it to a rep —
-  // and both are alerted. A repeat request for the same state within 24h reuses
-  // the open lead instead of piling up duplicates.
+  // "Request a callback" from a Virtual Property Consultant — either a desk card
+  // on /agents (area = state) or a real partner profile /agents/[slug]
+  // (partnerSlug set, area = their city). Signed-in buyers only, so every lead
+  // carries an OTP-verified account and a real number. Created UNASSIGNED — a
+  // supervisor/admin hands it to a rep — and both are alerted. A repeat request
+  // for the same state (desk) or same partner within 24h reuses the open lead
+  // instead of piling up duplicates.
   requestConsultantCallback: protectedProcedure
     .use(contactRateLimit)
     .input(
       z.object({
         consultantName: nameSchema,
-        state: geoTextSchema,
+        area: geoTextSchema,
+        partnerSlug: z.string().min(1).max(120).regex(/^[a-z0-9-]+$/).optional(),
         phone: phoneSchema.optional(), // defaults to the account's phone
       }),
     )
@@ -71,12 +74,25 @@ export const leadsRouter = router({
       if (!user || !phone) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Add a mobile number so our consultant can call you." });
       }
-      const interest = `Callback request · Virtual Property Consultant ${input.consultantName} (${input.state})`;
+      // Partner requests use the partner's name from the DB, never the client's.
+      let consultant = input.consultantName;
+      if (input.partnerSlug) {
+        const partner = await prisma.user.findFirst({
+          where: { slug: input.partnerSlug, role: "agent", active: true, verified: true },
+          select: { name: true },
+        });
+        if (!partner) throw new TRPCError({ code: "NOT_FOUND", message: "Consultant not found" });
+        consultant = `${partner.name} (Partner)`;
+      }
+      const prefix = `Callback request · Virtual Property Consultant ${consultant}`;
+      const interest = `${prefix} (${input.area})`;
 
       const recent = await prisma.lead.findFirst({
         where: {
           buyerUserId: ctx.user.id,
-          interest: { contains: `(${input.state})` },
+          interest: input.partnerSlug
+            ? { startsWith: prefix }
+            : { startsWith: "Callback request · Virtual Property Consultant ", endsWith: `(${input.area})`, not: { contains: "(Partner)" } },
           createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
         },
         select: { id: true },
@@ -98,7 +114,7 @@ export const leadsRouter = router({
       });
 
       const title = "New callback request";
-      const content = `${user.name} (${phone}) asked ${input.consultantName} for a callback — ${input.state}. Unassigned: please assign a rep.`;
+      const content = `${user.name} (${phone}) asked ${consultant} for a callback — ${input.area}. Unassigned: please assign a rep.`;
       await notifyAdmins({ type: "lead_new", title, content, hash: "leads" });
       const supervisors = await prisma.user.findMany({ where: { role: "supervisor", active: true }, select: { id: true } });
       for (const sup of supervisors) {
