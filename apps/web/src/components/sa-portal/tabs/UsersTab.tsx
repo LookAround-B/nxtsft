@@ -20,6 +20,16 @@ type AdminUser = {
   credits: number;
   joined: string;
   lastActive: string;
+  kycStatus: string;
+  plan: { name: string; endDate: string } | null;
+  listings: number;
+};
+
+const KYC_TONE: Record<string, string> = {
+  verified: "bg-emerald-50 text-emerald-700",
+  pending: "bg-amber-50 text-amber-700",
+  rejected: "bg-red-50 text-red-600",
+  none: "bg-secondary text-muted-foreground",
 };
 
 const SA_ROLES = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin", "user", "home-seller", "agent"] as const;
@@ -32,20 +42,23 @@ const SA_ROLE_LABEL: Record<string, string> = {
   "support-admin": "Support Admin",
   user: "Home Buyer",
   "home-seller": "Home Seller",
-  agent: "Virtual Property Consultant (Partner)",
+  agent: "Agent",
 };
 
 export function UsersTab() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [phoneFilter, setPhoneFilter] = useState<"" | "verified" | "unverified">("");
-  const usersQ = trpc.admin.users.list.useQuery({
-    search: search || undefined,
-    role: roleFilter ? (roleFilter as (typeof SA_ROLES)[number]) : undefined,
-    phoneVerified: phoneFilter === "" ? undefined : phoneFilter === "verified",
-    limit: 100,
-  });
-  const users = (usersQ.data?.items ?? []) as unknown as AdminUser[];
+  const usersQ = trpc.admin.users.list.useInfiniteQuery(
+    {
+      search: search || undefined,
+      role: roleFilter ? (roleFilter as (typeof SA_ROLES)[number]) : undefined,
+      phoneVerified: phoneFilter === "" ? undefined : phoneFilter === "verified",
+      limit: 100,
+    },
+    { getNextPageParam: (last) => (last.hasMore ? last.nextCursor ?? undefined : undefined) },
+  );
+  const users = (usersQ.data?.pages.flatMap((p) => p.items) ?? []) as unknown as AdminUser[];
 
   const updateRole = trpc.admin.users.updateRole.useMutation({
     onSuccess: () => { usersQ.refetch(); toast.success("Role updated"); },
@@ -164,6 +177,10 @@ export function UsersTab() {
                   <th>Email</th>
                   <th>Phone</th>
                   <th>Role</th>
+                  <th>KYC</th>
+                  <th>Plan</th>
+                  <th>Credits</th>
+                  <th>Listings</th>
                   <th>City</th>
                   <th>Joined</th>
                   <th>Status</th>
@@ -213,6 +230,23 @@ export function UsersTab() {
                         </SelectContent>
                       </Select>
                     </td>
+                    <td>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${KYC_TONE[u.kycStatus] ?? KYC_TONE.none}`}>
+                        {u.kycStatus === "none" ? "Not submitted" : u.kycStatus}
+                      </span>
+                    </td>
+                    <td className="text-xs">
+                      {u.plan ? (
+                        <>
+                          <div className="font-semibold text-navy">{u.plan.name}</div>
+                          <div className="text-[10px] text-muted-foreground">till {fmtJoined(u.plan.endDate)}</div>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">Free</span>
+                      )}
+                    </td>
+                    <td className="font-mono text-xs">{u.credits}</td>
+                    <td className="font-mono text-xs">{u.listings}</td>
                     <td className="text-xs">{u.city}</td>
                     <td className="text-xs text-muted-foreground">{fmtJoined(u.joined)}</td>
                     <td>
@@ -248,6 +282,17 @@ export function UsersTab() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {usersQ.hasNextPage && (
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={() => void usersQ.fetchNextPage()}
+              disabled={usersQ.isFetchingNextPage}
+              className="rounded-lg border border-border bg-white px-4 py-2 text-xs font-semibold text-navy hover:border-accent disabled:opacity-50"
+            >
+              {usersQ.isFetchingNextPage ? "Loading…" : `Load more (showing ${users.length})`}
+            </button>
           </div>
         )}
       </Section>

@@ -249,13 +249,30 @@ export const adminRouter = router({
           ];
         }
 
-        const items = await prisma.user.findMany({
+        const now = new Date();
+        const rows = await prisma.user.findMany({
           where,
-          select: safeUserSelect,
+          select: {
+            ...safeUserSelect,
+            kycStatus: true,
+            // Full-picture fields for User Management (#16): live plan + listings.
+            subscriptions: {
+              where: { status: "Active", endDate: { gt: now } },
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: { planName: true, endDate: true },
+            },
+            _count: { select: { properties: { where: { deletedAt: null } } } },
+          },
           orderBy: { joined: "desc" },
           take: limit + 1,
           ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         });
+        const items = rows.map(({ subscriptions, _count, ...u }) => ({
+          ...u,
+          plan: subscriptions[0] ? { name: subscriptions[0].planName, endDate: subscriptions[0].endDate } : null,
+          listings: _count.properties,
+        }));
 
         const hasMore = items.length > limit;
         const page = hasMore ? items.slice(0, limit) : items;

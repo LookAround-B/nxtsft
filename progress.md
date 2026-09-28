@@ -19,6 +19,10 @@
 
 ## ✅ Completed
 
+### #16 User Management: full details *(09-28)*
+- [x] Super Admin › User Management now shows **KYC status**, **current plan** (name + valid till, or "Free"), **credits** and **listing count** per user (`admin.users.list` adds kycStatus, the active unexpired subscription and a non-deleted property count; the extra fields don't affect its other callers). It showed only the newest 100 of ~2,700 users, with no paging; it now has **Load more** (cursor). Agents are labelled "Agent" (was "VC (Partner)"), matching the VC/Agent split.
+- [x] Verified on prod (read-only): page 1 and page 2 are distinct; plan / listings / KYC populated (e.g. Trail Plan · 2 listings).
+
 ### #15 Team Management Active/Inactive + #14 no data hidden after role change *(09-28)*
 - [x] **Roster dropdown: Active / Inactive.** Active = enabled staff accounts. Inactive = disabled staff **plus anyone who used to be staff**: recorded when a super-admin changes a staff member to a non-staff role (`admin.users.updateRole` now saves `metadata.formerStaffRole` + `formerStaffSince`), or inferred from staff-only footprints (assigned leads, commissions, site visits as rep, escalations, listings created for customers; `formerStaffIds()` in admin.ts). Rows show "was Sales Rep / was staff". Prod: 16 active, **19 inactive/former** (e.g. a "user"-role account with 22 assigned leads and 20 listings created for customers).
 - [x] **View activity** panel for every member, by id so nothing hides (`admin.teamMemberActivity`): listings created (with Property ID and status, including deleted), leads by status, payments (paid leads, amount), pending items, commission total/to-pay, open escalations, site visits, plus the latest 20 of each.
