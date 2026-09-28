@@ -19,6 +19,13 @@
 
 ## ✅ Completed
 
+### Referral payouts via Razorpay export *(09-28)*
+- [x] **Boss (09-28):** total the referrals per referrer, export, and pay from Razorpay. New status flow: Pending → **Approved** (earned, in wallet) → **Paid** (sent). Before this, "Wallet Balance" and "Paid Out" both showed the approved total and nothing was ever paid.
+- [x] Users save a **UPI ID for payouts** on Refer & Earn (`referrals.setUpiId`, validated, stored in `User.metadata.upiId`, no migration). It replaces the decorative "Redemption Options" cards.
+- [x] Admin › Referrals › **Payouts**: approved-not-paid totals per referrer (phone, UPI, count, amount). **Export for Razorpay** gives a CSV of referrers with a UPI ID (Beneficiary Name, UPI ID, Amount, Payout Mode=UPI, Phone, Email, Narration, Reference ID). **Mark exported as paid** (with confirm) sets their Approved rewards to Paid and notifies each referrer. The Paid filter and "₹X approved, to pay" were added to stats.
+- [x] Verified on prod with a throwaway referrer (deleted): bad UPI rejected; wallet 600 / pending 100 → payout row 2 refs ₹600 → mark paid → wallet 0, paid 600, off the list, 1 notification.
+- ⚠️ The CSV headers are generic. RazorpayX Bulk Payouts has its own template, so match the headers to the template downloaded from the Razorpay dashboard (needs RazorpayX Payouts enabled).
+
 ### Agents can list & track; plan usage strip for sellers *(09-28)*
 - [x] **Boss (09-28):** Virtual Consultant (virtual-rep) is staff: 30% commission, lists from the Sales Portal like staff (already the case). Agent is an individual: no commission, the same features as an end user, lists and tracks.
 - [x] **Bug:** agents could not list or track at all. /list showed "Home Sellers only", and My Listings / Visits showed "This section is for Home Sellers". The server already allowed it; only UI gates blocked it. New `isSellerRole()` (`lib/routes.ts`, home-seller + agent) is used in /list, My Listings, Seller Visits and Credits/Plans. Leads was already agent-aware.

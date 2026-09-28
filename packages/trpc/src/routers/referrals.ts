@@ -14,6 +14,16 @@ import {
 } from "../sanitize";
 
 const REFERRAL_TYPES = ["buyer_tenant", "property_owner", "board"] as const;
+
+// Referral payouts (boss 09-28): approved rewards are totalled per referrer,
+// exported for a Razorpay bulk payout, and marked Paid once sent.
+// Status flow: Pending → Approved (earned, in wallet) → Paid (sent to UPI).
+// The payout UPI ID lives in User.metadata.upiId (no schema change).
+const UPI_RE = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/;
+const upiOf = (metadata: unknown): string | null => {
+  const v = (metadata as Record<string, unknown> | null)?.upiId;
+  return typeof v === "string" && UPI_RE.test(v) ? v : null;
+};
 type ReferralType = (typeof REFERRAL_TYPES)[number];
 
 // Snapshotted onto each submission at creation time so a later rate change
@@ -94,15 +104,20 @@ export const referralsRouter = router({
     const pendingRewards = submissions
       .filter((s) => s.status === "Pending")
       .reduce((sum, s) => sum + s.rewardAmount, 0);
-    const paidOut = submissions
+    const walletBalance = submissions
       .filter((s) => s.status === "Approved")
       .reduce((sum, s) => sum + s.rewardAmount, 0);
+    const paidOut = submissions
+      .filter((s) => s.status === "Paid")
+      .reduce((sum, s) => sum + s.rewardAmount, 0);
+    const me = await prisma.user.findUnique({ where: { id: ctx.user.id }, select: { metadata: true } });
 
     return {
       totalReferrals,
       pendingRewards,
       paidOut,
-      walletBalance: paidOut,
+      walletBalance,
+      upiId: upiOf(me?.metadata),
       recent: submissions.map((s) => ({
         id: s.id,
         type: s.type,
@@ -121,7 +136,7 @@ export const referralsRouter = router({
     .query(async ({ input }) => {
       const grouped = await prisma.referralSubmission.groupBy({
         by: ["submitterId"],
-        where: { status: "Approved" },
+        where: { status: { in: ["Approved", "Paid"] } },
         _sum: { rewardAmount: true },
         _count: { _all: true },
       });
@@ -149,7 +164,7 @@ export const referralsRouter = router({
   list: adminProcedure
     .input(
       z.object({
-        status: z.enum(["Pending", "Approved", "Rejected"]).optional(),
+        status: z.enum(["Pending", "Approved", "Rejected", "Paid"]).optional(),
         type: z.enum(REFERRAL_TYPES).optional(),
         page: pageSchema,
         limit: limitSchema,
@@ -173,12 +188,18 @@ export const referralsRouter = router({
     }),
 
   stats: adminProcedure.query(async () => {
-    const [total, pending, approvedAgg] = await Promise.all([
+    const [total, pending, approvedAgg, paidAgg] = await Promise.all([
       prisma.referralSubmission.count(),
       prisma.referralSubmission.count({ where: { status: "Pending" } }),
       prisma.referralSubmission.aggregate({ where: { status: "Approved" }, _sum: { rewardAmount: true } }),
+      prisma.referralSubmission.aggregate({ where: { status: "Paid" }, _sum: { rewardAmount: true } }),
     ]);
-    return { total, pending, totalPaidOut: approvedAgg._sum.rewardAmount ?? 0 };
+    return {
+      total,
+      pending,
+      payable: approvedAgg._sum.rewardAmount ?? 0,
+      totalPaidOut: paidAgg._sum.rewardAmount ?? 0,
+    };
   }),
 
   // Approve credits the referrer's wallet (via the derived-balance queries
@@ -212,5 +233,86 @@ export const referralsRouter = router({
       });
 
       return updated;
+    }),
+
+  // The signed-in user's UPI ID for referral payouts.
+  setUpiId: protectedProcedure
+    .input(z.object({ upiId: z.string().trim().max(300) }))
+    .mutation(async ({ input, ctx }) => {
+      const upiId = input.upiId.trim();
+      if (upiId && !UPI_RE.test(upiId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid UPI ID, e.g. name@okaxis" });
+      }
+      const me = await prisma.user.findUnique({ where: { id: ctx.user.id }, select: { metadata: true } });
+      const meta = { ...((me?.metadata as Record<string, unknown> | null) ?? {}) };
+      if (upiId) meta.upiId = upiId;
+      else delete meta.upiId;
+      await prisma.user.update({ where: { id: ctx.user.id }, data: { metadata: meta as object } });
+      return { upiId: upiId || null };
+    }),
+
+  // Admin: approved-but-unpaid rewards, totalled per referrer, for a Razorpay
+  // bulk payout.
+  payouts: adminProcedure.query(async () => {
+    const rows = await prisma.referralSubmission.findMany({
+      where: { status: "Approved" },
+      select: { id: true, submitterId: true, rewardAmount: true },
+    });
+    const bySubmitter = new Map<string, { count: number; amount: number }>();
+    for (const r of rows) {
+      const cur = bySubmitter.get(r.submitterId) ?? { count: 0, amount: 0 };
+      cur.count += 1;
+      cur.amount += r.rewardAmount;
+      bySubmitter.set(r.submitterId, cur);
+    }
+    const users = bySubmitter.size
+      ? await prisma.user.findMany({
+          where: { id: { in: [...bySubmitter.keys()] } },
+          select: { id: true, name: true, phone: true, email: true, role: true, metadata: true },
+        })
+      : [];
+    return users
+      .map((u) => ({
+        userId: u.id,
+        name: u.name,
+        phone: u.phone,
+        email: u.email,
+        role: u.role,
+        upiId: upiOf(u.metadata),
+        referrals: bySubmitter.get(u.id)!.count,
+        amount: bySubmitter.get(u.id)!.amount,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }),
+
+  // Admin: after the Razorpay payout is sent, mark those referrers' approved
+  // rewards Paid and tell each of them.
+  markPaid: adminProcedure
+    .input(z.object({ userIds: z.array(cuidSchema).min(1).max(500) }))
+    .mutation(async ({ input, ctx }) => {
+      let total = 0;
+      for (const userId of input.userIds) {
+        const approved = await prisma.referralSubmission.findMany({
+          where: { submitterId: userId, status: "Approved" },
+          select: { id: true, rewardAmount: true },
+        });
+        if (!approved.length) continue;
+        const amount = approved.reduce((s, r) => s + r.rewardAmount, 0);
+        await prisma.referralSubmission.updateMany({
+          where: { id: { in: approved.map((r) => r.id) }, status: "Approved" },
+          data: { status: "Paid", reviewedById: ctx.user.id, reviewedAt: new Date() },
+        });
+        await prisma.notification.create({
+          data: {
+            userId,
+            type: "system",
+            title: "Referral reward paid 🎉",
+            content: `₹${amount.toLocaleString("en-IN")} has been sent to your UPI ID for ${approved.length} referral${approved.length > 1 ? "s" : ""}.`,
+            actionUrl: "/user-portal#refer",
+          },
+        });
+        total += amount;
+      }
+      return { ok: true, total };
     }),
 });

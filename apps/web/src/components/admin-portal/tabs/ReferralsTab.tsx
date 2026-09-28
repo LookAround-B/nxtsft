@@ -9,9 +9,10 @@ import { toast } from "sonner";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { Pagination } from "@/components/ui/pagination";
 import { trpc } from "@/lib/trpc";
+import { downloadCSV } from "@/lib/download-csv";
 import { TableSkeleton } from "@/components/ui/skeleton";
 
-type StatusKey = "all" | "Pending" | "Approved" | "Rejected";
+type StatusKey = "all" | "Pending" | "Approved" | "Paid" | "Rejected";
 
 const TYPE_LABEL: Record<string, string> = {
   buyer_tenant: "Buyer / Tenant",
@@ -22,12 +23,14 @@ const TYPE_LABEL: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   Pending:  "bg-amber-100 text-amber-700 border-amber-200",
   Approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  Paid:     "bg-sky-100 text-sky-700 border-sky-200",
   Rejected: "bg-red-100 text-red-600 border-red-200",
 };
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
   Pending:  <Clock size={11} />,
   Approved: <CheckCircle size={11} />,
+  Paid:     <Wallet size={11} />,
   Rejected: <XCircle size={11} />,
 };
 
@@ -37,6 +40,24 @@ export function ReferralsTab() {
   const [viewing, setViewing] = useState<string | null>(null);
 
   const statsQ = trpc.referrals.stats.useQuery();
+  const payoutsQ = trpc.referrals.payouts.useQuery();
+  const payouts = payoutsQ.data ?? [];
+  const payable = payouts.filter((p) => p.upiId);
+  const markPaidMut = trpc.referrals.markPaid.useMutation({
+    onSuccess: (r) => {
+      toast.success(`Marked ₹${r.total.toLocaleString("en-IN")} as paid.`);
+      void utils.referrals.payouts.invalidate();
+      void utils.referrals.stats.invalidate();
+      void utils.referrals.list.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  const exportForRazorpay = () =>
+    downloadCSV(
+      `referral_payouts_${new Date().toISOString().slice(0, 10)}.csv`,
+      ["Beneficiary Name", "UPI ID", "Amount (INR)", "Payout Mode", "Phone", "Email", "Narration", "Reference ID"],
+      payable.map((p) => [p.name, p.upiId ?? "", p.amount, "UPI", p.phone ?? "", p.email, "NxtSft referral reward", p.userId]),
+    );
   const leaderboardQ = trpc.referrals.topReferrers.useQuery({ limit: 7 });
   const listQ = trpc.referrals.list.useQuery(
     { status: statusFilter === "all" ? undefined : statusFilter, page, limit: 20 },
@@ -73,7 +94,7 @@ export function ReferralsTab() {
         {[
           { label: "Total Submissions", value: String(statsQ.data?.total ?? 0),   sub: "all time",       icon: Users,      accent: false },
           { label: "Pending Review",    value: String(statsQ.data?.pending ?? 0), sub: "need action",    icon: Clock,      accent: (statsQ.data?.pending ?? 0) > 0 },
-          { label: "Total Paid Out",    value: fmt(statsQ.data?.totalPaidOut ?? 0), sub: "approved rewards", icon: TrendingUp, accent: false },
+          { label: "Total Paid Out",    value: fmt(statsQ.data?.totalPaidOut ?? 0), sub: `${fmt(statsQ.data?.payable ?? 0)} approved, to pay`, icon: TrendingUp, accent: false },
           { label: "Top Referrer",      value: leaderboardQ.data?.[0]?.name ?? "—", sub: leaderboardQ.data?.[0] ? fmt(leaderboardQ.data[0].earned) : "no data yet", icon: Wallet, accent: false },
         ].map(({ label, value, sub, icon: Icon, accent }) => (
           <div
@@ -91,6 +112,70 @@ export function ReferralsTab() {
           </div>
         ))}
       </div>
+
+      {/* ── Payouts (Razorpay bulk) ─────────────────────────────────── */}
+      <Section
+        title="Payouts — approved, not yet paid"
+        action={
+          <div className="flex flex-wrap gap-2">
+            <button
+              disabled={payable.length === 0}
+              onClick={exportForRazorpay}
+              className="rounded-md border border-accent bg-white px-3 py-1.5 text-xs font-semibold text-accent disabled:opacity-40"
+            >
+              Export for Razorpay
+            </button>
+            <button
+              disabled={payable.length === 0 || markPaidMut.isPending}
+              onClick={() => {
+                const sum = payable.reduce((s, p) => s + p.amount, 0);
+                if (confirm(`Mark ${fmt(sum)} for ${payable.length} referrer(s) with a UPI ID as PAID? Do this only after the Razorpay payout has gone through.`)) {
+                  markPaidMut.mutate({ userIds: payable.map((p) => p.userId) });
+                }
+              }}
+              className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+            >
+              Mark exported as paid
+            </button>
+          </div>
+        }
+      >
+        <p className="mb-3 text-xs text-muted-foreground">
+          1) Export → 2) upload the file in Razorpay (Payouts → Bulk) and pay → 3) Mark exported as paid. Referrers without a UPI ID are not exported; they add it on their Refer &amp; Earn page.
+        </p>
+        {payoutsQ.isLoading ? (
+          <TableSkeleton rows={3} cols={5} />
+        ) : payouts.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Nothing to pay right now.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="portal-table">
+              <thead>
+                <tr>
+                  <th className="py-2">Referrer</th>
+                  <th>Phone</th>
+                  <th>UPI ID</th>
+                  <th>Referrals</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payouts.map((p) => (
+                  <tr key={p.userId}>
+                    <td className="font-semibold text-navy">{p.name}</td>
+                    <td className="font-mono text-xs">{p.phone ?? "—"}</td>
+                    <td className="font-mono text-xs">
+                      {p.upiId ?? <span className="font-sans font-semibold text-amber-600">No UPI ID</span>}
+                    </td>
+                    <td className="font-mono text-xs">{p.referrals}</td>
+                    <td className="font-mono text-xs font-bold text-navy">{fmt(p.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
 
       {/* ── Top referrers leaderboard ─────────────────────────────── */}
       <Section title="Top Referrers">
@@ -144,7 +229,7 @@ export function ReferralsTab() {
           <div className="flex items-center gap-2">
             <Filter size={13} className="text-muted-foreground" />
             <div className="flex gap-1">
-              {(["all", "Pending", "Approved", "Rejected"] as StatusKey[]).map((s) => (
+              {(["all", "Pending", "Approved", "Paid", "Rejected"] as StatusKey[]).map((s) => (
                 <button
                   key={s}
                   onClick={() => { setStatusFilter(s); setPage(1); }}

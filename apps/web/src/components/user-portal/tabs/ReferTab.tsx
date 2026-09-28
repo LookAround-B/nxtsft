@@ -288,6 +288,38 @@ function ReferralSubmitDialog({
   );
 }
 
+function UpiPayoutForm({ current }: { current: string | null }) {
+  const [value, setValue] = useState(current ?? "");
+  const utils = trpc.useUtils();
+  const save = trpc.referrals.setUpiId.useMutation({
+    onSuccess: (r) => {
+      toast.success(r.upiId ? "UPI ID saved." : "UPI ID removed.");
+      void utils.referrals.myOverview.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-1 items-center gap-2 rounded-xl border border-input px-3">
+        <Smartphone size={15} className="shrink-0 text-accent" />
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value.trim())}
+          placeholder="yourname@okaxis"
+          className="w-full bg-transparent py-3 text-sm outline-none"
+        />
+      </div>
+      <button
+        disabled={save.isPending || value === (current ?? "")}
+        onClick={() => save.mutate({ upiId: value })}
+        className="rounded-xl bg-accent px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+      >
+        {current ? "Update UPI ID" : "Save UPI ID"}
+      </button>
+    </div>
+  );
+}
+
 export function ReferTab() {
   const { session } = useAuth();
   const name = session?.name ?? "User";
@@ -343,7 +375,7 @@ export function ReferTab() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: "Total Referrals", value: overview ? String(overview.totalReferrals) : "—", sub: "all-time submissions" },
-          { label: "Wallet Balance",  value: overview ? fmt(overview.walletBalance) : "₹0",    sub: "available to redeem" },
+          { label: "Wallet Balance",  value: overview ? fmt(overview.walletBalance) : "₹0",    sub: "approved · awaiting payout" },
           { label: "Pending Rewards", value: overview ? fmt(overview.pendingRewards) : "₹0",   sub: "under verification" },
           { label: "Paid Out",        value: overview ? fmt(overview.paidOut) : "₹0",          sub: "all time" },
         ].map(({ label, value, sub }) => (
@@ -453,29 +485,11 @@ export function ReferTab() {
       </Section>
 
       {/* ── Payout methods ────────────────────────────────────────── */}
-      <Section title="Redemption Options">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            { label: "UPI",           note: "Instant payout · Recommended", Icon: Smartphone, accent: true  },
-            { label: "Bank Transfer", note: "1–2 working days (NEFT/IMPS)", Icon: Wallet,     accent: false },
-            { label: "NxtSft Credits",note: "Use toward property search",   Icon: Gift,       accent: false },
-          ].map(({ label, note, Icon, accent }) => (
-            <div
-              key={label}
-              className={`flex items-center gap-3 rounded-2xl border p-4 ${accent ? "border-accent/30 bg-accent/6" : "border-border"}`}
-            >
-              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${accent ? "bg-accent text-white" : "bg-secondary text-foreground/60"}`}>
-                <Icon size={16} />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-navy">{label}</div>
-                <div className="text-[11px] text-muted-foreground">{note}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+      <Section title="Get paid to your UPI">
+        <UpiPayoutForm current={overview?.upiId ?? null} />
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Minimum redemption ₹100. Wallet balance updates once your submission is verified.
+          Approved rewards are sent to this UPI ID through Razorpay. Your wallet shows rewards
+          approved and waiting to be paid; "Paid Out" shows what has been sent.
         </p>
       </Section>
     </div>
