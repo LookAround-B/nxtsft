@@ -37,6 +37,7 @@ import {
   Gift,
   Contact,
   UploadCloud,
+  Headphones,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -116,7 +117,8 @@ const makeNav = (b?: BadgeCounts) => [
   // ── Platform ─────────────────────────────────────────────────────────
   { label: "Listings",        to: "/sa-portal#listings",     icon: <Building2 size={14} />, group: "Platform", badge: b?.listings },
   { label: "Property Types",  to: "/sa-portal#property-types",icon: <Layers size={14} /> },
-  { label: "Virtual Property Consultants",        to: "/sa-portal#agents",       icon: <Contact size={14} /> },
+  { label: "Virtual Property Consultants", to: "/sa-portal#vcs", icon: <Headphones size={14} /> },
+  { label: "Agents",          to: "/sa-portal#agents",       icon: <Contact size={14} /> },
   { label: "Reviews",         to: "/sa-portal#reviews",      icon: <Star size={14} />, badge: b?.reviews },
   { label: "Home Interiors",  to: "/sa-portal#interiors",    icon: <Sofa size={14} />, badge: b?.interiors },
   { label: "Property Views",  to: "/sa-portal#views",        icon: <Eye size={14} /> },
@@ -193,6 +195,8 @@ function renderTab(hash: string) {
       return <ListingsTab />;
     case "agents":
       return <AgentsTab />;
+    case "vcs":
+      return <TeamTab fixedRole="virtual-rep" title="Virtual Property Consultants" addLabel="+ Onboard VC" note="VCs are staff onboarded by admin. Same features as a Sales Rep; commission 30% of the plan on a customer's first purchase." />;
     case "reviews":
       return <ReviewsTab />;
     case "interiors":

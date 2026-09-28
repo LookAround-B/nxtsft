@@ -329,9 +329,12 @@ export function AgentsTab() {
 
   return (
     <>
-      <PageHead title="Virtual Property Consultants" subtitle={`${agents.length} consultant${agents.length !== 1 ? "s" : ""}`} />
+      <PageHead
+        title="Agents"
+        subtitle={`${agents.length} agent${agents.length !== 1 ? "s" : ""}. Agents register themselves from the Home Seller sign-up and appear on the website after approval in Seller Approvals. Edit or deactivate them here.`}
+      />
       <Section
-        title="Consultants"
+        title="Agents"
         action={
           <div className="flex items-center gap-2">
             <input
@@ -340,16 +343,14 @@ export function AgentsTab() {
               placeholder="Search name / email…"
               className="rounded-md border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-accent"
             />
-            <button onClick={() => setShowCreate(true)} className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground">
-              + Onboard Consultant
-            </button>
+
           </div>
         }
       >
         {agentsQ.isLoading ? (
           <TableSkeleton rows={6} cols={6} />
         ) : agents.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No consultants match this search.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">No agents match this search.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="portal-table">
@@ -402,7 +403,7 @@ export function AgentsTab() {
                         <button
                           onClick={() => {
                             const verb = a.active ? "Deactivate" : "Activate";
-                            if (!confirm(`${verb} ${a.name}? Deactivated consultants are hidden from the public page.`)) return;
+                            if (!confirm(`${verb} ${a.name}? Deactivated agents are hidden from the public page.`)) return;
                             setActive.mutate({ userId: a.id, active: !a.active });
                           }}
                           title={a.active ? "Deactivate" : "Activate"}

@@ -19,6 +19,11 @@
 
 ## ✅ Completed
 
+### VC vs Agents in admin; per-role commission copy; old ₹500 recalculated *(09-28)*
+- [x] **Boss 09-28:** Agents are NOT onboarded by admin. They self-register from the Home Seller sign-up and their profile shows on /agents after admin approval (Seller Approvals). **VCs are staff onboarded by admin**, with the same features as a Sales Rep and 30% commission. The admin + super-admin menus now have **"Virtual Property Consultants"** (`#vcs`), which is TeamTab locked to role `virtual-rep` (new `fixedRole` prop): "+ Onboard VC", Active/Inactive roster, supervisor assignment, activity panel. Also **"Agents"** (`#agents`, the former AgentsTab), which is edit/deactivate only; the Onboard button is removed and the copy explains self-registration + approval. Prod: 1 VC ("Virtual Rep").
+- [x] **Commission copy per role:** Sales Portal › My Leads banner and My Earnings "Commission Rate" show only the viewer's own rate (Sales Rep 10%, VC 30%, any plan, first purchase only). They used to show both rates, and My Earnings still said "₹500 per qualifying new sale".
+- [x] **The one existing commission** (Gondhi Sai Supriya, Sales Rep, Trail ₹999, 24 Sep, pending) was created under the old flat ₹500 rule and was **recalculated to 10% = ₹100** (rate 0.1, note records the recalculation).
+
 ### Email live via Gmail + seller welcome & buyer-request emails *(09-28)*
 - [x] **Gmail SMTP is live:** SMTP_USER/SMTP_PASS set in Vercel (nextsquarefeet.india@gmail.com, App Password). The live message-alert test arrived in the Gmail inbox from "NxtSft <nextsquarefeet.india@gmail.com>". The message-alert send is now **awaited** (a Vercel function can freeze once the response is sent, cutting off a fire-and-forget SMTP send).
 - [x] **New emails** (`packages/trpc/src/emailTemplates.ts`, one shared layout): **Seller welcome** on seller / agent registration and on buyer → seller conversion (agents pending approval get the "under review" version); **Buyer-request alert** to the listing owner on each property enquiry (`leads.create`), deliberately with no buyer name or phone (contact access follows the owner's plan in the dashboard), and never when the owner enquires on their own listing.

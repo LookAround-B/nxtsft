@@ -6,6 +6,7 @@ import { PROPERTY_TAGS } from "@nxtsft/shared/constants";
 import { tagClass } from "@/lib/propertyTags";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/lib/auth";
 import { downloadCSV } from "@/lib/download-csv";
 import { Head, latestNote, waHref, type DbLead, type OutcomeTone, daysSince, fmtRelative } from "./shared";
 
@@ -21,6 +22,8 @@ const sourceTone: Record<string, OutcomeTone> = {
 
 
 export function MyLeadsTab() {
+  const { session } = useAuth();
+  const myRate = session?.role === "virtual-rep" ? 30 : 10;
   const [filter, setFilter] = useState<"All" | "Hot" | "Warm" | "Cold">("All");
   // Which lead has its Note / Schedule / Payment / Call panel open, and the
   // in-progress input.
@@ -160,8 +163,8 @@ export function MyLeadsTab() {
 
       {/* Commission rule banner (boss 09-28) */}
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-800">
-        Commission: 10% (Sales Rep) / 30% (Virtual Property Consultant) of the plan, on a customer&apos;s
-        first purchase only. No commission on renewals or upgrades.
+        Your commission: {myRate}% of any plan, on a customer&apos;s first purchase only. No commission on
+        renewals or upgrades.
       </div>
 
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">

@@ -3,6 +3,7 @@ import { Wallet } from "lucide-react";
 import { StatCard, Section } from "@/components/portal/PortalShell";
 import { Head, Field } from "./shared";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/lib/auth";
 
 function fmt(rupees: number): string {
   if (rupees >= 10_00_000) return `₹${(rupees / 10_00_000).toFixed(2)} L`;
@@ -11,6 +12,8 @@ function fmt(rupees: number): string {
 }
 
 export function CommissionTab() {
+  const { session } = useAuth();
+  const myRate = session?.role === "virtual-rep" ? 30 : 10;
   const { data, isLoading } = trpc.leads.myCommissions.useQuery();
 
   return (
@@ -84,7 +87,7 @@ export function CommissionTab() {
       {/* Payment details */}
       <Section title="Payment Details">
         <div className="grid gap-4 md:grid-cols-2">
-          <Field k="Commission Rate" v="₹500 per qualifying new sale" />
+          <Field k="Commission Rate" v={`${myRate}% of any plan — customer's first purchase only`} />
           <Field k="Payout Schedule" v="5th of following month" />
           <Field k="KYC Status" v={data?.kycPending ? "Pending — complete to receive payouts" : "Verified"} />
           <Field k="Payment Method" v="UPI / Bank Transfer (NEFT)" />

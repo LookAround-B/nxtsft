@@ -23,14 +23,16 @@ function InviteModal({
   onClose,
   onCreate,
   pending,
+  fixedRole,
 }: {
   onClose: () => void;
   onCreate: (m: NewMemberInput) => void;
   pending: boolean;
+  fixedRole?: NewMemberInput["role"];
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<NewMemberInput["role"]>("sales");
+  const [role, setRole] = useState<NewMemberInput["role"]>(fixedRole ?? "sales");
   const [city, setCity] = useState("Mumbai");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -103,6 +105,11 @@ function InviteModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Role</label>
+              {fixedRole ? (
+                <div className="mt-1 rounded-md border border-input bg-secondary/40 px-3 py-2 text-sm font-semibold text-navy">
+                  {INVITE_ROLES.find((r) => r.value === fixedRole)?.label ?? fixedRole}
+                </div>
+              ) : (
               <Select value={role} onValueChange={(v) => setRole(v as NewMemberInput["role"])}>
                 <SelectTrigger className="mt-1">
                   <SelectValue />
@@ -111,6 +118,7 @@ function InviteModal({
                   {INVITE_ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
+              )}
             </div>
             <div>
               <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">City</label>
@@ -385,8 +393,19 @@ function ActivityList({
   );
 }
 
-export function TeamTab() {
-  const [roleFilter, setRoleFilter] = useState("");
+export function TeamTab({
+  fixedRole,
+  title = "Team Management",
+  addLabel = "+ Add Member",
+  note,
+}: {
+  /** Lock the page to one role (e.g. the Virtual Property Consultants page). */
+  fixedRole?: "virtual-rep";
+  title?: string;
+  addLabel?: string;
+  note?: string;
+} = {}) {
+  const [roleFilter, setRoleFilter] = useState<string>(fixedRole ?? "");
   const [roster, setRoster] = useState<"active" | "inactive">("active");
   const [viewing, setViewing] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -450,7 +469,7 @@ export function TeamTab() {
 
   return (
     <>
-      <PageHead title="Team Management" subtitle={`${total} staff member${total !== 1 ? "s" : ""}`} />
+      <PageHead title={title} subtitle={note ?? `${total} staff member${total !== 1 ? "s" : ""}`} />
       <Section
         title={roster === "active" ? "Active Roster" : "Inactive Roster"}
         action={
@@ -470,6 +489,7 @@ export function TeamTab() {
               placeholder="Search name / email…"
               className="rounded-md border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-accent"
             />
+            {!fixedRole && (
             <Select value={roleFilter || "__all"} onValueChange={(v) => reset(() => setRoleFilter(v === "__all" ? "" : v))}>
               <SelectTrigger size="sm" className="min-w-[8.5rem]">
                 <SelectValue />
@@ -481,11 +501,12 @@ export function TeamTab() {
                 ))}
               </SelectContent>
             </Select>
+            )}
             <button
               onClick={() => setShowInvite(true)}
               className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
             >
-              + Add Member
+              {addLabel}
             </button>
           </div>
         }
@@ -607,6 +628,7 @@ export function TeamTab() {
       </Section>
       {showInvite && (
         <InviteModal
+          fixedRole={fixedRole}
           pending={createMember.isPending}
           onClose={() => setShowInvite(false)}
           onCreate={(m) => createMember.mutate(m)}
