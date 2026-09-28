@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import prisma from "@nxtsft/db";
-import { recordPaymentCommission } from "@nxtsft/trpc/salesCommission";
+import { awardSaleCommission } from "@nxtsft/trpc/commission";
 import { notifyNewProperty } from "@nxtsft/trpc/push";
 import { liftFreeTier } from "@nxtsft/trpc/freeTier";
 import { TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
@@ -12,12 +12,12 @@ import { TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
 // `payment_link.cancelled`, `payment_link.expired`, `payment.failed`; secret in
 // RAZORPAY_WEBHOOK_SECRET. On payment: lead → Paid → auto-Listed for 10 days
 // (per the CRM V3 brief), the customer's rep-created listing is published, then
-// the flat ₹500 commission rule runs (first payment from that customer AND
-// amount >= ₹4,999). Failed/cancelled/expired links mark the lead Failed and
-// tell the rep to follow up.
+// the sales commission rule runs (fresh sales only — 10% Sales Rep / 30%
+// Virtual Rep, see packages/trpc/src/commission.ts). Failed/cancelled/expired
+// links mark the lead Failed and tell the rep to follow up.
 //
 // Idempotent under Razorpay's webhook retries: a lead already marked Paid is
-// acknowledged without re-processing, and recordPaymentCommission refuses a
+// acknowledged without re-processing, and awardSaleCommission refuses a
 // second commission for the same lead.
 
 const LISTED_VALIDITY_DAYS = 10;
@@ -180,11 +180,14 @@ export async function POST(req: NextRequest) {
   // publish above is unchanged; this just adds the subscription the rep sold.
   const planId = notes?.plan_id;
   const subCustomerId = property?.ownerId ?? lead.buyerUserId ?? null;
+  let subCreated = false;
+  let soldPlanName: string | null = null;
   if (planId && subCustomerId) {
     const plan = await prisma.plan.findFirst({
       where: { id: planId, type: { startsWith: "owner" }, active: true },
     });
     if (plan) {
+      soldPlanName = plan.name;
       const activeSub = await prisma.subscription.findFirst({
         where: { userId: subCustomerId, status: "Active", endDate: { gt: now } },
         select: { id: true },
@@ -192,6 +195,7 @@ export async function POST(req: NextRequest) {
       if (!activeSub) {
         const subEnd = new Date(now);
         subEnd.setDate(subEnd.getDate() + plan.validity);
+        subCreated = true;
         await prisma.subscription.create({
           data: {
             userId: subCustomerId,
@@ -219,18 +223,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let commission: { qualified: boolean; reason: string } = { qualified: false, reason: "no sales rep" };
-  if (salesRepId) {
-    commission = await recordPaymentCommission({
-      leadId,
-      salesRepId,
-      // Qualify on the pre-discount price so a coupon never sinks the rep's
-      // commission below the ₹4,999 threshold. originalAmount is set only when a
-      // coupon was applied; otherwise the paid amount is the full price.
-      amountRupees: lead.originalAmount ?? (amountRupees || lead.amount || 0),
-      paymentId,
-    });
-  }
+  // Credited to the rep the lead is on (self-created or allotted), falling
+  // back to the link's sender. Percentage of the amount actually paid.
+  const commission = await awardSaleCommission({
+    customerId: subCustomerId,
+    leadId,
+    fallbackRepId: salesRepId ?? null,
+    amountRupees: amountRupees || lead.amount || 0,
+    planName: soldPlanName ?? lead.plan ?? "plan",
+    saleRef: `payment ${paymentId}`,
+    saleRecorded: subCreated,
+  });
 
   // Panel alerts: rep, their supervisor, and lead-routing admins hear about
   // every paid link (brief: payment_success_internal).

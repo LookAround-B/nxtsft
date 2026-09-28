@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
 
       // Auto ₹500 commission to the attributed sales rep (self-serve channel).
       // Best-effort — never blocks the payment. Load the plan for its type/price;
-      // the helper self-skips non-subscription plan types.
+      // any plan qualifies on a fresh sale.
       const planId = meta.planId ?? udf2;
       const plan = planId
         ? await prisma.plan.findUnique({

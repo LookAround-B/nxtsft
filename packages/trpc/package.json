@@ -11,7 +11,6 @@
     "./boostSweep": "./src/boostSweep.ts",
     "./push": "./src/push.ts",
     "./commission": "./src/commission.ts",
-    "./salesCommission": "./src/salesCommission.ts",
     "./listingExpiry": "./src/listingExpiry.ts",
     "./dailyLeadReport": "./src/dailyLeadReport.ts",
     "./whatsapp": "./src/whatsapp.ts",

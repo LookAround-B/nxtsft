@@ -19,6 +19,13 @@
 
 ## ✅ Completed
 
+### Commission: 10% Sales Rep / 30% Virtual Rep, fresh sales only *(09-28)*
+- [x] **Boss rule (09-28), replaces both ₹500 flat rules:** staff only, Sales Rep 10% and Virtual Rep 30% of the plan sold. Agents (individual partners) get none. Credited to the rep the customer's lead is on (self-created or allotted). **Fresh sales only**: the customer's first paid purchase, so renewals, extensions and repeat buys earn nothing. Any plan qualifies (seller, business, buyer credit packs).
+- [x] One implementation, `awardSaleCommission` in `packages/trpc/src/commission.ts`, used by every sale path: online checkout (credits, owner, business), PayU callback, the Razorpay payment-link webhook, and **admin grants** (manual payments, previously unpaid). `salesCommission.ts` (the LA-342 ₹500 / ≥₹4,999 rule) is removed. One commission per lead makes webhook retries idempotent. Fresh-sale test: paid subscriptions + successful non-subscription payments for the customer (0 when the sale wrote no row), plus no earlier paid lead with the same phone.
+- [x] Admin › Commissions: the rule is shown in the header, plus a new **Commission entries** ledger (date, rep + role, customer + phone, sale, rate, commission, status) with CSV. It previously showed per-rep totals only, and there was just 1 commission for 9 paid sales because grants and most checkouts never produced one.
+- [x] Verified on prod with throwaway users (deleted): sales fresh ₹4,999 → ₹500; virtual rep → ₹1,500; agent → none; renewal → none; duplicate call → none; repeat buyer via link (no new sub) → none; fresh link ₹999 → ₹300.
+- ⚠️ Assumptions to confirm: "fresh" = the customer's first ever paid purchase, so an upgrade (Trail → Owners Starter) earns nothing. Commission is on the list plan price (paid amount for payment links). The 1 existing ₹500 commission and past sales were not recalculated.
+
 ### Boss list 09-28, first pass: P1 bugs + P3 quick wins *(09-28)*
 - [x] **#7 Admin listing search by Property ID:** the public "Property ID" is `#` + the last 8 characters of the id (`propertyCode()` in `@nxtsft/shared`). Search used to need the full id; it now matches the code with or without "#", in any case.
 - [x] **#1 Reports › Registered Users:** the ID column is now **Property ID**. It lists each user's listings as clickable `#CODE` links (up to 10) and they appear in the CSV. 2,405 of 2,730 users have one.

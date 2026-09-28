@@ -1556,9 +1556,15 @@ export const adminRouter = router({
   commissionsOverview: adminProcedure.query(async () => {
     const startOfYear = new Date(new Date().getFullYear(), 0, 1);
     const commissions = await prisma.commission.findMany({
-      include: { salesRep: { select: { id: true, name: true, kycStatus: true } } },
+      include: { salesRep: { select: { id: true, name: true, kycStatus: true, role: true } } },
       orderBy: { createdAt: "desc" },
     });
+    // Commission has no Lead relation, only leadId — resolve customers in one query.
+    const commLeadIds = [...new Set(commissions.map((c) => c.leadId).filter((id): id is string => !!id))];
+    const commLeads = commLeadIds.length
+      ? await prisma.lead.findMany({ where: { id: { in: commLeadIds } }, select: { id: true, name: true, phone: true } })
+      : [];
+    const commLeadById = new Map(commLeads.map((l) => [l.id, l]));
     const amt = (c: (typeof commissions)[number]) => Number(c.amount);
 
     const payable = commissions
@@ -1595,6 +1601,20 @@ export const adminRouter = router({
       onHold,
       ytdPaid,
       byRep: [...byRep.values()].sort((a, b) => b.earned - a.earned),
+      // One row per commission (newest first) — the per-sale ledger.
+      entries: commissions.slice(0, 500).map((c) => ({
+        id: c.id,
+        createdAt: c.createdAt.toISOString(),
+        repName: c.salesRep.name,
+        repRole: c.salesRep.role,
+        customer: (c.leadId && commLeadById.get(c.leadId)?.name) || "—",
+        customerPhone: (c.leadId && commLeadById.get(c.leadId)?.phone) || "",
+        saleValue: Number(c.dealValue),
+        ratePct: Math.round(c.rate * 100),
+        amount: amt(c),
+        status: c.status,
+        note: c.note ?? "",
+      })),
     };
   }),
 

@@ -1,6 +1,9 @@
 "use client";
 import { StatCard, Section } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
+import { downloadCSV } from "@/lib/download-csv";
+
+const REP_ROLE: Record<string, string> = { sales: "Sales Rep", "virtual-rep": "Virtual Rep" };
 import { PageHead } from "./PageHead";
 
 function fmtINR(rupees: number): string {
@@ -13,10 +16,14 @@ export function CommissionsTab() {
   const q = trpc.admin.commissionsOverview.useQuery();
   const d = q.data;
   const byRep = d?.byRep ?? [];
+  const entries = d?.entries ?? [];
 
   return (
     <>
-      <PageHead title="Commissions" subtitle="Team payouts and ledger." />
+      <PageHead
+        title="Commissions"
+        subtitle="Fresh sales only: Sales Rep 10%, Virtual Rep 30% of the plan sold, credited to the rep the customer's lead is on. Renewals earn nothing; agents are not paid commission."
+      />
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           label="Payable This Cycle"
@@ -85,6 +92,69 @@ export function CommissionsTab() {
                   </td>
                   <td></td>
                 </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+      <Section
+        title="Commission entries"
+        action={
+          entries.length > 0 ? (
+            <button
+              onClick={() =>
+                downloadCSV(
+                  `commissions_${new Date().toISOString().slice(0, 10)}.csv`,
+                  ["Date", "Rep", "Role", "Customer", "Phone", "Sale (₹)", "Rate %", "Commission (₹)", "Status", "Note"],
+                  entries.map((e) => [
+                    e.createdAt.slice(0, 10), e.repName, REP_ROLE[e.repRole] ?? e.repRole, e.customer, e.customerPhone,
+                    e.saleValue, e.ratePct, e.amount, e.status, e.note,
+                  ]),
+                )
+              }
+              className="text-xs font-semibold text-accent hover:underline"
+            >
+              Export CSV →
+            </button>
+          ) : null
+        }
+      >
+        {entries.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">No commission entries yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="portal-table">
+              <thead>
+                <tr>
+                  <th className="py-2">Date</th>
+                  <th>Rep</th>
+                  <th>Customer</th>
+                  <th>Sale</th>
+                  <th>Rate</th>
+                  <th>Commission</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((e) => (
+                  <tr key={e.id}>
+                    <td className="whitespace-nowrap text-xs text-muted-foreground">
+                      {new Date(e.createdAt).toLocaleDateString("en-IN")}
+                    </td>
+                    <td>
+                      <div className="font-semibold text-navy">{e.repName}</div>
+                      <div className="text-[11px] text-muted-foreground">{REP_ROLE[e.repRole] ?? e.repRole}</div>
+                    </td>
+                    <td>
+                      <div className="text-sm">{e.customer}</div>
+                      <div className="font-mono text-[11px] text-muted-foreground">{e.customerPhone}</div>
+                    </td>
+                    <td className="font-mono text-xs">{fmtINR(e.saleValue)}</td>
+                    <td className="font-mono text-xs">{e.ratePct > 0 ? `${e.ratePct}%` : "flat"}</td>
+                    <td className="font-mono text-xs font-bold text-navy">{fmtINR(e.amount)}</td>
+                    <td className="text-xs capitalize">{e.status}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

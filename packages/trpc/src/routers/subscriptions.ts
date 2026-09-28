@@ -321,8 +321,7 @@ export const subscriptionsRouter = router({
         [plan.name, String(plan.credits), String(plan.price)],
       );
 
-      // Auto ₹500 commission to the attributed sales rep — self-skips buyer
-      // credit packs (only subscription plan types qualify). Best-effort.
+      // Sales commission (fresh sales only, 10% / 30%). Best-effort.
       await awardSubscriptionCommission(
         ctx.user.id,
         { id: plan.id, type: plan.type, price: plan.price, name: plan.name },
@@ -529,8 +528,7 @@ export const subscriptionsRouter = router({
         await liftFreeTier(ctx.user.id, boundPlanId).catch((err) => console.error("liftFreeTier", err));
       }
 
-      // Auto ₹500 commission to the attributed sales rep (owner/designer/decor
-      // are all subscription types, so this qualifies here). Best-effort.
+      // Sales commission (fresh sales only, 10% / 30%). Best-effort.
       await awardSubscriptionCommission(
         ctx.user.id,
         { id: plan.id, type: plan.type, price: plan.price, name: plan.name },
@@ -604,6 +602,12 @@ export const subscriptionsRouter = router({
         content: `An administrator activated your ${plan.name} until ${endDate.toLocaleDateString("en-IN")}.`,
         actionUrl: "/user-portal#credits",
       });
+      // Manual / out-of-band payment — commission like any other fresh sale.
+      await awardSubscriptionCommission(
+        property.ownerId,
+        { id: plan.id, type: plan.type, price: plan.price, name: plan.name },
+        { paymentId: `admin grant ${sub.id}` },
+      );
       return { id: sub.id, planName: sub.planName, endDate: sub.endDate };
     }),
 
@@ -800,8 +804,7 @@ export const subscriptionsRouter = router({
         }),
       ]);
 
-      // Auto ₹500 commission to the attributed sales rep (owner/designer/decor
-      // are all subscription types, so this qualifies here). Best-effort.
+      // Sales commission (fresh sales only, 10% / 30%). Best-effort.
       await awardSubscriptionCommission(
         ctx.user.id,
         { id: plan.id, type: plan.type, price: plan.price, name: plan.name },
