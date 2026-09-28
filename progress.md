@@ -19,6 +19,10 @@
 
 ## ✅ Completed
 
+### Listing description: Auto-generate (no AI) *(09-28)*
+- [x] Boss chose auto-generate over AI (no key, no invented facts). **✨ Auto-generate** next to Description on /list (`lib/describeListing.ts`): it tidies the seller's text (spaces, blank lines, bullets, sentence capitals, space after full stops; web addresses and decimals untouched; repeated lines dropped). It then builds: an intro ("A 3 BHK apartment available for sale in Gachibowli, Hyderabad, Telangana."), the seller's own text, **Property highlights** (type, location, area + built-up, price or rent per month in Lakh/Crore, possession, RERA, listed by) and **Amenities** bullets, all from the form's own fields. Clicking again replaces the generated parts, so there is no duplication. The textarea grows for long text.
+- [x] Verified: tsc clean. The generator was run on messy text, an empty rent case and URL/decimal edge cases, and is idempotent. The button was not clicked in a browser (description is deep in the wizard).
+
 ### Listing cap, Builders plan, VC vs Agents labels, WhatsApp opt-in rule *(09-28)*
 - [x] **Listing cap (boss 09-28: "free listing 1 per user"):** `assertListingCap` in `packages/trpc/src/freeTier.ts`. Free = 1 listing; an active, unexpired owner plan = its own allowance (parsed from the plan's features; "Unlimited listings" = no cap). A slot is used by Active + Pending listings. It is enforced in `properties.create` (only when listing for yourself) and `bulkCreate` (whole file up front), and is not applied to staff roles (reps list for customers). Existing listings are untouched. /list shows a "You've used your listing(s) · Upgrade / View plans" card before the form, and the My Listings strip counts Active + Pending.
 - [x] Verified on prod (throwaway, deleted): free 0 → allowed; free 1 pending → blocked; sales role → allowed; Owner Pro (3) with 1 used +1 → allowed; bulk +3 → blocked ("can add 2 more, this file has 3"); expired plan → treated as free. /list at 400px shows the cap card.

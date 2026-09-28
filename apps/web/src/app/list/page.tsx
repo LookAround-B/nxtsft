@@ -42,6 +42,7 @@ import { compressImage } from "@/lib/image";
 import { usePresignUploader } from "@/lib/upload";
 import { AREA_UNITS, areaEquivalents, toSqft, type AreaUnit } from "@/lib/area";
 import { isSellerRole } from "@/lib/routes";
+import { generateDescription } from "@/lib/describeListing";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Plot", "Commercial", "PG / Co-living", "Studio"];
 // City-picker option for a town missing from the India dataset — the seller
@@ -1556,11 +1557,26 @@ export default function ListPropertyPage() {
               </div>
 
               <div className="mt-5">
-                <label className="block text-sm font-semibold text-foreground">Description</label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-sm font-semibold text-foreground">Description</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      set("description", generateDescription(data));
+                      toast.success("Description generated from your property details. Edit it as you like.");
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-accent/40 bg-accent/5 px-2.5 py-1 text-xs font-bold text-accent transition hover:bg-accent/10"
+                  >
+                    ✨ Auto-generate
+                  </button>
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  Tidies your text and adds a full write-up from the details you entered.
+                </p>
                 <textarea
                   value={data.description}
                   onChange={(e) => set("description", e.target.value)}
-                  rows={4}
+                  rows={data.description.length > 250 ? 14 : 4}
                   placeholder="Describe highlights — view, layout, renovations, neighbourhood…"
                   className={`mt-1.5 w-full resize-none rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 ${errors.description ? "border-rose-400" : "border-input"}`}
                 />
