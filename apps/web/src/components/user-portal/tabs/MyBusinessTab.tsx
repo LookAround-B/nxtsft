@@ -193,7 +193,7 @@ export function MyBusinessTab() {
         <Briefcase size={40} className="mb-4 text-muted-foreground/30" />
         <p className="text-sm font-semibold text-navy">No business listings yet</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Submit a Home Interiors or Decor Store listing to see it and its leads here.
+          Submit a Home Interiors listing to see it and its leads here.
         </p>
       </div>
     );
@@ -227,9 +227,9 @@ export function MyBusinessTab() {
 
   return (
     <>
-      <Head t="My Business" s="Your Home Interiors / Decor listings and the leads they've generated." />
+      <Head t="My Business" s="Your Home Interiors listings and the leads they've generated." />
 
-      <ListingPlanSection planType={designers.length === 0 && stores.length > 0 ? "decor" : "designer"} />
+      <ListingPlanSection planType="designer" />
 
       <Section title="Your listings">
         {loading ? (

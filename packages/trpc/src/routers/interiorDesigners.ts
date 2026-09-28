@@ -1,3 +1,8 @@
+import { findOrCreateCustomerAccount } from "../customerAccount";
+import { isSalesRep } from "../teamScope";
+
+// Staff roles that may add a Home Interiors listing for a business owner.
+const STAFF_ADD_ROLES = ["sales", "virtual-rep", "supervisor", "support-admin", "admin", "super-admin"];
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
@@ -13,6 +18,7 @@ import {
   amenitiesSchema,
   safeUrlArraySchema,
   phoneSchema,
+  nameSchema,
   emailSchema,
 } from "../sanitize";
 
@@ -147,21 +153,65 @@ export const interiorDesignersRouter = router({
         website: safeString(300).optional(),
         phone: phoneSchema,
         email: emailSchema.optional(),
+        // Staff adding a Home Interiors business for its owner (#10). The
+        // listing goes on the OWNER's account (they buy the plan in My
+        // Business) and a lead is created on the rep's name, so the sale
+        // earns commission. Final approval stays with admin (status pending).
+        onBehalf: z.object({ ownerName: nameSchema, ownerPhone: phoneSchema }).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
+      const { onBehalf, ...fields } = input;
+      let ownerId = ctx.user.id;
+      let ownerLabel: string | null = null;
+      if (onBehalf) {
+        if (!STAFF_ADD_ROLES.includes(ctx.user.role)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only staff can add a listing for someone else." });
+        }
+        const owner = await findOrCreateCustomerAccount({
+          phone: onBehalf.ownerPhone,
+          name: onBehalf.ownerName,
+          email: input.email,
+          city: input.city,
+          createdById: ctx.user.id,
+        });
+        ownerId = owner.id;
+        ownerLabel = owner.name;
+        await prisma.lead.create({
+          data: {
+            userId: owner.id,
+            buyerUserId: owner.id,
+            name: owner.name,
+            phone: owner.phone,
+            email: input.email ?? null,
+            city: input.city,
+            interest: `Home Interiors listing · ${input.companyName}`,
+            source: "Direct",
+            status: "New",
+            assignedToId: isSalesRep(ctx.user.role) ? ctx.user.id : null,
+          },
+        });
+        await notify({
+          userId: owner.id,
+          type: "interior_submission",
+          title: "Your Home Interiors listing was created",
+          content: `Our team added "${input.companyName}" for you. Choose a listing plan in My Business to get it approved and showcased.`,
+          actionUrl: "/user-portal#business",
+        });
+      }
+
       const base = makeSlug(`${input.companyName}-${input.city}`);
       let slug = base;
       let n = 2;
       while (await prisma.interiorDesigner.findUnique({ where: { slug } })) slug = `${base}-${n++}`;
 
-      const { startingBudget, ...rest } = input;
+      const { startingBudget, ...rest } = fields;
       const designer = await prisma.interiorDesigner.create({
         data: {
           ...rest,
           slug,
           startingBudget: startingBudget != null ? BigInt(startingBudget) : null,
-          userId: ctx.user.id,
+          userId: ownerId,
         },
       });
 
@@ -177,7 +227,7 @@ export const interiorDesignersRouter = router({
             userId: a.id,
             type: "interior_submission",
             title: "New Home Interiors listing pending review",
-            content: `"${input.companyName}" (${input.city}) was submitted and awaits approval.`,
+            content: `"${input.companyName}" (${input.city}) was submitted${ownerLabel ? ` by ${ctx.user.name ?? "staff"} for ${ownerLabel}` : ""} and awaits approval.`,
             actionUrl: `${portalBase(a.role)}#interiors`,
           })),
         });

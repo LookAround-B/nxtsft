@@ -98,7 +98,6 @@ const makeNav = (b?: BadgeCounts) => [
   { label: "Virtual Property Consultants", to: "/admin-portal#agents",       icon: <Contact size={14} /> },
   { label: "Reviews",        to: "/admin-portal#reviews",      icon: <Star size={14} />, badge: b?.reviews },
   { label: "Home Interiors", to: "/admin-portal#interiors",    icon: <Sofa size={14} />, badge: b?.interiors },
-  { label: "Decors",         to: "/admin-portal#decor",        icon: <Lamp size={14} />, badge: b?.decor },
   { label: "Property Views", to: "/admin-portal#views",        icon: <Eye size={14} /> },
   { label: "Subscriptions",  to: "/admin-portal#subscriptions",icon: <ReceiptText size={14} /> },
   { label: "Transactions",   to: "/admin-portal#transactions", icon: <ReceiptText size={14} /> },

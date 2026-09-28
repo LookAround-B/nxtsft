@@ -119,7 +119,6 @@ const makeNav = (b?: BadgeCounts) => [
   { label: "Agents",          to: "/sa-portal#agents",       icon: <Contact size={14} /> },
   { label: "Reviews",         to: "/sa-portal#reviews",      icon: <Star size={14} />, badge: b?.reviews },
   { label: "Home Interiors",  to: "/sa-portal#interiors",    icon: <Sofa size={14} />, badge: b?.interiors },
-  { label: "Decors",          to: "/sa-portal#decor",        icon: <Lamp size={14} />, badge: b?.decor },
   { label: "Property Views",  to: "/sa-portal#views",        icon: <Eye size={14} /> },
   { label: "Subscriptions",   to: "/sa-portal#subscriptions",icon: <ReceiptText size={14} /> },
   { label: "Buyer Wallets",   to: "/sa-portal#credits",      icon: <Coins size={14} /> },

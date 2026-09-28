@@ -10,6 +10,12 @@ import { compressImage } from "@/lib/image";
 
 const CITIES = ["Mumbai", "Bengaluru", "Delhi NCR", "Hyderabad", "Pune", "Chennai", "Kolkata", "Ahmedabad", "Jaipur", "Noida", "Gurgaon", "Kochi", "Other"];
 const DESIGN_STYLES = ["Modern", "Minimal", "Luxury", "Contemporary", "Traditional", "Industrial"];
+// Home Interiors now covers Decor too (boss 09-28: one category).
+const SERVICES = [
+  "Full home interiors", "Modular kitchen", "Wardrobes", "False ceiling", "Painting & wallpaper", "Flooring",
+  "Furniture", "Lighting", "Curtains & blinds", "Wall decor", "Home furnishing", "Decor accessories",
+];
+const STAFF_ROLES = ["sales", "virtual-rep", "supervisor", "support-admin", "admin", "super-admin"];
 
 type FormData = {
   companyName: string;
@@ -23,6 +29,9 @@ type FormData = {
   startingBudget: string;
   website: string;
   workingHours: string;
+  servicesOffered: string[];
+  ownerName: string;
+  ownerPhone: string;
 };
 
 const EMPTY: FormData = {
@@ -37,6 +46,9 @@ const EMPTY: FormData = {
   startingBudget: "",
   website: "",
   workingHours: "",
+  servicesOffered: [],
+  ownerName: "",
+  ownerPhone: "",
 };
 
 export default function ListInteriorBusinessPage() {
@@ -52,6 +64,15 @@ export default function ListInteriorBusinessPage() {
 
   const set = (k: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setData((d) => ({ ...d, [k]: e.target.value }));
+
+  const isStaff = !!session && STAFF_ROLES.includes(session.role as string);
+  const toggleService = (s: string) =>
+    setData((d) => ({
+      ...d,
+      servicesOffered: d.servicesOffered.includes(s)
+        ? d.servicesOffered.filter((x) => x !== s)
+        : [...d.servicesOffered, s],
+    }));
 
   const toggleStyle = (s: string) =>
     setData((d) => ({
@@ -84,6 +105,12 @@ export default function ListInteriorBusinessPage() {
       <div className="mx-auto max-w-md px-4 py-20 text-center">
         <CheckCircle2 size={36} className="mx-auto mb-3 text-emerald-500" />
         <h1 className="font-display text-xl font-bold text-navy">Submitted for review!</h1>
+        {isStaff && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Created on {data.ownerName}&apos;s account ({data.ownerPhone}). An admin gives final approval; the
+            owner has been notified to choose a listing plan in My Business, and a lead is on your name.
+          </p>
+        )}
         <p className="mt-2 text-sm text-muted-foreground">
           Your listing is saved but not live yet. Choose a Business Listing plan below —
           once you subscribe, our team reviews your details and publishes it on the Home
@@ -129,6 +156,10 @@ export default function ListInteriorBusinessPage() {
     if (!data.city) e.city = "Select a city";
     if (!/^[6-9]\d{9}$/.test(data.phone.replace(/\s/g, ""))) e.phone = "Enter a valid 10-digit mobile number";
     if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) e.email = "Enter a valid email";
+    if (isStaff) {
+      if (data.ownerName.trim().length < 2) e.ownerName = "Enter the business owner's name";
+      if (!/^[6-9]\d{9}$/.test(data.ownerPhone)) e.ownerPhone = "Enter the owner's 10-digit mobile";
+    }
     return e;
   };
 
@@ -174,6 +205,8 @@ export default function ListInteriorBusinessPage() {
         website: data.website.trim() || undefined,
         workingHours: data.workingHours.trim() || undefined,
         portfolioImages: hostedImages,
+        servicesOffered: data.servicesOffered,
+        ...(isStaff ? { onBehalf: { ownerName: data.ownerName.trim(), ownerPhone: data.ownerPhone } } : {}),
       });
       setSubmitted(true);
     } catch (err) {
@@ -188,7 +221,7 @@ export default function ListInteriorBusinessPage() {
         Back to Home Interiors
       </Link>
 
-      <h1 className="mt-4 font-display text-2xl font-black text-navy">List Your Interior Design Business</h1>
+      <h1 className="mt-4 font-display text-2xl font-black text-navy">List Your Home Interiors Business</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Submit your company for review — once approved, it goes live on the Home Interiors directory.
       </p>
@@ -231,6 +264,37 @@ export default function ListInteriorBusinessPage() {
           </div>
         </div>
 
+        {isStaff && (
+          <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
+            <div className="text-sm font-bold text-navy">Business owner</div>
+            <p className="text-[11px] text-muted-foreground">
+              You&apos;re adding this for a business. It goes on the owner&apos;s account (they pay the plan), a lead is
+              created on your name, and an admin approves it before it goes live.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <input
+                  value={data.ownerName}
+                  onChange={set("ownerName")}
+                  placeholder="Owner's full name"
+                  className={`w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none ${errors.ownerName ? "border-rose-400" : "border-input"}`}
+                />
+                {errors.ownerName && <p className="mt-1 text-xs text-rose-500">{errors.ownerName}</p>}
+              </div>
+              <div>
+                <input
+                  type="tel"
+                  value={data.ownerPhone}
+                  onChange={(e) => setData((d) => ({ ...d, ownerPhone: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+                  placeholder="Owner's 10-digit mobile"
+                  className={`w-full rounded-xl border bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none ${errors.ownerPhone ? "border-rose-400" : "border-input"}`}
+                />
+                {errors.ownerPhone && <p className="mt-1 text-xs text-rose-500">{errors.ownerPhone}</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-semibold text-foreground">Phone</label>
@@ -265,6 +329,24 @@ export default function ListInteriorBusinessPage() {
             placeholder="Tell buyers about your design philosophy and specialties…"
             className="mt-1.5 w-full resize-none rounded-xl border border-input bg-background px-3.5 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-foreground">Services offered</label>
+          <p className="text-[11px] text-muted-foreground">Interiors, decor &amp; furnishing: pick all that apply.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {SERVICES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => toggleService(s)}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition
+                  ${data.servicesOffered.includes(s) ? "border-accent bg-accent text-white" : "border-border bg-white text-foreground/70 hover:border-accent/40 hover:bg-accent/5"}`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div>

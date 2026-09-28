@@ -431,14 +431,9 @@ export function PlansManager({
           group={ownerSellGroup}
         />
         <PlanGroup
-          title="Designer Business Listing Plans"
-          description="Monthly listing plans for Home Interiors designer businesses."
+          title="Home Interiors Listing Plans"
+          description="Listing plans for Home Interiors businesses (interiors, decor & furnishing)."
           group={designerGroup}
-        />
-        <PlanGroup
-          title="Decor Business Listing Plans"
-          description="Monthly listing plans for Decor Store businesses."
-          group={decorGroup}
         />
         <PlanGroup
           title="Listing Boost Plans"

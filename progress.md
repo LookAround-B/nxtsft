@@ -19,6 +19,12 @@
 
 ## ✅ Completed
 
+### #9 + #10 Home Interiors & Decors merged; staff can add listings *(09-28)*
+- [x] **One category, "Home Interiors" (boss 09-28):** prod had 1 designer (pending), **0 decor stores**, and both business plans inactive with 0 subscriptions, so nothing needed migrating. The Home Interiors form now has **Services offered** covering interiors *and* decor & furnishing (modular kitchen, wardrobes, furniture, lighting, curtains, wall decor…). "Decors" is removed from the admin and super-admin menus and from the sitemap; `/decor/*` already 301-redirects to `/interiors` (GOL-288). Plans Manager shows one "Home Interiors Listing Plans" family (the decor group is hidden); My Business uses the one plan family. The DecorStore model/router/tab code stays in place, unused, so no data can be lost.
+- [x] **#10 staff "Add":** "+ Add Home Interiors listing" in Admin › Home Interiors and "+ Home Interiors business" in Sales Portal › Listings. For staff roles the form asks for the **business owner's name and mobile**. `interiorDesigners.submit` (`onBehalf`, staff-only) puts the listing on the owner's account (`findOrCreateCustomerAccount`), creates a **lead on the rep's name** (so the owner's plan purchase in My Business earns commission via the existing designer checkout) and notifies the owner. **Final approval stays with admin:** the listing is created pending and admins are alerted "submitted by <staff> for <owner>".
+- [x] Verified on prod (throwaway, deleted): a sales rep's on-behalf add → pending listing owned by the new owner account (home-seller), services saved, lead assigned to the rep, owner notified; a home-buyer using onBehalf → FORBIDDEN.
+- Note: a rep "payment link" for Interiors plans isn't built. Owners pay the plan themselves in My Business (commission still goes to the rep via the lead).
+
 ### #16 User Management: full details *(09-28)*
 - [x] Super Admin › User Management now shows **KYC status**, **current plan** (name + valid till, or "Free"), **credits** and **listing count** per user (`admin.users.list` adds kycStatus, the active unexpired subscription and a non-deleted property count; the extra fields don't affect its other callers). It showed only the newest 100 of ~2,700 users, with no paging; it now has **Load more** (cursor). Agents are labelled "Agent" (was "VC (Partner)"), matching the VC/Agent split.
 - [x] Verified on prod (read-only): page 1 and page 2 are distinct; plan / listings / KYC populated (e.g. Trail Plan · 2 listings).

@@ -280,8 +280,16 @@ export function InteriorsTab() {
     <>
       <PageHead
         title="Home Interiors"
-        subtitle="Verify and publish interior design company listings, and review contact-unlock leads."
+        subtitle="Interiors, decor & furnishing businesses. Staff can add listings for owners; admins approve and publish them here."
       />
+      <div className="-mt-3 mb-5">
+        <a
+          href="/interiors/list"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+        >
+          + Add Home Interiors listing
+        </a>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Pending Review" value={String(pendingCount)} sub="Needs your action" accent={pendingCount > 0 ? "text-amber-600" : undefined} />
