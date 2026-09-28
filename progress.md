@@ -19,6 +19,11 @@
 
 ## ✅ Completed
 
+### Click Alerts: real data, admin only *(09-28)*
+- [x] The old Click Alerts tab read `localStorage` in the admin's own browser via `lib/leads.ts`, which nothing on the site wrote to anymore, and "assigned" leads to 4 hard-coded seed names. So it was always empty or stale. It is replaced by `admin.clickAlerts` (adminProcedure: admin + super-admin only), which merges real DB events newest-first: contact unlocks (CreditTransaction `contact_unlock`), site-visit requests, property enquiries (Lead with a property) and callback requests. Each row shows buyer name, tap-to-call mobile, role, the property with its Property ID and city, and time. There are type chips, all-time counts, a last-24h count and pages of 25. `lib/leads.ts` is deleted.
+- [x] Verified on prod (read-only): 29 unlocks, 4 visits, 740 enquiries, 1 callback; page 2 is distinct and correctly ordered; the type filter works; a sales user gets FORBIDDEN.
+- Note: WhatsApp-button taps are not recorded anywhere, so they can't appear here.
+
 ### Commission: 10% Sales Rep / 30% Virtual Rep, fresh sales only *(09-28)*
 - [x] **Boss rule (09-28), replaces both ₹500 flat rules:** staff only, Sales Rep 10% and Virtual Rep 30% of the plan sold. Agents (individual partners) get none. Credited to the rep the customer's lead is on (self-created or allotted). **Fresh sales only**: the customer's first paid purchase, so renewals, extensions and repeat buys earn nothing. Any plan qualifies (seller, business, buyer credit packs).
 - [x] One implementation, `awardSaleCommission` in `packages/trpc/src/commission.ts`, used by every sale path: online checkout (credits, owner, business), PayU callback, the Razorpay payment-link webhook, and **admin grants** (manual payments, previously unpaid). `salesCommission.ts` (the LA-342 ₹500 / ≥₹4,999 rule) is removed. One commission per lead makes webhook retries idempotent. Fresh-sale test: paid subscriptions + successful non-subscription payments for the customer (0 when the sale wrote no row), plus no earlier paid lead with the same phone.

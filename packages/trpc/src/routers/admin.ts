@@ -1,3 +1,4 @@
+import { propertyCode } from "@nxtsft/shared";
 import { totalRevenueRupees } from "../revenue";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -1416,6 +1417,116 @@ export const adminRouter = router({
       const hasMore = items.length > limit;
       const page = hasMore ? items.slice(0, limit) : items;
       return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
+    }),
+
+  // Click Alerts — real buyer actions on listings, newest first, from the DB:
+  // contact unlocks (credit spends), site-visit requests, property enquiries
+  // and callback requests. Admin / super-admin only.
+  clickAlerts: adminProcedure
+    .input(
+      z.object({
+        type: z.enum(["unlock", "visit", "enquiry", "callback"]).optional(),
+        page: z.number().int().min(1).max(40).default(1),
+      }),
+    )
+    .query(async ({ input }) => {
+      const PAGE = 25;
+      const take = input.page * PAGE; // merge window: enough of each source for this page
+      const want = (t: string) => !input.type || input.type === t;
+      const unlockWhere = { reason: "contact_unlock", propertyId: { not: null } };
+      const visitWhere = {};
+      const enquiryWhere = { propertyId: { not: null } };
+      const callbackWhere = { propertyId: null, interest: { startsWith: "Callback request" } };
+
+      const [unlocks, visits, enquiries, callbacks, counts, last24] = await Promise.all([
+        want("unlock")
+          ? prisma.creditTransaction.findMany({ where: unlockWhere, orderBy: { createdAt: "desc" }, take, select: { id: true, userId: true, propertyId: true, createdAt: true } })
+          : [],
+        want("visit")
+          ? prisma.siteVisit.findMany({ where: visitWhere, orderBy: { createdAt: "desc" }, take, select: { id: true, userId: true, propertyId: true, createdAt: true, scheduledAt: true, status: true } })
+          : [],
+        want("enquiry")
+          ? prisma.lead.findMany({ where: enquiryWhere, orderBy: { createdAt: "desc" }, take, select: { id: true, userId: true, buyerUserId: true, propertyId: true, createdAt: true, name: true, phone: true, source: true } })
+          : [],
+        want("callback")
+          ? prisma.lead.findMany({ where: callbackWhere, orderBy: { createdAt: "desc" }, take, select: { id: true, userId: true, buyerUserId: true, createdAt: true, name: true, phone: true, interest: true } })
+          : [],
+        Promise.all([
+          prisma.creditTransaction.count({ where: unlockWhere }),
+          prisma.siteVisit.count({ where: visitWhere }),
+          prisma.lead.count({ where: enquiryWhere }),
+          prisma.lead.count({ where: callbackWhere }),
+        ]),
+        (async () => {
+          const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const [u, v, e, c] = await Promise.all([
+            prisma.creditTransaction.count({ where: { ...unlockWhere, createdAt: { gte: since } } }),
+            prisma.siteVisit.count({ where: { createdAt: { gte: since } } }),
+            prisma.lead.count({ where: { ...enquiryWhere, createdAt: { gte: since } } }),
+            prisma.lead.count({ where: { ...callbackWhere, createdAt: { gte: since } } }),
+          ]);
+          return u + v + e + c;
+        })(),
+      ]);
+
+      type Row = {
+        id: string; type: "unlock" | "visit" | "enquiry" | "callback"; at: Date;
+        userId: string | null; propertyId: string | null;
+        name?: string; phone?: string; detail: string;
+      };
+      const rows: Row[] = [
+        ...unlocks.map((u): Row => ({ id: "u" + u.id, type: "unlock", at: u.createdAt, userId: u.userId, propertyId: u.propertyId, detail: "Unlocked owner contact" })),
+        ...visits.map((v): Row => ({
+          id: "v" + v.id, type: "visit", at: v.createdAt, userId: v.userId, propertyId: v.propertyId,
+          detail: `Site visit ${v.status.toLowerCase()} for ${v.scheduledAt.toLocaleDateString("en-IN")}`,
+        })),
+        ...enquiries.map((l): Row => ({
+          id: "e" + l.id, type: "enquiry", at: l.createdAt, userId: l.buyerUserId ?? l.userId, propertyId: l.propertyId,
+          name: l.name, phone: l.phone, detail: `Enquiry (${l.source ?? "Portal"})`,
+        })),
+        ...callbacks.map((l): Row => ({
+          id: "c" + l.id, type: "callback", at: l.createdAt, userId: l.buyerUserId ?? l.userId, propertyId: null,
+          name: l.name, phone: l.phone, detail: (l.interest ?? "Callback request").replace(/^Callback request · /, "Callback: "),
+        })),
+      ]
+        .sort((a, b) => b.at.getTime() - a.at.getTime())
+        .slice((input.page - 1) * PAGE, input.page * PAGE);
+
+      const userIds = [...new Set(rows.map((r) => r.userId).filter((id): id is string => !!id))];
+      const propIds = [...new Set(rows.map((r) => r.propertyId).filter((id): id is string => !!id))];
+      const [users, props] = await Promise.all([
+        userIds.length ? prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, phone: true, role: true } }) : [],
+        propIds.length
+          ? prisma.property.findMany({ where: { id: { in: propIds } }, select: { id: true, title: true, slug: true, location: { select: { city: true } } } })
+          : [],
+      ]);
+      const userById = new Map(users.map((u) => [u.id, u]));
+      const propById = new Map(props.map((p) => [p.id, p]));
+
+      const [nUnlock, nVisit, nEnquiry, nCallback] = counts;
+      const total = input.type
+        ? { unlock: nUnlock, visit: nVisit, enquiry: nEnquiry, callback: nCallback }[input.type]
+        : nUnlock + nVisit + nEnquiry + nCallback;
+      return {
+        items: rows.map((r) => {
+          const u = r.userId ? userById.get(r.userId) : undefined;
+          const p = r.propertyId ? propById.get(r.propertyId) : undefined;
+          return {
+            id: r.id,
+            type: r.type,
+            at: r.at.toISOString(),
+            detail: r.detail,
+            buyerName: u?.name ?? r.name ?? "—",
+            buyerPhone: u?.phone ?? r.phone ?? null,
+            buyerRole: u?.role ?? null,
+            property: p ? { title: p.title, slug: p.slug, code: propertyCode(p.id), city: p.location?.city ?? "" } : null,
+          };
+        }),
+        counts: { unlock: nUnlock, visit: nVisit, enquiry: nEnquiry, callback: nCallback },
+        last24h: last24,
+        page: input.page,
+        totalPages: Math.min(40, Math.max(1, Math.ceil(total / PAGE))),
+      };
     }),
 
   // Home Buyer property-view activity feed
