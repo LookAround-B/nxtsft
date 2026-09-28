@@ -19,6 +19,10 @@
 
 ## ✅ Completed
 
+### Email via Gmail SMTP (free) *(09-28)*
+- [x] Boss chose Gmail SMTP + App Password (free, ~500/day) over Resend. `packages/trpc/src/email.ts` now uses **nodemailer → smtp.gmail.com:587** when `SMTP_USER` + `SMTP_PASS` are set, and otherwise falls back to Resend, so it is still a no-op when neither is set. Spaces in the App Password are stripped. From = `EMAIL_FROM` or `NxtSft <SMTP_USER>`. Added `nodemailer` (+ types) with pnpm 12.5.1 (matches the packageManager pin). It is bundled into the server route (verified in the `next build` output), and the full `pnpm --filter web build` passes. `.env.example` documents the SMTP vars.
+- 🔲 **To activate:** in Vercel env set `SMTP_USER=nextsquarefeet.india@gmail.com` and `SMTP_PASS=<16-letter App Password>` (Google Account → Security → 2-Step Verification ON → myaccount.google.com/apppasswords), then redeploy. Current senders: message alerts (`routers/messages.ts`). Receiving (IMAP → CRM) is not built; replies land in that Gmail inbox. The account's login password was shared in chat and should be changed.
+
 ### 124-row locations review imported (state only) *(09-28)*
 - [x] The team's returned `NxtSft_Listing_Locations_To_Fix.xlsx`: they could trace only the **state**, so only `Location.state` was updated; city and locality were left as they were. 122 rows filled, 2 left blank (skipped). Each row was checked: Location ID exists, it matches the Property ID in column A, and the state name matches india-locations.json. All 122 were "India" before. Applied 122/122 and re-verified; only the 2 blank rows' listings still show state "India". Rollback file: `docs/location-state-import-backup-2026-09-28.json` (untracked, keep).
 

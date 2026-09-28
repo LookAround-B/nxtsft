@@ -73,6 +73,7 @@ const nextConfig: NextConfig = {
     "google-auth-library",
     "bcryptjs",
     "aws4fetch",
+    "nodemailer",
   ],
   // Trim the bundle for every serverless function. outputFileTracingExcludes
   // keys are picomatch globs, not literal route paths — "[slug]" in a key is a
