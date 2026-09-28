@@ -221,6 +221,10 @@ export default function AgentsPage() {
   const [sort, setSort] = useState("featured");
   const [showFilters, setShowFilters] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [stats, setStats] = useState<{ listings: number; cities: number } | null>(null);
+  useEffect(() => {
+    trpcClient.users.platformStats.query().then(setStats).catch(() => setStats(null));
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch agents from DB via tRPC
@@ -428,13 +432,13 @@ export default function AgentsPage() {
             )}
           </div>
 
-          {/* Stats */}
+          {/* Stats — real numbers only (users.platformStats, live DB counts). */}
           <div className="mt-10 flex flex-wrap justify-center gap-8">
             {[
               ["36", "States covered"],
-              ["10,000+", "Happy Clients"],
-              ["₹5,000 Cr+", "Transacted"],
-              ["25+", "Cities Active"],
+              [stats ? stats.listings.toLocaleString("en-IN") : "…", "Live listings"],
+              [stats ? String(stats.cities) : "…", "Cities with listings"],
+              ["Same day", "Callback"],
             ].map(([v, l]) => (
               <div key={l} className="text-center">
                 <div className="font-display text-2xl font-black text-white">{v}</div>

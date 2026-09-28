@@ -19,6 +19,12 @@
 
 ## ✅ Completed
 
+### Follow-up fixes: payment-link ledger, honest labels & stats *(09-28)*
+- [x] **Payment-link sales now write a Payment row** (Razorpay webhook: method "Payment Link", razorpayId = the payment id, which is unique so retries are absorbed, metadata.leadId). Admin › Transactions shows them, and the WhatsApp payment follow-up cron (which checks Payment) stops nudging owners who already paid. The description ends in " subscription" only when the webhook created a Subscription, so `totalRevenueRupees` still counts each sale exactly once.
+- [x] Admin dashboard tiles: "Revenue MTD" → **Total Revenue** (it is all-time); "Open Leads" → **Total Leads** (it counts every status).
+- [x] /agents banner: the invented "10,000+ Happy Clients / ₹5,000 Cr+ Transacted / 25+ Cities" are replaced by live numbers from `users.platformStats`: 36 States covered · **2,786 Live listings** · **106 Cities with listings** · Same-day Callback (checked in the browser at 400px).
+- ⚠️ #20 AI Model Control (Super Admin): the model registry's Deploy/Rollback only flips `ModelVersion` rows; no feature on the site uses an AI model, and the boss chose no-AI for descriptions. Nothing to activate; recommend hiding the tab. Left as is pending his call.
+
 ### #19 Marketing Dashboard *(09-28)*
 - [x] An interactive **Marketing Dashboard** at the top of Admin › Marketing (`campaigns.marketingOverview`), with a 7 / 30 / 90-day switch: real users, WhatsApp opt-ins, new real sign-ups, referrals; audience by role; leads by source (bar chart); channel codes by listings; WhatsApp broadcasts / sent / failed and template counts by category.
 - [x] **One-click WhatsApp send:** pick an approved template from the library and send to all real users (Utility) or all opted-in users (Marketing), with a confirm showing the exact reach. Templates with >1 variable go through the Broadcast screen. `launchWhatsApp` now returns a shallow row (avoids a TS2589 deep-inference error).

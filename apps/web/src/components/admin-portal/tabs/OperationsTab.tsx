@@ -72,7 +72,7 @@ function CommandHeader({ revenue, leads, users, hotLeads, activeListings }: {
         {/* Right: quick metrics */}
         <div className="flex shrink-0 items-center gap-6 sm:gap-8">
           {[
-            { label: "Revenue MTD", value: revenue != null ? fmtRevenue(revenue) : "—" },
+            { label: "Total Revenue", value: revenue != null ? fmtRevenue(revenue) : "—" },
             { label: "Open Leads",  value: leads != null ? String(leads) : "—" },
             { label: "Registered",  value: users != null ? String(users) : "—" },
           ].map((m) => (
@@ -337,7 +337,7 @@ export function OperationsTab() {
               icon={<TrendingUp size={15} />}
             />
             <KpiCard
-              label="Open Leads"
+              label="Total Leads"
               href="#leads"
               value={s ? String(s.totalLeads) : "…"}
               sub={s ? `${s.hotLeads} hot` : "loading"}

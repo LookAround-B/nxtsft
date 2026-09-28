@@ -223,6 +223,29 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Record the money in the Payment ledger too, so Admin › Transactions shows
+  // payment-link sales and paid owners stop getting payment follow-ups (the
+  // WhatsApp cron checks Payment). The description ends in " subscription" only
+  // when a Subscription was created here, so revenue (revenue.ts) counts each
+  // sale exactly once. razorpayId is unique, which also absorbs webhook retries.
+  const payerId = subCustomerId ?? lead.userId;
+  if (payerId && amountRupees > 0) {
+    await prisma.payment
+      .create({
+        data: {
+          userId: payerId,
+          amount: BigInt(amountRupees * 100),
+          status: "Success",
+          method: "Payment Link",
+          gateway: "razorpay",
+          razorpayId: paymentId !== "unknown" ? paymentId : null,
+          description: subCreated && soldPlanName ? `${soldPlanName} subscription` : `Payment link · ${lead.plan ?? lead.name}`,
+          metadata: { leadId, source: "payment_link" },
+        },
+      })
+      .catch((err) => console.error("[razorpay webhook] payment ledger row failed:", err instanceof Error ? err.message : err));
+  }
+
   // Credited to the rep the lead is on (self-created or allotted), falling
   // back to the link's sender. Percentage of the amount actually paid.
   const commission = await awardSaleCommission({
