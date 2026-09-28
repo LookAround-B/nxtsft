@@ -19,6 +19,12 @@
 
 ## ✅ Completed
 
+### Email live via Gmail + seller welcome & buyer-request emails *(09-28)*
+- [x] **Gmail SMTP is live:** SMTP_USER/SMTP_PASS set in Vercel (nextsquarefeet.india@gmail.com, App Password). The live message-alert test arrived in the Gmail inbox from "NxtSft <nextsquarefeet.india@gmail.com>". The message-alert send is now **awaited** (a Vercel function can freeze once the response is sent, cutting off a fire-and-forget SMTP send).
+- [x] **New emails** (`packages/trpc/src/emailTemplates.ts`, one shared layout): **Seller welcome** on seller / agent registration and on buyer → seller conversion (agents pending approval get the "under review" version); **Buyer-request alert** to the listing owner on each property enquiry (`leads.create`), deliberately with no buyer name or phone (contact access follows the owner's plan in the dashboard), and never when the owner enquires on their own listing.
+- [x] **Guard:** `isDeliverable()` in email.ts never sends to synthetic or test addresses (`@nxtsft.internal` phone-only customers, `@nxtsft.local`, `@example.com`) to protect the Gmail sender reputation.
+- [x] Verified live (throwaway accounts, deleted): applyAsSeller → 200 and leads.create on a Test listing → 200, both sent to the boss's Gmail.
+
 ### Email via Gmail SMTP (free) *(09-28)*
 - [x] Boss chose Gmail SMTP + App Password (free, ~500/day) over Resend. `packages/trpc/src/email.ts` now uses **nodemailer → smtp.gmail.com:587** when `SMTP_USER` + `SMTP_PASS` are set, and otherwise falls back to Resend, so it is still a no-op when neither is set. Spaces in the App Password are stripped. From = `EMAIL_FROM` or `NxtSft <SMTP_USER>`. Added `nodemailer` (+ types) with pnpm 12.5.1 (matches the packageManager pin). It is bundled into the server route (verified in the `next build` output), and the full `pnpm --filter web build` passes. `.env.example` documents the SMTP vars.
 - 🔲 **To activate:** in Vercel env set `SMTP_USER=nextsquarefeet.india@gmail.com` and `SMTP_PASS=<16-letter App Password>` (Google Account → Security → 2-Step Verification ON → myaccount.google.com/apppasswords), then redeploy. Current senders: message alerts (`routers/messages.ts`). Receiving (IMAP → CRM) is not built; replies land in that Gmail inbox. The account's login password was shared in chat and should be changed.
