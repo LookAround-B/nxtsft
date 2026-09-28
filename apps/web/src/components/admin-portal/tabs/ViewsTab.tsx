@@ -1,4 +1,5 @@
 "use client";
+import { ROLE_META } from "@/lib/auth";
 import { useState } from "react";
 import Link from "next/link";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -10,6 +11,8 @@ import { TableSkeleton, ListSkeleton } from "@/components/ui/skeleton";
 import { downloadCSV } from "@/lib/download-csv";
 import { PageHead } from "./PageHead";
 
+const roleName = (role: string) => (ROLE_META as Record<string, { label: string }>)[role]?.label ?? role;
+
 type ViewRecord = {
   id: string;
   durationSec: number;
@@ -17,6 +20,7 @@ type ViewRecord = {
   createdAt: string;
   viewer: string;
   viewerPhone: string | null;
+  viewerRole: string | null;
   property: {
     id: string; slug: string; title: string; bhk: string | null; price: number;
     images: string[]; location: { city: string; locality: string } | null;
@@ -198,7 +202,7 @@ function BuyerActivitySection() {
           type="text"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Filter by buyer name or email…"
+          placeholder="Filter by buyer name, email or mobile…"
           className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-4 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
       </div>
@@ -225,6 +229,16 @@ function BuyerActivitySection() {
                     {item.buyer?.name ?? "Unknown"}
                   </span>
                   <span className="text-xs text-muted-foreground">{item.buyer?.email}</span>
+                  {item.buyer?.phone && (
+                    <a href={`tel:${item.buyer.phone}`} className="text-xs font-bold text-accent hover:underline">
+                      {item.buyer.phone}
+                    </a>
+                  )}
+                  {item.buyer?.role && (
+                    <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-navy">
+                      {roleName(item.buyer.role)}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
                   <Eye size={11} />
@@ -275,6 +289,12 @@ function BuyerActivitySection() {
 export function ViewsTab() {
   const [filter, setFilter] = useState("");
   const viewsQ = trpc.propertyViews.analytics.useQuery({ limit: 200 });
+  const [tablePage, setTablePage] = useState(1);
+  const tableQ = trpc.propertyViews.analytics.useQuery(
+    { limit: 25, page: tablePage },
+    { placeholderData: keepPreviousData },
+  );
+  const tableRows = (tableQ.data?.items ?? []) as unknown as ViewRecord[];
   const views = (viewsQ.data?.items ?? []) as unknown as ViewRecord[];
   const totalViews = viewsQ.data?.totalViews ?? 0;
   const unlockedViews = viewsQ.data?.unlockedViews ?? 0;
@@ -378,6 +398,7 @@ export function ViewsTab() {
                 <thead>
                   <tr>
                     <th>Viewer</th>
+                    <th>Role</th>
                     <th>Phone</th>
                     <th>Property</th>
                     <th>City</th>
@@ -387,9 +408,10 @@ export function ViewsTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((v) => (
+                  {(filter ? filtered : tableRows).map((v) => (
                     <tr key={v.id}>
                       <td className="font-semibold text-navy">{v.viewer}</td>
+                      <td className="text-xs">{v.viewerRole ? roleName(v.viewerRole) : "—"}</td>
                       <td className="text-sm">
                         {v.viewerPhone ? (
                           <a href={`tel:${v.viewerPhone}`} className="font-bold text-accent hover:underline">
@@ -415,6 +437,9 @@ export function ViewsTab() {
                 </tbody>
               </table>
             </div>
+            {!filter && (
+              <Pagination page={tablePage} totalPages={tableQ.data?.totalPages ?? 1} onPageChange={setTablePage} />
+            )}
           </Section>
         </>
       )}

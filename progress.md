@@ -19,6 +19,17 @@
 
 ## ✅ Completed
 
+### Boss list 09-28, first pass: P1 bugs + P3 quick wins *(09-28)*
+- [x] **#7 Admin listing search by Property ID:** the public "Property ID" is `#` + the last 8 characters of the id (`propertyCode()` in `@nxtsft/shared`). Search used to need the full id; it now matches the code with or without "#", in any case.
+- [x] **#1 Reports › Registered Users:** the ID column is now **Property ID**. It lists each user's listings as clickable `#CODE` links (up to 10) and they appear in the CSV. 2,405 of 2,730 users have one.
+- [x] **#3 Lead Management filter:** the chips were hard-coded (Hot/Warm/Cold/New), so Payment Pending (32) and Listed were unreachable, and the list stopped at 50. The chips now come from real statuses with counts (`admin.leads.statusCounts`), with Prev/Next paging (all 809 reachable). The Lead column shows the lead's own name and phone instead of the linked account. An assignee whose role changed shows as "(former rep)" instead of blank.
+- [x] **Commission amounts were shown ÷100:** Commission.amount/dealValue are stored in rupees, but Reports divided by 100 (₹500 showed as ₹5). Fixed.
+- [x] **#14 (partial) Reports data loss:** staff names were looked up only among users whose current role is sales/virtual-rep/supervisor, so a changed or disabled rep turned into "—". They are now resolved by id. Staff Performance includes former reps who have activity in the period.
+- [x] **#11 Property Views:** the table is paged server-side (25 per page, 48 pages on prod). The stats still use the latest 200 views.
+- [x] **#12 Home Buyer Activity Feed:** shows mobile (tap-to-call) and role; search by mobile.
+- [x] **#13 Billing:** Recent Payments has a Role column (and CSV); stat cards are 2-up on mobile. "Download Statement" only showed a fake "PDF downloading…" toast; it now downloads the payments CSV.
+- [x] Verified: tsc clean. In-process read-only checks against prod cover all of the above (search variants, counts, 17-page walk, report IDs, ₹500 commission, view pages, feed role/phone, billing role). Admin screens not browser-tested (no admin session on prod).
+
 ### Admin dashboard fixes: revenue, enquiry delete, Commercial, leads download *(09-27)*
 - [x] **Total Revenue was wrong (₹999):** it summed only successful Payment rows, but admin grants and rep payment links (Razorpay webhook) create a Subscription with no Payment. New `packages/trpc/src/revenue.ts` counts subscriptions (status ≠ Failed) plus successful non-subscription payments (credit packs, boosts), so each sale is counted once. Used by `admin.stats` and `superAdmin.stats`. Prod now reads **₹8,991** (10 × Trail Plan, one of them ₹0).
 - [x] **Delete enquiry:** `contact.delete` (adminProcedure, hard delete; nothing references Enquiry) plus a trash button with confirm in the Contact Enquiries table. Sales staff get FORBIDDEN.

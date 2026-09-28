@@ -88,15 +88,25 @@ export const propertyViewsRouter = router({
 
   // Platform-wide view events for Admin §6.7 Property Views Analytics
   analytics: staffProcedure
-    .input(z.object({ limit: z.number().int().min(1).max(200).default(50) }).optional())
+    .input(
+      z
+        .object({
+          limit: z.number().int().min(1).max(200).default(50),
+          page: z.number().int().min(1).max(100000).optional(), // omitted = latest `limit`
+        })
+        .optional(),
+    )
     .query(async ({ input }) => {
+      const limit = input?.limit ?? 50;
+      const page = input?.page ?? 1;
       const rows = await prisma.propertyView.findMany({
         include: {
           ...viewWithProperty,
-          user: { select: { id: true, name: true, email: true, phone: true } },
+          user: { select: { id: true, name: true, email: true, phone: true, role: true } },
         },
         orderBy: { createdAt: "desc" },
-        take: input?.limit ?? 50,
+        take: limit,
+        skip: (page - 1) * limit,
       });
 
       const [totalViews, unlockedViews] = await Promise.all([
@@ -111,9 +121,10 @@ export const propertyViewsRouter = router({
         createdAt: v.createdAt,
         viewer: v.user ? v.user.name : "Anonymous",
         viewerPhone: v.user?.phone ?? null,
+        viewerRole: v.user?.role ?? null,
         property: v.property ? { ...v.property, price: Number(v.property.price) } : null,
       }));
 
-      return { items, totalViews, unlockedViews };
+      return { items, totalViews, unlockedViews, page, totalPages: Math.max(1, Math.ceil(totalViews / limit)) };
     }),
 });

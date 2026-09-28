@@ -52,6 +52,7 @@ import { SITE_URL } from "@/lib/site";
 import { toEmbedUrl } from "@/lib/youtube";
 import { tagClass } from "@/lib/propertyTags";
 import { typeLabel } from "@/lib/propertyTypeLabel";
+import { propertyCode } from "@nxtsft/shared/utils";
 
 function formatPrice(price: number): string {
   if (price >= 1_00_00_000) return `₹${(price / 1_00_00_000).toFixed(2)} Cr`;
@@ -686,7 +687,7 @@ export default function PropertyDetailClient({ slug }: { slug: string }) {
             <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
               <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-secondary/60 px-2.5 py-1 font-mono text-xs font-semibold tracking-wide text-muted-foreground">
                 <span className="text-[10px] font-sans font-medium uppercase tracking-wider opacity-70">Property ID</span>
-                #{property.id.slice(-8).toUpperCase()}
+                {propertyCode(property.id)}
               </div>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">

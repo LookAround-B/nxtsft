@@ -627,12 +627,21 @@ export const adminRouter = router({
         }
         // A pasted URL (https://.../properties/<slug>) reduces to its last
         // path segment so admins can search by copy-pasting the live link.
-        const term = input.search?.trim().replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop() ?? "";
-        if (term) {
+        // A Property ID as shown on the listing page ("#K2Q8ZT1X", last 8 of
+        // the id upper-cased) is matched against the end of the real id.
+        const raw = input.search?.trim() ?? "";
+        const code = /^#?[a-z0-9]{6,12}$/i.test(raw) ? raw.replace(/^#/, "").toLowerCase() : null;
+        const term = raw.replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop() ?? "";
+        if (code || term) {
           where.OR = [
-            { id: term },
-            { slug: { contains: term, mode: "insensitive" } },
-            { title: { contains: term, mode: "insensitive" } },
+            ...(code ? [{ id: { endsWith: code } }] : []),
+            ...(term ? [{ id: term }] : []),
+            ...(term
+              ? [
+                  { slug: { contains: term, mode: "insensitive" as const } },
+                  { title: { contains: term, mode: "insensitive" as const } },
+                ]
+              : []),
           ];
         }
 
@@ -1361,6 +1370,8 @@ export const adminRouter = router({
               select: { id: true, title: true, slug: true, status: true, freeListing: true, boostExpiry: true },
             },
             user: { select: { id: true, name: true, email: true } },
+            // Resolved by id, so a rep whose role later changed still shows.
+            assignedTo: { select: { id: true, name: true, role: true, active: true } },
           },
           orderBy: { createdAt: "desc" },
           take: limit + 1,
@@ -1371,6 +1382,14 @@ export const adminRouter = router({
         const page = hasMore ? items.slice(0, limit) : items;
         return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
       }),
+
+    // Per-status totals for the Lead Management filter chips.
+    statusCounts: adminProcedure.query(async () => {
+      const rows = await prisma.lead.groupBy({ by: ["status"], _count: { _all: true } });
+      return rows
+        .map((r) => ({ status: r.status, count: r._count._all }))
+        .sort((a, b) => b.count - a.count);
+    }),
   }),
 
   // Audit log
@@ -1418,6 +1437,7 @@ export const adminRouter = router({
         userFilter.OR = [
           { name: { contains: search, mode: "insensitive" } },
           { email: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search } },
         ];
       }
       const where: NonNullable<Parameters<typeof prisma.propertyView.findMany>[0]>["where"] = {
@@ -1428,7 +1448,7 @@ export const adminRouter = router({
       const views = await prisma.propertyView.findMany({
         where,
         include: {
-          user: { select: { id: true, name: true, email: true } },
+          user: { select: { id: true, name: true, email: true, phone: true, role: true } },
           property: {
             select: {
               id: true,

@@ -10,12 +10,26 @@ import { PageHead } from "./PageHead";
 
 export function LeadsTab() {
   const [filter, setFilter] = useState<string>("All");
+  // Cursor stack for Prev/Next paging (one entry per page visited).
+  const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
+  const pickFilter = (s: string) => {
+    setFilter(s);
+    setCursors([undefined]);
+  };
   // LA-342: leads ticked in the unassigned queue + the chosen supervisor.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [supervisorId, setSupervisorId] = useState("");
   const utils = trpc.useUtils();
-  const dbLeadsQ = trpc.admin.leads.list.useQuery({ limit: 50, status: filter === "All" ? undefined : filter });
+  const dbLeadsQ = trpc.admin.leads.list.useQuery({
+    limit: 50,
+    status: filter === "All" ? undefined : filter,
+    cursor: cursors[cursors.length - 1],
+  });
   const dbLeads = dbLeadsQ.data?.items ?? [];
+  const countsQ = trpc.admin.leads.statusCounts.useQuery();
+  const counts = countsQ.data ?? [];
+  const totalCount = counts.reduce((a, c) => a + c.count, 0);
+  const shownCount = filter === "All" ? totalCount : counts.find((c) => c.status === filter)?.count ?? 0;
 
   const repsQ = trpc.admin.teamMembers.useQuery({ page: 1, limit: 100 });
   const reps = (repsQ.data?.items ?? []).filter((user) => ["sales", "virtual-rep"].includes(user.role));
@@ -192,13 +206,13 @@ export function LeadsTab() {
       </Section>
       <Section title="Filter by status">
         <div className="flex flex-wrap gap-2">
-          {["All", "Hot", "Warm", "Cold", "New"].map((s) => (
+          {[{ status: "All", count: totalCount }, ...counts].map(({ status: s, count }) => (
             <button
               key={s}
-              onClick={() => setFilter(s)}
+              onClick={() => pickFilter(s)}
               className={`rounded-full border px-3 py-1 text-xs font-semibold ${filter === s ? "border-accent bg-accent text-accent-foreground" : "border-border bg-white"}`}
             >
-              {s}
+              {s} <span className="opacity-70">({count})</span>
             </button>
           ))}
         </div>
@@ -229,8 +243,8 @@ export function LeadsTab() {
                 <tr key={l.id}>
                   <td className="font-mono text-[11px]">{l.id.slice(0, 8)}…</td>
                   <td>
-                    <div className="font-semibold text-navy">{l.user?.name ?? "—"}</div>
-                    <div className="text-xs text-muted-foreground">{l.user?.email}</div>
+                    <div className="font-semibold text-navy">{l.name || l.user?.name || "—"}</div>
+                    <div className="text-xs text-muted-foreground">{l.phone || l.user?.email}</div>
                   </td>
                   <td className="text-xs">
                     {l.property?.title ?? "—"}
@@ -279,6 +293,9 @@ export function LeadsTab() {
                           {reps.length === 0 ? "No sales reps" : "Unassigned — pick rep"}
                         </option>
                       )}
+                      {l.assignedTo && !reps.some((r) => r.id === l.assignedTo!.id) && (
+                        <option value={l.assignedTo.id}>{l.assignedTo.name} (former rep)</option>
+                      )}
                       {reps.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.name}
@@ -290,6 +307,27 @@ export function LeadsTab() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+          <span>
+            Page {cursors.length} · showing {dbLeads.length} of {shownCount} {filter === "All" ? "leads" : `"${filter}" leads`}
+          </span>
+          <div className="flex gap-2">
+            <button
+              disabled={cursors.length === 1 || dbLeadsQ.isFetching}
+              onClick={() => setCursors((c) => c.slice(0, -1))}
+              className="rounded-lg border border-border bg-white px-3 py-1.5 font-semibold text-navy disabled:opacity-40"
+            >
+              ← Previous
+            </button>
+            <button
+              disabled={!dbLeadsQ.data?.hasMore || dbLeadsQ.isFetching}
+              onClick={() => dbLeadsQ.data?.nextCursor && setCursors((c) => [...c, dbLeadsQ.data!.nextCursor!])}
+              className="rounded-lg border border-border bg-white px-3 py-1.5 font-semibold text-navy disabled:opacity-40"
+            >
+              Next →
+            </button>
+          </div>
         </div>
       </Section>
     </>

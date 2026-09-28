@@ -1,3 +1,4 @@
+import { propertyCode } from "@nxtsft/shared";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { router, staffProcedure } from "../server";
@@ -80,6 +81,13 @@ export const reportsRouter = router({
             select: {
               id: true, name: true, email: true, phone: true,
               role: true, city: true, state: true, verified: true, joined: true,
+              // Their listings' Property IDs (searchable in Admin → Listings).
+              properties: {
+                where: { deletedAt: null },
+                select: { id: true, slug: true },
+                orderBy: { createdAt: "desc" },
+                take: 10,
+              },
             },
             orderBy: { joined: "desc" },
             take: 5000,
@@ -198,6 +206,26 @@ export const reportsRouter = router({
             orderBy: { createdAt: "desc" },
           })
         : [];
+      // Staff referenced by these rows whose role has since changed (or who
+      // were deactivated) aren't in the role-filtered lookup above; resolve
+      // them by id so their names never disappear from reports.
+      const missingStaffIds = [
+        ...new Set(
+          [
+            ...userLeads.map((l) => l.assignedToId),
+            ...dbLeadsAll.map((l) => l.assignedToId),
+            ...dbVisitsRaw.map((v) => v.salesRepId),
+            ...dbCommissions.map((c) => c.salesRepId),
+          ].filter((id): id is string => !!id && !staffById.has(id)),
+        ),
+      ];
+      if (missingStaffIds.length) {
+        const former = await prisma.user.findMany({
+          where: { id: { in: missingStaffIds } },
+          select: { id: true, name: true, supervisorId: true, role: true },
+        });
+        for (const f of former) staffById.set(f.id, f);
+      }
       const leadByUser = new Map<string, (typeof userLeads)[number]>();
       for (const l of userLeads) {
         if (l.userId && !leadByUser.has(l.userId)) leadByUser.set(l.userId, l);
@@ -233,6 +261,7 @@ export const reportsRouter = router({
         const a = attrFor(u.id, u.role);
         return {
           id: u.id.slice(-6).toUpperCase(),
+          propertyIds: u.properties.map((p) => ({ code: propertyCode(p.id), slug: p.slug })),
           name: u.name,
           email: u.email,
           phone: u.phone ?? "—",
@@ -370,7 +399,16 @@ export const reportsRouter = router({
       // ── Staff performance (one row per sales rep) ─────────────
       // A sales rep sees only their own row here (the rest of the snapshot is
       // already rep-scoped above); supervisors/admins still see the whole team.
-      const salesReps = staff.filter((s) => ["sales", "virtual-rep"].includes(s.role) && (!isSales || s.id === ctx.user.id));
+      const activeRepIds = new Set(
+        [...dbLeadsAll.map((l) => l.assignedToId), ...dbVisitsRaw.map((v) => v.salesRepId), ...dbCommissions.map((c) => c.salesRepId)]
+          .filter((id): id is string => !!id),
+      );
+      const salesReps = [...staffById.values()].filter(
+        (s) =>
+          (["sales", "virtual-rep"].includes(s.role) || activeRepIds.has(s.id)) &&
+          s.role !== "supervisor" &&
+          (!isSales || s.id === ctx.user.id),
+      );
       const staffPerf = salesReps.map((rep) => {
         const repLeads = dbLeadsAll.filter((l) => l.assignedToId === rep.id);
         const repVisits = dbVisitsRaw.filter((v) => v.salesRepId === rep.id);
@@ -388,10 +426,10 @@ export const reportsRouter = router({
           siteVisitsCompleted: repVisits.filter((v) => v.status === "Completed").length,
           subsCount: repSubs.length,
           subsRevenue: repSubs.reduce((a, s) => a + s.amount, 0),
-          commissionsTotal: repComms.reduce((a, c) => a + Math.round(Number(c.amount) / 100), 0),
+          commissionsTotal: repComms.reduce((a, c) => a + Number(c.amount), 0),
           commissionsPaid: repComms
             .filter((c) => c.status === "cleared")
-            .reduce((a, c) => a + Math.round(Number(c.amount) / 100), 0),
+            .reduce((a, c) => a + Number(c.amount), 0),
         };
       });
 
@@ -402,8 +440,8 @@ export const reportsRouter = router({
         supervisor: c.salesRep.supervisorId
           ? staffById.get(c.salesRep.supervisorId)?.name ?? "—"
           : "—",
-        dealValue: Math.round(Number(c.dealValue) / 100),
-        amount: Math.round(Number(c.amount) / 100),
+        dealValue: Number(c.dealValue), // stored in rupees
+        amount: Number(c.amount), // stored in rupees
         status: c.status as "pending" | "cleared",
         period: c.periodMonth ?? "—",
         note: c.note ?? "—",

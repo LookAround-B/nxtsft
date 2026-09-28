@@ -1,9 +1,11 @@
 "use client";
-import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
 import { downloadCSV } from "@/lib/download-csv";
 import { TabHeader } from "./shared";
 import { trpc } from "@/lib/trpc";
+import { ROLE_META } from "@/lib/auth";
+
+const roleName = (role: string) => (ROLE_META as Record<string, { label: string }>)[role]?.label ?? role;
 
 function fmtRupees(amount: number) {
   if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)} Cr`;
@@ -16,6 +18,21 @@ export function BillingTab() {
   const statsQ = trpc.superAdmin.billingStats.useQuery();
   const stats = statsQ.data;
   const payments = stats?.recentPayments ?? [];
+  const exportPayments = () =>
+    downloadCSV(
+      "payments.csv",
+      ["ID", "Customer", "Role", "Phone", "Amount", "Status", "Method", "Date"],
+      payments.map((p) => [
+        p.id.slice(-8),
+        p.userName,
+        roleName(p.userRole),
+        p.userPhone ?? "",
+        fmtRupees(p.amount),
+        p.status,
+        p.method,
+        new Date(p.createdAt).toLocaleDateString("en-IN"),
+      ]),
+    );
 
   return (
     <>
@@ -24,10 +41,10 @@ export function BillingTab() {
         subtitle="Subscriptions, invoices and payouts."
         action={
           <button
-            onClick={() => toast.success("Statement PDF downloading…")}
+            onClick={exportPayments}
             className="rounded-md bg-gold px-3 py-2 text-xs font-bold text-navy-deep transition hover:opacity-90"
           >
-            Download Statement
+            Download Statement (CSV)
           </button>
         }
       />
@@ -35,7 +52,7 @@ export function BillingTab() {
         <p className="py-8 text-center text-sm text-muted-foreground">Loading billing data…</p>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             <StatCard label="MRR" value={stats ? fmtRupees(stats.mrr) : "—"} sub="active subscriptions" />
             <StatCard label="ARR Projection" value={stats ? fmtRupees(stats.arr) : "—"} sub="MRR × 12" />
             <StatCard label="Outstanding" value={stats ? fmtRupees(stats.outstanding) : "—"} sub={`${stats?.outstandingCount ?? 0} failed/expired`} accent="text-amber-600" />
@@ -46,21 +63,7 @@ export function BillingTab() {
             title="Recent Payments"
             action={
               <button
-                onClick={() =>
-                  downloadCSV(
-                    "payments.csv",
-                    ["ID", "Customer", "Phone", "Amount", "Status", "Method", "Date"],
-                    payments.map((p) => [
-                      p.id.slice(-8),
-                      p.userName,
-                      p.userPhone ?? "",
-                      fmtRupees(p.amount),
-                      p.status,
-                      p.method,
-                      new Date(p.createdAt).toLocaleDateString("en-IN"),
-                    ]),
-                  )
-                }
+                onClick={exportPayments}
                 className="text-xs font-semibold text-accent hover:underline"
               >
                 Export CSV →
@@ -76,6 +79,7 @@ export function BillingTab() {
                     <tr>
                       <th className="py-2">ID</th>
                       <th>Customer</th>
+                      <th>Role</th>
                       <th>Phone</th>
                       <th>Amount</th>
                       <th>Status</th>
@@ -88,6 +92,7 @@ export function BillingTab() {
                       <tr key={p.id}>
                         <td className="font-mono text-xs">{p.id.slice(-8)}</td>
                         <td className="font-semibold text-navy">{p.userName}</td>
+                        <td className="whitespace-nowrap text-xs">{roleName(p.userRole)}</td>
                         <td className="text-sm">
                           {p.userPhone ? (
                             <a href={`tel:${p.userPhone}`} className="font-bold text-accent hover:underline">

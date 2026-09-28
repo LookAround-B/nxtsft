@@ -692,8 +692,8 @@ export function ReportsDashboard({
         count={fUsers.length}
         onExport={() =>
           dlCSV("registered-users.csv",
-            ["ID", "Name", "Email", "Phone", "Job Category", "Category", "City", "State", "Builder", "Supervisor", "Sales Staff", "Registered On", "Status"],
-            fUsers.map((u) => [u.id, u.name, u.email, u.phone, u.jobCategory, u.category, u.city, u.state, u.builder, u.supervisor, u.salesStaff, u.registeredOn, u.status]),
+            ["Property ID", "Name", "Email", "Phone", "Job Category", "Category", "City", "State", "Builder", "Supervisor", "Sales Staff", "Registered On", "Status"],
+            fUsers.map((u) => [u.propertyIds.map((p) => p.code).join(" ") || "—", u.name, u.email, u.phone, u.jobCategory, u.category, u.city, u.state, u.builder, u.supervisor, u.salesStaff, u.registeredOn, u.status]),
           )
         }
       >
@@ -703,7 +703,7 @@ export function ReportsDashboard({
           <div className="overflow-x-auto"><table className="portal-table">
             <thead>
               <tr>
-                <th className="py-2">ID</th><th>Name</th><th>Phone</th><th>Job Category</th><th>Category</th><th>City</th>
+                <th className="py-2">Property ID</th><th>Name</th><th>Phone</th><th>Job Category</th><th>Category</th><th>City</th>
                 <th>State</th><th>Builder</th><th>Supervisor</th><th>Sales</th>
                 <th>Registered</th><th>Status</th><th>Latest Comment</th>
               </tr>
@@ -711,7 +711,21 @@ export function ReportsDashboard({
             <tbody>
               {fUsers.map((u, i) => (
                 <tr key={`${u.id}-${i}`}>
-                  <td className="font-mono text-xs">{u.id}</td>
+                  <td className="font-mono text-xs">
+                    {u.propertyIds.length === 0
+                      ? "—"
+                      : u.propertyIds.map((p) => (
+                          <a
+                            key={p.slug}
+                            href={`/properties/${p.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block text-accent hover:underline"
+                          >
+                            {p.code}
+                          </a>
+                        ))}
+                  </td>
                   <td><div className="font-semibold text-navy">{u.name}</div><div className="text-[10px] text-muted-foreground">{u.email}</div></td>
                   <td className="text-xs">
                     {u.phone && u.phone !== "—" ? (
