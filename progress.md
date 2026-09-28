@@ -19,6 +19,11 @@
 
 ## ✅ Completed
 
+### #5 Sales Rep / Virtual Rep can edit existing listings *(09-28)*
+- [x] Sales Portal › Listings: **Edit listing** on every customer listing opens the full "Modify listing" page (`/list/edit/[id]?lead=<leadId>`). Previously it was owner/admin only, and reps had just a 4-field inline editor. Reps can change photos and all property details; the **owner's contact details are locked** (not on the form, and not accepted by the server).
+- [x] Rep edits go through admin approval via `leads.submitListingEdit` (lead must be assigned to the rep; supervisors are scoped to their team). RERA and its label are now accepted there too, validated like the owner flow.
+- [x] Verified on prod (throwaway rep, customer, listing and lead, all deleted incl. 2 SalesActivity rows): the assigned rep's edit (title, photos, RERA, bathrooms) became a pending request; another rep got FORBIDDEN; the live listing was unchanged until approval. Browser at 400px: Sales Portal → Edit listing → locked-contact note → submit → back to Sales Portal, and the pending request held the new title and description.
+
 ### Listing description: Auto-generate (no AI) *(09-28)*
 - [x] Boss chose auto-generate over AI (no key, no invented facts). **✨ Auto-generate** next to Description on /list (`lib/describeListing.ts`): it tidies the seller's text (spaces, blank lines, bullets, sentence capitals, space after full stops; web addresses and decimals untouched; repeated lines dropped). It then builds: an intro ("A 3 BHK apartment available for sale in Gachibowli, Hyderabad, Telangana."), the seller's own text, **Property highlights** (type, location, area + built-up, price or rent per month in Lakh/Crore, possession, RERA, listed by) and **Amenities** bullets, all from the form's own fields. Clicking again replaces the generated parts, so there is no duplication. The textarea grows for long text.
 - [x] Verified: tsc clean. The generator was run on messy text, an empty rent case and URL/decimal edge cases, and is idempotent. The button was not clicked in a browser (description is deep in the wizard).

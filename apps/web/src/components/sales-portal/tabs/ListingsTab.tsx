@@ -1,5 +1,5 @@
 "use client";
-import { Building2 } from "lucide-react";
+import { Building2, Pencil } from "lucide-react";
 import { Section } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { Head, type DbLead } from "./shared";
@@ -72,7 +72,13 @@ export function ListingsTab() {
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={`/list/edit/${l.property!.id}?lead=${l.id}`}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] font-semibold text-navy hover:border-accent hover:text-accent"
+                >
+                  <Pencil size={11} /> Edit listing
+                </a>
                 <span
                   className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
                     statusTone[l.property!.status] ?? "bg-muted text-muted-foreground"

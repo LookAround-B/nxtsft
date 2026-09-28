@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, MapPin, Clock, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -53,13 +53,19 @@ export default function EditListingPage() {
 
   const propertyQ = trpc.properties.get.useQuery({ id }, { enabled: !!id });
   const submitEdit = trpc.properties.submitEdit.useMutation();
+  const repSubmitEdit = trpc.leads.submitListingEdit.useMutation();
+  // Sales Rep / Virtual Rep editing a customer's listing, reached from the
+  // Sales Portal with the lead it belongs to. The server checks the lead is
+  // theirs; owner contact details are never editable from here.
+  const leadId = useSearchParams().get("lead");
   const directUpdate = trpc.properties.update.useMutation();
   const uploadImage = trpc.media.uploadImage.useMutation();
 
   // Admins/super-admins can edit any listing and publish immediately (they are
   // the approvers) — sellers go through the edit-request/approval flow.
   const isAdmin = !!session && ["admin", "super-admin"].includes(session.role as string);
-  const backHref = isAdmin ? "/admin-portal#listings" : "/user-portal#mylist";
+  const isRep = !!session && ["sales", "virtual-rep"].includes(session.role as string) && !!leadId;
+  const backHref = isAdmin ? "/admin-portal#listings" : isRep ? "/sales-portal#listings" : "/user-portal#mylist";
 
   const [form, setForm] = useState<EditForm | null>(null);
   const [original, setOriginal] = useState<EditForm | null>(null);
@@ -262,6 +268,10 @@ export default function EditListingPage() {
         await directUpdate.mutateAsync({ id, ...changed });
         setSubmitting(false);
         toast.success("Listing updated — changes are live.");
+      } else if (isRep && leadId) {
+        await repSubmitEdit.mutateAsync({ leadId, ...changed });
+        setSubmitting(false);
+        toast.success("Changes submitted for admin approval.");
       } else {
         await submitEdit.mutateAsync({ id, ...changed });
         setSubmitting(false);
@@ -298,7 +308,7 @@ export default function EditListingPage() {
   if (propertyQ.isError || !property) {
     return <GuardCard title="Listing not found" body="This listing may have been removed." />;
   }
-  if (property.ownerId !== session.id && !isAdmin) {
+  if (property.ownerId !== session.id && !isAdmin && !isRep) {
     return <GuardCard title="Not your listing" body="You can only modify listings you own." />;
   }
 
@@ -312,7 +322,7 @@ export default function EditListingPage() {
           href={backHref}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition hover:text-accent"
         >
-          <ArrowLeft size={15} /> {isAdmin ? "Back to listings" : "Back to my listings"}
+          <ArrowLeft size={15} /> {isAdmin || isRep ? "Back to listings" : "Back to my listings"}
         </Link>
 
         {/* Review notice */}
@@ -339,6 +349,12 @@ export default function EditListingPage() {
         </div>
 
         <h1 className="mt-6 font-display text-2xl font-black text-navy sm:text-3xl">Modify listing</h1>
+        {isRep && (
+          <p className="mt-2 rounded-xl bg-secondary/50 px-4 py-2.5 text-xs text-muted-foreground">
+            You&apos;re editing this listing for your customer. You can change photos and all property details;
+            the owner&apos;s contact details are locked and can&apos;t be changed.
+          </p>
+        )}
 
         <div className="mt-6 space-y-6 rounded-2xl border border-border bg-white p-6 shadow-sm sm:p-8">
           {/* Title */}

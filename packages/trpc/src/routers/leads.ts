@@ -31,7 +31,9 @@ import {
   safeUrlArraySchema,
   latitudeSchema,
   longitudeSchema,
+  reraSchema,
 } from "../sanitize";
+import { assertReraValid } from "./properties";
 import { isSalesRep, leadScope, teamRepIds } from "../teamScope";
 
 /** True when a lead sits in the calling supervisor's team scope. */
@@ -851,9 +853,13 @@ export const leadsRouter = router({
         locality: geoTextSchema.optional(),
         latitude: latitudeSchema.optional(),
         longitude: longitudeSchema.optional(),
+        rera: reraSchema.optional(),
+        reraLabel: safeString(20).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
+      // Owner contact details are deliberately NOT editable here: the listing
+      // stays on the customer's account and their phone / email never change.
       const { leadId, ...changes } = input;
 
       const lead = await prisma.lead.findUnique({ where: { id: leadId } });
@@ -870,9 +876,12 @@ export const leadsRouter = router({
 
       const property = await prisma.property.findFirst({
         where: { id: lead.propertyId, deletedAt: null },
-        select: { id: true, ownerId: true, title: true },
+        select: { id: true, ownerId: true, title: true, reraLabel: true, location: { select: { city: true } } },
       });
       if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Linked listing not found." });
+      if (changes.rera !== undefined) {
+        assertReraValid(property.location?.city ?? "", changes.rera, changes.reraLabel ?? property.reraLabel ?? undefined);
+      }
 
       // Keep only fields the rep actually changed, so the admin's review diff is clean.
       const proposed = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
