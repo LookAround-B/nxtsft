@@ -236,6 +236,11 @@ export default function ListPropertyPage() {
   const quotaQ = trpc.subscriptions.sellerListingQuota.useQuery(undefined, {
     enabled: !!submitted && isSellerRole(session?.role),
   });
+  // Up-front plan cap check, so a seller at their limit sees "Upgrade" before
+  // filling the form (the server enforces the same cap on submit).
+  const capQ = trpc.subscriptions.sellerListingQuota.useQuery(undefined, {
+    enabled: !submitted && isSellerRole(session?.role),
+  });
   // LA-343: does this seller's active plan (≥₹4,999) include the verified
   // badge set? Drives the live-vs-grayed badge preview in step 4.
   const badgesQ = trpc.subscriptions.mySellerBadges.useQuery(undefined, { enabled: !!session });
@@ -771,6 +776,31 @@ export default function ListPropertyPage() {
               </Link>
             </>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Plan cap reached (self-serve only; reps list for customers) ───────────
+  const capAllowance = capQ.data ? (capQ.data.hasPlan ? capQ.data.allowance : 1) : null;
+  if (!isRep && capQ.data && capAllowance !== null && capQ.data.inUse >= capAllowance) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-5">
+        <div className="mx-auto max-w-md rounded-3xl border border-border bg-white p-10 text-center shadow-sm">
+          <Building2 className="mx-auto mb-4 h-10 w-10 text-accent" />
+          <h2 className="font-display text-xl font-black text-navy">You&apos;ve used your listing{capAllowance === 1 ? "" : "s"}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {capQ.data.hasPlan ? `Your ${capQ.data.planName}` : "The free plan"} allows {capAllowance} listing
+            {capAllowance === 1 ? "" : "s"} and you have {capQ.data.inUse}. Upgrade your plan to add more.
+          </p>
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <Link href="/pricing" className="rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white hover:opacity-90">
+              {capQ.data.hasPlan ? "Upgrade plan" : "View plans"}
+            </Link>
+            <Link href="/user-portal#mylist" className="rounded-xl border border-border px-5 py-2.5 text-sm font-semibold text-navy">
+              My listings
+            </Link>
+          </div>
         </div>
       </div>
     );

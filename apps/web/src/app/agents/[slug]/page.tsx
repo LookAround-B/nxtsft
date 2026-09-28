@@ -42,14 +42,14 @@ export async function generateMetadata({
   const agent = await getAgent(slug);
 
   if (!agent) {
-    return { title: "Consultant not found", robots: { index: false, follow: false } };
+    return { title: "Agent not found", robots: { index: false, follow: false } };
   }
 
   const meta = (agent.metadata ?? {}) as AgentMeta;
   const canonical = `/agents/${agent.slug}`;
   const specialties = meta.specialties?.length ? ` — ${meta.specialties.slice(0, 2).join(", ")}` : "";
 
-  const title = `${agent.name}${agent.city ? `, Virtual Property Consultant in ${agent.city}` : ", Virtual Property Consultant"}`;
+  const title = `${agent.name}${agent.city ? `, Property Agent in ${agent.city}` : ", Property Agent"}`;
   const description =
     agent.bio?.trim() ||
     `${agent.name} is a ${agent.verified ? "verified " : ""}real estate agent${
@@ -128,7 +128,7 @@ export default async function AgentProfilePage({
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-          { "@type": "ListItem", position: 2, name: "Virtual Property Consultants", item: `${SITE_URL}/agents` },
+          { "@type": "ListItem", position: 2, name: "Agents", item: `${SITE_URL}/agents` },
           { "@type": "ListItem", position: 3, name: agent.name, item: url },
         ],
       },

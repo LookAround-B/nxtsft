@@ -121,9 +121,9 @@ export default function AgentProfileClient() {
   if (!agent) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <p className="text-lg font-bold text-navy">Consultant not found</p>
+        <p className="text-lg font-bold text-navy">Agent not found</p>
         <Link href="/agents" className="rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white hover:opacity-90">
-          Back to Virtual Property Consultants
+          Back to agents
         </Link>
       </div>
     );
@@ -150,12 +150,12 @@ export default function AgentProfileClient() {
             <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
               <Link href="/" className="hover:text-accent">Home</Link>
               <span>/</span>
-              <Link href="/agents" className="hover:text-accent">Virtual Property Consultants</Link>
+              <Link href="/agents" className="hover:text-accent">Agents</Link>
               <span>/</span>
               <span className="font-semibold text-navy">{agent.name}</span>
             </div>
             <Link href="/agents" className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition hover:text-accent">
-              <ArrowLeft size={14} /> Back to consultants
+              <ArrowLeft size={14} /> Back to agents
             </Link>
             <div className="mt-4 flex flex-col gap-6 sm:flex-row sm:items-start">
               <div className="relative shrink-0">
@@ -178,11 +178,11 @@ export default function AgentProfileClient() {
                   )}
                   {agent.verified && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-bold text-accent">
-                      <ShieldCheck size={10} /> RERA Verified
+                      <ShieldCheck size={10} /> Verified
                     </span>
                   )}
                 </div>
-                <div className="mt-1 text-sm text-muted-foreground">Senior RERA Consultant · Partner since {agent.since}</div>
+                <div className="mt-1 text-sm text-muted-foreground">Agent · Partner since {agent.since}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-4">
                   {(agent.reviews ?? 0) > 0 ? (
                     <div className="flex items-center gap-2">
@@ -424,7 +424,7 @@ export default function AgentProfileClient() {
                   {[
                     `${agent.deals ?? 0} successful transactions`,
                     `${yrs} years of market expertise`,
-                    agent.verified ? "RERA certified & verified" : "Active NxtSft.com partner",
+                    agent.verified ? "Verified NxtSft.com partner" : "Active NxtSft.com partner",
                     `Replies within ${agent.responseTime ?? "24 hrs"}`,
                     `Portfolio value: ${agent.portfolioValue ?? "Available on request"}`,
                   ].map((point) => (

@@ -1,3 +1,4 @@
+import { assertListingCap } from "../freeTier";
 import { buyerLeadWhere } from "../sellerInsights";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -693,6 +694,9 @@ export const propertiesRouter = router({
         freshCustomer = { id: customer.id, name: customer.name, phone: customer.phone, email: freshLead.email };
       }
 
+      // Plan listing cap — only when the user lists for themselves.
+      if (ownerId === ctx.user.id) await assertListingCap(ctx.user);
+
       const slug = generateSlug(input.title, city);
 
       const property = await prisma.property.create({
@@ -927,6 +931,9 @@ export const propertiesRouter = router({
         pgHouseRules: safeString(2000).optional(),
         pgFood: safeString(30).optional(),
       });
+
+      // Plan listing cap for the whole file (rows are created for the uploader).
+      await assertListingCap(ctx.user, input.rows.length);
 
       const errors: { row: number; message: string }[] = [];
       // Non-fatal notes: the row was created, but not with what the sheet meant

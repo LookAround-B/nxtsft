@@ -426,6 +426,7 @@ type PlanUsage = {
   planId: string | null;
   allowance: number | null;
   used: number;
+  inUse: number;
   validTill: string | Date | null;
 };
 
@@ -436,8 +437,8 @@ type PlanUsage = {
  */
 function PlanUsageBar({ q }: { q: PlanUsage }) {
   const allowance = q.hasPlan ? q.allowance : 1;
-  const usedLabel = allowance === null ? `${q.used} listings live · Unlimited` : `${q.used}/${allowance} listings`;
-  const full = allowance !== null && q.used >= allowance;
+  const usedLabel = allowance === null ? `${q.inUse} listings · Unlimited` : `${q.inUse}/${allowance} listings`;
+  const full = allowance !== null && q.inUse >= allowance;
   const btn = "rounded-lg px-3 py-1.5 text-xs font-bold transition hover:opacity-90";
   return (
     <div
@@ -465,7 +466,7 @@ function PlanUsageBar({ q }: { q: PlanUsage }) {
         </div>
         {full && (
           <div className="mt-1 text-xs font-semibold text-amber-800">
-            All listings in your plan are used. Upgrade to showcase more.
+            You've used all the listings in your plan. Upgrade to add more.
           </div>
         )}
       </div>

@@ -72,7 +72,7 @@ const CITIES = [
   "Gurugram",
   "Noida",
 ];
-const TYPES = ["All", "RERA Consultant", "Commercial", "Builder"];
+const TYPES = ["All", "Commercial", "Builder"];
 const SORTS = [
   { id: "featured", label: "Best Match" },
   { id: "rating", label: "Highest Rated" },
@@ -240,7 +240,7 @@ export default function AgentsPage() {
             listings: (meta.listings as number | undefined) ?? 0,
             since: (meta.since as number | undefined) ?? 2020,
             featured: (meta.featured as boolean | undefined) ?? false,
-            role: "RERA Consultant",
+            role: "Agent",
             color: (meta.color as string | undefined) ?? "bg-accent",
             specialties: (meta.specialties as string[] | undefined) ?? ["Residential"],
             cities: (meta.cities as string[] | undefined) ?? [a.city],
@@ -252,7 +252,7 @@ export default function AgentsPage() {
         setAgents(enriched);
       } catch (err) {
         console.error("Failed to fetch agents:", err);
-        toast.error("Failed to load consultants");
+        toast.error("Failed to load agents");
       } finally {
         setIsLoading(false);
       }
@@ -276,7 +276,6 @@ export default function AgentsPage() {
         !(a.cities || []).some((c) => c.toLowerCase().includes(city.toLowerCase()))
       )
         return false;
-      if (type === "RERA Consultant" && !(a.role || "").includes("RERA")) return false;
       if (type === "Commercial" && !(a.role || "").includes("Commercial")) return false;
       if (type === "Builder" && !(a.role || "").includes("Builder")) return false;
       if ((a.rating || 0) < minRating) return false;
@@ -339,14 +338,14 @@ export default function AgentsPage() {
         />
         <div className="relative z-10 mx-auto max-w-4xl px-6 py-16 text-center sm:py-20">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-white/80 backdrop-blur-sm">
-            <Users size={12} /> Virtual Property Consultants Directory
+            <Users size={12} /> Virtual Consultants &amp; Agents
           </div>
           <h1 className="mt-5 font-display text-4xl font-black leading-tight text-white sm:text-5xl">
             Find the right
             <br className="hidden sm:block" /> property expert
           </h1>
           <p className="mt-4 text-base text-white/65">
-            Connect with RERA-verified virtual property consultants, commercial leasing specialists, and builders across
+            Talk to NxtSft&apos;s Virtual Property Consultants, or connect with independent property agents across
             India.
           </p>
 
@@ -373,7 +372,7 @@ export default function AgentsPage() {
               <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-white text-left shadow-2xl">
                 {quickResults.length === 0 ? (
                   <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    No consultants match &ldquo;{q.trim()}&rdquo;. Try a city or speciality.
+                    No agents match &ldquo;{q.trim()}&rdquo;. Try a city or speciality.
                   </div>
                 ) : (
                   <>
@@ -613,7 +612,7 @@ export default function AgentsPage() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-navy">
-              {filtered.length} consultant{filtered.length !== 1 ? "s" : ""}
+              {filtered.length} agent{filtered.length !== 1 ? "s" : ""}
             </span>
             {activeFilters.map((f) => (
               <span
@@ -644,7 +643,7 @@ export default function AgentsPage() {
               Top picks
             </div>
             <h2 className="font-display text-2xl font-black text-navy">
-              Featured consultants this month
+              Featured agents this month
             </h2>
             <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
               {featured.map((agent) => (
@@ -701,12 +700,12 @@ export default function AgentsPage() {
           id="agent-results"
           className="mb-2 scroll-mt-32 text-xs font-bold uppercase tracking-widest text-accent"
         >
-          {!q && city === "All" ? "All consultants" : "Results"}
+          {!q && city === "All" ? "All agents" : "Results"}
         </div>
         <h2 className="mb-6 font-display text-2xl font-black text-navy">
           {!q && city === "All"
-            ? "Browse all consultants"
-            : `${filtered.length} consultant${filtered.length !== 1 ? "s" : ""} found`}
+            ? "Browse all agents"
+            : `${filtered.length} agent${filtered.length !== 1 ? "s" : ""} found`}
         </h2>
 
         {isLoading ? (
@@ -719,7 +718,7 @@ export default function AgentsPage() {
             <div className="mb-4 grid h-14 w-14 place-items-center rounded-full bg-secondary text-muted-foreground">
               <Users size={24} strokeWidth={1.5} />
             </div>
-            <div className="font-display text-lg font-bold text-navy">No consultants found</div>
+            <div className="font-display text-lg font-bold text-navy">No agents found</div>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
               Try adjusting the city, type, or rating filter.
             </p>
@@ -752,12 +751,12 @@ export default function AgentsPage() {
               {
                 icon: Building2,
                 title: "List for free",
-                desc: "Post unlimited listings on your consultant profile. No per-listing charges.",
+                desc: "List your properties and track every lead from your own dashboard.",
               },
               {
                 icon: Award,
                 title: "Build your brand",
-                desc: "Collect verified reviews, showcase closed deals, and become a top-rated virtual property consultant.",
+                desc: "Collect verified reviews, showcase closed deals, and become a top-rated agent.",
               },
             ].map((b) => (
               <div key={b.title} className="flex items-start gap-4">
@@ -774,13 +773,13 @@ export default function AgentsPage() {
           <div className="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-accent/20 bg-white p-8 text-center shadow-sm sm:flex-row sm:text-left">
             <div className="flex-1">
               <div className="text-xs font-bold uppercase tracking-widest text-accent">
-                Are you a RERA-certified virtual property consultant?
+                Are you a property agent?
               </div>
               <div className="mt-1 font-display text-xl font-black text-navy">
                 Join NxtSft.com as a verified partner
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Free to list · No hidden fees · RERA badge on your profile
+                1 free listing · Upgrade anytime · No hidden fees
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:flex-row">

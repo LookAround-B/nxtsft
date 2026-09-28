@@ -882,7 +882,10 @@ export const subscriptionsRouter = router({
     });
 
     if (!sub) {
-      return { hasPlan: false, planName: null, planId: null, validTill: null, allowance: 0, used, remaining: 0, exhausted: true };
+      const inUse = await prisma.property.count({
+        where: { ownerId: ctx.user.id, deletedAt: null, status: { in: ["Active", "Pending"] } },
+      });
+      return { hasPlan: false, planName: null, planId: null, validTill: null, allowance: 0, used, inUse, remaining: 0, exhausted: true };
     }
 
     // Parse the listing allowance from the plan's feature list. "Unlimited"
@@ -893,7 +896,10 @@ export const subscriptionsRouter = router({
     const remaining = allowance === null ? null : Math.max(0, allowance - used);
     const exhausted = allowance !== null && used >= allowance;
 
-    return { hasPlan: true, planName: sub.planName, planId: sub.planId, validTill: sub.endDate, allowance, used, remaining, exhausted };
+    const inUse = await prisma.property.count({
+      where: { ownerId: ctx.user.id, deletedAt: null, status: { in: ["Active", "Pending"] } },
+    });
+    return { hasPlan: true, planName: sub.planName, planId: sub.planId, validTill: sub.endDate, allowance, used, inUse, remaining, exhausted };
   }),
 
   cancel: protectedProcedure

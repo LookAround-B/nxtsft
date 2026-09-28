@@ -1,4 +1,5 @@
 import prisma from "@nxtsft/db";
+import { TRPCError } from "@trpc/server";
 
 // Moving a paying owner's listings off the free tier.
 //
@@ -51,4 +52,55 @@ export async function liftFreeTier(userId: string, planId: string): Promise<numb
     await prisma.property.updateMany({ where: { id: { in: ids } }, data: { freeListing: false } });
   }
   return ids.length;
+}
+
+// ── Listing cap (boss 09-28): free users get 1 listing; a paid owner plan
+// allows its own number (from the plan's features, so new / edited plans apply
+// automatically; "Unlimited listings" = no cap). Applies to self-serve users
+// listing for themselves. Staff listing on a customer's behalf are not capped.
+// Existing listings are never touched; only NEW ones are refused over the cap.
+export const FREE_LISTING_ALLOWANCE = 1;
+const UNCAPPED_ROLES = ["sales", "virtual-rep", "admin", "super-admin", "supervisor", "support-admin"];
+
+/** Listings that occupy a slot: live or awaiting approval. */
+const IN_USE_STATUSES = ["Active", "Pending"];
+
+export async function listingCap(userId: string): Promise<{
+  allowance: number | null;
+  inUse: number;
+  planName: string | null;
+}> {
+  const sub = await prisma.subscription.findFirst({
+    where: { userId, status: "Active", endDate: { gt: new Date() } },
+    orderBy: { createdAt: "desc" },
+    select: { planId: true, planName: true },
+  });
+  const plan = sub
+    ? await prisma.plan.findUnique({ where: { id: sub.planId }, select: { type: true, features: true } })
+    : null;
+  const ownerPlan = plan && plan.type.startsWith("owner") ? plan : null;
+  const inUse = await prisma.property.count({
+    where: { ownerId: userId, deletedAt: null, status: { in: IN_USE_STATUSES } },
+  });
+  return {
+    allowance: ownerPlan ? listingAllowance(ownerPlan.features) : FREE_LISTING_ALLOWANCE,
+    inUse,
+    planName: ownerPlan ? sub!.planName : null,
+  };
+}
+
+/** Throw a friendly FORBIDDEN when `adding` more listings would exceed the cap. */
+export async function assertListingCap(user: { id: string; role: string }, adding = 1): Promise<void> {
+  if (UNCAPPED_ROLES.includes(user.role)) return;
+  const cap = await listingCap(user.id);
+  if (cap.allowance === null || cap.inUse + adding <= cap.allowance) return;
+  const left = Math.max(0, cap.allowance - cap.inUse);
+  const planLabel = cap.planName ? `Your ${cap.planName}` : "The free plan";
+  throw new TRPCError({
+    code: "FORBIDDEN",
+    message:
+      adding > 1 && left > 0
+        ? `${planLabel} allows ${cap.allowance} listing${cap.allowance === 1 ? "" : "s"}; you can add ${left} more, but this file has ${adding}. Upgrade your plan to add more.`
+        : `${planLabel} allows ${cap.allowance} listing${cap.allowance === 1 ? "" : "s"} and you've used ${cap.inUse}. Upgrade your plan to add more.`,
+  });
 }

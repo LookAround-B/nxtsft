@@ -119,13 +119,17 @@ export function WaBroadcastTab() {
   // Message
   const [name, setName] = useState("");
   const [templateName, setTemplateName] = useState("");
+  const libraryQ = trpc.campaigns.waTemplates.useQuery();
+  const chosen = ((libraryQ.data ?? []) as Template[]).find((t) => t.name === templateName.trim());
+  // Rule: Marketing (or a template not in the library) → opted-in users only.
+  const forcedOptIn = !chosen || chosen.category === "Marketing";
   const [params, setParams] = useState<string[]>([]);
 
   const audience = {
     role: role === "__any" ? undefined : (role as "user" | "home-seller" | "agent"),
     city: city.trim() || undefined,
     phoneVerified: phoneVerified === "any" ? undefined : phoneVerified === "yes",
-    waOptIn: optInOnly ? true : undefined,
+    waOptIn: optInOnly || forcedOptIn ? true : undefined,
   };
 
   const previewQ = trpc.campaigns.audiencePreview.useQuery(audience);
@@ -176,7 +180,7 @@ export function WaBroadcastTab() {
         onUse={(t) => {
           setTemplateName(t.name);
           setParams((prev) => Array.from({ length: t.variables }, (_, i) => prev[i] ?? (i === 0 ? "{firstName}" : "")));
-          if (t.category === "Marketing") setOptInOnly(true);
+          setOptInOnly(t.category === "Marketing");
           toast.success(`Using ${t.name}. Fill in the variables and send.`);
         }}
       />
@@ -215,8 +219,20 @@ export function WaBroadcastTab() {
               </Select>
             </div>
             <label className="flex items-center gap-2 text-sm text-navy">
-              <input type="checkbox" checked={optInOnly} onChange={(e) => setOptInOnly(e.target.checked)} />
-              WhatsApp opt-in only <span className="text-xs text-muted-foreground">(required for marketing)</span>
+              <input
+                type="checkbox"
+                checked={optInOnly || forcedOptIn}
+                disabled={forcedOptIn}
+                onChange={(e) => setOptInOnly(e.target.checked)}
+              />
+              WhatsApp opt-in only{" "}
+              <span className="text-xs text-muted-foreground">
+                {forcedOptIn
+                  ? chosen
+                    ? "(always on for Marketing templates)"
+                    : "(on until you pick a Utility template from the library)"
+                  : "(optional for Utility templates)"}
+              </span>
             </label>
 
             <div className="rounded-xl border border-accent/30 bg-accent/5 px-4 py-3">

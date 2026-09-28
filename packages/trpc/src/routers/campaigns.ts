@@ -129,7 +129,17 @@ export const campaignsRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const total = await prisma.user.count({ where: audienceWhere(input.audience) });
+      // WhatsApp rule (boss 09-28): Marketing templates only to users who opted
+      // in; Utility (account / listing / payment updates) to all real users.
+      // A template not in our library is treated as Marketing, the safe default.
+      const tpl = (await readTemplates()).find((t) => t.name === input.templateName);
+      const category = tpl?.category ?? "Marketing";
+      if (category === "Authentication") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "OTP / authentication templates can't be broadcast." });
+      }
+      const audience = category === "Marketing" ? { ...input.audience, waOptIn: true } : input.audience;
+
+      const total = await prisma.user.count({ where: audienceWhere(audience) });
       if (total === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "No recipients match this audience." });
       }
@@ -138,7 +148,7 @@ export const campaignsRouter = router({
           name: input.name,
           templateName: input.templateName,
           params: input.params,
-          audience: input.audience,
+          audience,
           total,
           status: "queued",
           createdById: ctx.user.id,
