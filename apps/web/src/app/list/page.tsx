@@ -41,6 +41,7 @@ import { ImageUploader, type UploadImage } from "@/components/ui/ImageUploader";
 import { compressImage } from "@/lib/image";
 import { usePresignUploader } from "@/lib/upload";
 import { AREA_UNITS, areaEquivalents, toSqft, type AreaUnit } from "@/lib/area";
+import { isSellerRole } from "@/lib/routes";
 
 const PROPERTY_TYPES = ["Apartment", "Villa", "Plot", "Commercial", "PG / Co-living", "Studio"];
 // City-picker option for a town missing from the India dataset — the seller
@@ -233,7 +234,7 @@ export default function ListPropertyPage() {
   // Fetched once the listing is submitted — tells us whether this seller has
   // used up their plan's listing allowance so we can prompt an upgrade (LA-322).
   const quotaQ = trpc.subscriptions.sellerListingQuota.useQuery(undefined, {
-    enabled: !!submitted && session?.role === "home-seller",
+    enabled: !!submitted && isSellerRole(session?.role),
   });
   // LA-343: does this seller's active plan (≥₹4,999) include the verified
   // badge set? Drives the live-vs-grayed badge preview in step 4.
@@ -717,7 +718,7 @@ export default function ListPropertyPage() {
     );
   }
 
-  if (session.role !== "home-seller" && !isRep) {
+  if (!isSellerRole(session.role) && !isRep) {
     // A Home Buyer who wants to sell must upgrade THIS account. Sending them to
     // /register is a dead end: their number is already registered — to them —
     // so the form can only ever answer "This mobile number is already

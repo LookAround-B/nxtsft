@@ -5,6 +5,7 @@ import { Badge, Section } from "@/components/portal/PortalShell";
 import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { Head } from "./shared";
+import { isSellerRole } from "@/lib/routes";
 
 type Visit = {
   contactUnlocked: boolean;
@@ -36,10 +37,10 @@ const fmtDateTime = (iso: string) =>
 export function SellerVisitsTab() {
   const { session } = useAuth();
   const visitsQ = trpc.users.sellerVisits.useQuery(undefined, {
-    enabled: session?.role === "home-seller",
+    enabled: isSellerRole(session?.role),
   });
 
-  if (session?.role !== "home-seller") {
+  if (!isSellerRole(session?.role)) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <Calendar size={40} className="mb-4 text-muted-foreground/30" />

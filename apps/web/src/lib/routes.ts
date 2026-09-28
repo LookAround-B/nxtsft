@@ -12,6 +12,12 @@
  * Anything not matched by PUBLIC_ROUTES or PORTAL_ACCESS defaults to PROTECTED.
  */
 
+// Consumer-portal roles that list and track their own properties. Agents are
+// individual partners — same listing features as a Home Seller (no commission).
+export const SELLER_ROLES = ["home-seller", "agent"] as const;
+export const isSellerRole = (role?: string | null): boolean =>
+  !!role && (SELLER_ROLES as readonly string[]).includes(role);
+
 export type Role =
   | "super-admin"
   | "admin"

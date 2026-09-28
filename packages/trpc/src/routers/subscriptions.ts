@@ -868,6 +868,7 @@ export const subscriptionsRouter = router({
       where: {
         userId: ctx.user.id,
         status: "Active",
+        endDate: { gt: new Date() }, // a lapsed plan no longer counts
         planId: { in: ownerPlans.map((p) => p.id) },
       },
       orderBy: { createdAt: "desc" },
@@ -881,7 +882,7 @@ export const subscriptionsRouter = router({
     });
 
     if (!sub) {
-      return { hasPlan: false, planName: null, allowance: 0, used, remaining: 0, exhausted: true };
+      return { hasPlan: false, planName: null, planId: null, validTill: null, allowance: 0, used, remaining: 0, exhausted: true };
     }
 
     // Parse the listing allowance from the plan's feature list. "Unlimited"
@@ -892,7 +893,7 @@ export const subscriptionsRouter = router({
     const remaining = allowance === null ? null : Math.max(0, allowance - used);
     const exhausted = allowance !== null && used >= allowance;
 
-    return { hasPlan: true, planName: sub.planName, allowance, used, remaining, exhausted };
+    return { hasPlan: true, planName: sub.planName, planId: sub.planId, validTill: sub.endDate, allowance, used, remaining, exhausted };
   }),
 
   cancel: protectedProcedure

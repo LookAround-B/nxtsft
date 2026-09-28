@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 import { openRazorpayCheckout } from "@/lib/razorpay";
 import { Head } from "./shared";
+import { isSellerRole } from "@/lib/routes";
 
 const unlockKindLabel: Record<"property" | "designer" | "decor", string> = {
   property: "Property",
@@ -20,7 +21,7 @@ const unlockKindLabel: Record<"property" | "designer" | "decor", string> = {
 export function CreditsTab() {
   const { session, credits, refreshCredits } = useAuth();
   const router = useRouter();
-  const isSeller = session?.role === "home-seller";
+  const isSeller = isSellerRole(session?.role);
   const [showTopUp, setShowTopUp] = useState(false);
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
 

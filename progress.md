@@ -19,6 +19,13 @@
 
 ## ✅ Completed
 
+### Agents can list & track; plan usage strip for sellers *(09-28)*
+- [x] **Boss (09-28):** Virtual Consultant (virtual-rep) is staff: 30% commission, lists from the Sales Portal like staff (already the case). Agent is an individual: no commission, the same features as an end user, lists and tracks.
+- [x] **Bug:** agents could not list or track at all. /list showed "Home Sellers only", and My Listings / Visits showed "This section is for Home Sellers". The server already allowed it; only UI gates blocked it. New `isSellerRole()` (`lib/routes.ts`, home-seller + agent) is used in /list, My Listings, Seller Visits and Credits/Plans. Leads was already agent-aware.
+- [x] **#21 plan strip** on My Listings: "You have used 1/3 listings | Valid till 30 Oct 2026 | [Renew] [Upgrade]"; free users see "Free plan · 0/1 listings · [Add Plan]", highlighted amber when full. The allowance is parsed from the plan's features in Admin › Plans, so new or edited plans apply automatically. Trail is already 1 listing / 30 days. `sellerListingQuota` now ignores expired plans (`endDate > now`) and returns `validTill` + `planId`.
+- [x] Verified in the browser at 400px as a throwaway agent (deleted): /list shows the form, My Listings shows the strip (0/1 · Add Plan), Visits opens, 0 console errors.
+- 🔲 Open: the limit is shown but not **enforced**; free users can still post more listings (as free tier). Boss's table needs Landlord 25 and Builder 50, but live has one "Landlords _ Builders Pack" (unlimited). The Agent Power Pack features say "60-days Validity" but the plan validity is 90.
+
 ### Click Alerts: real data, admin only *(09-28)*
 - [x] The old Click Alerts tab read `localStorage` in the admin's own browser via `lib/leads.ts`, which nothing on the site wrote to anymore, and "assigned" leads to 4 hard-coded seed names. So it was always empty or stale. It is replaced by `admin.clickAlerts` (adminProcedure: admin + super-admin only), which merges real DB events newest-first: contact unlocks (CreditTransaction `contact_unlock`), site-visit requests, property enquiries (Lead with a property) and callback requests. Each row shows buyer name, tap-to-call mobile, role, the property with its Property ID and city, and time. There are type chips, all-time counts, a last-24h count and pages of 25. `lib/leads.ts` is deleted.
 - [x] Verified on prod (read-only): 29 unlocks, 4 visits, 740 enquiries, 1 callback; page 2 is distinct and correctly ordered; the type filter works; a sales user gets FORBIDDEN.

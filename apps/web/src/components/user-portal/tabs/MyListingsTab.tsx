@@ -13,6 +13,7 @@ import { trpc } from "@/lib/trpc";
 import { openRazorpayCheckout } from "@/lib/razorpay";
 import { boostIsActive } from "@nxtsft/shared/constants";
 import { Head, fmtDate, fmtPrice } from "./shared";
+import { isSellerRole } from "@/lib/routes";
 
 type ListingItem = {
   id: string;
@@ -419,6 +420,69 @@ const listingTone: Record<string, "success" | "warm" | "cold" | "new" | "default
   Pending: "warm",
 };
 
+type PlanUsage = {
+  hasPlan: boolean;
+  planName: string | null;
+  planId: string | null;
+  allowance: number | null;
+  used: number;
+  validTill: string | Date | null;
+};
+
+/**
+ * "You have used 1/3 listings | Valid till 30 Oct 2026 | [Renew] [Upgrade]".
+ * Allowance comes from the plan itself (Admin → Plans), so new or edited
+ * plans apply automatically. No plan = the free tier (1 listing).
+ */
+function PlanUsageBar({ q }: { q: PlanUsage }) {
+  const allowance = q.hasPlan ? q.allowance : 1;
+  const usedLabel = allowance === null ? `${q.used} listings live · Unlimited` : `${q.used}/${allowance} listings`;
+  const full = allowance !== null && q.used >= allowance;
+  const btn = "rounded-lg px-3 py-1.5 text-xs font-bold transition hover:opacity-90";
+  return (
+    <div
+      className={`mb-4 flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${
+        full ? "border-amber-300 bg-amber-50" : "border-accent/30 bg-accent/5"
+      }`}
+    >
+      <div className="text-sm text-navy">
+        <div className="font-bold">{q.hasPlan ? q.planName : "Free plan"}</div>
+        <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+          <span>
+            You have used <strong className="text-navy">{usedLabel}</strong>
+          </span>
+          {q.hasPlan && q.validTill && (
+            <>
+              <span>|</span>
+              <span>
+                Valid till{" "}
+                <strong className="text-navy">
+                  {new Date(q.validTill).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                </strong>
+              </span>
+            </>
+          )}
+        </div>
+        {full && (
+          <div className="mt-1 text-xs font-semibold text-amber-800">
+            All listings in your plan are used. Upgrade to showcase more.
+          </div>
+        )}
+      </div>
+      <div className="flex shrink-0 gap-2">
+        {q.hasPlan && q.planId && (
+          <Link href={`/pricing?plan=${q.planId}`} className={`${btn} border border-accent bg-white text-accent`}>
+            Renew
+          </Link>
+        )}
+        <Link href="/pricing" className={`${btn} bg-accent text-white`}>
+          {q.hasPlan ? "Upgrade" : "Add Plan"}
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export function MyListingsTab() {
   const { session } = useAuth();
   const router = useRouter();
@@ -426,16 +490,17 @@ export function MyListingsTab() {
   const [mediaPackageTarget, setMediaPackageTarget] = useState<{ id: string; title: string } | null>(null);
   const [boostTarget, setBoostTarget] = useState<{ id: string; title: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
-  const listingsQ = trpc.users.myListings.useQuery(undefined, { enabled: session?.role === "home-seller" });
+  const listingsQ = trpc.users.myListings.useQuery(undefined, { enabled: isSellerRole(session?.role) });
+  const quotaQ = trpc.subscriptions.sellerListingQuota.useQuery(undefined, { enabled: isSellerRole(session?.role) });
   // Boost is sold only while at least one boost plan is active in the admin
   // Plans Manager — deactivate all three and the Boost buttons disappear.
   const boostPlansQ = trpc.subscriptions.boostPlans.useQuery(undefined, {
-    enabled: session?.role === "home-seller",
+    enabled: isSellerRole(session?.role),
   });
   const boostEnabled = (boostPlansQ.data ?? []).length > 0;
   const utils = trpc.useUtils();
 
-  if (session?.role !== "home-seller") {
+  if (!isSellerRole(session?.role)) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <Building2 size={40} className="mb-4 text-muted-foreground/30" />
@@ -500,6 +565,7 @@ export function MyListingsTab() {
         />
       )}
       <Head t="My Listings" s="What you've put on the market." />
+      {quotaQ.data && <PlanUsageBar q={quotaQ.data} />}
       <Section
         title={items.length ? `${items.length} listing${items.length > 1 ? "s" : ""}` : "Listings"}
         action={
