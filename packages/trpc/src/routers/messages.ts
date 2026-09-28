@@ -209,9 +209,11 @@ export const messagesRouter = router({
         actionUrl: "/user-portal#messages",
       });
 
-      // Email alert — best-effort, env-gated no-op until Resend is configured.
-      // Never exposes either party's address.
-      void sendEmailIfConfigured({
+      // Email alert — best-effort (never throws), env-gated no-op until email is
+      // configured. Never exposes either party's address. Awaited, not fired and
+      // forgotten: on Vercel the function can freeze once the response is sent,
+      // which would cut off a Gmail SMTP send mid-handshake (8s cap in email.ts).
+      await sendEmailIfConfigured({
         to: recipient.email,
         subject: propertyTitle ? `New message about ${propertyTitle}` : "You have a new message on NxtSft",
         html: alertHtml({
