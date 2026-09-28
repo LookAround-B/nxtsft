@@ -2,9 +2,10 @@ import prisma from "@nxtsft/db";
 
 // Verified-badge entitlement (LA-343): a seller shows the Verified Owner +
 // NRI Trusted badge set while they hold an active subscription worth
-// ₹4,999 or more. Derived from Subscription.amount (paise) rather than a
-// plan flag so admin price edits can't strand old purchases.
-export const SELLER_BADGE_MIN_PAISE = 4999 * 100;
+// ₹999 or more (boss 09-28: the ₹999 Trail plan gets the badge too — it was
+// ₹4,999). Derived from Subscription.amount (paise) rather than a plan flag so
+// admin price edits can't strand old purchases.
+export const SELLER_BADGE_MIN_PAISE = 999 * 100;
 
 export async function hasSellerBadges(userId: string | null | undefined): Promise<boolean> {
   if (!userId) return false;

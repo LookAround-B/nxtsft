@@ -158,10 +158,10 @@ export function MyLeadsTab() {
     <>
       <Head t="My Leads" s="Your active queue — call, WhatsApp or annotate." />
 
-      {/* LA-342 commission rule banner */}
+      {/* Commission rule banner (boss 09-28) */}
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-800">
-        Note: ₹500 commission applicable only on a customer&apos;s 1st payment of ₹4,999 or more.
-        No commission on renewals, boosts or smaller plans.
+        Commission: 10% (Sales Rep) / 30% (Virtual Property Consultant) of the plan, on a customer&apos;s
+        first purchase only. No commission on renewals or upgrades.
       </div>
 
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">

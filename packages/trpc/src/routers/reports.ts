@@ -39,7 +39,8 @@ function latestNote(notes?: string | null): string {
 }
 
 function subStatusToPayStatus(status: string): "Paid" | "Unpaid" | "Follow-up" | "Not Interested" {
-  if (status === "Active") return "Paid";
+  // Expired = paid for a term that has since ended (set by the expiry sweep).
+  if (status === "Active" || status === "Expired") return "Paid";
   if (status === "Cancelled") return "Not Interested";
   return "Unpaid";
 }

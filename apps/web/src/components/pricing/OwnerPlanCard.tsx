@@ -40,8 +40,8 @@ export function OwnerPlanCard({ plan, onBuy }: { plan: OwnerPlan; onBuy: (p: Own
       </div>
       <div className="mt-0.5 text-[11px] font-medium text-muted-foreground">(inclusive GST*)</div>
 
-      {/* Verified badge set — included on every plan of ₹4,999 or more (LA-343) */}
-      {plan.price >= 4999 && (
+      {/* Verified badge set — included on every paid plan of ₹999 or more (LA-343; boss 09-28) */}
+      {plan.price >= 999 && (
         <div className="mt-4 flex flex-wrap items-center gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
             <ShieldCheck size={12} strokeWidth={2.5} /> Verified Owner

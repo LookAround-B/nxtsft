@@ -19,6 +19,13 @@
 
 ## ✅ Completed
 
+### Boss decisions 09-28: plan end → free, ₹999 badge, no upgrade commission *(09-28)*
+- [x] **Plan ends → back to free** (`listingExpiry.ts`, daily `/api/cron/listing-expiry`). New step 3: any seller (owner-*) subscription past its endDate is marked **Expired** (still counted as revenue; Reports treats Expired as Paid). If the owner has no other active seller plan, their Active/Pending listings go to **freeListing = true** and stay live, and the owner is notified to renew. Rep payment-link leads at expiry now also move the listing to the free tier instead of unpublishing it (Inactive), unless the owner holds another active plan. Before this, self-serve plans never expired and rep-sold listings were taken offline.
+- [x] **Verified badge from ₹999:** `SELLER_BADGE_MIN_PAISE` 4999 → 999, so the Trail plan gets Verified Owner + NRI Trusted. Pricing cards and the /list preview copy are updated ("any paid plan (from ₹999)").
+- [x] **Commission on upgrades: none** (boss confirmed). Already the rule; the Sales Portal banner now says "10% / 30% on a customer's first purchase only; no commission on renewals or upgrades" (it still said ₹500 on ≥₹4,999).
+- [x] Verified on prod: no real plans or leads have ended yet (the first real Trail ends 23 Oct 2026). Throwaway owners (deleted): ended Trail with no other plan → sub Expired, listing Active + free, owner notified; ended Trail + active Owner Pro → stays paid.
+- 🔲 124-row locations Excel: the team submits it by 4pm 09-28; import then.
+
 ### Follow-up fixes: payment-link ledger, honest labels & stats *(09-28)*
 - [x] **Payment-link sales now write a Payment row** (Razorpay webhook: method "Payment Link", razorpayId = the payment id, which is unique so retries are absorbed, metadata.leadId). Admin › Transactions shows them, and the WhatsApp payment follow-up cron (which checks Payment) stops nudging owners who already paid. The description ends in " subscription" only when the webhook created a Subscription, so `totalRevenueRupees` still counts each sale exactly once.
 - [x] Admin dashboard tiles: "Revenue MTD" → **Total Revenue** (it is all-time); "Open Leads" → **Total Leads** (it counts every status).

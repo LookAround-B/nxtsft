@@ -1834,7 +1834,7 @@ export default function ListPropertyPage() {
                         <Globe size={12} strokeWidth={2.5} /> NRI Trusted
                       </span>
                     </div>
-                    Upgrade to Premium ₹4,999 to activate trust badges.{" "}
+                    Choose any paid plan (from ₹999) to activate trust badges.{" "}
                     <Link href="/pricing" className="font-bold text-accent hover:underline">
                       View plans
                     </Link>
