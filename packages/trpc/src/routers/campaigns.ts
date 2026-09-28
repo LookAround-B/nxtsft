@@ -5,6 +5,30 @@ import { router, adminProcedure } from "../server";
 import { safeString, cuidSchema } from "../sanitize";
 import { audienceSchema, audienceWhere } from "../waBroadcast";
 
+// WhatsApp template library: approved BhashSMS templates copied into our
+// dashboard (BhashSMS has no template-list API we use), grouped by WhatsApp's
+// categories. Stored as one JSON SiteSetting — no schema change.
+const WA_TEMPLATES_KEY = "wa.templates";
+const waTemplateSchema = z.object({
+  name: z.string().trim().regex(/^[a-zA-Z0-9_]{1,100}$/, "Template name: letters, numbers and _ only"),
+  category: z.enum(["Utility", "Marketing", "Authentication"]),
+  language: safeString(20).default("en"),
+  body: safeString(1024, 1),
+  variables: z.number().int().min(0).max(10),
+});
+type WaTemplate = z.infer<typeof waTemplateSchema>;
+async function readTemplates(): Promise<WaTemplate[]> {
+  const row = await prisma.siteSetting.findUnique({ where: { key: WA_TEMPLATES_KEY } });
+  return Array.isArray(row?.value) ? (row!.value as WaTemplate[]) : [];
+}
+async function writeTemplates(list: WaTemplate[], editorId: string) {
+  await prisma.siteSetting.upsert({
+    where: { key: WA_TEMPLATES_KEY },
+    create: { key: WA_TEMPLATES_KEY, value: list as object[], editorId },
+    update: { value: list as object[], editorId },
+  });
+}
+
 export const campaignsRouter = router({
   list: adminProcedure.query(async () => {
     return prisma.campaign.findMany({
@@ -58,6 +82,24 @@ export const campaignsRouter = router({
   // ── WhatsApp broadcast sender ────────────────────────────────────────────
 
   // Live recipient count + a small sample for the audience picker.
+  waTemplates: adminProcedure.query(async () => readTemplates()),
+
+  // Add or replace (by name) a template in the library.
+  saveWaTemplate: adminProcedure.input(waTemplateSchema).mutation(async ({ input, ctx }) => {
+    const list = (await readTemplates()).filter((t) => t.name !== input.name);
+    list.push(input);
+    list.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+    await writeTemplates(list, ctx.user.id);
+    return { ok: true };
+  }),
+
+  deleteWaTemplate: adminProcedure
+    .input(z.object({ name: z.string().max(100) }))
+    .mutation(async ({ input, ctx }) => {
+      await writeTemplates((await readTemplates()).filter((t) => t.name !== input.name), ctx.user.id);
+      return { ok: true };
+    }),
+
   audiencePreview: adminProcedure.input(audienceSchema).query(async ({ input }) => {
     const where = audienceWhere(input);
     const [count, sample] = await Promise.all([

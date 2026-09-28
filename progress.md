@@ -19,6 +19,12 @@
 
 ## ✅ Completed
 
+### WhatsApp: real users only + template library *(09-28)*
+- [x] **Real users only (boss 09-28):** `audienceWhere` (`packages/trpc/src/waBroadcast.ts`, used by preview, launch and the send cron) now always excludes staff roles plus seed, demo and test accounts: @nxtsft.com and @example.com emails, 98200000xx and 9000000xxx phones, names with dummy / tester / pwtest / "test". DummyBuyer rows were never in the audience. Prod: 2,744 → **2,707** real users; only **69** have opted in to WhatsApp.
+- [x] **Template library** in Admin › WhatsApp Broadcast: approved BhashSMS templates copied into our dashboard with category (Utility / Marketing / OTP-Authentication), exact name, text and variable count. Stored in SiteSetting `wa.templates` (no migration); `campaigns.waTemplates / saveWaTemplate / deleteWaTemplate`. "Use" fills the template name and variable slots, and a Marketing template forces opt-in-only.
+- [x] Verified on prod: audience counts as above; a sales-role audience = 0; template save → list → delete, and the setting was removed again afterwards.
+- Note: BhashSMS templates must be entered once by hand; we don't use a BhashSMS template-list API.
+
 ### Referral payouts via Razorpay export *(09-28)*
 - [x] **Boss (09-28):** total the referrals per referrer, export, and pay from Razorpay. New status flow: Pending → **Approved** (earned, in wallet) → **Paid** (sent). Before this, "Wallet Balance" and "Paid Out" both showed the approved total and nothing was ever paid.
 - [x] Users save a **UPI ID for payouts** on Refer & Earn (`referrals.setUpiId`, validated, stored in `User.metadata.upiId`, no migration). It replaces the decorative "Redemption Options" cards.
