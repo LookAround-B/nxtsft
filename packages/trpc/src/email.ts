@@ -19,6 +19,14 @@ const SEND_TIMEOUT_MS = 8000;
 const smtpConfigured = () => Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
 const resendConfigured = () => Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 
+// Accounts reached only by phone get a synthetic address (customerAccount.ts:
+// lead.<phone>@nxtsft.internal); report forms use @nxtsft.local; tests use
+// @example.com. Never send to those — bounces hurt the sender's reputation.
+const UNDELIVERABLE = /@(nxtsft\.internal|nxtsft\.local|example\.com)$/i;
+export function isDeliverable(to: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) && !UNDELIVERABLE.test(to.trim());
+}
+
 export function emailConfigured(): boolean {
   return smtpConfigured() || resendConfigured();
 }
@@ -46,7 +54,7 @@ export async function sendEmailIfConfigured(opts: {
   html: string;
   replyTo?: string;
 }): Promise<void> {
-  if (!opts.to) return;
+  if (!opts.to || !isDeliverable(opts.to)) return;
   try {
     if (smtpConfigured()) {
       await smtp().sendMail({

@@ -1,3 +1,5 @@
+import { sendEmailIfConfigured } from "../email";
+import { buyerInterestEmail } from "../emailTemplates";
 import { hasSellerContactAccess } from "../sellerInsights";
 import { maskContact } from "../sellerContactPolicy";
 import { TRPCError } from "@trpc/server";
@@ -143,11 +145,15 @@ export const leadsRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      let property: { ownerId: string; title: string; owner: { phone: string | null } | null } | null = null;
+      let property: {
+        ownerId: string;
+        title: string;
+        owner: { phone: string | null; email: string; name: string } | null;
+      } | null = null;
       if (input.propertyId) {
         property = await prisma.property.findFirst({
           where: { id: input.propertyId, deletedAt: null },
-          select: { ownerId: true, title: true, owner: { select: { phone: true } } },
+          select: { ownerId: true, title: true, owner: { select: { phone: true, email: true, name: true } } },
         });
         if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found." });
       }
@@ -188,6 +194,14 @@ export const leadsRouter = router({
           );
         } catch {
           // The enquiry is saved; a failed entitlement lookup must not leak contacts or invite a duplicate submission.
+        }
+        // Buyer-request email to the owner (no buyer details — those follow the
+        // owner's plan inside the dashboard). Never to the buyer themselves.
+        if (property.owner && property.ownerId !== ctx.user.id) {
+          await sendEmailIfConfigured({
+            to: property.owner.email,
+            ...buyerInterestEmail({ ownerName: property.owner.name, propertyTitle: property.title }),
+          });
         }
       }
 

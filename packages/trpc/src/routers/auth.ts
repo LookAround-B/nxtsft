@@ -1,3 +1,5 @@
+import { sendEmailIfConfigured } from "../email";
+import { sellerWelcomeEmail } from "../emailTemplates";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -229,6 +231,7 @@ async function convertToSeller(
     content: "Your account is ready — list your first property right away, no approval wait.",
     actionUrl: "/list",
   });
+  await sendEmailIfConfigured({ to: seller.email, ...sellerWelcomeEmail({ name: seller.name, isAgent: false, pendingApproval: false }) });
   // Best-effort WhatsApp alert to the business owner about the new signup.
   await notifyAdminNewUser(seller);
   return seller;
@@ -391,6 +394,7 @@ export const authRouter = router({
 
         // Best-effort WhatsApp alert to the business owner about the new signup.
         await notifyAdminNewUser(applicant);
+        await sendEmailIfConfigured({ to: applicant.email, ...sellerWelcomeEmail({ name: applicant.name, isAgent: true, pendingApproval: true }) });
         return { pendingApproval: true as const };
       }
 
@@ -403,6 +407,7 @@ export const authRouter = router({
         content: "Your account is ready — you can list your first property right away.",
         actionUrl: "/list",
       });
+      await sendEmailIfConfigured({ to: applicant.email, ...sellerWelcomeEmail({ name: applicant.name, isAgent: false, pendingApproval: false }) });
       // Best-effort WhatsApp alert to the business owner about the new signup.
       await notifyAdminNewUser(applicant);
 
