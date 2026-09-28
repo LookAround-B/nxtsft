@@ -116,7 +116,7 @@ const makeNav = (b?: BadgeCounts) => [
   // ── Platform ─────────────────────────────────────────────────────────
   { label: "Listings",        to: "/sa-portal#listings",     icon: <Building2 size={14} />, group: "Platform", badge: b?.listings },
   { label: "Property Types",  to: "/sa-portal#property-types",icon: <Layers size={14} /> },
-  { label: "Agents",          to: "/sa-portal#agents",       icon: <Contact size={14} /> },
+  { label: "Virtual Property Consultants",        to: "/sa-portal#agents",       icon: <Contact size={14} /> },
   { label: "Reviews",         to: "/sa-portal#reviews",      icon: <Star size={14} />, badge: b?.reviews },
   { label: "Home Interiors",  to: "/sa-portal#interiors",    icon: <Sofa size={14} />, badge: b?.interiors },
   { label: "Property Views",  to: "/sa-portal#views",        icon: <Eye size={14} /> },

@@ -1,298 +1,231 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
-import { RotateCcw, Save, UserCheck } from "lucide-react";
+import { Fragment, useState } from "react";
 import { Section } from "@/components/portal/PortalShell";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { trpc } from "@/lib/trpc";
 import { TabHeader } from "./shared";
 
-/* ── Access levels (ascending privilege) ─────────────────────────────────── */
-type Level = "none" | "read" | "write";
-const LEVELS: Level[] = ["none", "read", "write"];
+/*
+ * Role & Permission Matrix (boss list #17, 09-28).
+ *
+ * READ-ONLY and TRUE: it documents how access actually works in the code —
+ * which portal each role can enter (apps/web/src/lib/routes.ts PORTAL_ACCESS)
+ * and what the server lets that role do (tRPC procedure tiers + scoping).
+ * The previous editable grid was saved but never enforced anywhere, and it
+ * defaulted every role (even Home Buyer) to full access, which was misleading.
+ * Changing a cell here means a code change; update this table with it.
+ */
 
-const levelMeta: Record<Level, { label: string; cell: string; dot: string; can: string }> = {
-  none: { label: "None", cell: "bg-secondary/50 text-muted-foreground border-border", dot: "bg-muted-foreground/40", can: "No access" },
-  read: { label: "Read", cell: "bg-sky-100 text-sky-700 border-sky-200", dot: "bg-sky-500", can: "View only" },
-  write: { label: "Write", cell: "bg-emerald-100 text-emerald-700 border-emerald-200", dot: "bg-emerald-500", can: "Full access" },
+type Access = "full" | "team" | "own" | "view" | "none";
+
+const ACCESS: Record<Access, { label: string; cls: string; note: string }> = {
+  full: { label: "Full", cls: "bg-emerald-100 text-emerald-800 border-emerald-200", note: "All records, can change them" },
+  team: { label: "Team", cls: "bg-sky-100 text-sky-800 border-sky-200", note: "Only their team's records" },
+  own: { label: "Own", cls: "bg-amber-100 text-amber-800 border-amber-200", note: "Only their own / assigned records" },
+  view: { label: "View", cls: "bg-violet-100 text-violet-800 border-violet-200", note: "Can see, can't change" },
+  none: { label: "—", cls: "bg-secondary/60 text-muted-foreground border-border", note: "No access" },
 };
 
-/* ── Canonical roles (columns) — super-admin is implicit full access ──────── */
-const ROLES: { key: string; label: string }[] = [
+const ROLES = [
+  { key: "sa", label: "Super Admin" },
   { key: "admin", label: "Admin" },
-  { key: "supervisor", label: "Supervisor" },
+  { key: "sup", label: "Supervisor" },
   { key: "sales", label: "Sales Rep" },
-  { key: "virtual-rep", label: "Virtual Property Consultant" },
-  { key: "support-admin", label: "Support" },
-  { key: "user", label: "Home Buyer" },
-  { key: "home-seller", label: "Home Seller" },
+  { key: "vc", label: "Virtual Consultant" },
+  { key: "support", label: "Support" },
+  { key: "agent", label: "Agent" },
+  { key: "seller", label: "Home Seller" },
+  { key: "buyer", label: "Home Buyer" },
+] as const;
+type RoleKey = (typeof ROLES)[number]["key"];
+
+type Row = { feature: string; detail?: string } & Record<RoleKey, Access>;
+
+const R = (
+  feature: string,
+  a: [Access, Access, Access, Access, Access, Access, Access, Access, Access],
+  detail?: string,
+): Row => ({
+  feature,
+  detail,
+  sa: a[0], admin: a[1], sup: a[2], sales: a[3], vc: a[4], support: a[5], agent: a[6], seller: a[7], buyer: a[8],
+});
+
+const GROUPS: { group: string; rows: Row[] }[] = [
+  {
+    group: "Listings",
+    rows: [
+      R("Post a property", ["full", "full", "none", "own", "own", "none", "own", "own", "none"],
+        "Reps list on a customer's behalf (listing is on the customer's account). Agents/sellers list their own: free plan 1 listing, paid plans their plan's number. Buyers must switch to a seller account."),
+      R("Edit a listing", ["full", "full", "none", "own", "own", "none", "own", "own", "none"],
+        "Admin edits go live at once. Rep and seller edits to live listings wait for admin approval. Owner contact details can't be changed by reps."),
+      R("Approve / publish / reject listings", ["full", "full", "none", "none", "none", "none", "none", "none", "none"]),
+      R("Home Interiors listings", ["full", "full", "own", "own", "own", "own", "own", "own", "own"],
+        "Anyone can list their own business. Staff can add one for a business owner. Only admins approve."),
+      R("Reviews: approve / reject / delete", ["full", "full", "none", "none", "none", "none", "none", "none", "none"],
+        "Signed-in users can write reviews; they wait for approval."),
+    ],
+  },
+  {
+    group: "Leads & Sales",
+    rows: [
+      R("Leads", ["full", "full", "team", "own", "own", "none", "own", "own", "own"],
+        "Reps see leads on their name. Supervisors see their team's. Sellers/agents see buyers interested in their listings. Buyers see their own enquiries."),
+      R("Assign / reassign leads", ["full", "full", "team", "none", "none", "none", "none", "none", "none"]),
+      R("Payment links & plan sales", ["full", "full", "none", "own", "own", "none", "none", "none", "none"]),
+      R("Commission", ["full", "full", "none", "own", "own", "none", "none", "none", "none"],
+        "Fresh sales only: Sales Rep 10%, Virtual Consultant 30%. Agents earn no commission."),
+      R("Site visits", ["full", "full", "team", "own", "own", "none", "own", "own", "own"]),
+      R("Escalations", ["full", "full", "team", "none", "none", "full", "none", "none", "none"],
+        "Supervisors raise escalations on at-risk leads; admins resolve. Support handles ticket escalations."),
+      R("Click Alerts (buyer activity)", ["full", "full", "none", "none", "none", "none", "none", "none", "none"]),
+    ],
+  },
+  {
+    group: "Money",
+    rows: [
+      R("Buy plans / credits", ["none", "none", "none", "none", "none", "none", "own", "own", "own"]),
+      R("Grant a plan (manual payment)", ["full", "full", "none", "none", "none", "none", "none", "none", "none"]),
+      R("Subscriptions, transactions, wallets", ["full", "full", "none", "none", "none", "none", "own", "own", "own"]),
+      R("Billing & revenue page", ["full", "view", "none", "none", "none", "none", "none", "none", "none"],
+        "Revenue totals on the Admin dashboard; the Billing page itself is Super Admin only."),
+      R("Plans Manager (prices, limits)", ["full", "full", "none", "none", "none", "none", "none", "none", "none"]),
+      R("Referral rewards & payouts", ["full", "full", "none", "none", "none", "none", "own", "own", "own"],
+        "Users refer and add a UPI ID; admins approve, export for Razorpay, mark paid."),
+    ],
+  },
+  {
+    group: "People & Support",
+    rows: [
+      R("Team Management (staff roster)", ["full", "full", "none", "none", "none", "none", "none", "none", "none"]),
+      R("User Management (change role, disable)", ["full", "none", "none", "none", "none", "none", "none", "none", "none"],
+        "Only Super Admin can change a user's role."),
+      R("Onboard Virtual Property Consultants / Agents", ["full", "full", "none", "none", "none", "none", "none", "none", "none"]),
+      R("KYC review & seller approvals", ["full", "full", "none", "none", "none", "none", "own", "own", "own"],
+        "Users upload their own KYC documents."),
+      R("Support tickets", ["full", "none", "none", "none", "none", "full", "own", "own", "own"],
+        "Handled in the Support portal (and Super Admin). Users raise and track their own tickets."),
+      R("Contact enquiries", ["full", "full", "none", "none", "none", "none", "none", "none", "none"],
+        "Admin portals only. Admins can update status and delete."),
+    ],
+  },
+  {
+    group: "Reports & Marketing",
+    rows: [
+      R("Reports", ["full", "full", "team", "own", "own", "none", "none", "none", "none"]),
+      R("Property views & buyer activity", ["full", "full", "none", "none", "none", "none", "own", "own", "own"],
+        "Sellers see views on their own listings; buyers see their recently viewed."),
+      R("Marketing, WhatsApp broadcast, push", ["full", "full", "none", "none", "none", "none", "none", "none", "none"],
+        "Broadcasts go to real users only; marketing templates only to opted-in users."),
+      R("Home page content, careers, bulk uploads", ["full", "full", "none", "none", "none", "none", "none", "none", "none"]),
+    ],
+  },
+  {
+    group: "Platform",
+    rows: [
+      R("Audit trail, security, platform config", ["full", "none", "none", "none", "none", "none", "none", "none", "none"]),
+      R("Property types on/off, RERA rules", ["full", "full", "none", "none", "none", "none", "none", "none", "none"]),
+      R("Dev tools", ["full", "full", "none", "none", "none", "none", "none", "none", "none"]),
+    ],
+  },
 ];
 
-/* ── Canonical features (rows), grouped ───────────────────────────────────── */
-const FEATURES: { key: string; label: string; group: string }[] = [
-  { key: "listings", label: "Listings & Approvals", group: "Operations" },
-  { key: "leads", label: "Leads", group: "Operations" },
-  { key: "crm", label: "CRM Pipeline", group: "Operations" },
-  { key: "siteVisits", label: "Site Visits", group: "Operations" },
-  { key: "subscriptions", label: "Subscriptions & Billing", group: "Growth" },
-  { key: "marketing", label: "Marketing", group: "Growth" },
-  { key: "reports", label: "Reports & Analytics", group: "Growth" },
-  { key: "teams", label: "Team Management", group: "People" },
-  { key: "users", label: "User Management", group: "People" },
-  { key: "support", label: "Support Tickets", group: "People" },
-  { key: "config", label: "Platform Config", group: "Platform" },
-  { key: "security", label: "Audit & Security", group: "Platform" },
+const PORTALS: { role: string; portal: string }[] = [
+  { role: "Super Admin", portal: "Super Admin portal + every staff portal" },
+  { role: "Admin", portal: "Admin portal" },
+  { role: "Supervisor", portal: "Supervisor portal" },
+  { role: "Sales Rep / Virtual Consultant", portal: "Sales portal" },
+  { role: "Support", portal: "Support portal" },
+  { role: "Agent / Home Seller / Home Buyer", portal: "User portal (features shown depend on the role)" },
 ];
-
-const FEATURE_GROUPS = [...new Set(FEATURES.map((f) => f.group))];
-
-type Matrix = Record<string, Record<string, Level>>;
-
-/* All features enabled (full access) by default for every role, including
-   End User — the panel's bulk backend-role assignment (super-admin action)
-   excludes End User, but the default state itself is all-enabled for all. */
-function defaultMatrix(): Matrix {
-  const allWrite: Record<string, Level> = {};
-  for (const { key } of FEATURES) allWrite[key] = "write";
-
-  const D: Record<string, Record<string, Level>> = {
-    admin: { ...allWrite },
-    supervisor: { ...allWrite },
-    sales: { ...allWrite },
-    "virtual-rep": { ...allWrite },
-    "support-admin": { ...allWrite },
-    "home-seller": { ...allWrite },
-    user: { ...allWrite },
-  };
-  return D;
-}
-
-/* Overlay a saved matrix onto the defaults so newly added roles/features still
-   get a value (and stale saved keys are ignored). */
-function mergeMatrix(saved: Matrix): Matrix {
-  const base = defaultMatrix();
-  for (const { key: role } of ROLES) {
-    for (const { key: feat } of FEATURES) {
-      const v = saved?.[role]?.[feat];
-      if (v && LEVELS.includes(v)) base[role]![feat] = v;
-    }
-  }
-  return base;
-}
-
-function nextLevel(l: Level): Level {
-  return LEVELS[(LEVELS.indexOf(l) + 1) % LEVELS.length]!;
-}
 
 export function PermissionsTab() {
-  const matrixQ = trpc.superAdmin.getPermissionMatrix.useQuery();
-  const update = trpc.superAdmin.updatePermissionMatrix.useMutation({
-    onSuccess: () => {
-      setDirty(false);
-      matrixQ.refetch();
-      toast.success("Permission matrix saved");
-    },
-    onError: (e: { message: string }) => toast.error(e.message),
-  });
-
-  const [matrix, setMatrix] = useState<Matrix>(defaultMatrix);
-  const [dirty, setDirty] = useState(false);
-  const [simRole, setSimRole] = useState<string>("sales");
-  const seeded = useRef(false);
-
-  // Seed from the saved snapshot once it loads (don't clobber in-progress edits).
-  useEffect(() => {
-    if (matrixQ.data === undefined || seeded.current) return;
-    seeded.current = true;
-    if (matrixQ.data.matrix) setMatrix(mergeMatrix(matrixQ.data.matrix as Matrix));
-  }, [matrixQ.data]);
-
-  const cycle = (role: string, feat: string) => {
-    setMatrix((prev) => ({ ...prev, [role]: { ...prev[role], [feat]: nextLevel(prev[role]![feat]!) } }));
-    setDirty(true);
-  };
-
-  const resetDefaults = () => {
-    setMatrix(defaultMatrix());
-    setDirty(true);
-    toast.info("Reset to defaults — Save to apply");
-  };
-
-  const updatedAt = matrixQ.data?.updatedAt
-    ? new Date(matrixQ.data.updatedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-    : null;
-
-  /* Simulator: effective access for the selected role. */
-  const sim = useMemo(() => {
-    const role: Record<string, Level> = matrix[simRole] ?? {};
-    const counts: Record<Level, number> = { none: 0, read: 0, write: 0 };
-    for (const { key } of FEATURES) counts[role[key] ?? "none"]++;
-    return { role, counts };
-  }, [matrix, simRole]);
+  const [openDetail, setOpenDetail] = useState<string | null>(null);
 
   return (
     <>
       <TabHeader
         title="Role & Permission Matrix"
-        subtitle="Set each role's access per feature. Super Admin always has full control."
-        action={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={resetDefaults}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-semibold text-navy transition hover:bg-secondary"
-            >
-              <RotateCcw size={13} /> Reset
-            </button>
-            <button
-              onClick={() => update.mutate({ matrix })}
-              disabled={!dirty || update.isPending}
-              className="inline-flex items-center gap-1.5 rounded-md bg-gold px-3 py-2 text-xs font-bold text-navy-deep transition hover:opacity-90 disabled:opacity-50"
-            >
-              <Save size={13} /> {update.isPending ? "Saving…" : dirty ? "Save Changes" : "Saved"}
-            </button>
-          </div>
-        }
+        subtitle="What each role can actually do today. Read-only: it reflects the live system, so changing access is a development request."
       />
 
-      {/* Legend */}
-      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-secondary/30 px-4 py-2.5">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Levels</span>
-        {LEVELS.map((l) => (
-          <span key={l} className="flex items-center gap-1.5 text-xs font-medium text-navy">
-            <span className={`h-2.5 w-2.5 rounded-full ${levelMeta[l].dot}`} />
-            {levelMeta[l].label} <span className="text-muted-foreground">· {levelMeta[l].can}</span>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {(Object.keys(ACCESS) as Access[]).map((k) => (
+          <span key={k} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${ACCESS[k].cls}`}>
+            {ACCESS[k].label}
+            <span className="font-normal opacity-80">{ACCESS[k].note}</span>
           </span>
         ))}
-        <span className="ml-auto text-[11px] text-muted-foreground">Click a cell to cycle access</span>
       </div>
 
-      <Section
-        title="Access Matrix"
-        action={updatedAt ? <span className="text-[11px] text-muted-foreground">Last saved {updatedAt}</span> : undefined}
-      >
-        {matrixQ.isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading matrix…</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-separate border-spacing-0">
-              <thead>
-                <tr>
-                  <th className="sticky left-0 z-10 bg-white py-2 pr-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Feature
-                  </th>
-                  {ROLES.map((r) => (
-                    <th key={r.key} className="px-2 py-2 text-center text-xs font-bold text-navy">
-                      {r.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {FEATURE_GROUPS.map((group) => (
-                  <FeatureGroup key={group} group={group} matrix={matrix} onCycle={cycle} />
+      <Section title="Who can do what">
+        <p className="mb-3 text-[11px] text-muted-foreground">Tap a feature to see how it works. Scroll sideways on mobile.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] border-separate border-spacing-0 text-xs">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-10 bg-white py-2 pr-3 text-left font-semibold text-navy">Feature</th>
+                {ROLES.map((r) => (
+                  <th key={r.key} className="px-1.5 py-2 text-center font-semibold text-navy">{r.label}</th>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </tr>
+            </thead>
+            <tbody>
+              {GROUPS.map((g) => (
+                <Fragment key={g.group}>
+                  <tr>
+                    <td colSpan={ROLES.length + 1} className="bg-secondary/40 px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      {g.group}
+                    </td>
+                  </tr>
+                  {g.rows.map((row) => (
+                    <Fragment key={row.feature}>
+                      <tr className="border-b border-border">
+                        <td className="sticky left-0 z-10 border-b border-border bg-white py-2 pr-3">
+                          <button
+                            type="button"
+                            onClick={() => setOpenDetail(openDetail === row.feature ? null : row.feature)}
+                            className="text-left font-semibold text-navy hover:text-accent"
+                          >
+                            {row.feature}
+                            {row.detail && <span className="ml-1 text-[10px] text-accent">ⓘ</span>}
+                          </button>
+                        </td>
+                        {ROLES.map((r) => {
+                          const a = row[r.key];
+                          return (
+                            <td key={r.key} className="border-b border-border px-1.5 py-2 text-center">
+                              <span className={`inline-block min-w-[3.25rem] rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${ACCESS[a].cls}`}>
+                                {ACCESS[a].label}
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      {openDetail === row.feature && row.detail && (
+                        <tr>
+                          <td colSpan={ROLES.length + 1} className="bg-accent/5 px-3 py-2 text-[11px] text-navy">
+                            {row.detail}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Section>
 
-      {/* Simulator */}
-      <Section title="Simulate as Role">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 text-sm text-navy">
-            <UserCheck size={15} className="text-accent" />
-            <span className="font-semibold">View effective access for</span>
-          </div>
-          <div className="w-48">
-            <Select value={simRole} onValueChange={setSimRole}>
-              <SelectTrigger size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLES.map((r) => (
-                  <SelectItem key={r.key} value={r.key}>{r.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Summary chips */}
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {LEVELS.slice().reverse().map((l) => (
-            <div key={l} className={`rounded-xl border px-4 py-3 ${levelMeta[l].cell}`}>
-              <div className="font-display text-2xl font-black">{sim.counts[l]}</div>
-              <div className="text-[11px] font-bold uppercase tracking-wider">{levelMeta[l].label}</div>
+      <Section title="Which portal each role uses">
+        <div className="divide-y divide-border rounded-xl border border-border">
+          {PORTALS.map((p) => (
+            <div key={p.role} className="flex flex-col gap-0.5 px-3 py-2 text-sm sm:flex-row sm:justify-between">
+              <span className="font-semibold text-navy">{p.role}</span>
+              <span className="text-muted-foreground">{p.portal}</span>
             </div>
           ))}
         </div>
-
-        {/* Effective access list */}
-        <div className="grid gap-2 sm:grid-cols-2">
-          {FEATURES.map((f) => {
-            const level = sim.role[f.key] ?? "none";
-            return (
-              <div key={f.key} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-navy">{f.label}</div>
-                  <div className="text-[11px] text-muted-foreground">{f.group}</div>
-                </div>
-                <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${levelMeta[level].cell}`}>
-                  <span className={`h-2 w-2 rounded-full ${levelMeta[level].dot}`} />
-                  {levelMeta[level].can}
-                </span>
-              </div>
-            );
-          })}
-        </div>
       </Section>
-    </>
-  );
-}
-
-/* ── Feature-group block: a group header row + its feature rows ───────────── */
-function FeatureGroup({
-  group,
-  matrix,
-  onCycle,
-}: {
-  group: string;
-  matrix: Matrix;
-  onCycle: (role: string, feat: string) => void;
-}) {
-  const rows = FEATURES.filter((f) => f.group === group);
-  return (
-    <>
-      <tr>
-        <td
-          colSpan={ROLES.length + 1}
-          className="sticky left-0 bg-secondary/40 px-1 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
-        >
-          {group}
-        </td>
-      </tr>
-      {rows.map((f) => (
-        <tr key={f.key} className="group">
-          <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-sm font-semibold text-navy group-hover:bg-secondary/20">
-            {f.label}
-          </td>
-          {ROLES.map((r) => {
-            const level = matrix[r.key]?.[f.key] ?? "none";
-            return (
-              <td key={r.key} className="px-1.5 py-1.5 text-center">
-                <button
-                  onClick={() => onCycle(r.key, f.key)}
-                  title={`${r.label} · ${f.label}: ${levelMeta[level].label}`}
-                  className={`w-full rounded-md border px-2 py-1.5 text-[11px] font-bold transition hover:brightness-95 ${levelMeta[level].cell}`}
-                >
-                  {levelMeta[level].label}
-                </button>
-              </td>
-            );
-          })}
-        </tr>
-      ))}
     </>
   );
 }
