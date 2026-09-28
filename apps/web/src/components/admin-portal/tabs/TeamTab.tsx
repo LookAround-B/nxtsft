@@ -2,7 +2,7 @@
 import { useState, type FormEvent } from "react";
 import { keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Pencil, Ban, CheckCircle2 } from "lucide-react";
+import { Pencil, Ban, CheckCircle2, Eye, X } from "lucide-react";
 import { Section, Badge } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton } from "@/components/ui/skeleton";
@@ -249,8 +249,146 @@ function EditModal({
 
 const PAGE_SIZE = 20;
 
+const fmtINR = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+
+/** Everything a current or former team member has done (by id, never hidden). */
+function ActivityPanel({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const q = trpc.admin.teamMemberActivity.useQuery({ userId });
+  const d = q.data;
+  const box = "rounded-xl border border-border bg-white p-3";
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="h-full w-full max-w-xl overflow-y-auto bg-background p-5 shadow-2xl sm:p-6"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-widest text-accent">Team member activity</div>
+            <h3 className="font-display text-xl font-bold text-navy">{d?.member.name ?? "…"}</h3>
+            {d && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {ROLE_LABEL[d.member.role] ?? d.member.role}
+                {d.member.formerStaffRole ? ` · was ${ROLE_LABEL[d.member.formerStaffRole] ?? d.member.formerStaffRole}` : ""}
+                {" · "}
+                {d.member.active ? "Active account" : "Inactive account"} · {d.member.phone ?? "—"}
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} aria-label="Close" className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary">
+            <X size={18} />
+          </button>
+        </div>
+
+        {q.isLoading || !d ? (
+          <div className="mt-6"><TableSkeleton rows={6} cols={3} /></div>
+        ) : (
+          <div className="mt-5 space-y-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                ["Listings", String(d.summary.listings)],
+                ["Leads", String(d.summary.leads)],
+                ["Paid", `${d.summary.paid} · ${fmtINR(d.summary.paidAmount)}`],
+                ["Pending", String(d.summary.pending)],
+                ["Commission", fmtINR(d.summary.commissionTotal)],
+                ["To pay", fmtINR(d.summary.commissionPending)],
+                ["Open escalations", String(d.summary.escalationsOpen)],
+                ["Site visits", String(d.summary.siteVisits)],
+              ].map(([label, value]) => (
+                <div key={label} className={box}>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+                  <div className="mt-0.5 text-sm font-bold text-navy">{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {d.summary.leadsByStatus.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {d.summary.leadsByStatus.map((g) => (
+                  <span key={g.status} className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-semibold text-navy">
+                    {g.status}: {g.count}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <ActivityList
+              title="Listings"
+              empty="No listings created."
+              rows={d.listings.map((p) => ({
+                key: p.id,
+                main: <a href={`/properties/${p.slug}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-accent hover:underline">{p.title}</a>,
+                sub: `${p.code} · ${p.status} · ${new Date(p.createdAt).toLocaleDateString("en-IN")}`,
+              }))}
+            />
+            <ActivityList
+              title="Payments"
+              empty="No paid leads."
+              rows={d.payments.map((l) => ({
+                key: l.id,
+                main: <span className="font-semibold text-navy">{l.name} · {l.phone}</span>,
+                sub: `${l.plan ?? "Plan"} · ${l.amount ? fmtINR(l.amount) : "—"} · ${new Date(l.updatedAt).toLocaleDateString("en-IN")}`,
+              }))}
+            />
+            <ActivityList
+              title="Pending"
+              empty="Nothing pending."
+              rows={d.pendingItems.map((l) => ({
+                key: l.id,
+                main: <span className="font-semibold text-navy">{l.name} · {l.phone}</span>,
+                sub: `${l.status} · ${l.plan ?? "—"}${l.amount ? " · " + fmtINR(l.amount) : ""}`,
+              }))}
+            />
+            <ActivityList
+              title="Escalations"
+              empty="No escalations."
+              rows={d.escalations.map((e) => ({
+                key: e.id,
+                main: <span className="font-semibold text-navy">{e.lead?.name ?? "Lead"} · {e.level}</span>,
+                sub: `${e.status} · ${e.note.slice(0, 80)}`,
+              }))}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActivityList({
+  title,
+  empty,
+  rows,
+}: {
+  title: string;
+  empty: string;
+  rows: { key: string; main: React.ReactNode; sub: string }[];
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+        {title} {rows.length > 0 && <span className="text-navy">({rows.length}{rows.length === 20 ? "+" : ""})</span>}
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{empty}</p>
+      ) : (
+        <div className="divide-y divide-border rounded-xl border border-border bg-white">
+          {rows.map((r) => (
+            <div key={r.key} className="px-3 py-2 text-sm">
+              <div className="truncate">{r.main}</div>
+              <div className="text-[11px] text-muted-foreground">{r.sub}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TeamTab() {
   const [roleFilter, setRoleFilter] = useState("");
+  const [roster, setRoster] = useState<"active" | "inactive">("active");
+  const [viewing, setViewing] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   // Any filter change invalidates the current page number.
@@ -260,6 +398,7 @@ export function TeamTab() {
     {
       role: roleFilter ? (roleFilter as NewMemberInput["role"]) : undefined,
       search: search || undefined,
+      roster,
       page,
       limit: PAGE_SIZE,
     },
@@ -313,9 +452,18 @@ export function TeamTab() {
     <>
       <PageHead title="Team Management" subtitle={`${total} staff member${total !== 1 ? "s" : ""}`} />
       <Section
-        title="Active Roster"
+        title={roster === "active" ? "Active Roster" : "Inactive Roster"}
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={roster} onValueChange={(v) => reset(() => setRoster(v as "active" | "inactive"))}>
+              <SelectTrigger size="sm" className="min-w-[9rem]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Roster: Active</SelectItem>
+                <SelectItem value="inactive">Roster: Inactive</SelectItem>
+              </SelectContent>
+            </Select>
             <input
               value={search}
               onChange={(e) => reset(() => setSearch(e.target.value))}
@@ -345,7 +493,9 @@ export function TeamTab() {
         {teamQ.isLoading ? (
           <TableSkeleton rows={6} cols={7} />
         ) : members.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No team members match this filter.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            {roster === "inactive" ? "No inactive or former team members." : "No team members match this filter."}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="portal-table">
@@ -368,7 +518,14 @@ export function TeamTab() {
                     <td className="font-semibold text-navy">{m.name}</td>
                     <td className="text-xs text-muted-foreground">{m.email}</td>
                     <td className="font-mono text-xs text-muted-foreground">{m.phone}</td>
-                    <td className="text-xs">{ROLE_LABEL[m.role] ?? m.role}</td>
+                    <td className="text-xs">
+                      {ROLE_LABEL[m.role] ?? m.role}
+                      {m.formerStaffRole && (
+                        <div className="text-[10px] font-semibold text-amber-700">
+                          was {m.formerStaffRole === "staff" ? "staff" : ROLE_LABEL[m.formerStaffRole] ?? m.formerStaffRole}
+                        </div>
+                      )}
+                    </td>
                     <td className="text-xs">{m.city}</td>
                     <td className="text-xs">
                       {["sales", "virtual-rep"].includes(m.role) ? (
@@ -400,6 +557,14 @@ export function TeamTab() {
                     <td>
                       <div className="flex items-center gap-2">
                         <button
+                          onClick={() => setViewing(m.id)}
+                          title="View activity"
+                          className="rounded-md border border-border p-1.5 text-muted-foreground hover:border-accent hover:text-accent"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        {!m.formerStaffRole && (<>
+                        <button
                           onClick={() => setEditing(m)}
                           title="Edit"
                           className="rounded-md border border-border p-1.5 text-muted-foreground hover:border-accent hover:text-accent"
@@ -421,6 +586,7 @@ export function TeamTab() {
                         >
                           {m.active ? <Ban size={13} /> : <CheckCircle2 size={13} />}
                         </button>
+                        </>)}
                       </div>
                     </td>
                   </tr>
@@ -446,6 +612,7 @@ export function TeamTab() {
           onCreate={(m) => createMember.mutate(m)}
         />
       )}
+      {viewing && <ActivityPanel userId={viewing} onClose={() => setViewing(null)} />}
       {editing && (
         <EditModal
           member={editing}

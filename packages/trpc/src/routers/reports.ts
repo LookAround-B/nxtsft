@@ -495,10 +495,19 @@ export const reportsRouter = router({
       let tickets: (ReturnType<typeof shapeTicket> & { latestComment: string })[] = [];
 
       if (!isSales) {
+        // Current reps, plus anyone who worked leads as a rep before their role
+        // changed — their registration must not disappear from reports (#14).
+        const repLeadOwners = await prisma.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null } } });
         const dbAgents = await prisma.user.findMany({
           where: {
             joined: { gte: from, lte: to },
-            role: { in: ["sales", "virtual-rep"] },
+            OR: [
+              { role: { in: ["sales", "virtual-rep"] } },
+              {
+                id: { in: repLeadOwners.map((g) => g.assignedToId!) },
+                role: { notIn: ["supervisor", "admin", "super-admin", "support-admin"] },
+              },
+            ],
           },
           select: {
             id: true, name: true, email: true, city: true, state: true, joined: true,

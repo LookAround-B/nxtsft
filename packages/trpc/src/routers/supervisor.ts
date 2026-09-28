@@ -146,6 +146,22 @@ export const supervisorRouter = router({
       }),
     ]);
 
+    // Reps whose role later changed (or were deactivated) still own their leads;
+    // keep them in the table so their numbers never vanish (#14).
+    const known = new Set(reps.map((r) => r.id));
+    const formerIds = assignedCounts.map((c) => c.assignedToId!).filter((id) => !known.has(id));
+    if (formerIds.length) {
+      const former = await prisma.user.findMany({
+        where: {
+          id: { in: formerIds },
+          role: { notIn: ["sales", "virtual-rep", "supervisor", "admin", "super-admin", "support-admin"] },
+          ...(seesAllTeams(ctx.user.role) ? {} : { supervisorId: ctx.user.id }),
+        },
+        select: { id: true, name: true, city: true },
+      });
+      reps.push(...former.map((f) => ({ ...f, name: `${f.name} (former)` })));
+    }
+
     const assignedByRep = new Map(assignedCounts.map((c) => [c.assignedToId, c._count._all]));
     const convertedByRep = new Map(convertedCounts.map((c) => [c.assignedToId, c._count._all]));
 

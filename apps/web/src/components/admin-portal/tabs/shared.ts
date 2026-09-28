@@ -35,6 +35,8 @@ export type TeamMember = {
   joined: string;
   supervisorId?: string | null;
   supervisor?: { id: string; name: string } | null;
+  /** Staff role they held before being moved to a non-staff role ("staff" = inferred). */
+  formerStaffRole?: string | null;
 };
 
 export const ROLE_LABEL: Record<string, string> = {

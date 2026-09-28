@@ -62,6 +62,34 @@ const safeUserSelect = {
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin"];
 
+/**
+ * Users whose role is no longer staff but who worked as staff: explicitly
+ * recorded (metadata.formerStaffRole, set by admin.users.updateRole) or
+ * inferred from staff-only footprints — leads assigned to them, commissions,
+ * site visits as the rep, escalations, or listings created for customers.
+ * Customers never have any of these, so the inference is safe.
+ */
+async function formerStaffIds(): Promise<string[]> {
+  const [leads, comms, visits, escs, props, flagged] = await Promise.all([
+    prisma.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null } } }),
+    prisma.commission.groupBy({ by: ["salesRepId"] }),
+    prisma.siteVisit.groupBy({ by: ["salesRepId"], where: { salesRepId: { not: null } } }),
+    prisma.escalation.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null } } }),
+    prisma.property.groupBy({ by: ["createdById"], where: { createdById: { not: null } } }),
+    // metadata is jsonb; "?" = has key. Role is re-filtered by the caller's where.
+    prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE metadata ? 'formerStaffRole'`,
+  ]);
+  const ids = new Set<string>([
+    ...leads.map((g) => g.assignedToId),
+    ...comms.map((g) => g.salesRepId),
+    ...visits.map((g) => g.salesRepId),
+    ...escs.map((g) => g.assignedToId),
+    ...props.map((g) => g.createdById),
+    ...flagged.map((u) => u.id),
+  ].filter((v): v is string => !!v));
+  return [...ids];
+}
+
 // BigInt columns can't be JSON-serialized — convert before returning rows
 // to the client (interiorDesigner / decorStore both carry startingBudget).
 const serializeBudget = <T extends { startingBudget: bigint | null }>(row: T) => ({
@@ -260,9 +288,21 @@ export const adminRouter = router({
               }
             : {};
 
+        // Moving someone OUT of a staff role: remember what they were, so Team
+        // Management keeps them (and their history) under the Inactive roster.
+        const leavingStaff = STAFF_ROLES.includes(user.role) && !STAFF_ROLES.includes(input.role);
+        const baseMeta = (agentSeed.metadata ?? user.metadata ?? {}) as Record<string, unknown>;
+        const metadata = leavingStaff
+          ? { ...baseMeta, formerStaffRole: user.role, formerStaffSince: new Date().toISOString() }
+          : agentSeed.metadata;
+
         return prisma.user.update({
           where: { id: input.userId },
-          data: { role: input.role, ...agentSeed },
+          data: {
+            role: input.role,
+            ...agentSeed,
+            ...(metadata ? { metadata: metadata as Record<string, string | number | boolean | string[]> } : {}),
+          },
           select: safeUserSelect,
         });
       }),
@@ -1876,24 +1916,41 @@ export const adminRouter = router({
       z.object({
         role: roleSchema.optional(),
         search: searchSchema.optional(),
+        // Active = enabled staff accounts. Inactive = disabled staff PLUS anyone
+        // who used to be staff (role later changed) — they stay listed with all
+        // their history, so data never disappears.
+        roster: z.enum(["active", "inactive"]).default("active"),
         page: pageSchema,
         limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
-      const where: any = {
-        role: { in: STAFF_ROLES },
-      };
+      const where: any = { AND: [] as any[] };
 
-      if (input.role) {
-        where.role = input.role;
+      if (input.roster === "active") {
+        where.AND.push({ role: input.role ? input.role : { in: STAFF_ROLES } }, { active: true });
+      } else {
+        const formerIds = await formerStaffIds();
+        where.AND.push({
+          OR: input.role
+            ? [
+                { role: input.role, active: false },
+                { role: { notIn: STAFF_ROLES }, metadata: { path: ["formerStaffRole"], equals: input.role } },
+              ]
+            : [
+                { role: { in: STAFF_ROLES }, active: false },
+                { role: { notIn: STAFF_ROLES }, id: { in: formerIds } },
+              ],
+        });
       }
       if (input.search) {
-        where.OR = [
-          { name: { contains: input.search, mode: "insensitive" } },
-          { email: { contains: input.search, mode: "insensitive" } },
-          { phone: { contains: input.search, mode: "insensitive" } },
-        ];
+        where.AND.push({
+          OR: [
+            { name: { contains: input.search, mode: "insensitive" } },
+            { email: { contains: input.search, mode: "insensitive" } },
+            { phone: { contains: input.search, mode: "insensitive" } },
+          ],
+        });
       }
 
       // The roster is paged, so the directory stat tiles cannot be counted from
@@ -1905,21 +1962,106 @@ export const adminRouter = router({
             ...safeUserSelect,
             supervisorId: true,
             supervisor: { select: { id: true, name: true } },
+            metadata: true,
           },
           orderBy: { joined: "desc" },
           take: input.limit,
           skip: (input.page - 1) * input.limit,
         }),
         prisma.user.count({ where }),
-        prisma.user.count({ where: { ...where, verified: true } }),
+        prisma.user.count({ where: { AND: [where, { verified: true }] } }),
         prisma.user.count({ where: { AND: [where, { role: { in: ["admin", "super-admin"] } }] } }),
       ]);
 
       return {
-        items,
+        // metadata is only read for formerStaffRole — never sent to the client.
+        items: items.map(({ metadata, ...u }) => {
+          const former = (metadata as Record<string, unknown> | null)?.formerStaffRole;
+          return {
+            ...u,
+            formerStaffRole: typeof former === "string" ? former : STAFF_ROLES.includes(u.role) ? null : "staff",
+          };
+        }),
         total,
         totalPages: Math.max(1, Math.ceil(total / input.limit)),
         counts: { total, active, pending: total - active, admins },
+      };
+    }),
+
+  // Everything a team member (current or former) has done — Team Management's
+  // "View activity" panel. Queried by id, so nothing hides after a role change
+  // or deactivation.
+  teamMemberActivity: adminProcedure
+    .input(z.object({ userId: cuidSchema }))
+    .query(async ({ input }) => {
+      const id = input.userId;
+      const [
+        member, listingsCount, listings, leadsByStatus, paidLeads, pendingLeads,
+        commissions, escalationsOpen, escalations, visits,
+      ] = await Promise.all([
+        prisma.user.findUnique({ where: { id }, select: { ...safeUserSelect, metadata: true } }),
+        prisma.property.count({ where: { createdById: id } }),
+        prisma.property.findMany({
+          where: { createdById: id },
+          select: { id: true, title: true, slug: true, status: true, deletedAt: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        }),
+        prisma.lead.groupBy({ by: ["status"], where: { assignedToId: id }, _count: { _all: true } }),
+        prisma.lead.findMany({
+          where: { assignedToId: id, paymentStatus: "Paid" },
+          select: { id: true, name: true, phone: true, plan: true, amount: true, updatedAt: true },
+          orderBy: { updatedAt: "desc" },
+          take: 20,
+        }),
+        prisma.lead.findMany({
+          where: {
+            assignedToId: id,
+            OR: [{ status: "Payment Pending" }, { paymentStatus: "Pending" }],
+          },
+          select: { id: true, name: true, phone: true, plan: true, amount: true, status: true, updatedAt: true },
+          orderBy: { updatedAt: "desc" },
+          take: 20,
+        }),
+        prisma.commission.findMany({
+          where: { salesRepId: id },
+          select: { amount: true, status: true },
+        }),
+        prisma.escalation.count({ where: { assignedToId: id, status: "open" } }),
+        prisma.escalation.findMany({
+          where: { assignedToId: id },
+          select: { id: true, note: true, level: true, status: true, createdAt: true, lead: { select: { name: true } } },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        }),
+        prisma.siteVisit.count({ where: { salesRepId: id } }),
+      ]);
+      if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+      const former = (member.metadata as Record<string, unknown> | null)?.formerStaffRole;
+      const { metadata: _m, ...rest } = member;
+      return {
+        member: { ...rest, formerStaffRole: typeof former === "string" ? former : null },
+        summary: {
+          listings: listingsCount,
+          leads: leadsByStatus.reduce((a, g) => a + g._count._all, 0),
+          leadsByStatus: leadsByStatus.map((g) => ({ status: g.status, count: g._count._all })),
+          paid: paidLeads.length,
+          paidAmount: paidLeads.reduce((a, l) => a + (l.amount ?? 0), 0),
+          pending: pendingLeads.length,
+          commissionTotal: commissions.reduce((a, c) => a + Number(c.amount), 0),
+          commissionPending: commissions.filter((c) => c.status === "pending").reduce((a, c) => a + Number(c.amount), 0),
+          escalationsOpen,
+          siteVisits: visits,
+        },
+        listings: listings.map((p) => ({
+          ...p,
+          code: propertyCode(p.id),
+          status: p.deletedAt ? "Deleted" : p.status,
+          createdAt: p.createdAt.toISOString(),
+        })),
+        payments: paidLeads.map((l) => ({ ...l, updatedAt: l.updatedAt.toISOString() })),
+        pendingItems: pendingLeads.map((l) => ({ ...l, updatedAt: l.updatedAt.toISOString() })),
+        escalations: escalations.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })),
       };
     }),
 
