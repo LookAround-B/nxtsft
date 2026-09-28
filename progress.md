@@ -19,6 +19,11 @@
 
 ## ✅ Completed
 
+### #19 Marketing Dashboard *(09-28)*
+- [x] An interactive **Marketing Dashboard** at the top of Admin › Marketing (`campaigns.marketingOverview`), with a 7 / 30 / 90-day switch: real users, WhatsApp opt-ins, new real sign-ups, referrals; audience by role; leads by source (bar chart); channel codes by listings; WhatsApp broadcasts / sent / failed and template counts by category.
+- [x] **One-click WhatsApp send:** pick an approved template from the library and send to all real users (Utility) or all opted-in users (Marketing), with a confirm showing the exact reach. Templates with >1 variable go through the Broadcast screen. `launchWhatsApp` now returns a shallow row (avoids a TS2589 deep-inference error).
+- [x] Verified on prod (read-only): 2,712 real users, 69 opted-in, 124 / 719 sign-ups (7d / 30d), leads mostly "Fresh Lead", 0 channel codes used, 0 broadcasts. The template library is empty until BhashSMS templates are copied in.
+
 ### #17 Role permission matrix: clear and true *(09-28)*
 - [x] The old Super Admin › Role Permissions grid was **saved but never enforced** (`superAdmin.getPermissionMatrix/updatePermissionMatrix` are read by nothing else), and it defaulted every role, even Home Buyer, to full write on everything including Platform Config. That is why it was confusing. It is replaced by a **read-only matrix of how access actually works**: 9 roles (Super Admin, Admin, Supervisor, Sales Rep, Virtual Consultant, Support, Agent, Home Seller, Home Buyer) × 30 features in 6 groups (Listings, Leads & Sales, Money, People & Support, Reports & Marketing, Platform), with Full / Team / Own / View / — cells, tap-to-expand notes (free-listing cap, 10/30% commission, rep edits need approval, only Super Admin changes roles…) and a "which portal each role uses" list. It is derived from PORTAL_ACCESS + procedure tiers + portal menus; cells reflect what each role can actually use in their portal.
 - [x] Super Admin menu "Agents" renamed "Virtual Property Consultants" (matches Admin).

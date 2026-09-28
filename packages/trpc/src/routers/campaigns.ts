@@ -82,6 +82,60 @@ export const campaignsRouter = router({
   // ── WhatsApp broadcast sender ────────────────────────────────────────────
 
   // Live recipient count + a small sample for the audience picker.
+  // Marketing Dashboard (#19): real audience, sign-ups, lead sources, channel
+  // codes, referrals and WhatsApp results for the chosen period.
+  marketingOverview: adminProcedure
+    .input(z.object({ days: z.union([z.literal(7), z.literal(30), z.literal(90)]).default(30) }))
+    .query(async ({ input }) => {
+      const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+      const real = audienceWhere({});
+      const [realUsers, optedIn, byRole, signups, leadsBySource, channels, referrals, bc, templates] = await Promise.all([
+        prisma.user.count({ where: real }),
+        prisma.user.count({ where: audienceWhere({ waOptIn: true }) }),
+        prisma.user.groupBy({ by: ["role"], where: real, _count: { _all: true } }),
+        prisma.user.count({ where: { AND: [real, { joined: { gte: since } }] } }),
+        prisma.lead.groupBy({ by: ["source"], where: { createdAt: { gte: since } }, _count: { _all: true } }),
+        prisma.property.groupBy({
+          by: ["channelCode"],
+          where: { createdAt: { gte: since }, channelCode: { not: null }, deletedAt: null },
+          _count: { _all: true },
+        }),
+        prisma.referralSubmission.count({ where: { createdAt: { gte: since } } }),
+        prisma.waBroadcast.aggregate({
+          where: { createdAt: { gte: since } },
+          _count: { _all: true },
+          _sum: { sent: true, failed: true },
+        }),
+        readTemplates(),
+      ]);
+      return {
+        days: input.days,
+        audience: {
+          realUsers,
+          optedIn,
+          byRole: byRole.map((r) => ({ role: r.role, count: r._count._all })).sort((a, b) => b.count - a.count),
+          signups,
+        },
+        leadsBySource: leadsBySource
+          .map((g) => ({ source: g.source ?? "Portal", count: g._count._all }))
+          .sort((a, b) => b.count - a.count),
+        channels: channels
+          .map((g) => ({ code: g.channelCode!, listings: g._count._all }))
+          .sort((a, b) => b.listings - a.listings),
+        referrals,
+        whatsapp: {
+          broadcasts: bc._count._all,
+          sent: bc._sum.sent ?? 0,
+          failed: bc._sum.failed ?? 0,
+          templates: {
+            Utility: templates.filter((t) => t.category === "Utility").length,
+            Marketing: templates.filter((t) => t.category === "Marketing").length,
+            Authentication: templates.filter((t) => t.category === "Authentication").length,
+          },
+        },
+      };
+    }),
+
   waTemplates: adminProcedure.query(async () => readTemplates()),
 
   // Add or replace (by name) a template in the library.
@@ -153,6 +207,8 @@ export const campaignsRouter = router({
           status: "queued",
           createdById: ctx.user.id,
         },
+        // Shallow return (no Json params/audience) keeps client inference cheap.
+        select: { id: true, name: true, templateName: true, total: true, status: true },
       });
     }),
 

@@ -227,6 +227,175 @@ function CarouselBuilder({ onSaved }: { onSaved: () => void }) {
   );
 }
 
+const ROLE_NAMES: Record<string, string> = {
+  user: "Home Buyers", "home-seller": "Home Sellers", agent: "Agents", builder: "Builders",
+};
+
+type Tpl = { name: string; category: "Utility" | "Marketing" | "Authentication"; body: string; variables: number };
+
+/** Interactive Marketing Dashboard (#19) — live numbers + one-click WhatsApp send. */
+function MarketingDashboard() {
+  const [days, setDays] = useState<7 | 30 | 90>(30);
+  const q = trpc.campaigns.marketingOverview.useQuery({ days });
+  const tplQ = trpc.campaigns.waTemplates.useQuery();
+  const utils = trpc.useUtils();
+  const [pick, setPick] = useState("");
+  const launch = trpc.campaigns.launchWhatsApp.useMutation({
+    onSuccess: (b) => {
+      toast.success(`Queued "${b.templateName}" to ${b.total.toLocaleString("en-IN")} users. It sends in the background.`);
+      setPick("");
+      void utils.campaigns.marketingOverview.invalidate();
+      void utils.campaigns.broadcasts.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const d = q.data;
+  const sendable = ((tplQ.data ?? []) as Tpl[]).filter((t) => t.category !== "Authentication" && t.variables <= 1);
+  const chosen = sendable.find((t) => t.name === pick);
+  const reach = chosen ? (chosen.category === "Marketing" ? d?.audience.optedIn : d?.audience.realUsers) : undefined;
+  const maxSource = Math.max(1, ...(d?.leadsBySource ?? []).map((s) => s.count));
+
+  const sendNow = () => {
+    if (!chosen) return;
+    const who = chosen.category === "Marketing" ? "all WhatsApp opted-in users" : "all real users";
+    if (!confirm(`Send "${chosen.name}" to ${who} (${(reach ?? 0).toLocaleString("en-IN")})?`)) return;
+    launch.mutate({
+      name: `One-click · ${chosen.name} · ${new Date().toLocaleDateString("en-IN")}`,
+      templateName: chosen.name,
+      params: chosen.variables === 1 ? ["{firstName}"] : [],
+      audience: {},
+    });
+  };
+
+  const card = "rounded-2xl border border-border bg-white p-4 shadow-sm";
+  return (
+    <Section
+      title="Marketing Dashboard"
+      action={
+        <div className="flex gap-1 rounded-lg border border-border bg-white p-0.5">
+          {([7, 30, 90] as const).map((n) => (
+            <button
+              key={n}
+              onClick={() => setDays(n)}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold ${days === n ? "bg-accent text-white" : "text-muted-foreground"}`}
+            >
+              {n}d
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {q.isLoading || !d ? (
+        <TableSkeleton rows={3} cols={4} />
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              ["Real users", d.audience.realUsers.toLocaleString("en-IN"), "reachable, no staff/test"],
+              ["WhatsApp opt-in", d.audience.optedIn.toLocaleString("en-IN"), "can get marketing"],
+              [`New sign-ups · ${d.days}d`, d.audience.signups.toLocaleString("en-IN"), "real users"],
+              [`Referrals · ${d.days}d`, String(d.referrals), "submitted"],
+            ].map(([label, value, sub]) => (
+              <div key={label} className={card}>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+                <div className="mt-1 font-display text-2xl font-black text-navy">{value}</div>
+                <div className="text-[11px] text-muted-foreground">{sub}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className={card}>
+              <div className="mb-2 text-sm font-bold text-navy">Audience by role</div>
+              {d.audience.byRole.map((r) => (
+                <div key={r.role} className="flex justify-between py-1 text-sm">
+                  <span>{ROLE_NAMES[r.role] ?? r.role}</span>
+                  <span className="font-mono font-semibold">{r.count.toLocaleString("en-IN")}</span>
+                </div>
+              ))}
+            </div>
+            <div className={card}>
+              <div className="mb-2 text-sm font-bold text-navy">Leads by source · {d.days}d</div>
+              {d.leadsBySource.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No leads in this period.</p>
+              ) : (
+                d.leadsBySource.map((s) => (
+                  <div key={s.source} className="py-1">
+                    <div className="flex justify-between text-xs">
+                      <span>{s.source}</span>
+                      <span className="font-mono font-semibold">{s.count}</span>
+                    </div>
+                    <div className="mt-1 h-1.5 rounded-full bg-secondary">
+                      <div className="h-1.5 rounded-full bg-accent" style={{ width: `${(s.count / maxSource) * 100}%` }} />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className={card}>
+              <div className="mb-2 text-sm font-bold text-navy">Channel codes · {d.days}d</div>
+              {d.channels.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No listings came in with a channel code.</p>
+              ) : (
+                d.channels.slice(0, 8).map((c) => (
+                  <div key={c.code} className="flex justify-between py-1 text-sm">
+                    <span className="font-mono">{c.code}</span>
+                    <span className="font-semibold">{c.listings} listing{c.listings === 1 ? "" : "s"}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className={`${card} border-emerald-200`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-bold text-navy">WhatsApp · {d.days}d</div>
+              <a href="#broadcast" className="text-xs font-semibold text-accent hover:underline">Open WhatsApp Broadcast →</a>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+              <span>{d.whatsapp.broadcasts} broadcast{d.whatsapp.broadcasts === 1 ? "" : "s"}</span>
+              <span className="text-emerald-700">{d.whatsapp.sent.toLocaleString("en-IN")} sent</span>
+              <span className="text-red-600">{d.whatsapp.failed.toLocaleString("en-IN")} failed</span>
+              <span className="text-muted-foreground">
+                Templates: {d.whatsapp.templates.Utility} utility · {d.whatsapp.templates.Marketing} marketing ·{" "}
+                {d.whatsapp.templates.Authentication} OTP
+              </span>
+            </div>
+
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+              <select
+                value={pick}
+                onChange={(e) => setPick(e.target.value)}
+                className="flex-1 rounded-lg border border-input bg-white px-3 py-2 text-sm"
+              >
+                <option value="">One-click send: choose an approved template…</option>
+                {sendable.map((t) => (
+                  <option key={t.name} value={t.name}>
+                    {t.name} ({t.category})
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={!chosen || launch.isPending || !reach}
+                onClick={sendNow}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+              >
+                {chosen
+                  ? `Send to ${(reach ?? 0).toLocaleString("en-IN")} ${chosen.category === "Marketing" ? "opted-in" : "real"} users`
+                  : "Send to all"}
+              </button>
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Utility templates go to all real users; marketing only to opted-in users (WhatsApp rule). Templates with
+              more than one variable are sent from the WhatsApp Broadcast screen.
+            </p>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 export function MarketingTab() {
   const campaignsQ = trpc.campaigns.list.useQuery();
   const createMutation = trpc.campaigns.create.useMutation({
@@ -272,7 +441,8 @@ export function MarketingTab() {
 
   return (
     <>
-      <PageHead title="Marketing" subtitle="Campaigns, attribution and creative library." />
+      <PageHead title="Marketing" subtitle="Live audience, lead sources, channels and WhatsApp — plus campaigns and creatives." />
+      <MarketingDashboard />
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Total Budget" value={fmtBudget(totalBudget)} sub={`${campaigns.length} campaigns`} />
         <StatCard label="Leads Generated" value={String(totalLeads)} sub="across all campaigns" />
