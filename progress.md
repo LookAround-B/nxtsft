@@ -19,6 +19,9 @@
 
 ## ✅ Completed
 
+### 124-row locations review imported (state only) *(09-28)*
+- [x] The team's returned `NxtSft_Listing_Locations_To_Fix.xlsx`: they could trace only the **state**, so only `Location.state` was updated; city and locality were left as they were. 122 rows filled, 2 left blank (skipped). Each row was checked: Location ID exists, it matches the Property ID in column A, and the state name matches india-locations.json. All 122 were "India" before. Applied 122/122 and re-verified; only the 2 blank rows' listings still show state "India". Rollback file: `docs/location-state-import-backup-2026-09-28.json` (untracked, keep).
+
 ### Boss decisions 09-28: plan end → free, ₹999 badge, no upgrade commission *(09-28)*
 - [x] **Plan ends → back to free** (`listingExpiry.ts`, daily `/api/cron/listing-expiry`). New step 3: any seller (owner-*) subscription past its endDate is marked **Expired** (still counted as revenue; Reports treats Expired as Paid). If the owner has no other active seller plan, their Active/Pending listings go to **freeListing = true** and stay live, and the owner is notified to renew. Rep payment-link leads at expiry now also move the listing to the free tier instead of unpublishing it (Inactive), unless the owner holds another active plan. Before this, self-serve plans never expired and rep-sold listings were taken offline.
 - [x] **Verified badge from ₹999:** `SELLER_BADGE_MIN_PAISE` 4999 → 999, so the Trail plan gets Verified Owner + NRI Trusted. Pricing cards and the /list preview copy are updated ("any paid plan (from ₹999)").
