@@ -212,7 +212,7 @@ const SECTIONS = [
     ],
     list: [
       "Name: " + PROPRIETOR_NAME,
-      "Email: grievance@nxtsft.com",
+      "Email: support@nxtsft.com",
       "Address: " + PROPRIETOR_ADDRESS,
       "Time to Resolve: 15 days from receipt of complaint",
     ],
@@ -224,7 +224,7 @@ const SECTIONS = [
     contact: {
       company: "NxtSft.com — " + PROPRIETOR_NAME + ", Proprietor",
       address: PROPRIETOR_ADDRESS,
-      email: "hello@nxtsft.com",
+      email: "info@nxtsft.com",
       support: "support@nxtsft.com",
     },
   },

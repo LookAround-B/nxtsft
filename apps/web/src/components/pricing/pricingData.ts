@@ -285,7 +285,7 @@ export const ownerSellFaqs: string[][] = [
   ],
   [
     "Which plan is right for a builder or developer?",
-    "The Elite plan — it supports the largest number of active listings, includes a dedicated manager, and comes with managed marketing campaigns. For very large projects needing a dedicated microsite or custom integrations, email partners@nxtsft.com for a tailored quote and dedicated onboarding.",
+    "The Elite plan — it supports the largest number of active listings, includes a dedicated manager, and comes with managed marketing campaigns. For very large projects needing a dedicated microsite or custom integrations, email sales@nxtsft.com for a tailored quote and dedicated onboarding.",
   ],
   [
     "How do the marketing campaigns work?",

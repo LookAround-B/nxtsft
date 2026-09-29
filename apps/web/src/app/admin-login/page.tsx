@@ -303,7 +303,7 @@ function AdminLoginPageContent() {
                       <div
                         className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${r.badgeBg}`}
                       >
-                        {meta.demoEmail}
+                        {meta.label}
                       </div>
                     </button>
                   );
@@ -379,7 +379,7 @@ function AdminLoginPageContent() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder={selected ? ROLE_META[selected].demoEmail : "Select a role first"}
+                      placeholder={selected ? "Your work email" : "Select a role first"}
                       className="mt-1.5 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                       disabled={!selected}
                     />

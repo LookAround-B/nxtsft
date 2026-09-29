@@ -53,7 +53,7 @@ export function CareersOpenings() {
             No open roles right now — but we&apos;re always keen to meet great people.
           </p>
           <a
-            href="mailto:jobs@nxtsft.com"
+            href="mailto:hr@nxtsft.com"
             className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 font-display text-sm font-bold text-white shadow-lg shadow-accent/40 transition hover:opacity-90"
           >
             Send us your CV

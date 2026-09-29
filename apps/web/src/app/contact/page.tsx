@@ -24,8 +24,8 @@ const CONTACTS: { label: string; value: string; icon: React.ReactNode; href?: st
     icon: <Clock size={18} />,
   },
   {
-    label: "Partnerships",
-    value: "developers@nxtsft.com",
+    label: "General",
+    value: "info@nxtsft.com",
     icon: <Mail size={18} />,
   },
 ];

@@ -197,7 +197,7 @@ export function KYCTab() {
               <div>
                 <p className="font-semibold text-navy">Your Rights</p>
                 <p>
-                  You can access, correct, or delete your documents anytime via privacy@nxtsft.com.
+                  You can access, correct, or delete your documents anytime via support@nxtsft.com.
                   Withdrawing consent will remove the “Verified” badge and may delist your property.
                 </p>
               </div>
@@ -209,7 +209,7 @@ export function KYCTab() {
                 </p>
               </div>
               <p className="pt-1 text-muted-foreground/80">
-                Contact: Data Protection Officer – dpo@nxtsft.com, Hyderabad
+                Contact: Data Protection Officer – support@nxtsft.com
               </p>
             </div>
           )}

@@ -19,6 +19,10 @@
 
 ## ✅ Completed
 
+### Only 4 company emails on the site *(09-29)*
+- [x] Boss: only **info@, sales@, hr@, support@nxtsft.com** are active. Replaced everywhere public: hello@ → info@, jobs@ → hr@, partners@ / list@ → sales@, developers@ → info@ (Contact page), grievance@ / privacy@ / dpo@ → support@ (Terms Grievance Officer, KYC). press@ was removed (About now lists the 4). Footer: General info@, Support, Careers hr@, Sales & Partnerships sales@. /admin-login no longer shows demo addresses (sa@, admin@, priya@…) as badges or placeholders; it shows the role name and "Your work email". Remaining @nxtsft.com strings are internal demo-account data and admin-form example placeholders, none shown publicly.
+- ⚠️ Make sure those 4 mailboxes actually exist and receive mail (domain email setup is outside the code).
+
 ### Plan MRP vs offer price *(09-29)*
 - [x] Boss: admin sets **MRP** and **Offer price** per plan, changeable any time, shown as a discount on the pricing page. Plans Manager has **Offer price (₹), charged** (existing Plan.price) and **MRP (₹), shown struck out** (blank = no discount). `subscriptions.setPlanMrp` (admin) stores MRPs in SiteSetting `plans.mrp` {planId: mrp} (no schema change) and rejects MRP ≤ offer price. `plans` / `plansAdmin` return `mrp`. New `PlanPrice` shows ~~₹MRP~~ **₹offer** "X% OFF" on the seller and buyer pricing cards. Checkout always charges Plan.price.
 - [x] Set per the boss's sketch: Owner Trial ₹999 (MRP ₹1,999) and Agent Trial ₹1,999 (MRP ₹3,999), both 50% OFF. Verified locally at 400px; plans without an MRP are unchanged.
