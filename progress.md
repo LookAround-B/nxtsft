@@ -19,6 +19,9 @@
 
 ## ✅ Completed
 
+### "Verified Owner" only for paid plans *(09-29)*
+- [x] Property page › Contact Owner: the line under the owner's name was a **hard-coded "Verified Owner" for every listing**, free ones included. It now follows the plan (`sellerBadges`, any active paid plan from ₹999): paid → green "Verified Owner"; free → amber **"Verification in process"**. The paid badge set (Verified Owner + NRI Trusted) was already plan-gated. Checked locally at 400px: free (G VENU, Vizag plot) shows "Verification in process"; a Trail-plan owner shows "Verified Owner" + badges.
+
 ### VC vs Agents in admin; per-role commission copy; old ₹500 recalculated *(09-28)*
 - [x] **Boss 09-28:** Agents are NOT onboarded by admin. They self-register from the Home Seller sign-up and their profile shows on /agents after admin approval (Seller Approvals). **VCs are staff onboarded by admin**, with the same features as a Sales Rep and 30% commission. The admin + super-admin menus now have **"Virtual Property Consultants"** (`#vcs`), which is TeamTab locked to role `virtual-rep` (new `fixedRole` prop): "+ Onboard VC", Active/Inactive roster, supervisor assignment, activity panel. Also **"Agents"** (`#agents`, the former AgentsTab), which is edit/deactivate only; the Onboard button is removed and the copy explains self-registration + approval. Prod: 1 VC ("Virtual Rep").
 - [x] **Commission copy per role:** Sales Portal › My Leads banner and My Earnings "Commission Rate" show only the viewer's own rate (Sales Rep 10%, VC 30%, any plan, first purchase only). They used to show both rates, and My Earnings still said "₹500 per qualifying new sale".

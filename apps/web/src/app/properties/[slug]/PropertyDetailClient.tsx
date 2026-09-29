@@ -33,6 +33,7 @@ import {
   Play,
   ScrollText,
   IndianRupee,
+  Clock,
 } from "lucide-react";
 import { PropertyEngagement } from "@/components/PropertyEngagement";
 import { PropertyReport } from "@/components/PropertyReport";
@@ -261,15 +262,24 @@ function ContactCard({
         </div>
         <div>
           <div className="font-semibold text-foreground">{displayName ?? "Owner"}</div>
-          <div className="flex items-center gap-1 text-xs text-emerald-600 font-semibold">
-            <ShieldCheck size={12} />
-            Verified Owner
-          </div>
+          {/* Only paid plans (from ₹999) earn "Verified Owner" (boss 09-29);
+              free listings show that verification is still pending. */}
+          {property.sellerBadges ? (
+            <div className="flex items-center gap-1 text-xs text-emerald-600 font-semibold">
+              <ShieldCheck size={12} />
+              Verified Owner
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 text-xs text-amber-600 font-semibold">
+              <Clock size={12} />
+              Verification in process
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Verified badge set (LA-343) — only for owners on an active ≥₹4,999
-          plan. Same chip style as the agent-profile RERA badge. */}
+      {/* Verified badge set (LA-343) — only for owners on an active paid plan
+          (from ₹999). Same chip style as the agent-profile RERA badge. */}
       {property.sellerBadges && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
