@@ -293,16 +293,14 @@ export function MyLeadsTab() {
                     </button>
                   )}
                   {l.property && (
-                    <button
-                      onClick={() => toggle(l.id, "editListing")}
-                      className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold ${
-                        openAction?.id === l.id && openAction.kind === "editListing"
-                          ? "border-accent text-accent"
-                          : "border-border hover:bg-muted"
-                      }`}
+                    // Full editor (all details + photos, owner contact locked,
+                    // admin approval) — same page as Sales Portal › Listings.
+                    <a
+                      href={`/list/edit/${l.property.id}?lead=${l.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"
                     >
                       <Pencil size={12} /> Edit listing
-                    </button>
+                    </a>
                   )}
                   {l.property && (
                     <button

@@ -19,6 +19,9 @@
 
 ## ✅ Completed
 
+### Sales Portal › My Leads: Edit listing opens the full editor *(09-29)*
+- [x] Boss saw only 4 fields (title/price/BHK/description) when editing from **My Leads**: that button still opened the old inline quick-edit. It now opens the same full editor as Sales Portal › Listings (`/list/edit/[id]?lead=`): all details + photos, owner contact locked, admin approval. The inline panel code is left in place, now unused.
+
 ### "Verified Owner" only for paid plans *(09-29)*
 - [x] Property page › Contact Owner: the line under the owner's name was a **hard-coded "Verified Owner" for every listing**, free ones included. It now follows the plan (`sellerBadges`, any active paid plan from ₹999): paid → green "Verified Owner"; free → amber **"Verification in process"**. The paid badge set (Verified Owner + NRI Trusted) was already plan-gated. Checked locally at 400px: free (G VENU, Vizag plot) shows "Verification in process"; a Trail-plan owner shows "Verified Owner" + badges.
 
