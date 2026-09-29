@@ -1,4 +1,5 @@
 "use client";
+import { PlanPrice } from "./PlanPrice";
 
 import { Check, Globe, ShieldCheck } from "lucide-react";
 
@@ -9,6 +10,8 @@ export type OwnerPlan = {
   name: string;
   price: number;
   priceLabel: string;
+  /** Admin-set MRP (display-only strike-through); null = no discount shown. */
+  mrp?: number | null;
   credits: number;
   validity: number; // days
   tagline: string;
@@ -35,7 +38,7 @@ export function OwnerPlanCard({ plan, onBuy }: { plan: OwnerPlan; onBuy: (p: Own
       <div className="mt-0.5 text-xs text-muted-foreground">{plan.tagline}</div>
 
       <div className="mt-5 flex items-baseline gap-1.5">
-        <span className="font-display text-3xl font-black text-navy">{plan.priceLabel}</span>
+        <PlanPrice price={plan.price} priceLabel={plan.priceLabel} mrp={plan.mrp} />
         <span className="text-xs text-muted-foreground">/ {plan.validity} days</span>
       </div>
       <div className="mt-0.5 text-[11px] font-medium text-muted-foreground">(inclusive GST*)</div>

@@ -19,6 +19,10 @@
 
 ## ✅ Completed
 
+### Plan MRP vs offer price *(09-29)*
+- [x] Boss: admin sets **MRP** and **Offer price** per plan, changeable any time, shown as a discount on the pricing page. Plans Manager has **Offer price (₹), charged** (existing Plan.price) and **MRP (₹), shown struck out** (blank = no discount). `subscriptions.setPlanMrp` (admin) stores MRPs in SiteSetting `plans.mrp` {planId: mrp} (no schema change) and rejects MRP ≤ offer price. `plans` / `plansAdmin` return `mrp`. New `PlanPrice` shows ~~₹MRP~~ **₹offer** "X% OFF" on the seller and buyer pricing cards. Checkout always charges Plan.price.
+- [x] Set per the boss's sketch: Owner Trial ₹999 (MRP ₹1,999) and Agent Trial ₹1,999 (MRP ₹3,999), both 50% OFF. Verified locally at 400px; plans without an MRP are unchanged.
+
 ### Sales Portal › My Leads: Edit listing opens the full editor *(09-29)*
 - [x] Boss saw only 4 fields (title/price/BHK/description) when editing from **My Leads**: that button still opened the old inline quick-edit. It now opens the same full editor as Sales Portal › Listings (`/list/edit/[id]?lead=`): all details + photos, owner contact locked, admin approval. The inline panel code is left in place, now unused.
 

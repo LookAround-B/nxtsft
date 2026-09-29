@@ -21,6 +21,20 @@ import {
   limitSchema,
 } from "../sanitize";
 import { hasSellerBadges } from "../badges";
+
+// Plan MRPs (boss 09-29): admin-set "was" price per plan, display-only — the
+// customer is always charged Plan.price (the offer price). Stored as one
+// SiteSetting map { planId: mrp } so no schema change is needed.
+const PLAN_MRP_KEY = "plans.mrp";
+async function readPlanMrps(): Promise<Record<string, number>> {
+  const row = await prisma.siteSetting.findUnique({ where: { key: PLAN_MRP_KEY } });
+  const v = row?.value;
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, number>) : {};
+}
+async function withMrp<T extends { id: string }>(plans: T[]): Promise<(T & { mrp: number | null })[]> {
+  const mrps = await readPlanMrps();
+  return plans.map((p) => ({ ...p, mrp: typeof mrps[p.id] === "number" ? mrps[p.id]! : null }));
+}
 import { generatePayUHash, PAYU_BASE_URL } from "../payu";
 import { BOOST_TIERS, isBoostTier, type BoostTier } from "@nxtsft/shared/constants";
 
@@ -65,7 +79,7 @@ export const subscriptionsRouter = router({
     .input(z.object({ type: planTypeSchema.optional() }))
     .query(async ({ input }) => {
       const where = input.type ? { type: input.type, active: true } : { active: true };
-      return prisma.plan.findMany({ where, orderBy: { price: "asc" } });
+      return withMrp(await prisma.plan.findMany({ where, orderBy: { price: "asc" } }));
     }),
 
   // Get single plan
@@ -81,10 +95,33 @@ export const subscriptionsRouter = router({
   plansAdmin: adminProcedure
     .input(z.object({ type: planTypeSchema.optional() }))
     .query(async ({ input }) => {
-      return prisma.plan.findMany({
-        where: input.type ? { type: input.type } : {},
-        orderBy: { price: "asc" },
+      return withMrp(
+        await prisma.plan.findMany({
+          where: input.type ? { type: input.type } : {},
+          orderBy: { price: "asc" },
+        }),
+      );
+    }),
+
+  // Admin: set (or clear with null) a plan's MRP — the struck-through "was"
+  // price shown above the offer price on the pricing page.
+  setPlanMrp: adminProcedure
+    .input(z.object({ planId: z.string().min(1).max(60), mrp: z.number().int().positive().max(10_000_000).nullable() }))
+    .mutation(async ({ input, ctx }) => {
+      const plan = await prisma.plan.findUnique({ where: { id: input.planId }, select: { price: true } });
+      if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
+      if (input.mrp !== null && input.mrp <= plan.price) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "MRP must be higher than the offer price (or leave it blank)." });
+      }
+      const mrps = await readPlanMrps();
+      if (input.mrp === null) delete mrps[input.planId];
+      else mrps[input.planId] = input.mrp;
+      await prisma.siteSetting.upsert({
+        where: { key: PLAN_MRP_KEY },
+        create: { key: PLAN_MRP_KEY, value: mrps, editorId: ctx.user.id },
+        update: { value: mrps, editorId: ctx.user.id },
       });
+      return { ok: true };
     }),
 
   // Active payment gateway — read by checkout pages to decide Razorpay vs PayU

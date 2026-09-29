@@ -16,6 +16,7 @@ type EditablePlan = {
   name: string;
   price: number;
   priceLabel: string;
+  mrp: number | null;
   credits: number;
   validity: number; // days
   tagline: string;
@@ -125,7 +126,7 @@ function PlanCard({
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
           <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            Price (₹)
+            Offer price (₹) — charged
           </label>
           {editing ? (
             <input
@@ -142,6 +143,33 @@ function PlanCard({
             />
           ) : (
             <div className="mt-1 font-display text-xl font-black text-navy">{plan.priceLabel}</div>
+          )}
+        </div>
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            MRP (₹) — shown struck out
+          </label>
+          {editing ? (
+            <input
+              type="number"
+              value={draft.mrp ?? ""}
+              placeholder="blank = no discount"
+              onChange={(e) => setDraft((d) => ({ ...d, mrp: e.target.value ? Number(e.target.value) : null }))}
+              className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            />
+          ) : (
+            <div className="mt-1 text-sm text-muted-foreground">
+              {plan.mrp ? (
+                <>
+                  <span className="line-through">₹{plan.mrp.toLocaleString("en-IN")}</span>{" "}
+                  <span className="font-semibold text-emerald-700">
+                    {Math.round(((plan.mrp - plan.price) / plan.mrp) * 100)}% off
+                  </span>
+                </>
+              ) : (
+                "—"
+              )}
+            </div>
           )}
         </div>
         <div>
@@ -243,10 +271,13 @@ function usePlanGroup(type: PlanType) {
   const updatePlan = trpc.subscriptions.updatePlan.useMutation({ onSuccess: () => refetch(), onError });
   const deletePlan = trpc.subscriptions.deletePlan.useMutation({ onSuccess: () => refetch(), onError });
   const createPlan = trpc.subscriptions.createPlan.useMutation({ onSuccess: () => refetch(), onError });
+  const setPlanMrp = trpc.subscriptions.setPlanMrp.useMutation({ onSuccess: () => refetch(), onError });
 
   const plans = (plansQ.data ?? []) as unknown as EditablePlan[];
 
-  const save = (id: string, u: EditablePlan) =>
+  const save = (id: string, u: EditablePlan) => {
+    const before = plans.find((p) => p.id === id);
+    if ((before?.mrp ?? null) !== (u.mrp ?? null)) setPlanMrp.mutate({ planId: id, mrp: u.mrp ?? null });
     updatePlan.mutate(
       {
         id,
@@ -261,6 +292,7 @@ function usePlanGroup(type: PlanType) {
       },
       { onSuccess: () => toast.success(`"${u.name}" saved`) },
     );
+  };
 
   const toggle = (id: string) => {
     const plan = plans.find((p) => p.id === id);

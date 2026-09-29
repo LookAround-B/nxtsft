@@ -1,4 +1,5 @@
 "use client";
+import { PlanPrice } from "./PlanPrice";
 
 import { Check } from "lucide-react";
 
@@ -7,6 +8,8 @@ export type SeekerPlan = {
   name: string;
   price: number;
   priceLabel: string;
+  /** Admin-set MRP (display-only strike-through); null = no discount shown. */
+  mrp?: number | null;
   credits: number;
   validity: number;
   tagline: string;
@@ -39,7 +42,7 @@ export function SeekerPlanCard({
       <div className="mt-0.5 text-xs text-muted-foreground">{plan.tagline}</div>
 
       <div className="mt-5 flex flex-wrap items-baseline gap-2">
-        <span className="font-display text-3xl font-black text-navy">{plan.priceLabel}</span>
+        <PlanPrice price={plan.price} priceLabel={plan.priceLabel} mrp={plan.mrp} />
         <span className="rounded-full bg-navy/8 px-2.5 py-0.5 text-[11px] font-bold text-navy">
           {plan.credits} {plan.credits === 1 ? "credit" : "credits"}
         </span>
