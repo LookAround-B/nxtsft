@@ -107,8 +107,56 @@ function Sel({ label, value, options, onChange, locked }: {
   );
 }
 
-function RptSection({ title, count, onExport, children }: {
+const PAGE_SIZE = 25;
+
+/** Client-side paging over an already-filtered report list. */
+function usePaged<T>(rows: T[]) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const cur = Math.min(page, totalPages); // filters can shrink the list
+  return {
+    rows: rows.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE),
+    page: cur,
+    totalPages,
+    total: rows.length,
+    setPage,
+  };
+}
+type Paged = { page: number; totalPages: number; total: number; setPage: (p: number) => void };
+
+function Pager({ p }: { p: Paged }) {
+  if (p.totalPages <= 1) return null;
+  const nums = Array.from({ length: p.totalPages }, (_, i) => i + 1).filter(
+    (n) => n === 1 || n === p.totalPages || Math.abs(n - p.page) <= 1,
+  );
+  const btn = "min-w-8 rounded-md border px-2 py-1 text-xs font-semibold disabled:opacity-40";
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+      <span>
+        Rows {(p.page - 1) * PAGE_SIZE + 1}–{Math.min(p.page * PAGE_SIZE, p.total)} of {p.total}
+      </span>
+      <div className="flex flex-wrap items-center gap-1">
+        <button className={`${btn} border-border bg-white`} disabled={p.page === 1} onClick={() => p.setPage(p.page - 1)}>‹ Prev</button>
+        {nums.map((n, i) => (
+          <span key={n} className="flex items-center gap-1">
+            {i > 0 && n - nums[i - 1]! > 1 && <span>…</span>}
+            <button
+              className={`${btn} ${n === p.page ? "border-accent bg-accent text-white" : "border-border bg-white text-navy"}`}
+              onClick={() => p.setPage(n)}
+            >
+              {n}
+            </button>
+          </span>
+        ))}
+        <button className={`${btn} border-border bg-white`} disabled={p.page === p.totalPages} onClick={() => p.setPage(p.page + 1)}>Next ›</button>
+      </div>
+    </div>
+  );
+}
+
+function RptSection({ title, count, onExport, children, pager, dateLabel }: {
   title: string; count: number; onExport: () => void; children: ReactNode;
+  pager?: ReactNode; dateLabel?: string;
 }) {
   const [open, setOpen] = useState(true);
   return (
@@ -117,6 +165,18 @@ function RptSection({ title, count, onExport, children }: {
         <div className="flex items-center gap-3">
           <h3 className="font-display text-base font-bold text-navy">{title}</h3>
           <Badge tone="new">{count} records</Badge>
+          {dateLabel && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                document.getElementById("report-filters")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className="hidden rounded-full border border-border px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground hover:border-accent hover:text-accent sm:inline-flex"
+              title="Change dates"
+            >
+              📅 {dateLabel} · change
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -128,7 +188,12 @@ function RptSection({ title, count, onExport, children }: {
           {open ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
         </div>
       </div>
-      {open && <div className="border-t border-border px-5 pb-5 pt-4 overflow-x-auto">{children}</div>}
+      {open && (
+        <div className="border-t border-border px-5 pb-5 pt-4">
+          <div className="overflow-x-auto">{children}</div>
+          {pager}
+        </div>
+      )}
     </div>
   );
 }
@@ -319,6 +384,18 @@ export function ReportsDashboard({
 
   const funnelMax = Math.max(1, ...leadsFunnel.map((f) => f.count));
 
+  const pCommissions = usePaged(fCommissions);
+  const pUsers = usePaged(fUsers);
+  const pListings = usePaged(fListings);
+  const pSubs = usePaged(fSubs);
+  const pVisits = usePaged(fVisits);
+  const pAgents = usePaged(fAgents);
+  const pTickets = usePaged(fTickets);
+  const dateLabel =
+    from && from !== DEFAULT_FILTERS.from
+      ? `${new Date(from).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${new Date(to).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
+      : "All dates";
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -365,7 +442,7 @@ export function ReportsDashboard({
       )}
 
       {/* ── Filter bar ────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+      <div id="report-filters" className="scroll-mt-24 rounded-2xl border border-border bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Filter size={13} className="text-muted-foreground" />
@@ -624,6 +701,8 @@ export function ReportsDashboard({
       {/* ══ COMMISSIONS ═════════════════════════════════════════ */}
       <RptSection
         title="Commissions"
+        pager={<Pager p={pCommissions} />}
+        dateLabel={dateLabel}
         count={fCommissions.length}
         onExport={() =>
           dlCSV("commissions.csv",
@@ -665,7 +744,7 @@ export function ReportsDashboard({
                 </tr>
               </thead>
               <tbody>
-                {fCommissions.map((c) => (
+                {pCommissions.rows.map((c) => (
                   <tr key={c.id}>
                     <td className="font-mono text-xs">{c.id}</td>
                     <td className="font-semibold text-navy">{c.repName}</td>
@@ -689,6 +768,8 @@ export function ReportsDashboard({
       {/* ══ REGISTERED USERS ════════════════════════════════════ */}
       <RptSection
         title="Registered Users"
+        pager={<Pager p={pUsers} />}
+        dateLabel={dateLabel}
         count={fUsers.length}
         onExport={() =>
           dlCSV("registered-users.csv",
@@ -709,7 +790,7 @@ export function ReportsDashboard({
               </tr>
             </thead>
             <tbody>
-              {fUsers.map((u, i) => (
+              {pUsers.rows.map((u, i) => (
                 <tr key={`${u.id}-${i}`}>
                   <td className="font-mono text-xs">
                     {u.propertyIds.length === 0
@@ -758,6 +839,8 @@ export function ReportsDashboard({
       {/* ── Property Listings ──────────────────────────────────── */}
       <RptSection
         title="Property Listings"
+        pager={<Pager p={pListings} />}
+        dateLabel={dateLabel}
         count={fListings.length}
         onExport={() =>
           dlCSV(
@@ -792,7 +875,7 @@ export function ReportsDashboard({
               </tr>
             </thead>
             <tbody>
-              {fListings.map((l, i) => (
+              {pListings.rows.map((l, i) => (
                 <tr key={`${l.id}-${i}`}>
                   <td className="font-mono text-xs">{l.id}</td>
                   <td className="font-semibold text-navy">{l.title}</td>
@@ -832,6 +915,8 @@ export function ReportsDashboard({
 
       <RptSection
         title="Subscriptions"
+        pager={<Pager p={pSubs} />}
+        dateLabel={dateLabel}
         count={fSubs.length}
         onExport={() =>
           dlCSV("subscriptions.csv",
@@ -852,7 +937,7 @@ export function ReportsDashboard({
               </tr>
             </thead>
             <tbody>
-              {fSubs.map((s, i) => (
+              {pSubs.rows.map((s, i) => (
                 <tr key={`${s.id}-${i}`}>
                   <td className="font-mono text-xs">{s.id}</td>
                   <td className="font-semibold text-navy">{s.userName}</td>
@@ -882,6 +967,8 @@ export function ReportsDashboard({
       {/* ══ SITE VISITS ═════════════════════════════════════════ */}
       <RptSection
         title="Site Visits"
+        pager={<Pager p={pVisits} />}
+        dateLabel={dateLabel}
         count={fVisits.length}
         onExport={() =>
           dlCSV("site-visits.csv",
@@ -902,7 +989,7 @@ export function ReportsDashboard({
               </tr>
             </thead>
             <tbody>
-              {fVisits.map((v, i) => (
+              {pVisits.rows.map((v, i) => (
                 <tr key={`${v.id}-${i}`}>
                   <td className="font-mono text-xs">{v.id}</td>
                   <td className="font-semibold text-navy">{v.leadName}</td>
@@ -977,6 +1064,8 @@ export function ReportsDashboard({
       {/* ── Agent Registrations ────────────────────────────────── */}
       <RptSection
         title="Agent Registrations"
+        pager={<Pager p={pAgents} />}
+        dateLabel={dateLabel}
         count={fAgents.length}
         onExport={() =>
           dlCSV(
@@ -1005,7 +1094,7 @@ export function ReportsDashboard({
               </tr>
             </thead>
             <tbody>
-              {fAgents.map((a, i) => (
+              {pAgents.rows.map((a, i) => (
                 <tr key={`${a.id}-${i}`}>
                   <td className="font-mono text-xs">{a.id}</td>
                   <td className="font-semibold text-navy">{a.name}</td>
@@ -1035,6 +1124,8 @@ export function ReportsDashboard({
       {/* ── Support Tickets (TAT) ──────────────────────────────── */}
       <RptSection
         title="Support Tickets (TAT)"
+        pager={<Pager p={pTickets} />}
+        dateLabel={dateLabel}
         count={fTickets.length}
         onExport={() =>
           dlCSV(
@@ -1099,7 +1190,7 @@ export function ReportsDashboard({
               </tr>
             </thead>
             <tbody>
-              {fTickets.map((t, i) => (
+              {pTickets.rows.map((t, i) => (
                 <tr key={`${t.id}-${i}`}>
                   <td className="font-mono text-xs">{t.id}</td>
                   <td className="max-w-[180px] truncate text-xs font-semibold text-navy">

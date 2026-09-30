@@ -19,6 +19,9 @@
 
 ## ✅ Completed
 
+### Reports: pages + visible date range per section *(09-30)*
+- [x] Every Reports table (Commissions, Registered Users 2,816, Property Listings, Subscriptions, Site Visits, Agent Registrations, Support Tickets) is paged at **25 rows** with ‹ Prev / page numbers / Next › and "Rows x–y of N" (`usePaged` + `Pager` in ReportsDashboard.tsx). **CSV export still includes all rows.** Each section header shows a 📅 chip with the active date range ("All dates" or e.g. "1 Sep – 30 Sep 2026"); clicking it scrolls to the existing calendar/date-range filter at the top (now `#report-filters`). Not browser-tested (admin-only page); tsc clean.
+
 ### Filters: Sales rep / Supervisor / date range on CRM Pipeline + Subscriptions *(09-30)*
 - [x] Shared `StaffDateFilters` (Sales rep incl. inactive · Supervisor · From/To date · Clear). **CRM Pipeline:** filters via `admin.leads.list` (new `supervisorId` = the lead's supervisor or its rep's, and `from`/`to` on created date, IST). It now **loads every matching lead** (auto-pages, was capped at 100) and adds read-only **Payment Pending** and **Paid / Listed** columns (those leads were invisible before). **Subscriptions:** `subscriptions.adminList` gained `repId` / `supervisorId` / `from` / `to` (a purchase is credited to the rep on the customer's lead, same as commission), plus a new **Sales rep** column ("Direct" if none) with the supervisor. Stat cards use filtered totals (`summary`), not just rows on screen.
 - [x] Verified on prod (read-only): 12 subs / ₹10,989; filtered to rep SAGAR MAHENDRA → 9; 27–30 Sep → 3; leads on 29 Sep → 48.
