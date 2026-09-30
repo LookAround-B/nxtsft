@@ -752,7 +752,8 @@ export const superAdminRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const users = await prisma.user.findMany({
-        where: input.targetRole ? { role: input.targetRole } : {},
+        // Active accounts only — no point notifying a disabled login.
+        where: { active: true, ...(input.targetRole ? { role: input.targetRole } : {}) },
         select: { id: true },
       });
 

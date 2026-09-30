@@ -10,6 +10,8 @@ const BROADCAST_ROLES = [
   { label: "All users", value: "" },
   { label: "Home Buyers", value: "user" },
   { label: "Home Sellers", value: "home-seller" },
+  { label: "Agents", value: "agent" },
+  { label: "Virtual Property Consultants", value: "virtual-rep" },
   { label: "Admins", value: "admin" },
   { label: "Supervisors", value: "supervisor" },
   { label: "Sales Reps", value: "sales" },
