@@ -1408,16 +1408,27 @@ export const adminRouter = router({
         z.object({
           status: safeString(50).optional(),
           assignedToId: cuidSchema.optional(),
+          // Filters (boss 09-30): a supervisor's team, and a created-on date range.
+          supervisorId: cuidSchema.optional(),
+          from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+          to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
           cursor: cursorSchema,
           limit: limitSchema,
         }),
       )
       .query(async ({ input }) => {
-        const { cursor, limit, status, assignedToId } = input;
+        const { cursor, limit, status, assignedToId, supervisorId, from, to } = input;
 
         const where: NonNullable<Parameters<typeof prisma.lead.findMany>[0]>["where"] = {};
         if (status) where.status = status;
         if (assignedToId) where.assignedToId = assignedToId;
+        if (supervisorId) where.OR = [{ supervisorId }, { assignedTo: { is: { supervisorId } } }];
+        if (from || to) {
+          where.createdAt = {
+            ...(from ? { gte: new Date(from + "T00:00:00+05:30") } : {}),
+            ...(to ? { lte: new Date(to + "T23:59:59.999+05:30") } : {}),
+          };
+        }
 
         const items = await prisma.lead.findMany({
           where,

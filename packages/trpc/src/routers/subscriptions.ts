@@ -1238,14 +1238,36 @@ export const subscriptionsRouter = router({
     .input(
       z.object({
         status: safeString(50).optional(),
+        // Filters (boss 09-30). A purchase is credited to the rep / supervisor
+        // on the customer's lead (same attribution as commission).
+        repId: z.string().max(40).optional(),
+        supervisorId: z.string().max(40).optional(),
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         cursor: cursorSchema,
         limit: limitSchema,
       }),
     )
     .query(async ({ input }) => {
-      const { status, cursor, limit } = input;
+      const { status, cursor, limit, repId, supervisorId, from, to } = input;
       const where: any = {};
       if (status) where.status = status;
+      if (from || to) {
+        where.createdAt = {
+          ...(from ? { gte: new Date(from + "T00:00:00+05:30") } : {}),
+          ...(to ? { lte: new Date(to + "T23:59:59.999+05:30") } : {}),
+        };
+      }
+      if (repId || supervisorId) {
+        const leadWhere: any = { assignedToId: { not: null } };
+        if (repId) leadWhere.assignedToId = repId;
+        if (supervisorId) leadWhere.OR = [{ supervisorId }, { assignedTo: { is: { supervisorId } } }];
+        const custLeads = await prisma.lead.findMany({ where: leadWhere, select: { userId: true, buyerUserId: true } });
+        const ids = [...new Set(custLeads.flatMap((l) => [l.userId, l.buyerUserId]).filter((v): v is string => !!v))];
+        where.userId = { in: ids };
+      }
+      const agg = await prisma.subscription.aggregate({ where, _sum: { amount: true }, _count: { _all: true } });
+      const activeCount = await prisma.subscription.count({ where: { ...where, status: "Active" } });
 
       const items = await prisma.subscription.findMany({
         where,
@@ -1260,13 +1282,38 @@ export const subscriptionsRouter = router({
       const hasMore = items.length > limit;
       const page = hasMore ? items.slice(0, limit) : items;
 
+      // Rep + supervisor for each row: the customer's most recent lead on a rep.
+      const userIds = [...new Set(page.map((s) => s.userId))];
+      const repLeads = userIds.length
+        ? await prisma.lead.findMany({
+            where: { OR: [{ userId: { in: userIds } }, { buyerUserId: { in: userIds } }], assignedToId: { not: null } },
+            orderBy: { updatedAt: "desc" },
+            select: {
+              userId: true,
+              buyerUserId: true,
+              assignedTo: { select: { name: true, supervisor: { select: { name: true } } } },
+            },
+          })
+        : [];
+      const repByUser = new Map<string, { rep: string; supervisor: string | null }>();
+      for (const l of repLeads) {
+        for (const uid of [l.userId, l.buyerUserId]) {
+          if (uid && l.assignedTo && !repByUser.has(uid)) {
+            repByUser.set(uid, { rep: l.assignedTo.name, supervisor: l.assignedTo.supervisor?.name ?? null });
+          }
+        }
+      }
+
       return {
         items: page.map((sub) => ({
           ...sub,
           amount: Number(sub.amount),
+          rep: repByUser.get(sub.userId)?.rep ?? null,
+          supervisor: repByUser.get(sub.userId)?.supervisor ?? null,
         })),
         nextCursor: page.at(-1)?.id ?? null,
         hasMore,
+        summary: { count: agg._count._all, revenue: Number(agg._sum.amount ?? 0) / 100, active: activeCount },
       };
     }),
 });

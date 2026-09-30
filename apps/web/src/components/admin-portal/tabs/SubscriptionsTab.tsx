@@ -1,4 +1,5 @@
 "use client";
+import { StaffDateFilters, EMPTY_STAFF_DATE_FILTER, filterInput, type StaffDateFilterValue } from "@/components/portal/StaffDateFilters";
 import { useState } from "react";
 import { toast } from "sonner";
 import { StatCard, Section, Badge } from "@/components/portal/PortalShell";
@@ -17,19 +18,30 @@ type AdminSub = {
   endDate: string;
   renewalDate: string | null;
   user: { id: string; name: string; email: string } | null;
+  rep: string | null;
+  supervisor: string | null;
 };
 
 export function SubscriptionsTab() {
   const [statusFilter, setStatusFilter] = useState("");
-  const subQ = trpc.subscriptions.adminList.useQuery({ status: statusFilter || undefined, limit: 100 });
+  const [filters, setFilters] = useState<StaffDateFilterValue>(EMPTY_STAFF_DATE_FILTER);
+  const subQ = trpc.subscriptions.adminList.useQuery({
+    status: statusFilter || undefined,
+    limit: 100,
+    ...(filters.repId ? { repId: filters.repId } : {}),
+    ...filterInput(filters),
+  });
   const subs = (subQ.data?.items ?? []) as unknown as AdminSub[];
+  const summary = subQ.data?.summary;
   const cancelSub = trpc.subscriptions.cancel.useMutation({
     onSuccess: () => { subQ.refetch(); toast.success("Subscription cancelled"); },
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
-  const totalRevenue = subs.reduce((s, sub) => s + sub.amount, 0) / 100;
-  const activeCount = subs.filter((s) => s.status === "Active").length;
+  // Totals cover everything matching the filters, not just the rows on screen.
+  const totalRevenue = summary?.revenue ?? subs.reduce((s, sub) => s + sub.amount, 0) / 100;
+  const totalCount = summary?.count ?? subs.length;
+  const activeCount = summary?.active ?? subs.filter((s) => s.status === "Active").length;
 
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
@@ -41,8 +53,8 @@ export function SubscriptionsTab() {
       />
 
       <div className="grid gap-4 md:grid-cols-2">
-        <StatCard label="Total Revenue" value={`₹${totalRevenue.toLocaleString("en-IN")}`} sub={`${subs.length} subscription${subs.length !== 1 ? "s" : ""}`} />
-        <StatCard label="Active Plans" value={String(activeCount)} sub={`${subs.length - activeCount} inactive`} />
+        <StatCard label="Total Revenue" value={`₹${totalRevenue.toLocaleString("en-IN")}`} sub={`${totalCount} subscription${totalCount !== 1 ? "s" : ""}`} />
+        <StatCard label="Active Plans" value={String(activeCount)} sub={`${totalCount - activeCount} inactive`} />
       </div>
 
       <Section
@@ -61,6 +73,7 @@ export function SubscriptionsTab() {
           </Select>
         }
       >
+        <StaffDateFilters value={filters} onChange={setFilters} />
         {subQ.isLoading ? (
           <TableSkeleton rows={5} cols={6} />
         ) : subs.length === 0 ? (
@@ -72,6 +85,7 @@ export function SubscriptionsTab() {
                 <tr>
                   <th>User</th>
                   <th>Plan</th>
+                  <th>Sales rep</th>
                   <th>Amount</th>
                   <th>Cycle</th>
                   <th>Start</th>
@@ -88,6 +102,10 @@ export function SubscriptionsTab() {
                       <div className="text-[10px] text-muted-foreground">{sub.user?.email ?? ""}</div>
                     </td>
                     <td><Badge tone="new">{sub.planName}</Badge></td>
+                    <td className="text-xs">
+                      {sub.rep ?? <span className="text-muted-foreground">Direct</span>}
+                      {sub.supervisor && <div className="text-[10px] text-muted-foreground">Sup: {sub.supervisor}</div>}
+                    </td>
                     <td className="font-mono text-sm font-semibold text-navy">₹{(sub.amount / 100).toLocaleString("en-IN")}</td>
                     <td className="text-xs">{sub.cycle}</td>
                     <td className="text-xs text-muted-foreground">{fmtDate(sub.startDate)}</td>

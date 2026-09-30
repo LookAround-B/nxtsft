@@ -1,4 +1,5 @@
 "use client";
+import { StaffDateFilters, EMPTY_STAFF_DATE_FILTER, filterInput, type StaffDateFilterValue } from "@/components/portal/StaffDateFilters";
 import { PropertyLink } from "@/components/portal/PropertyLink";
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -12,6 +13,12 @@ import { PageHead } from "./PageHead";
 
 const CRM_STAGES = ["New", "Hot", "Warm", "Cold", "Converted", "Lost"] as const;
 type CrmStage = (typeof CRM_STAGES)[number];
+// Payment-driven stages: shown so no lead is invisible, but not draggable —
+// they move by payment / listing events, not by hand.
+const LOCKED_COLUMNS: { key: string; label: string; statuses: string[]; accent: string }[] = [
+  { key: "__payment", label: "Payment Pending", statuses: ["Payment Pending"], accent: "border-t-violet-500" },
+  { key: "__listed", label: "Paid / Listed", statuses: ["Paid", "Listed", "Expiring Soon", "Expired"], accent: "border-t-teal-500" },
+];
 
 const stageAccent: Record<CrmStage, string> = {
   New: "border-t-sky-400",
@@ -233,7 +240,16 @@ function LeadPanel({
 // ─── Main CRM Tab ─────────────────────────────────────────────────────────────
 
 export function CRMTab() {
-  const leadsQ = trpc.admin.leads.list.useQuery({ limit: 100 });
+  const [filters, setFilters] = useState<StaffDateFilterValue>(EMPTY_STAFF_DATE_FILTER);
+  const leadsQ = trpc.admin.leads.list.useInfiniteQuery(
+    { limit: 100, ...(filters.repId ? { assignedToId: filters.repId } : {}), ...filterInput(filters) },
+    { getNextPageParam: (last) => (last.hasMore ? last.nextCursor ?? undefined : undefined) },
+  );
+  // Load every matching lead (was capped at 100), up to 5,000.
+  const pagesLoaded = leadsQ.data?.pages.length ?? 0;
+  useEffect(() => {
+    if (leadsQ.hasNextPage && !leadsQ.isFetchingNextPage && pagesLoaded < 50) void leadsQ.fetchNextPage();
+  }, [leadsQ.hasNextPage, leadsQ.isFetchingNextPage, pagesLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
   const updateStatus = trpc.leads.updateStatus.useMutation({
     onError: (e: { message: string }) => toast.error(e.message),
   });
@@ -241,7 +257,7 @@ export function CRMTab() {
   const [selectedLead, setSelectedLead] = useState<CrmLead | null>(null);
 
   const serverLeads = useMemo(
-    () => (leadsQ.data?.items ?? []) as unknown as CrmLead[],
+    () => (leadsQ.data?.pages.flatMap((p) => p.items) ?? []) as unknown as CrmLead[],
     [leadsQ.data],
   );
   const [leads, setLeads] = useState<CrmLead[]>([]);
@@ -250,6 +266,7 @@ export function CRMTab() {
   const handleDragEnd = (result: DropResult) => {
     const { draggableId, destination } = result;
     if (!destination) return;
+    if (destination.droppableId.startsWith("__")) return; // payment-driven columns are read-only
     const newStage = destination.droppableId as CrmStage;
     const lead = leads.find((l) => l.id === draggableId);
     if (!lead || lead.status === newStage) return;
@@ -275,7 +292,8 @@ export function CRMTab() {
   return (
     <>
       <PageHead title="CRM Pipeline" subtitle="Drag a lead card between columns to move it through the funnel. Click a card to view contact details." />
-      <Section title="Pipeline — All Teams" action={<Badge tone="new">{leads.length} leads</Badge>}>
+      <Section title="Pipeline — All Teams" action={<Badge tone="new">{leads.length}{leadsQ.hasNextPage ? "+" : ""} leads</Badge>}>
+        <StaffDateFilters value={filters} onChange={setFilters} />
         {leadsQ.isLoading ? (
           <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -284,7 +302,44 @@ export function CRMTab() {
           </div>
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+              {LOCKED_COLUMNS.map((col) => {
+                const items = leads.filter((l) => col.statuses.includes(l.status));
+                return (
+                  <div key={col.key} className={`rounded-lg border-t-4 bg-secondary/60 p-3 ${col.accent}`}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-navy">{col.label}</span>
+                      <span className="rounded-full bg-white px-1.5 text-[10px] font-bold text-mid-blue">{items.length}</span>
+                    </div>
+                    <Droppable droppableId={col.key} isDropDisabled>
+                      {(provided) => (
+                        <div ref={provided.innerRef} {...provided.droppableProps} className="min-h-[60px] space-y-2">
+                          {items.map((l) => (
+                            <div
+                              key={l.id}
+                              onClick={() => setSelectedLead(l)}
+                              className="cursor-pointer rounded-md bg-white p-2.5 text-xs shadow-sm hover:shadow-md"
+                            >
+                              <div className="font-semibold leading-tight text-navy">{l.name}</div>
+                              <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
+                                <Phone size={9} />
+                                {l.phone}
+                              </div>
+                              <div className="mt-0.5 text-[10px] text-muted-foreground">{l.city ?? "—"}</div>
+                              {l.property && (
+                                <div className="mt-0.5 truncate text-[10px]"><PropertyLink property={l.property} /></div>
+                              )}
+                              <div className="mt-1.5"><Badge tone="default">{l.status}</Badge></div>
+                            </div>
+                          ))}
+                          {provided.placeholder}
+                          {items.length === 0 && <p className="py-3 text-center text-[10px] text-muted-foreground">None</p>}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+                );
+              })}
               {CRM_STAGES.map((stage) => {
                 const items = leads.filter((l) => l.status === stage);
                 return (

@@ -19,6 +19,10 @@
 
 ## ✅ Completed
 
+### Filters: Sales rep / Supervisor / date range on CRM Pipeline + Subscriptions *(09-30)*
+- [x] Shared `StaffDateFilters` (Sales rep incl. inactive · Supervisor · From/To date · Clear). **CRM Pipeline:** filters via `admin.leads.list` (new `supervisorId` = the lead's supervisor or its rep's, and `from`/`to` on created date, IST). It now **loads every matching lead** (auto-pages, was capped at 100) and adds read-only **Payment Pending** and **Paid / Listed** columns (those leads were invisible before). **Subscriptions:** `subscriptions.adminList` gained `repId` / `supervisorId` / `from` / `to` (a purchase is credited to the rep on the customer's lead, same as commission), plus a new **Sales rep** column ("Direct" if none) with the supervisor. Stat cards use filtered totals (`summary`), not just rows on screen.
+- [x] Verified on prod (read-only): 12 subs / ₹10,989; filtered to rep SAGAR MAHENDRA → 9; 27–30 Sep → 3; leads on 29 Sep → 48.
+
 ### Lead filters, bulk reassign, transfer-all, property links, full unassigned queue *(09-30)*
 - [x] **Bulk reassign & transfer** (`components/portal/LeadBulkTools.tsx`) in **Admin › Lead Management** and **Supervisor › Reassignment** (which was a placeholder). Filters: status, rep (All / Unassigned / each rep holding leads, inactive flagged), city, name/phone. Select all, Load more / Load all (100 per page). "Assign selected to [active rep]" uses `leads.bulkAssign` with the new `keepStatus`, so lead stages are kept. **Transfer all** leads from one rep (incl. inactive / former) to an active rep via the new `leads.transferAll`. `leads.bulkRepOptions` supplies the dropdowns. Supervisors are scoped to their team (server-enforced). bulkAssign now refuses inactive targets and moves `supervisorId` to the new rep's supervisor.
 - [x] `leads.list` gained `city` / `unassigned` / `search` filters and `assignedTo.active`.
