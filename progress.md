@@ -19,6 +19,10 @@
 
 ## ✅ Completed
 
+### Bug: reps' older leads & listings "missing" *(09-30)*
+- [x] Rep report: listings from 1–10 Sep vanished from their dashboard. Cause: Sales Portal **Listings** loaded only the rep's newest **100** leads and **My Leads** only **50**, so older ones silently fell off. SAGAR MAHENDRA (144 leads) had **35 of 49** early-Sep listings hidden; Rajdeep Debnath sat at exactly 100. Nothing was deleted or reassigned. New `useAllLeads` (`lib/useAllLeads.ts`) pages through **all** leads (100/page, auto, cap 5,000). It is used in Sales › Listings, Sales › My Leads, Supervisor › Team Leads, Supervisor › Escalations lead picker, and the /list "list for a customer" lead picker (was capped at 50).
+- [x] Verified on prod (read-only, as SAGAR's scope): paging returns all 144 leads and 49/49 of his 1–10 Sep listings.
+
 ### Reports: pages + visible date range per section *(09-30)*
 - [x] Every Reports table (Commissions, Registered Users 2,816, Property Listings, Subscriptions, Site Visits, Agent Registrations, Support Tickets) is paged at **25 rows** with ‹ Prev / page numbers / Next › and "Rows x–y of N" (`usePaged` + `Pager` in ReportsDashboard.tsx). **CSV export still includes all rows.** Each section header shows a 📅 chip with the active date range ("All dates" or e.g. "1 Sep – 30 Sep 2026"); clicking it scrolls to the existing calendar/date-range filter at the top (now `#report-filters`). Not browser-tested (admin-only page); tsc clean.
 

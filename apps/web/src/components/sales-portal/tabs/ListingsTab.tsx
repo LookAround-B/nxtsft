@@ -1,4 +1,5 @@
 "use client";
+import { useAllLeads } from "@/lib/useAllLeads";
 import { Building2, Pencil } from "lucide-react";
 import { Section } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -15,7 +16,7 @@ const statusTone: Record<string, string> = {
 };
 
 export function ListingsTab() {
-  const leadsQ = trpc.leads.list.useQuery({ limit: 100 });
+  const leadsQ = useAllLeads({});
   const withProperty = ((leadsQ.data?.items ?? []) as DbLead[]).filter((l) => l.property);
 
   return (

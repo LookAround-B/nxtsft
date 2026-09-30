@@ -1,4 +1,5 @@
 "use client";
+import { useAllLeads } from "@/lib/useAllLeads";
 import { PropertyLink } from "@/components/portal/PropertyLink";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -43,9 +44,8 @@ export function MyLeadsTab() {
   const [editDesc, setEditDesc] = useState("");
 
   const utils = trpc.useUtils();
-  const leadsQ = trpc.leads.list.useQuery({
+  const leadsQ = useAllLeads({
     status: filter !== "All" ? (filter as "Hot" | "Warm" | "Cold") : undefined,
-    limit: 50,
   });
   // Coupons the rep may apply (active, in-date, not exhausted).
   const couponsQ = trpc.coupons.available.useQuery();

@@ -1,4 +1,5 @@
 "use client";
+import { useAllLeads } from "@/lib/useAllLeads";
 import { PropertyLink } from "@/components/portal/PropertyLink";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
@@ -25,10 +26,7 @@ export function TeamLeadsTab() {
   const [repFilter, setRepFilter] = useState("");
 
   const utils = trpc.useUtils();
-  const leadsQ = trpc.leads.list.useQuery({
-    limit: 100,
-    ...(repFilter ? { assignedToId: repFilter } : {}),
-  });
+  const leadsQ = useAllLeads(repFilter ? { assignedToId: repFilter } : {});
   const items = (leadsQ.data?.items ?? []) as DbLead[];
   const repsQ = trpc.supervisor.myReps.useQuery();
   const reps = repsQ.data ?? [];

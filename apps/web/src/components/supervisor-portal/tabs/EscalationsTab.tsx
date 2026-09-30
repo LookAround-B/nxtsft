@@ -1,4 +1,5 @@
 "use client";
+import { useAllLeads } from "@/lib/useAllLeads";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Clock } from "lucide-react";
@@ -33,7 +34,7 @@ export function EscalationsTab() {
   const escQ = trpc.supervisor.escalations.list.useQuery();
   const items = escQ.data ?? [];
 
-  const leadsQ = trpc.leads.list.useQuery({ limit: 100 }, { enabled: showRaise });
+  const leadsQ = useAllLeads({}, { enabled: showRaise });
   const leads = (leadsQ.data?.items ?? []) as Array<{ id: string; name: string }>;
 
   const refetch = () => escQ.refetch();

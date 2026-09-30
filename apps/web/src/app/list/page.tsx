@@ -1,4 +1,5 @@
 "use client";
+import { useAllLeads } from "@/lib/useAllLeads";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -218,7 +219,7 @@ export default function ListPropertyPage() {
   // Rep flow: which assigned lead this listing belongs to. Leads that already
   // have a property are excluded — a second property means a second lead.
   const [leadId, setLeadId] = useState("");
-  const repLeadsQ = trpc.leads.list.useQuery({ limit: 50 }, { enabled: isRep });
+  const repLeadsQ = useAllLeads({}, { enabled: isRep });
   const repLeads = (repLeadsQ.data?.items ?? []).filter(
     (l) => !l.propertyId && l.paymentStatus !== "Paid",
   );
