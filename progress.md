@@ -19,6 +19,10 @@
 
 ## ✅ Completed
 
+### Super Admin account controls: create login / reset password / block / enable *(09-30)*
+- [x] Boss: "generate login id & password … password, reset, block, enable — everything by super admin". Passwords are bcrypt-hashed, so existing ones can't be viewed, only reset. New **`admin.users.resetPassword`** (**super-admin only**): sets a chosen password or generates a 10-char one, returns it **once**, drops the user's live sessions, and writes an `auditLog` entry (`password_reset`). **Super Admin › All Teams:** **Generate** button on the Add Member password field (login ID = work email), per-row **Reset password** and **Block / Enable**, and an **Active / Blocked** roster toggle. **Super Admin › User Management:** **Reset password** added next to Enable/Disable, so it works for any account. A shared `CredentialsDialog` shows Login ID + password once, with Copy and "Copy as message" (WhatsApp-ready, includes the /admin-login link).
+- [x] Tested in-process on prod with a throwaway PWTEST user (cleaned up): generated password works and the old one fails, sessions went 1→0, a chosen password works, **admin role gets FORBIDDEN**, and audit rows are written. tsc clean. The UI was not browser-tested.
+
 ### Bug: reps' older leads & listings "missing" *(09-30)*
 - [x] Rep report: listings from 1–10 Sep vanished from their dashboard. Cause: Sales Portal **Listings** loaded only the rep's newest **100** leads and **My Leads** only **50**, so older ones silently fell off. SAGAR MAHENDRA (144 leads) had **35 of 49** early-Sep listings hidden; Rajdeep Debnath sat at exactly 100. Nothing was deleted or reassigned. New `useAllLeads` (`lib/useAllLeads.ts`) pages through **all** leads (100/page, auto, cap 5,000). It is used in Sales › Listings, Sales › My Leads, Supervisor › Team Leads, Supervisor › Escalations lead picker, and the /list "list for a customer" lead picker (was capped at 50).
 - [x] Verified on prod (read-only, as SAGAR's scope): paging returns all 144 leads and 49/49 of his 1–10 Sep listings.

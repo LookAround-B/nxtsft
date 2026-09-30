@@ -8,6 +8,7 @@ import { downloadCSV } from "@/lib/download-csv";
 import { Pagination } from "@/components/ui/pagination";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { TabHeader } from "./shared";
+import { CredentialsDialog, generatePassword, type Credentials } from "../CredentialsDialog";
 
 type TeamMember = {
   id: string;
@@ -17,6 +18,7 @@ type TeamMember = {
   role: string;
   city: string;
   verified: boolean;
+  active: boolean;
   joined: string;
 };
 
@@ -52,10 +54,12 @@ export function TeamsTab() {
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [roster, setRoster] = useState<"active" | "inactive">("active");
+  const [creds, setCreds] = useState<Credentials | null>(null);
 
   const [page, setPage] = useState(1);
   const membersQ = trpc.admin.teamMembers.useQuery(
-    { search: search || undefined, page, limit: PAGE_SIZE },
+    { search: search || undefined, page, limit: PAGE_SIZE, roster },
     { placeholderData: keepPreviousData },
   );
   const members = (membersQ.data?.items ?? []) as unknown as TeamMember[];
@@ -89,11 +93,25 @@ export function TeamsTab() {
   }
 
   const createMember = trpc.admin.createTeamMember.useMutation({
-    onSuccess: () => {
+    onSuccess: (u) => {
       membersQ.refetch();
       setShowAdd(false);
+      setCreds({ name: u.name, email: u.email, password: form.password });
       setForm(emptyForm);
       toast.success("Member added and account created!");
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  // Super-admin account controls (boss 09-30): reset password, block, enable.
+  const resetPassword = trpc.admin.users.resetPassword.useMutation({
+    onSuccess: (r) => setCreds(r),
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+  const setActive = trpc.admin.users.setActive.useMutation({
+    onSuccess: (u: { active: boolean }) => {
+      membersQ.refetch();
+      toast.success(u.active ? "Account enabled" : "Account blocked");
     },
     onError: (e: { message: string }) => toast.error(e.message),
   });
@@ -128,6 +146,17 @@ export function TeamsTab() {
         title="Staff Directory"
         action={
           <div className="flex items-center gap-3">
+            <div className="flex rounded-lg border border-border p-0.5 text-xs font-semibold">
+              {(["active", "inactive"] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => { setRoster(r); setPage(1); }}
+                  className={`rounded-md px-2.5 py-1 ${roster === r ? "bg-navy text-white" : "text-navy hover:bg-secondary"}`}
+                >
+                  {r === "active" ? "Active" : "Blocked"}
+                </button>
+              ))}
+            </div>
             <input
               placeholder="Search name, email or phone…"
               value={search}
@@ -159,6 +188,7 @@ export function TeamsTab() {
                   <th>City</th>
                   <th>Joined</th>
                   <th>Status</th>
+                  <th className="text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -171,9 +201,35 @@ export function TeamsTab() {
                     <td className="text-xs">{m.city}</td>
                     <td className="text-xs text-muted-foreground">{fmtJoined(m.joined)}</td>
                     <td>
-                      <Badge tone={m.verified ? "success" : "warm"}>
-                        {m.verified ? "Active" : "Pending"}
-                      </Badge>
+                      {m.active ? (
+                        <Badge tone={m.verified ? "success" : "warm"}>{m.verified ? "Active" : "Pending"}</Badge>
+                      ) : (
+                        <Badge tone="danger">Blocked</Badge>
+                      )}
+                    </td>
+                    <td className="text-right">
+                      <div className="flex items-center justify-end gap-3 whitespace-nowrap">
+                        <button
+                          onClick={() => {
+                            if (!confirm(`Reset password for ${m.name}? Their current password stops working and they are signed out.`)) return;
+                            resetPassword.mutate({ userId: m.id });
+                          }}
+                          disabled={resetPassword.isPending}
+                          className="text-xs font-semibold text-accent hover:underline disabled:opacity-50"
+                        >
+                          Reset password
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (m.active && !confirm(`Block ${m.name}? They will be signed out and can't log in until enabled.`)) return;
+                            setActive.mutate({ userId: m.id, active: !m.active });
+                          }}
+                          disabled={setActive.isPending}
+                          className={`text-xs font-semibold hover:underline disabled:opacity-50 ${m.active ? "text-red-600" : "text-emerald-600"}`}
+                        >
+                          {m.active ? "Block" : "Enable"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -228,13 +284,22 @@ export function TeamsTab() {
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
               />
-              <input
-                type="password"
-                placeholder="Temporary password (min 8 chars)"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-              />
+              <div className="flex gap-2">
+                <input
+                  placeholder="Password (min 8 chars)"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 font-mono text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                />
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, password: generatePassword() })}
+                  className="shrink-0 rounded-xl border border-border px-3 text-xs font-semibold text-navy hover:bg-secondary"
+                >
+                  Generate
+                </button>
+              </div>
+              <p className="-mt-1 text-[11px] text-muted-foreground">Login ID = the work email above.</p>
               <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as StaffRole })}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -270,6 +335,8 @@ export function TeamsTab() {
           </div>
         </div>
       )}
+
+      {creds && <CredentialsDialog creds={creds} onClose={() => setCreds(null)} />}
     </>
   );
 }

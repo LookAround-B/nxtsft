@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "@/lib/download-csv";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { TabHeader } from "./shared";
+import { CredentialsDialog, type Credentials } from "../CredentialsDialog";
 
 type AdminUser = {
   id: string;
@@ -74,6 +75,12 @@ export function UsersTab() {
       usersQ.refetch();
       toast.success(u.active ? "User enabled" : "User disabled");
     },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const [creds, setCreds] = useState<Credentials | null>(null);
+  const resetPassword = trpc.admin.users.resetPassword.useMutation({
+    onSuccess: (r) => setCreds(r),
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
@@ -268,6 +275,16 @@ export function UsersTab() {
                         )}
                         <button
                           onClick={() => {
+                            if (!confirm(`Reset password for ${u.name}? Their current password stops working and they are signed out.`)) return;
+                            resetPassword.mutate({ userId: u.id });
+                          }}
+                          disabled={resetPassword.isPending}
+                          className="whitespace-nowrap text-xs font-semibold text-accent hover:underline disabled:opacity-50"
+                        >
+                          Reset password
+                        </button>
+                        <button
+                          onClick={() => {
                             if (u.active && !confirm(`Disable ${u.name}? They will be signed out and blocked from logging in.`)) return;
                             setActive.mutate({ userId: u.id, active: !u.active });
                           }}
@@ -296,6 +313,7 @@ export function UsersTab() {
           </div>
         )}
       </Section>
+      {creds && <CredentialsDialog creds={creds} onClose={() => setCreds(null)} />}
     </>
   );
 }

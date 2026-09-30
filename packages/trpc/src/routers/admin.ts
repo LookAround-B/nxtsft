@@ -3,6 +3,7 @@ import { totalRevenueRupees } from "../revenue";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import prisma from "@nxtsft/db";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared/constants";
 import { notify, notifyCredit } from "../notify";
@@ -61,6 +62,13 @@ const safeUserSelect = {
 };
 
 const STAFF_ROLES = ["super-admin", "admin", "supervisor", "sales", "virtual-rep", "support-admin"];
+
+/** 10-char readable password (no 0/O/1/l/I) that always passes passwordSchema. */
+function generatePassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = randomBytes(10);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
 
 /**
  * Users whose role is no longer staff but who worked as staff: explicitly
@@ -637,6 +645,40 @@ export const adminRouter = router({
           },
         });
         return user;
+      }),
+
+    // Super-admin sets a new password for any account (boss 09-30: "password,
+    // reset, block, enable — everything by super admin"). Omit `password` to
+    // have one generated. The plain password is returned ONCE so the super
+    // admin can hand it over; only the hash is stored. Live sessions are
+    // dropped so the old password stops working everywhere immediately.
+    resetPassword: superAdminProcedure
+      .input(z.object({ userId: cuidSchema, password: passwordSchema.optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const target = await prisma.user.findUnique({
+          where: { id: input.userId },
+          select: { id: true, email: true, name: true },
+        });
+        if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+
+        const password = input.password ?? generatePassword();
+        await prisma.user.update({
+          where: { id: target.id },
+          data: { passwordHash: await bcrypt.hash(password, 12) },
+        });
+        if (target.id !== ctx.user.id) {
+          await prisma.session.deleteMany({ where: { userId: target.id } });
+        }
+        await prisma.auditLog.create({
+          data: {
+            userId: ctx.user.id,
+            action: "password_reset",
+            entity: "User",
+            entityId: target.id,
+            changes: { generated: !input.password },
+          },
+        });
+        return { email: target.email, name: target.name, password };
       }),
   }),
 
