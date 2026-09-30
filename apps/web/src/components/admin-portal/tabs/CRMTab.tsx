@@ -1,4 +1,5 @@
 "use client";
+import { PropertyLink } from "@/components/portal/PropertyLink";
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
@@ -147,7 +148,7 @@ function LeadPanel({
               <div className="flex items-start gap-2">
                 <Building2 size={15} className="mt-0.5 shrink-0 text-accent" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-navy">{lead.property.title}</div>
+                  <div className="text-sm"><PropertyLink property={lead.property} /></div>
                   {lead.value != null && (
                     <div className="mt-0.5 text-sm font-bold text-accent">{fmtValue(lead.value)}</div>
                   )}
@@ -321,7 +322,7 @@ export function CRMTab() {
                                       <span className="font-mono text-[10px] font-bold text-accent">{fmtValue(l.value)}</span>
                                     </div>
                                     {l.property && (
-                                      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{l.property.title}</div>
+                                      <div className="mt-0.5 truncate text-[10px]"><PropertyLink property={l.property} /></div>
                                     )}
                                     <div className="mt-1.5">
                                       <Badge tone={stageBadge[stage]}>{stage}</Badge>

@@ -1,4 +1,5 @@
 "use client";
+import { PropertyLink } from "@/components/portal/PropertyLink";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import { Download, ChevronDown, ChevronUp } from "lucide-react";
@@ -131,7 +132,7 @@ export function TeamLeadsTab() {
                       <div className="font-semibold text-navy">{l.name}</div>
                       <div className="font-mono text-[10px] text-muted-foreground">{l.id.slice(0, 8)}…</div>
                     </td>
-                    <td className="text-xs">{l.interest ?? l.property?.title ?? "—"}</td>
+                    <td className="text-xs">{l.property ? <PropertyLink property={l.property} /> : l.interest ?? "—"}</td>
                     <td className="text-xs">{l.source}</td>
                     <td>
                       <Badge tone={l.status.toLowerCase() as "hot" | "warm" | "cold" | "new"}>

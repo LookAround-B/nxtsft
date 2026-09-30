@@ -1,4 +1,5 @@
 "use client";
+import { PropertyLink } from "@/components/portal/PropertyLink";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Phone, Calendar, Download, MessageSquare, Building2, Pencil, Tag } from "lucide-react";
@@ -224,7 +225,7 @@ export function MyLeadsTab() {
                     <Badge tone={sourceTone[l.source] ?? "new"}>{l.source}</Badge>
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {l.interest ?? l.property?.title ?? "Property enquiry"} · {l.city ?? "—"}
+                    {l.property ? <PropertyLink property={l.property} /> : l.interest ?? "Property enquiry"} · {l.city ?? "—"}
                   </div>
                   <div className="mt-0.5 font-mono text-[10px] text-muted-foreground flex items-center gap-2">
                     <span>{l.id.slice(0, 8)}… · {fmtRelative(l.updatedAt)}</span>

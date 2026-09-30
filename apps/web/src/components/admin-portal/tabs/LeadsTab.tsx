@@ -1,4 +1,6 @@
 "use client";
+import { LeadBulkTools } from "@/components/portal/LeadBulkTools";
+import { PropertyLink } from "@/components/portal/PropertyLink";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
@@ -34,8 +36,24 @@ export function LeadsTab() {
   const repsQ = trpc.admin.teamMembers.useQuery({ page: 1, limit: 100 });
   const reps = (repsQ.data?.items ?? []).filter((user) => ["sales", "virtual-rep"].includes(user.role));
 
-  const unassignedQ = trpc.leads.unassigned.useQuery({ limit: 50 });
-  const unassigned = unassignedQ.data?.items ?? [];
+  // Paged 100 at a time; "Load more" / "Load all" pull the rest (the queue
+  // used to stop silently at 50).
+  const unassignedQ = trpc.leads.unassigned.useInfiniteQuery(
+    { limit: 100 },
+    { getNextPageParam: (last) => (last.hasMore ? last.nextCursor ?? undefined : undefined) },
+  );
+  const unassigned = unassignedQ.data?.pages.flatMap((p) => p.items) ?? [];
+  const unassignedTotal = unassignedQ.data?.pages[0]?.total ?? unassigned.length;
+  const [loadingAll, setLoadingAll] = useState(false);
+  const loadAllUnassigned = async () => {
+    setLoadingAll(true);
+    try {
+      let r = await unassignedQ.fetchNextPage();
+      for (let i = 0; i < 50 && r.hasNextPage; i++) r = await r.fetchNextPage(); // cap: 5,000 leads
+    } finally {
+      setLoadingAll(false);
+    }
+  };
   const supervisorsQ = trpc.leads.supervisors.useQuery();
   const supervisors = supervisorsQ.data ?? [];
 
@@ -105,7 +123,7 @@ export function LeadsTab() {
 
       {/* LA-342: first assignment hop — route fresh leads to a supervisor. */}
       <Section
-        title={`Unassigned queue (${unassigned.length})`}
+        title={`Unassigned queue (${unassignedTotal})`}
         action={
           <button
             onClick={handleExport}
@@ -187,7 +205,7 @@ export function LeadsTab() {
                       <td className="font-semibold text-navy">{l.name}</td>
                       <td className="text-xs">{l.phone}</td>
                       <td className="text-xs">{l.city ?? "—"}</td>
-                      <td className="text-xs">{l.property?.title ?? l.interest ?? "—"}</td>
+                      <td className="text-xs">{l.property ? <PropertyLink property={l.property} /> : l.interest ?? "—"}</td>
                       <td>
                         <Badge tone={(l.status?.toLowerCase() ?? "new") as "hot" | "warm" | "cold" | "new"}>
                           {l.status}
@@ -201,9 +219,31 @@ export function LeadsTab() {
                 </tbody>
               </table>
             </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>Showing {unassigned.length} of {unassignedTotal}</span>
+              {unassignedQ.hasNextPage && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => void unassignedQ.fetchNextPage()}
+                    disabled={unassignedQ.isFetchingNextPage || loadingAll}
+                    className="rounded-lg border border-border bg-white px-3 py-1.5 font-semibold text-navy disabled:opacity-50"
+                  >
+                    {unassignedQ.isFetchingNextPage && !loadingAll ? "Loading…" : "Load more"}
+                  </button>
+                  <button
+                    onClick={() => void loadAllUnassigned()}
+                    disabled={loadingAll}
+                    className="rounded-lg bg-accent px-3 py-1.5 font-semibold text-white disabled:opacity-50"
+                  >
+                    {loadingAll ? "Loading all…" : `Load all ${unassignedTotal}`}
+                  </button>
+                </div>
+              )}
+            </div>
           </>
         )}
       </Section>
+      <LeadBulkTools />
       <Section title="Filter by status">
         <div className="flex flex-wrap gap-2">
           {[{ status: "All", count: totalCount }, ...counts].map(({ status: s, count }) => (
@@ -247,7 +287,7 @@ export function LeadsTab() {
                     <div className="text-xs text-muted-foreground">{l.phone || l.user?.email}</div>
                   </td>
                   <td className="text-xs">
-                    {l.property?.title ?? "—"}
+                    <PropertyLink property={l.property} />
                     {/* Live free listing with no running boost — the only
                         thing left to sell is the upgrade off the last page. */}
                     {l.property?.freeListing &&

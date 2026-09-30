@@ -19,6 +19,13 @@
 
 ## ✅ Completed
 
+### Lead filters, bulk reassign, transfer-all, property links, full unassigned queue *(09-30)*
+- [x] **Bulk reassign & transfer** (`components/portal/LeadBulkTools.tsx`) in **Admin › Lead Management** and **Supervisor › Reassignment** (which was a placeholder). Filters: status, rep (All / Unassigned / each rep holding leads, inactive flagged), city, name/phone. Select all, Load more / Load all (100 per page). "Assign selected to [active rep]" uses `leads.bulkAssign` with the new `keepStatus`, so lead stages are kept. **Transfer all** leads from one rep (incl. inactive / former) to an active rep via the new `leads.transferAll`. `leads.bulkRepOptions` supplies the dropdowns. Supervisors are scoped to their team (server-enforced). bulkAssign now refuses inactive targets and moves `supervisorId` to the new rep's supervisor.
+- [x] `leads.list` gained `city` / `unassigned` / `search` filters and `assignedTo.active`.
+- [x] **Unassigned queue shows the real total** (`leads.unassigned` returns `total`) with Load more / Load all. It used to stop silently at 50.
+- [x] **One-click property links** (`PropertyLink`, opens a new tab) in every lead list: Admin Lead Management + Unassigned queue + CRM Pipeline, Supervisor Team Leads, Sales Rep My Leads.
+- [x] Verified on prod (throwaway reps/leads, deleted): city and unassigned+search filters; an inactive rep appears as a transfer source but is rejected as a target; transfer-all moved 2 leads keeping "Payment Pending" / "Listed"; bulk assign to a VC kept "New".
+
 ### Only 4 company emails on the site *(09-29)*
 - [x] Boss: only **info@, sales@, hr@, support@nxtsft.com** are active. Replaced everywhere public: hello@ → info@, jobs@ → hr@, partners@ / list@ → sales@, developers@ → info@ (Contact page), grievance@ / privacy@ / dpo@ → support@ (Terms Grievance Officer, KYC). press@ was removed (About now lists the 4). Footer: General info@, Support, Careers hr@, Sales & Partnerships sales@. /admin-login no longer shows demo addresses (sa@, admin@, priya@…) as badges or placeholders; it shows the role name and "Your work email". Remaining @nxtsft.com strings are internal demo-account data and admin-form example placeholders, none shown publicly.
 - ⚠️ Make sure those 4 mailboxes actually exist and receive mail (domain email setup is outside the code).

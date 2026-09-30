@@ -217,12 +217,17 @@ export const leadsRouter = router({
         propertyId: cuidSchema.optional(),
         // Filter the list down to one sales rep (supervisor's "view rep's leads").
         assignedToId: cuidSchema.optional(),
+        // Bulk-tools filters (admin + supervisor): leads with no rep, a city
+        // (contains), and a name / phone search.
+        unassigned: z.boolean().optional(),
+        city: geoTextSchema.optional(),
+        search: safeString(60).optional(),
         cursor: cursorSchema,
         limit: limitSchema,
       }),
     )
     .query(async ({ input, ctx }) => {
-      const { cursor, limit, status, source, propertyId, assignedToId } = input;
+      const { cursor, limit, status, source, propertyId, assignedToId, unassigned, city, search } = input;
 
       // sales → own leads, supervisor → own team, admin → everything.
       const where: NonNullable<Parameters<typeof prisma.lead.findMany>[0]>["where"] =
@@ -232,6 +237,12 @@ export const leadsRouter = router({
       if (source) where.source = source;
       if (propertyId) where.propertyId = propertyId;
       if (assignedToId) where.assignedToId = assignedToId;
+      else if (unassigned) where.assignedToId = null;
+      if (city) where.city = { contains: city.trim(), mode: "insensitive" };
+      if (search?.trim()) {
+        const q = search.trim();
+        where.AND = [{ OR: [{ name: { contains: q, mode: "insensitive" } }, { phone: { contains: q } }] }];
+      }
 
       const items = await prisma.lead.findMany({
         where,
@@ -242,7 +253,7 @@ export const leadsRouter = router({
             select: { id: true, title: true, slug: true, status: true, freeListing: true, boostExpiry: true, tags: true },
           },
           user: { select: { id: true, name: true, email: true } },
-          assignedTo: { select: { id: true, name: true } },
+          assignedTo: { select: { id: true, name: true, active: true } },
         },
         orderBy: { createdAt: "desc" },
         take: limit + 1,
@@ -556,7 +567,15 @@ export const leadsRouter = router({
     }),
 
   bulkAssign: staffProcedure
-    .input(z.object({ leadIds: z.array(cuidSchema).min(1).max(500), assignedToId: cuidSchema }))
+    .input(
+      z.object({
+        leadIds: z.array(cuidSchema).min(1).max(500),
+        assignedToId: cuidSchema,
+        // Reassigning between reps keeps each lead's pipeline stage (Payment
+        // Pending, Listed…). Default false = old behaviour (reset to New).
+        keepStatus: z.boolean().optional(),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       const allowedRoles = ["supervisor", "admin", "super-admin"];
       if (!allowedRoles.includes(ctx.user.role)) {
@@ -566,6 +585,9 @@ export const leadsRouter = router({
       const assignee = await prisma.user.findUnique({ where: { id: input.assignedToId } });
       if (!assignee || !isSalesRep(assignee.role)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Assignee must be a sales rep." });
+      }
+      if (!assignee.active) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "That rep's account is inactive — pick an active rep." });
       }
       // A supervisor may only route leads to their own attributed reps, and
       // only leads that are already in their team scope.
@@ -583,7 +605,12 @@ export const leadsRouter = router({
 
       await prisma.lead.updateMany({
         where: { id: { in: input.leadIds } },
-        data: { assignedToId: input.assignedToId, status: "New", assignedAt: new Date() },
+        data: {
+          assignedToId: input.assignedToId,
+          assignedAt: new Date(),
+          ...(input.keepStatus ? {} : { status: "New" }),
+          ...(assignee.supervisorId ? { supervisorId: assignee.supervisorId } : {}),
+        },
       });
 
       await prisma.assignmentHistory.create({
@@ -609,6 +636,79 @@ export const leadsRouter = router({
       return { ok: true };
     }),
 
+  // Move EVERY lead held by one rep (e.g. one who left or was deactivated) to
+  // an active rep in one go. Pipeline stages are kept. Supervisors: both reps
+  // must be on their team.
+  transferAll: staffProcedure
+    .input(z.object({ fromRepId: cuidSchema, toRepId: cuidSchema }))
+    .mutation(async ({ input, ctx }) => {
+      if (!["supervisor", "admin", "super-admin"].includes(ctx.user.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only supervisors and admins can transfer leads." });
+      }
+      if (input.fromRepId === input.toRepId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Pick two different reps." });
+      }
+      const [from, to] = await Promise.all([
+        prisma.user.findUnique({ where: { id: input.fromRepId }, select: { id: true, name: true, supervisorId: true } }),
+        prisma.user.findUnique({ where: { id: input.toRepId }, select: { id: true, name: true, role: true, active: true, supervisorId: true } }),
+      ]);
+      if (!from) throw new TRPCError({ code: "NOT_FOUND", message: "Source rep not found." });
+      if (!to || !isSalesRep(to.role) || !to.active) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Transfer to an active Sales Rep / VC." });
+      }
+      if (ctx.user.role === "supervisor" && (from.supervisorId !== ctx.user.id || to.supervisorId !== ctx.user.id)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Both reps must be on your team." });
+      }
+      const leads = await prisma.lead.findMany({ where: { assignedToId: from.id }, select: { id: true } });
+      if (leads.length === 0) return { moved: 0 };
+      const leadIds = leads.map((l) => l.id);
+      await prisma.lead.updateMany({
+        where: { id: { in: leadIds } },
+        data: { assignedToId: to.id, assignedAt: new Date(), ...(to.supervisorId ? { supervisorId: to.supervisorId } : {}) },
+      });
+      await prisma.assignmentHistory.create({
+        data: { leadIds, fromRole: ctx.user.role, toRole: to.role, assignedById: ctx.user.id, assignedToId: to.id },
+      });
+      await prisma.notification.create({
+        data: {
+          userId: to.id,
+          type: "lead_update",
+          title: `${leadIds.length} leads transferred to you`,
+          content: `All leads from ${from.name} (${leadIds.length}) are now yours.`,
+          actionUrl: "/sales-portal",
+        },
+      });
+      return { moved: leadIds.length };
+    }),
+
+  // Reps for the bulk tools: active reps (targets) and every rep who still
+  // holds leads (sources, incl. inactive / former staff). Supervisor-scoped.
+  bulkRepOptions: staffProcedure.query(async ({ ctx }) => {
+    if (!["supervisor", "admin", "super-admin"].includes(ctx.user.role)) {
+      throw new TRPCError({ code: "FORBIDDEN" });
+    }
+    const teamOnly = ctx.user.role === "supervisor" ? { supervisorId: ctx.user.id } : {};
+    const [active, holders] = await Promise.all([
+      prisma.user.findMany({
+        where: { role: { in: ["sales", "virtual-rep"] }, active: true, ...teamOnly },
+        select: { id: true, name: true, role: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null } }, _count: { _all: true } }),
+    ]);
+    const holderUsers = await prisma.user.findMany({
+      where: { id: { in: holders.map((h) => h.assignedToId!) }, ...teamOnly },
+      select: { id: true, name: true, role: true, active: true },
+    });
+    const countBy = new Map(holders.map((h) => [h.assignedToId!, h._count._all]));
+    return {
+      active,
+      holders: holderUsers
+        .map((u) => ({ ...u, leads: countBy.get(u.id) ?? 0 }))
+        .sort((a, b) => Number(a.active) - Number(b.active) || b.leads - a.leads),
+    };
+  }),
+
   // ── LA-342: two-level assignment + payment-link pipeline ─────────────────
 
   // Active supervisors for the admin assign dropdown.
@@ -624,8 +724,10 @@ export const leadsRouter = router({
   unassigned: adminProcedure
     .input(z.object({ cursor: cursorSchema, limit: limitSchema }))
     .query(async ({ input }) => {
+      const queueWhere = { supervisorId: null, status: { notIn: ["Converted", "Lost"] } };
+      const total = await prisma.lead.count({ where: queueWhere });
       const items = await prisma.lead.findMany({
-        where: { supervisorId: null, status: { notIn: ["Converted", "Lost"] } },
+        where: queueWhere,
         include: {
           property: { select: { id: true, title: true, slug: true } },
           user: { select: { id: true, name: true, email: true } },
@@ -636,7 +738,7 @@ export const leadsRouter = router({
       });
       const hasMore = items.length > input.limit;
       const page = hasMore ? items.slice(0, input.limit) : items;
-      return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore };
+      return { items: page, nextCursor: page.at(-1)?.id ?? null, hasMore, total };
     }),
 
   // Admin routes leads (bulk or single) to a supervisor — first assignment hop.
