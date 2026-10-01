@@ -26,6 +26,24 @@ type EditablePlan = {
   type: PlanType;
 };
 
+// Owner plans: the listing cap is read from the "<n> listing(s)" feature line
+// (server: listingAllowance in packages/trpc/src/freeTier.ts — keep in sync).
+// null = unlimited.
+const LISTING_RE = /\d+\s*listings?|unlimited\s+listings?/i;
+function listingsFromFeatures(features: string[]): number | null {
+  const joined = features.join(" ").toLowerCase();
+  if (joined.includes("unlimited listing")) return null;
+  const m = joined.match(/(\d+)\s*listing/);
+  return m ? Number(m[1]) : 1;
+}
+/** Swap the "<n> listings" phrase in its feature line (keeps the rest), or add one at the top. */
+function withListings(features: string[], n: number | null): string[] {
+  const label = n === null ? "Unlimited listings" : `${n} listing${n === 1 ? "" : "s"}`;
+  const i = features.findIndex((f) => LISTING_RE.test(f));
+  if (i === -1) return [label, ...features];
+  return features.map((f, idx) => (idx === i ? f.replace(LISTING_RE, label) : f));
+}
+
 function PlanCard({
   plan,
   onSave,
@@ -40,6 +58,7 @@ function PlanCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<EditablePlan>(plan);
   const [newFeature, setNewFeature] = useState("");
+  const isOwnerPlan = plan.type === "owner-rent" || plan.type === "owner-sell";
 
   const save = () => {
     onSave(draft);
@@ -187,7 +206,32 @@ function PlanCard({
             <div className="mt-1 text-sm font-semibold text-navy">{plan.validity} days</div>
           )}
         </div>
-        {(editing || plan.credits > 0) && (
+        {isOwnerPlan ? (
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Listings allowed
+            </label>
+            {editing ? (
+              <input
+                type="number"
+                min={1}
+                value={listingsFromFeatures(draft.features) ?? ""}
+                placeholder="blank = unlimited"
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    features: withListings(d.features, e.target.value ? Math.max(1, Number(e.target.value)) : null),
+                  }))
+                }
+                className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              />
+            ) : (
+              <div className="mt-1 text-sm font-semibold text-navy">
+                {listingsFromFeatures(plan.features) ?? "Unlimited"} listing{listingsFromFeatures(plan.features) === 1 ? "" : "s"}
+              </div>
+            )}
+          </div>
+        ) : (editing || plan.credits > 0) && (
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Credits
