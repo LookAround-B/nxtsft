@@ -346,10 +346,11 @@ export const adminRouter = router({
           select: { id: true, role: true },
         });
         if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
-        if (!["user", "home-seller"].includes(user.role)) {
+        // Sellers/agents get credits only this way, as an admin compliment (boss 10-01).
+        if (!["user", "home-seller", "agent"].includes(user.role)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Credits can only be granted to Home Buyers or Home Sellers.",
+            message: "Credits can only be granted to Home Buyers, Home Sellers or Agents.",
           });
         }
         await Promise.all([

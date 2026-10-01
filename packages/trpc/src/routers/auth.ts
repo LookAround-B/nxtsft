@@ -28,11 +28,11 @@ import {
   registerRateLimit,
   checkRateLimit,
 } from "../server";
+import { COMPLIMENTARY_CREDIT_ROLES, removeComplimentaryCredits } from "../sellerCredits";
 
 // Oldest sessions beyond this many per user are dropped on new login (GOL-268
 // L2) — bounds how many devices/browsers can hold a live session at once.
 const MAX_SESSIONS_PER_USER = 5;
-const CONSUMER_ROLES = ["user", "home-seller"] as const;
 
 const googleClient = new OAuth2Client();
 
@@ -223,6 +223,9 @@ async function convertToSeller(
     where: { id: userId },
     data: { ...data, role: "home-seller", verified: true, verifiedAt: new Date() },
   });
+  // Free buyer credits don't carry over to a seller account (boss 10-01).
+  const removed = await removeComplimentaryCredits(seller.id);
+  if (removed > 0) seller.credits -= removed;
   await createSignupLead(seller);
   await notify({
     userId: seller.id,
@@ -449,7 +452,7 @@ export const authRouter = router({
 
       // Grant 3 demo credits on first login if balance is zero (consumer roles only)
       if (
-        CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) &&
+        COMPLIMENTARY_CREDIT_ROLES.includes(user.role) &&
         user.credits === 0
       ) {
         await grantCredits(user.id, 3, "demo");
@@ -584,7 +587,7 @@ export const authRouter = router({
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Your account is pending approval." });
       }
 
-      if (CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) && user.credits === 0) {
+      if (COMPLIMENTARY_CREDIT_ROLES.includes(user.role) && user.credits === 0) {
         await grantCredits(user.id, 3, "demo");
       }
 
@@ -689,7 +692,7 @@ export const authRouter = router({
           actionUrl: "/properties",
         });
       } else if (
-        CONSUMER_ROLES.includes(user.role as (typeof CONSUMER_ROLES)[number]) &&
+        COMPLIMENTARY_CREDIT_ROLES.includes(user.role) &&
         user.credits === 0 &&
         !!user.phone
       ) {
@@ -842,7 +845,7 @@ export const authRouter = router({
         where: { id: ctx.user.id },
         data: { phone: input.phone, phoneVerified: true },
       });
-      if (hadNoPhone) {
+      if (hadNoPhone && COMPLIMENTARY_CREDIT_ROLES.includes(user.role)) {
         const alreadyRewarded = await prisma.creditTransaction.findFirst({
           where: { userId: user.id, reason: "promotion" },
           select: { id: true },

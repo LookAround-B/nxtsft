@@ -155,7 +155,7 @@ export function CreditsTab() {
   });
 
   const users = (usersQ.data?.items ?? []).filter(
-    (u) => u.role === "user" || u.role === "home-seller",
+    (u) => u.role === "user" || u.role === "home-seller" || u.role === "agent",
   );
 
   const handleGrant = () => {
@@ -172,7 +172,7 @@ export function CreditsTab() {
     <>
       <PageHead
         title="Buyer Wallets & Credits"
-        subtitle="Grant credits to buyers and track how each credit is spent."
+        subtitle="Grant credits to buyers, or as a compliment to sellers and agents (they get none automatically). Track how each credit is spent."
       />
 
       <Section title="Grant Credits">
@@ -193,7 +193,7 @@ export function CreditsTab() {
               <p className="text-sm text-muted-foreground">Searching…</p>
             )}
             {!usersQ.isLoading && users.length === 0 && (
-              <p className="text-sm text-muted-foreground">No Home Buyers or Home Sellers found.</p>
+              <p className="text-sm text-muted-foreground">No Home Buyers, Home Sellers or Agents found.</p>
             )}
             {users.length > 0 && (
               <div className="divide-y divide-border rounded-xl border border-border">
@@ -204,7 +204,7 @@ export function CreditsTab() {
                         <div className="flex items-center gap-2">
                           <span className="truncate text-sm font-semibold text-navy">{u.name}</span>
                           <Badge tone={u.role === "home-seller" ? "warm" : "new"}>
-                            {u.role === "home-seller" ? "Seller" : "Buyer"}
+                            {u.role === "home-seller" ? "Seller" : u.role === "agent" ? "Agent" : "Buyer"}
                           </Badge>
                         </div>
                         <div className="text-xs text-muted-foreground">{u.email}</div>

@@ -284,7 +284,11 @@ export function CreditsTab() {
                   className={`absolute -left-[15px] mt-0.5 h-3 w-3 rounded-full border-2 border-white ${entry.type === "credit" ? "bg-emerald-500" : "bg-accent"}`}
                 />
                 <div>
-                  <div className="text-sm font-medium text-navy capitalize">{entry.reason ?? entry.type}</div>
+                  <div className="text-sm font-medium text-navy capitalize">
+                    {entry.reason === "complimentary_removed"
+                      ? "Free credits removed (seller account)"
+                      : (entry.reason ?? entry.type).replace(/_/g, " ")}
+                  </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="font-mono">
                       {new Date(entry.createdAt).toLocaleDateString("en-IN")}
