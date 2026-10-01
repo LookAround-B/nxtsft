@@ -62,7 +62,7 @@ function SuccessContent() {
               <span className="font-bold">{plan}</span> is now active on your account.
               Your listings will go live within 24 hours of verification.
             </span>
-          ) : credits ? (
+          ) : Number(credits) > 0 ? (
             <span>
               <span className="font-bold">{credits} credit{Number(credits) !== 1 ? "s" : ""}</span> have been added to your wallet and are ready to use.
             </span>

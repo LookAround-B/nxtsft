@@ -38,6 +38,10 @@ async function withMrp<T extends { id: string }>(plans: T[]): Promise<(T & { mrp
 import { generatePayUHash, PAYU_BASE_URL } from "../payu";
 import { BOOST_TIERS, isBoostTier, type BoostTier } from "@nxtsft/shared/constants";
 
+// Seller plans sell listings, not wallet credits: contact-unlock credits are
+// only spent by buyers, so owner-* plans are always stored with credits = 0.
+const OWNER_PLAN_TYPES: string[] = ["owner-rent", "owner-sell"];
+
 // All plan lookups are DB-only. Legacy static arrays have been removed.
 // Plans are managed via the admin Plans Manager (prisma.plan table).
 
@@ -314,13 +318,18 @@ export const subscriptionsRouter = router({
       if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found." });
 
       await Promise.all([
-        prisma.user.update({
-          where: { id: ctx.user.id },
-          data: { credits: { increment: plan.credits } },
-        }),
-        prisma.creditTransaction.create({
-          data: { userId: ctx.user.id, type: "credit", amount: plan.credits, reason: "purchase" },
-        }),
+        // Seller (owner-*) plans carry 0 credits (boss 10-01), so no wallet grant.
+        ...(plan.credits > 0
+          ? [
+              prisma.user.update({
+                where: { id: ctx.user.id },
+                data: { credits: { increment: plan.credits } },
+              }),
+              prisma.creditTransaction.create({
+                data: { userId: ctx.user.id, type: "credit", amount: plan.credits, reason: "purchase" },
+              }),
+            ]
+          : []),
         // Update the pending payment row created by createOrder, or insert if missing
         prisma.payment.upsert({
           where: { razorpayOrderId: input.razorpayOrderId },
@@ -348,7 +357,7 @@ export const subscriptionsRouter = router({
         type: "payment_success",
         title: "Payment successful",
         actionUrl: "/user-portal#credits",
-        content: `${plan.name} — ${plan.credits} credits added to your wallet.`,
+        content: plan.credits > 0 ? `${plan.name} — ${plan.credits} credits added to your wallet.` : `${plan.name} is now active.`,
       });
 
       // Best-effort WhatsApp receipt (no-op until configured).
@@ -1204,7 +1213,9 @@ export const subscriptionsRouter = router({
       }
       // New plans start as drafts — the admin edits price/details, then flips it
       // active. Prevents a half-configured plan showing on the live pricing page.
-      return prisma.plan.create({ data: { ...input, active: false } });
+      return prisma.plan.create({
+        data: { ...input, credits: OWNER_PLAN_TYPES.includes(input.type) ? 0 : input.credits, active: false },
+      });
     }),
 
   updatePlan: adminProcedure
@@ -1225,6 +1236,10 @@ export const subscriptionsRouter = router({
     )
     .mutation(async ({ input }) => {
       const { id, ...data } = input;
+      if (data.credits) {
+        const plan = await prisma.plan.findUnique({ where: { id }, select: { type: true } });
+        if (plan && OWNER_PLAN_TYPES.includes(plan.type)) data.credits = 0;
+      }
       return prisma.plan.update({ where: { id }, data });
     }),
 
