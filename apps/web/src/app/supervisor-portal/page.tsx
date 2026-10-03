@@ -6,6 +6,7 @@ import {
   TrendingUp,
   AlertTriangle,
   BarChart2,
+  Contact,
 } from "lucide-react";
 import { Activity as ActivityIcon, Calendar as CalendarIcon } from "lucide-react";
 import { PortalShell, type PortalNav } from "@/components/portal/PortalShell";
@@ -21,6 +22,7 @@ import { ActivityMonitorTab } from "@/components/supervisor-portal/tabs/Activity
 import { PerformanceTab } from "@/components/supervisor-portal/tabs/PerformanceTab";
 import { VisitCalendarTab } from "@/components/supervisor-portal/tabs/VisitCalendarTab";
 import { EscalationsTab } from "@/components/supervisor-portal/tabs/EscalationsTab";
+import { RepContactsTab } from "@/components/admin-portal/tabs/RepContactsTab";
 
 // Grouped nav — groups surface in the sidebar as section headings.
 // Badges come from supervisor.badgeCounts (hidden while loading or when 0).
@@ -31,6 +33,7 @@ const makeNav = (b?: Badges): PortalNav[] => [
   { label: "Team Leads", to: "/supervisor-portal#leads", icon: <Target size={14} />, group: "Sales & CRM", badge: b?.hotLeads },
   { label: "Reassignment", to: "/supervisor-portal#reassign", icon: <ArrowLeftRight size={14} />, badge: b?.unassigned },
   { label: "Escalations", to: "/supervisor-portal#escalations", icon: <AlertTriangle size={14} />, badge: b?.escalations },
+  { label: "Team Contacts", to: "/supervisor-portal#contacts", icon: <Contact size={14} /> },
 
   { label: "Activity Monitor", to: "/supervisor-portal#activity", icon: <ActivityIcon size={14} />, group: "Monitoring" },
   { label: "Performance", to: "/supervisor-portal#performance", icon: <TrendingUp size={14} /> },
@@ -74,6 +77,7 @@ function renderTab(h: string) {
     case "performance": return <PerformanceTab />;
     case "calendar":    return <VisitCalendarTab />;
     case "escalations": return <EscalationsTab />;
+    case "contacts":    return <RepContactsTab mode="team" />;
     case "reports":
       return (
         <ReportsDashboard

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import prisma from "@nxtsft/db";
-import { isSalesRep, SALES_REP_ROLES } from "../teamScope";
+import { isSalesRep, SALES_REP_ROLES, teamRepIds } from "../teamScope";
 import { BULK_IMPORT_MAX_ROWS } from "@nxtsft/shared";
 import { notify } from "../notify";
 import { router, staffProcedure, adminProcedure, generalRateLimit } from "../server";
@@ -29,15 +29,14 @@ const isAdmin = (role: string) => ADMIN_ROLES.includes(role);
 
 type Ctx = { user: { id: string; role: string } };
 
+/** Admins and supervisors hand out contacts; supervisors only within their team. */
+const isManager = (role: string) => isAdmin(role) || role === "supervisor";
+
 /** Owner clause for list/aggregate queries. Admins get `{}` (everything). */
 async function ownerScope(ctx: Ctx): Promise<{ ownerId?: string | { in: string[] } }> {
   if (isAdmin(ctx.user.role)) return {};
   if (ctx.user.role === "supervisor") {
-    const reps = await prisma.user.findMany({
-      where: { supervisorId: ctx.user.id, role: { in: [...SALES_REP_ROLES] } },
-      select: { id: true },
-    });
-    return { ownerId: { in: [ctx.user.id, ...reps.map((r) => r.id)] } };
+    return { ownerId: { in: [ctx.user.id, ...(await teamRepIds(ctx))] } };
   }
   return { ownerId: ctx.user.id };
 }
@@ -46,11 +45,58 @@ async function ownerScope(ctx: Ctx): Promise<{ ownerId?: string | { in: string[]
 async function ownedContact(ctx: Ctx, id: string) {
   const contact = await prisma.repContact.findUnique({ where: { id } });
   if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found." });
-  if (!isAdmin(ctx.user.role) && contact.ownerId !== ctx.user.id) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "This contact belongs to another rep." });
-  }
-  return contact;
+  if (isAdmin(ctx.user.role) || contact.ownerId === ctx.user.id) return contact;
+  if (ctx.user.role === "supervisor" && (await teamRepIds(ctx)).includes(contact.ownerId)) return contact;
+  throw new TRPCError({ code: "FORBIDDEN", message: "This contact belongs to another rep." });
 }
+
+/**
+ * The rep a manager is assigning contacts to. Must be an active sales rep, and
+ * for a supervisor, one of their own team.
+ */
+async function assignableRep(ctx: Ctx, repId: string) {
+  const rep = await prisma.user.findUnique({
+    where: { id: repId },
+    select: { id: true, role: true, name: true, active: true, supervisorId: true },
+  });
+  if (!rep || !rep.active || !isSalesRep(rep.role)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Pick an active sales rep." });
+  }
+  if (ctx.user.role === "supervisor" && rep.supervisorId !== ctx.user.id) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "That rep is not on your team." });
+  }
+  return rep;
+}
+
+// Admin-controlled limits on what a sales rep may do with their book (client
+// ask, 2026-10-03). Stored in SiteSetting like the other admin toggles; both
+// default to OFF, i.e. restricted. Managers are never limited by these.
+//  - canDeleteAssigned: delete contacts an admin/supervisor gave them
+//    (source "assigned"). Their own imports/manual adds are always deletable.
+//  - canImportHeld: add or import a number another rep already holds. Off
+//    means a number lives in one rep's book only, so two reps never call the
+//    same person.
+const REP_PERMISSIONS_KEY = "rep_contacts.rep_permissions";
+type RepPermissions = { canDeleteAssigned: boolean; canImportHeld: boolean };
+const REP_PERMISSION_DEFAULTS: RepPermissions = { canDeleteAssigned: false, canImportHeld: false };
+
+async function repPermissions(): Promise<RepPermissions> {
+  const row = await prisma.siteSetting.findUnique({ where: { key: REP_PERMISSIONS_KEY } });
+  return { ...REP_PERMISSION_DEFAULTS, ...((row?.value as Partial<RepPermissions> | undefined) ?? {}) };
+}
+
+/** Numbers from `phones` already sitting in some other rep's book. */
+async function phonesHeldByOthers(ownerId: string, phones: string[]): Promise<Set<string>> {
+  if (!phones.length) return new Set();
+  const rows = await prisma.repContact.findMany({
+    where: { phone: { in: phones }, ownerId: { not: ownerId } },
+    select: { phone: true },
+    distinct: ["phone"],
+  });
+  return new Set(rows.map((r) => r.phone));
+}
+
+const IMPORT_AUDIT_ACTION = "rep_contacts.import";
 
 const contactFields = {
   name: nameSchema,
@@ -70,7 +116,7 @@ export const repContactsRouter = router({
         status: repContactStatusSchema.optional(),
         search: searchSchema.optional(),
         batchId: cuidSchema.optional(),
-        ownerId: cuidSchema.optional(), // admin-only filter; ignored for reps
+        ownerId: cuidSchema.optional(), // manager-only filter; ignored for reps
         callbackDue: z.boolean().optional(),
         page: pageSchema,
         limit: limitSchema,
@@ -78,7 +124,8 @@ export const repContactsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       const where: Record<string, unknown> = { ...(await ownerScope(ctx)) };
-      if (input.ownerId && isAdmin(ctx.user.role)) where.ownerId = input.ownerId;
+      // AND-ed with the scope, so a supervisor can't widen it to another team.
+      if (input.ownerId && isManager(ctx.user.role)) where.AND = [{ ownerId: input.ownerId }];
       if (input.status) where.status = input.status;
       if (input.batchId) where.batchId = input.batchId;
       if (input.callbackDue) where.callbackAt = { lte: new Date() };
@@ -196,6 +243,11 @@ export const repContactsRouter = router({
       if (existing) {
         throw new TRPCError({ code: "CONFLICT", message: "This number is already in your contacts." });
       }
+      if (isSalesRep(ctx.user.role) && !(await repPermissions()).canImportHeld) {
+        if ((await phonesHeldByOthers(ctx.user.id, [input.phone])).size) {
+          throw new TRPCError({ code: "CONFLICT", message: "Another rep is already working this number." });
+        }
+      }
       return prisma.repContact.create({
         data: { ...input, ownerId: ctx.user.id, source: "manual" },
       });
@@ -204,10 +256,17 @@ export const repContactsRouter = router({
   // One spreadsheet upload. Rows that fail validation are reported per-row
   // rather than failing the whole import; rows whose number the rep already has
   // are skipped by the [ownerId, phone] unique index.
+  //
+  // A rep imports into their own book. An admin or supervisor may pass
+  // `ownerId` to upload a list for one rep (no splitting across reps — the
+  // client picks a rep per upload); those rows are tagged source "assigned".
+  // Every upload is recorded in AuditLog, which backs the import history.
   bulkCreate: staffProcedure
     .use(generalRateLimit)
     .input(
       z.object({
+        ownerId: cuidSchema.optional(),
+        fileName: safeString(200).optional(),
         rows: z
           .array(
             z.object({
@@ -225,6 +284,13 @@ export const repContactsRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
+      const assigning = !!input.ownerId && input.ownerId !== ctx.user.id;
+      if (assigning && !isManager(ctx.user.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only admins and supervisors can upload for another rep." });
+      }
+      const target = assigning ? await assignableRep(ctx, input.ownerId!) : null;
+      const ownerId = target?.id ?? ctx.user.id;
+
       const rowSchema = z.object(contactFields);
       const errors: { row: number; message: string }[] = [];
       const valid: { row: number; d: z.infer<typeof rowSchema> }[] = [];
@@ -260,16 +326,56 @@ export const repContactsRouter = router({
         deduped.push(v);
       }
 
+      // A rep can't pull in numbers another rep is already working, unless an
+      // admin has allowed it. Managers handing out lists are not limited.
+      let heldByOthers = 0;
+      let toCreate = deduped;
+      if (isSalesRep(ctx.user.role) && !(await repPermissions()).canImportHeld) {
+        const held = await phonesHeldByOthers(ownerId, deduped.map((v) => v.d.phone));
+        toCreate = deduped.filter((v) => !held.has(v.d.phone));
+        heldByOthers = deduped.length - toCreate.length;
+      }
+
       const batchId = crypto.randomUUID();
-      const result = deduped.length
+      const source = assigning ? "assigned" : "import";
+      const result = toCreate.length
         ? await prisma.repContact.createMany({
-            data: deduped.map((v) => ({ ...v.d, ownerId: ctx.user.id, source: "import", batchId })),
+            data: toCreate.map((v) => ({ ...v.d, ownerId, source, batchId })),
             skipDuplicates: true,
           })
         : { count: 0 };
 
-      skipped += deduped.length - result.count;
-      return { created: result.count, skipped, errors, batchId };
+      skipped += toCreate.length - result.count;
+
+      await prisma.auditLog.create({
+        data: {
+          userId: ctx.user.id,
+          action: IMPORT_AUDIT_ACTION,
+          entity: "RepContactBatch",
+          entityId: batchId,
+          changes: {
+            ownerId,
+            fileName: input.fileName ?? null,
+            rows: input.rows.length,
+            created: result.count,
+            skipped,
+            heldByOthers,
+            rejected: errors.length,
+          },
+        },
+      });
+
+      if (target && result.count > 0) {
+        await notify({
+          userId: target.id,
+          type: "lead_update",
+          title: "New contacts assigned to you",
+          content: `${result.count} contact${result.count === 1 ? "" : "s"} added to your book. Open My Contacts to start calling.`,
+          actionUrl: "/sales-portal#contacts",
+        });
+      }
+
+      return { created: result.count, skipped, heldByOthers, errors, batchId };
     }),
 
   update: staffProcedure
@@ -434,28 +540,32 @@ export const repContactsRouter = router({
     if (contact.leadId) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Converted contacts cannot be deleted." });
     }
+    if (isSalesRep(ctx.user.role) && contact.source === "assigned" && !(await repPermissions()).canDeleteAssigned) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Contacts assigned to you can't be deleted. Ask your admin." });
+    }
     await prisma.repContact.delete({ where: { id: input.id } });
     return { ok: true };
   }),
 
-  // ─── Admin ───────────────────────────────────────────────────────────────
+  // ─── Admin / supervisor ──────────────────────────────────────────────────
 
-  // Move contacts between reps. Recorded in AssignmentHistory like lead hops.
-  reassign: adminProcedure
+  // Move contacts between reps. Admins: any rep. Supervisors: from and to
+  // their own team only. Moved contacts become "assigned" (the rep didn't add
+  // them), so the delete restriction covers them. Recorded in
+  // AssignmentHistory like lead hops.
+  reassign: staffProcedure
     .input(z.object({ ids: z.array(cuidSchema).min(1).max(500), toRepId: cuidSchema }))
     .mutation(async ({ input, ctx }) => {
-      const rep = await prisma.user.findUnique({
-        where: { id: input.toRepId },
-        select: { id: true, role: true, name: true },
-      });
-      if (!rep || !isSalesRep(rep.role)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Pick a sales rep to reassign to." });
+      if (!isManager(ctx.user.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only admins and supervisors can reassign contacts." });
       }
+      const rep = await assignableRep(ctx, input.toRepId);
 
       // The [ownerId, phone] unique index means a number the target rep already
-      // holds would fail the whole batch — drop those instead.
+      // holds would fail the whole batch — drop those instead. Contacts outside
+      // the caller's scope are silently left out.
       const contacts = await prisma.repContact.findMany({
-        where: { id: { in: input.ids } },
+        where: { id: { in: input.ids }, ...(await ownerScope(ctx)) },
         select: { id: true, phone: true },
       });
       const clashing = await prisma.repContact.findMany({
@@ -468,7 +578,7 @@ export const repContactsRouter = router({
       if (movable.length) {
         await prisma.repContact.updateMany({
           where: { id: { in: movable } },
-          data: { ownerId: rep.id },
+          data: { ownerId: rep.id, source: "assigned" },
         });
         await prisma.assignmentHistory.create({
           data: {
@@ -481,14 +591,79 @@ export const repContactsRouter = router({
         });
       }
 
-      return { moved: movable.length, skipped: contacts.length - movable.length };
+      if (movable.length) {
+        await notify({
+          userId: rep.id,
+          type: "lead_update",
+          title: "Contacts reassigned to you",
+          content: `${movable.length} contact${movable.length === 1 ? "" : "s"} moved into your book.`,
+          actionUrl: "/sales-portal#contacts",
+        });
+      }
+
+      return { moved: movable.length, skipped: input.ids.length - movable.length };
     }),
 
-  reps: adminProcedure.query(() =>
-    prisma.user.findMany({
-      where: { role: { in: [...SALES_REP_ROLES] }, active: true },
+  // Reps a manager can upload for / reassign to: every active rep for admins,
+  // the supervisor's own team otherwise.
+  reps: staffProcedure.query(({ ctx }) => {
+    if (!isManager(ctx.user.role)) return [];
+    return prisma.user.findMany({
+      where: {
+        role: { in: [...SALES_REP_ROLES] },
+        active: true,
+        ...(ctx.user.role === "supervisor" ? { supervisorId: ctx.user.id } : {}),
+      },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
+    });
+  }),
+
+  // Upload history (from AuditLog): who uploaded, for which rep, and how it
+  // went. Supervisors see uploads into their own team's books.
+  imports: staffProcedure.query(async ({ ctx }) => {
+    if (!isManager(ctx.user.role)) return [];
+    const scope = await ownerScope(ctx);
+    const teamIds = scope.ownerId && typeof scope.ownerId === "object" ? new Set(scope.ownerId.in) : null;
+
+    const logs = await prisma.auditLog.findMany({
+      where: { action: IMPORT_AUDIT_ACTION },
+      orderBy: { createdAt: "desc" },
+      take: 300,
+    });
+    type Changes = {
+      ownerId: string; fileName: string | null; rows: number; created: number;
+      skipped: number; heldByOthers: number; rejected: number;
+    };
+    const rows = logs
+      .map((l) => ({ id: l.entityId, at: l.createdAt, uploaderId: l.userId, ...(l.changes as Changes) }))
+      .filter((r) => !teamIds || teamIds.has(r.ownerId))
+      .slice(0, 50);
+
+    const userIds = [...new Set(rows.flatMap((r) => [r.ownerId, r.uploaderId]).filter((x): x is string => !!x))];
+    const users = userIds.length
+      ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } })
+      : [];
+    const nameById = new Map(users.map((u) => [u.id, u.name]));
+    return rows.map((r) => ({
+      ...r,
+      ownerName: nameById.get(r.ownerId) ?? "—",
+      uploaderName: (r.uploaderId && nameById.get(r.uploaderId)) || "—",
+    }));
+  }),
+
+  // Readable by every staff member so the sales portal can hide what a rep
+  // isn't allowed to do; only admins can change them.
+  repPermissions: staffProcedure.query(() => repPermissions()),
+
+  setRepPermissions: adminProcedure
+    .input(z.object({ canDeleteAssigned: z.boolean(), canImportHeld: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      await prisma.siteSetting.upsert({
+        where: { key: REP_PERMISSIONS_KEY },
+        create: { key: REP_PERMISSIONS_KEY, value: input, editorId: ctx.user.id },
+        update: { value: input, editorId: ctx.user.id },
+      });
+      return input;
     }),
-  ),
 });

@@ -80,6 +80,21 @@ const GROUPS: { group: string; rows: Row[] }[] = [
     ],
   },
   {
+    group: "Telecalling Contacts",
+    rows: [
+      R("Contact books (call, tag, notes)", ["full", "full", "team", "own", "own", "none", "none", "none", "none"],
+        "Reps work their own book. Supervisors see and open their team's contacts. Admins see every rep's."),
+      R("Import own contacts (CSV)", ["full", "full", "none", "own", "own", "none", "none", "none", "none"],
+        "Numbers already in another rep's book are left out, unless the admin switch \"Reps can import numbers another rep already has\" is on (Admin › Rep Contacts › Rep permissions)."),
+      R("Upload a contact list for a rep", ["full", "full", "team", "none", "none", "none", "none", "none", "none"],
+        "The uploader picks one rep per upload; the rep is notified. Every upload shows in Upload history."),
+      R("Reassign contacts", ["full", "full", "team", "none", "none", "none", "none", "none", "none"]),
+      R("Delete assigned contacts", ["full", "full", "team", "none", "none", "none", "none", "none", "none"],
+        "Reps can always delete contacts they added themselves. Contacts given to them by an admin or supervisor can only be deleted if the admin switch \"Reps can delete contacts assigned to them\" is on."),
+      R("Rep permission switches", ["full", "full", "none", "none", "none", "none", "none", "none", "none"]),
+    ],
+  },
+  {
     group: "Money",
     rows: [
       R("Buy plans / credits", ["none", "none", "none", "none", "none", "none", "own", "own", "own"]),

@@ -40,6 +40,9 @@ export function ContactsTab() {
     { placeholderData: keepPreviousData },
   );
   const statsQ = trpc.repContacts.stats.useQuery();
+  // Admin switch (Rep Contacts › Rep permissions); the server enforces it too.
+  const permsQ = trpc.repContacts.repPermissions.useQuery();
+  const canDelete = (source: string | null) => source !== "assigned" || !!permsQ.data?.canDeleteAssigned;
 
   const del = trpc.repContacts.delete.useMutation({
     onError: (e) => toast.error(e.message),
@@ -176,7 +179,7 @@ export function ContactsTab() {
                         <button onClick={() => setOpenId(c.id)} aria-label={`Open ${c.name}`} className="grid h-8 w-8 place-items-center rounded-lg border border-border text-navy hover:border-accent">
                           <UserPlus size={14} />
                         </button>
-                        {!c.leadId && (
+                        {!c.leadId && canDelete(c.source) && (
                           <button
                             onClick={() => del.mutate({ id: c.id })}
                             aria-label={`Delete ${c.name}`}

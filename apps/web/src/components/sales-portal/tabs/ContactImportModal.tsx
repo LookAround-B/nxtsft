@@ -64,12 +64,31 @@ function rowsFromMatrix(matrix: BulkImportMatrix): { rows: ParsedRow[]; error?: 
   return { rows, ignored };
 }
 
-export function ContactImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+/**
+ * Without `assignTo` the upload goes into the signed-in rep's own book. With
+ * it (admin / supervisor), the uploader must pick one rep and the whole file
+ * goes to them.
+ */
+export function ContactImportModal({
+  onClose,
+  onDone,
+  assignTo,
+}: {
+  onClose: () => void;
+  onDone: () => void;
+  assignTo?: { id: string; name: string }[];
+}) {
   const [fileName, setFileName] = useState("");
+  const [ownerId, setOwnerId] = useState("");
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [parseError, setParseError] = useState("");
   const [ignored, setIgnored] = useState<string[]>([]);
-  const [result, setResult] = useState<{ created: number; skipped: number; errors: { row: number; message: string }[] } | null>(null);
+  const [result, setResult] = useState<{
+    created: number;
+    skipped: number;
+    heldByOthers: number;
+    errors: { row: number; message: string }[];
+  } | null>(null);
 
   const importMut = trpc.repContacts.bulkCreate.useMutation({
     onError: (e) => toast.error(e.message),
@@ -115,7 +134,10 @@ export function ContactImportModal({ onClose, onDone }: { onClose: () => void; o
   }
 
   async function runImport() {
+    if (assignTo && !ownerId) { toast.error("Pick the rep this list is for."); return; }
     const res = await importMut.mutateAsync({
+      ownerId: ownerId || undefined,
+      fileName: fileName || undefined,
       rows: rows.map((r) => ({
         row: r.row,
         name: r.name ?? "",
@@ -142,13 +164,28 @@ export function ContactImportModal({ onClose, onDone }: { onClose: () => void; o
           <div>
             <h3 className="font-display text-xl font-bold text-navy">Import contacts</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              CSV or Excel, up to {BULK_IMPORT_MAX_ROWS.toLocaleString()} rows. Numbers you already have are skipped.
+              CSV or Excel, up to {BULK_IMPORT_MAX_ROWS.toLocaleString()} rows.{" "}
+              {assignTo ? "Numbers the rep already has are skipped." : "Numbers you already have are skipped."}
             </p>
           </div>
           <button onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-secondary">
             <X size={18} />
           </button>
         </div>
+
+        {assignTo && !result && (
+          <label className="mb-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-navy">
+            Assign to
+            <select
+              value={ownerId}
+              onChange={(e) => setOwnerId(e.target.value)}
+              className="rounded-xl border border-border px-3 py-2 text-sm font-normal"
+            >
+              <option value="">Pick a rep…</option>
+              {assignTo.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </label>
+        )}
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-navy px-4 py-2 text-sm font-bold text-white">
@@ -211,7 +248,7 @@ export function ContactImportModal({ onClose, onDone }: { onClose: () => void; o
             </p>
             <button
               onClick={() => void runImport()}
-              disabled={importMut.isPending}
+              disabled={importMut.isPending || (!!assignTo && !ownerId)}
               className="mt-4 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
               {importMut.isPending ? "Importing…" : `Import ${rows.length} contact${rows.length === 1 ? "" : "s"}`}
@@ -223,6 +260,8 @@ export function ContactImportModal({ onClose, onDone }: { onClose: () => void; o
           <div className="space-y-3">
             <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
               Imported {result.created}. Skipped {result.skipped} duplicate{result.skipped === 1 ? "" : "s"}.
+              {result.heldByOthers > 0 &&
+                ` ${result.heldByOthers} number${result.heldByOthers === 1 ? " is" : "s are"} already with another rep, so left out.`}
               {result.errors.length > 0 && ` ${result.errors.length} row${result.errors.length === 1 ? "" : "s"} rejected.`}
             </p>
             {result.errors.length > 0 && (

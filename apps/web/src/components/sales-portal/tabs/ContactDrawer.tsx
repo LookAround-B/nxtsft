@@ -84,7 +84,7 @@ export function ContactDrawer({ id, onClose, onChanged }: { id: string; onClose:
               <Field k="Interest" v={c.interest ?? "—"} />
               <Field k="Value" v={c.value ? `₹${c.value.toLocaleString("en-IN")}` : "—"} />
               <Field k="Calls" v={String(c.callCount)} />
-              <Field k="Source" v={c.source === "import" ? "Imported" : "Manual"} />
+              <Field k="Source" v={c.source === "assigned" ? "Assigned" : c.source === "import" ? "Imported" : "Manual"} />
             </div>
 
             {/* Status tagging — Converted is set by the convert action only. */}
