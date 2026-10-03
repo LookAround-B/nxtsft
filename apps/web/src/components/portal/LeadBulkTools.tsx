@@ -69,7 +69,8 @@ export function LeadBulkTools() {
     setLoadingAll(true);
     try {
       let r = await listQ.fetchNextPage();
-      for (let i = 0; i < 50 && r.hasNextPage; i++) r = await r.fetchNextPage(); // cap: 5,000
+      while (r.hasNextPage && !r.isError) r = await r.fetchNextPage();
+      if (r.isError) toast.error("Could not load all leads. Try again.");
     } finally {
       setLoadingAll(false);
     }

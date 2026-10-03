@@ -34,7 +34,7 @@ export default function RegisterPage() {
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [agreed, setAgreed] = useState(false);
-  const [waOptIn, setWaOptIn] = useState(true);
+  const [waOptIn, setWaOptIn] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [sellerPending, setSellerPending] = useState(false);

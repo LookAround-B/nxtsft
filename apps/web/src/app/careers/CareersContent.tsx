@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { CareersOpenings } from "./CareersOpenings";
 import {
   Code2,
   Layers,
@@ -16,9 +17,9 @@ import {
   Globe,
   ArrowRight,
   Camera,
-  Mail,
 } from "lucide-react";
-import { CareersOpenings } from "./CareersOpenings";
+const PYJAMA_CAREERS_URL =
+  "https://app.pyjamahr.com/careers?company=Nxtsft%20Realtytech%20Innovations%20pvt%20ltd&company_uuid=E44588CFE3&isHeaderVisible=true&is_careers_page=true";
 
 /* ── Scroll-reveal ──────────────────────────────────────────── */
 function useScrollReveal(key?: unknown) {
@@ -291,7 +292,7 @@ export function CareersContent() {
               href="#openings"
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 font-display text-sm font-bold text-white shadow-lg shadow-accent/40 transition hover:opacity-90"
             >
-              <Mail size={15} /> View open roles
+              <ArrowRight size={15} /> View open roles
             </a>
             <button
               onClick={() => setTab("teams")}
@@ -625,6 +626,34 @@ export function CareersContent() {
 
       {/* ── OPEN POSITIONS ──────────────────────────────────────── */}
       <CareersOpenings />
+      <section className="mx-auto max-w-6xl px-6 pb-16 sm:pb-20">
+        <div className="mb-8 text-center">
+          <div className="mb-2 text-xs font-bold uppercase tracking-widest text-gradient-accent">
+            PyjamaHR roles
+          </div>
+          <h2 className="font-display text-3xl font-black text-navy sm:text-4xl">More openings on PyjamaHR</h2>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Browse and apply for roles published through PyjamaHR below.
+          </p>
+        </div>
+        <iframe
+          src={PYJAMA_CAREERS_URL}
+          title="NxtSft careers and job applications"
+          loading="lazy"
+          className="block h-screen min-h-[700px] w-full rounded-2xl border border-border bg-white"
+        />
+        <p className="mt-3 text-center text-sm text-muted-foreground">
+          If the careers page does not load,{" "}
+          <a
+            href={PYJAMA_CAREERS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-accent hover:underline"
+          >
+            open it in a new tab
+          </a>.
+        </p>
+      </section>
 
       {/* ── CTA ─────────────────────────────────────────────────── */}
       <section className="px-6 pb-16 pt-4 sm:pb-20">
@@ -650,14 +679,14 @@ export function CareersContent() {
               </h2>
               <p className="mx-auto mt-3 max-w-md text-sm text-white/70 leading-relaxed">
                 We&apos;re always looking for exceptional people across technology, product, sales, and
-                marketing. Send us your CV and tell us what you&apos;d like to build.
+                marketing. Browse the roles above and apply through our careers page.
               </p>
               <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <a
-                  href="mailto:hr@nxtsft.com"
+                  href="#openings"
                   className="inline-flex items-center gap-2 rounded-xl bg-accent px-8 py-3 font-display text-sm font-bold text-white shadow-lg shadow-accent/40 transition hover:opacity-90"
                 >
-                  <Mail size={15} /> hr@nxtsft.com
+                  <ArrowRight size={15} /> View open roles
                 </a>
                 <Link
                   href="/about"

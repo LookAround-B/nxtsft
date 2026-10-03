@@ -134,7 +134,7 @@ export default function AgentProfileClient() {
   const cities = agent.cities ?? [agent.city];
   const specialties = agent.specialties ?? [];
   const languages = agent.languages ?? [];
-  const projects = [...new Map(listings.filter((p) => p.project).map((p) => [p.project!.id, p.project!])).values()];
+  const projects = [...new Map(listings.filter((p) => p.project).map((p) => [p.project!.id, { ...p.project!, listingSlug: p.slug }])).values()];
 
   // Normalise the agent's phone to a 10-digit local number, then build real
   // dial / WhatsApp links (null when no usable number is on file).
@@ -344,11 +344,10 @@ export default function AgentProfileClient() {
                         </>
                       );
                       const cls = "flex items-center gap-3 rounded-2xl border border-border bg-white p-4 transition hover:border-accent/40 hover:shadow-md";
-                      return pr.builder.slug ? (
-                        <Link key={pr.id} href={`/builders/${pr.builder.slug}`} className={cls}>{body}</Link>
-                      ) : (
-                        <div key={pr.id} className={cls}>{body}</div>
-                      );
+                      const href = pr.builder.slug
+                        ? `/builders/${pr.builder.slug}#project-${pr.id}`
+                        : `/properties/${pr.listingSlug}`;
+                      return <Link key={pr.id} href={href} className={cls}>{body}</Link>;
                     })}
                   </div>
                 </>

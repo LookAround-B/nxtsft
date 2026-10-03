@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import Link from "next/link";
 import {
   Building2, MapPin, Globe, CheckCircle2, Calendar,
@@ -21,6 +22,14 @@ function fmt(n: bigint | number | null | undefined): string {
 
 export default function BuilderProfileClient({ slug }: { slug: string }) {
   const { data: builder, isLoading } = trpc.builders.publicGet.useQuery({ slug });
+
+  useEffect(() => {
+    if (!builder || !window.location.hash.startsWith("#project-")) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(decodeURIComponent(window.location.hash.slice(1)))?.scrollIntoView();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [builder]);
 
   if (isLoading) {
     return (
@@ -172,7 +181,7 @@ function ProjectCard({ project: p }: { project: ProjectData }) {
   const sftRange   = [p.sftMin, p.sftMax].filter(Boolean).join(" – ");
 
   return (
-    <div className="rounded-2xl border border-border bg-white p-5 transition hover:shadow-md">
+    <div id={`project-${p.id}`} className="scroll-mt-24 rounded-2xl border border-border bg-white p-5 transition hover:shadow-md">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
           <h3 className="font-display text-sm font-bold text-navy">{p.name}</h3>

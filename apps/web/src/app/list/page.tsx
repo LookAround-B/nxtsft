@@ -491,7 +491,7 @@ export default function ListPropertyPage() {
     const dbType = DB_TYPE_MAP[data.propertyType];
     if (session && dbType) {
       try {
-        await createProperty.mutateAsync({
+        const savedProperty = await createProperty.mutateAsync({
           ...(isRep
             ? isDummy
               ? { dummy: true }
@@ -529,6 +529,9 @@ export default function ListPropertyPage() {
           walkthroughVideoUrl: data.videoUrl.trim() || undefined,
           projectId: selectedProject?.id,
         });
+        if (data.channelCode.trim() && !savedProperty.channelCode) {
+          toast.warning("Listing saved, but the referral code was not recognized. It was not tracked.");
+        }
       } catch (err) {
         // The DB save failed — don't show the success screen for a listing that
         // doesn't actually exist. Surface the real error so the seller can fix

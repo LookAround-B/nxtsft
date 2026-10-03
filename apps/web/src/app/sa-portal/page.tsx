@@ -38,6 +38,7 @@ import {
   Contact,
   UploadCloud,
   Headphones,
+  Briefcase,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { trpc } from "@/lib/trpc";
@@ -78,6 +79,7 @@ import { CreditsTab } from "@/components/admin-portal/tabs/CreditsTab";
 import { SellerApprovalsTab } from "@/components/admin-portal/tabs/SellerApprovalsTab";
 import { KYCReviewTab } from "@/components/admin-portal/tabs/KYCReviewTab";
 import { SiteContentTab } from "@/components/admin-portal/tabs/SiteContentTab";
+import { CareersTab } from "@/components/admin-portal/tabs/CareersTab";
 import { InteriorsTab } from "@/components/admin-portal/tabs/InteriorsTab";
 import { TeamTab } from "@/components/admin-portal/tabs/TeamTab";
 import { AgentsTab } from "@/components/admin-portal/tabs/AgentsTab";
@@ -136,6 +138,7 @@ const makeNav = (b?: BadgeCounts) => [
   { label: "Team Management",   to: "/sa-portal#team",         icon: <Users size={14} />, group: "Admin" },
   { label: "Marketing",         to: "/sa-portal#marketing",    icon: <Megaphone size={14} /> },
   { label: "Home Page Content", to: "/sa-portal#site-content", icon: <ImageIcon size={14} /> },
+  { label: "Careers",          to: "/sa-portal#careers",      icon: <Briefcase size={14} /> },
   { label: "Bulk Listings",     to: "/sa-portal#bulk-listings",icon: <UploadCloud size={14} /> },
   { label: "Dev Tools",         to: "/sa-portal#developers",   icon: <Building size={14} /> },
 
@@ -233,6 +236,8 @@ function renderTab(hash: string) {
       return <KYCReviewTab />;
     case "site-content":
       return <SiteContentTab />;
+    case "careers":
+      return <CareersTab />;
     default:
       return <Dashboard />;
   }

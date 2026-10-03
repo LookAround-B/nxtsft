@@ -245,11 +245,11 @@ export function CRMTab() {
     { limit: 100, ...(filters.repId ? { assignedToId: filters.repId } : {}), ...filterInput(filters) },
     { getNextPageParam: (last) => (last.hasMore ? last.nextCursor ?? undefined : undefined) },
   );
-  // Load every matching lead (was capped at 100), up to 5,000.
+  // Load every matching lead (was capped at 100).
   const pagesLoaded = leadsQ.data?.pages.length ?? 0;
   useEffect(() => {
-    if (leadsQ.hasNextPage && !leadsQ.isFetchingNextPage && pagesLoaded < 50) void leadsQ.fetchNextPage();
-  }, [leadsQ.hasNextPage, leadsQ.isFetchingNextPage, pagesLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (leadsQ.hasNextPage && !leadsQ.isFetchingNextPage && !leadsQ.isFetchNextPageError) void leadsQ.fetchNextPage();
+  }, [leadsQ.hasNextPage, leadsQ.isFetchingNextPage, leadsQ.isFetchNextPageError, pagesLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
   const updateStatus = trpc.leads.updateStatus.useMutation({
     onError: (e: { message: string }) => toast.error(e.message),
   });

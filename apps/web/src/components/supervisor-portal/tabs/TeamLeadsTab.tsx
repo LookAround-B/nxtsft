@@ -192,7 +192,7 @@ export function TeamLeadsTab() {
                           </select>
                           <button
                             onClick={() =>
-                              reassign.mutate({ leadIds: [l.id], assignedToId: repChoice })
+                              reassign.mutate({ leadIds: [l.id], assignedToId: repChoice, keepStatus: true })
                             }
                             disabled={!repChoice || reassign.isPending}
                             className="rounded-md bg-mid-blue px-4 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition disabled:opacity-50"

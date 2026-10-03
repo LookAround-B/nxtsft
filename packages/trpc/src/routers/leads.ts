@@ -7,7 +7,7 @@ import { z } from "zod";
 import prisma from "@nxtsft/db";
 import { notify, notifyAdmins } from "../notify";
 import { sendTemplateIfConfigured } from "../bhashsms";
-import { createRazorpayPaymentLink } from "../razorpayLinks";
+import { cancelRazorpayPaymentLink, createRazorpayPaymentLink } from "../razorpayLinks";
 import { router, protectedProcedure, staffProcedure, adminProcedure, generalRateLimit, contactRateLimit } from "../server";
 import {
   cuidSchema,
@@ -309,42 +309,6 @@ export const leadsRouter = router({
         data: { status: input.status },
       });
 
-      // Auto-create commission when a lead is closed as Converted
-      if (input.status === "Converted" && lead.assignedToId && lead.value) {
-        const alreadyExists = await prisma.commission.findFirst({ where: { leadId: lead.id } });
-        if (!alreadyExists) {
-          const dealValue = BigInt(lead.value);
-          const rate = 0.02;
-          const amount = BigInt(Math.round(Number(dealValue) * rate));
-          const now = new Date();
-          const periodMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-          await prisma.commission.create({
-            data: {
-              salesRepId: lead.assignedToId,
-              leadId: lead.id,
-              dealValue,
-              rate,
-              amount,
-              status: "pending",
-              periodMonth,
-            },
-          });
-
-          const fmtAmount = amount >= 100000n
-            ? `₹${(Number(amount) / 100000).toFixed(2)}L`
-            : `₹${Number(amount).toLocaleString("en-IN")}`;
-          await prisma.notification.create({
-            data: {
-              userId: lead.assignedToId,
-              type: "lead_update",
-              title: "Commission earned!",
-              content: `${fmtAmount} commission pending for converting ${lead.name}.`,
-              actionUrl: "/sales-portal#commission",
-            },
-          });
-        }
-      }
-
       return updated;
     }),
 
@@ -382,10 +346,13 @@ export const leadsRouter = router({
       if (!assignee || !isSalesRep(assignee.role)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Assignee must be a sales rep." });
       }
+      if (!assignee.active) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "That rep's account is inactive — pick an active rep." });
+      }
 
       const updated = await prisma.lead.update({
         where: { id: input.id },
-        data: { assignedToId: input.assignedToId, status: "New", assignedAt: new Date() },
+        data: { assignedToId: input.assignedToId, supervisorId: assignee.supervisorId, assignedAt: new Date() },
       });
 
       await prisma.assignmentHistory.create({
@@ -609,7 +576,7 @@ export const leadsRouter = router({
           assignedToId: input.assignedToId,
           assignedAt: new Date(),
           ...(input.keepStatus ? {} : { status: "New" }),
-          ...(assignee.supervisorId ? { supervisorId: assignee.supervisorId } : {}),
+          supervisorId: assignee.supervisorId,
         },
       });
 
@@ -664,7 +631,7 @@ export const leadsRouter = router({
       const leadIds = leads.map((l) => l.id);
       await prisma.lead.updateMany({
         where: { id: { in: leadIds } },
-        data: { assignedToId: to.id, assignedAt: new Date(), ...(to.supervisorId ? { supervisorId: to.supervisorId } : {}) },
+        data: { assignedToId: to.id, supervisorId: to.supervisorId, assignedAt: new Date() },
       });
       await prisma.assignmentHistory.create({
         data: { leadIds, fromRole: ctx.user.role, toRole: to.role, assignedById: ctx.user.id, assignedToId: to.id },
@@ -808,7 +775,7 @@ export const leadsRouter = router({
 
   // Sales rep sends a Razorpay payment link to the lead's customer. The
   // webhook (api/razorpay/webhook) completes the sale: marks the lead Paid →
-  // Listed and applies the ₹500 commission rule.
+  // Listed and applies the current percentage commission rule.
   createPaymentLink: staffProcedure
     .input(
       z.object({
@@ -861,17 +828,7 @@ export const leadsRouter = router({
         planId = p.id;
       }
 
-      // Re-creating a link supersedes any prior one: release the coupon this lead
-      // had reserved so we don't leak a use (guarded above: an already-Paid lead
-      // never reaches here, so we never release a redeemed-and-paid coupon).
-      if (lead.couponCode) {
-        await prisma.coupon.updateMany({
-          where: { code: lead.couponCode, usedCount: { gt: 0 } },
-          data: { usedCount: { decrement: 1 } },
-        });
-      }
-
-      // Apply a coupon if supplied: validate, reserve a use atomically, discount.
+      // Validate the replacement before touching an existing payable link.
       let couponCode: string | null = null;
       let couponDiscount: number | null = null;
       let originalAmount: number | null = null;
@@ -891,19 +848,47 @@ export const leadsRouter = router({
             message: `Coupon discount (₹${coupon.discountRupees}) is not less than the amount (₹${input.amount}).`,
           });
         }
-        // Atomic reserve: maxUses is a stable literal, so this single conditional
-        // increment is race-safe — count 0 means it was exhausted concurrently.
-        const reserved = await prisma.coupon.updateMany({
-          where: { code, active: true, validUntil: { gte: new Date() }, usedCount: { lt: coupon.maxUses } },
-          data: { usedCount: { increment: 1 } },
-        });
-        if (reserved.count === 0) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "This coupon has reached its usage limit." });
-        }
         couponCode = code;
         couponDiscount = coupon.discountRupees;
         originalAmount = input.amount;
         chargeAmount = input.amount - coupon.discountRupees;
+      }
+
+      // Only a cancelled link can give its coupon reservation back. Older links
+      // lack a stored gateway id, so they must reach a terminal gateway event
+      // before replacement; cancelling by short URL is not supported.
+      if (lead.paymentLink) {
+        if (!lead.paymentId?.startsWith("plink_")) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This payment link is still open. Wait for it to expire or be cancelled before creating another." });
+        }
+        await cancelRazorpayPaymentLink(lead.paymentId);
+        await prisma.$transaction(async (tx) => {
+          const retired = await tx.lead.updateMany({
+            where: { id: lead.id, paymentId: lead.paymentId, paymentStatus: { not: "Paid" } },
+            data: { paymentLink: null, paymentId: null, couponCode: null, couponDiscount: null, originalAmount: null, paymentStatus: "Failed" },
+          });
+          if (retired.count && lead.couponCode) {
+            await tx.coupon.updateMany({
+              where: { code: lead.couponCode, usedCount: { gt: 0 } },
+              data: { usedCount: { decrement: 1 } },
+            });
+          }
+        });
+        const current = await prisma.lead.findUnique({ where: { id: lead.id }, select: { paymentStatus: true } });
+        if (current?.paymentStatus === "Paid") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This lead has already paid." });
+        }
+      }
+
+      if (couponCode) {
+        const coupon = await prisma.coupon.findUnique({ where: { code: couponCode } });
+        const reserved = coupon && await prisma.coupon.updateMany({
+          where: { code: couponCode, active: true, validUntil: { gte: new Date() }, usedCount: { lt: coupon.maxUses } },
+          data: { usedCount: { increment: 1 } },
+        });
+        if (!reserved || reserved.count === 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This coupon is no longer available." });
+        }
       }
 
       const link = await createRazorpayPaymentLink({
@@ -927,19 +912,40 @@ export const leadsRouter = router({
         throw err;
       });
 
-      return prisma.lead.update({
-        where: { id: input.leadId },
-        data: {
-          plan: input.plan,
-          amount: chargeAmount,
-          couponCode,
-          couponDiscount,
-          originalAmount,
-          paymentLink: link.shortUrl,
-          paymentStatus: "Pending",
-          status: "Payment Pending",
-        },
-      });
+      let saved = false;
+      try {
+        const result = await prisma.lead.updateMany({
+          where: { id: input.leadId, paymentStatus: { not: "Paid" }, paymentLink: null },
+          data: {
+            plan: input.plan,
+            amount: chargeAmount,
+            couponCode,
+            couponDiscount,
+            originalAmount,
+            paymentLink: link.shortUrl,
+            paymentId: link.id,
+            paymentStatus: "Pending",
+            status: "Payment Pending",
+          },
+        });
+        saved = result.count > 0;
+      } catch (err) {
+        // Keep the coupon reserved if cancellation fails: the new link may
+        // still be payable, even though the lead row could not be saved.
+        await cancelRazorpayPaymentLink(link.id);
+        if (couponCode) {
+          await prisma.coupon.updateMany({ where: { code: couponCode, usedCount: { gt: 0 } }, data: { usedCount: { decrement: 1 } } });
+        }
+        throw err;
+      }
+      if (!saved) {
+        await cancelRazorpayPaymentLink(link.id);
+        if (couponCode) {
+          await prisma.coupon.updateMany({ where: { code: couponCode, usedCount: { gt: 0 } }, data: { usedCount: { decrement: 1 } } });
+        }
+        throw new TRPCError({ code: "CONFLICT", message: "The lead changed while the link was created. Try again." });
+      }
+      return prisma.lead.findUniqueOrThrow({ where: { id: input.leadId } });
     }),
 
   // Rep edits the listing attached to one of their leads (created on the

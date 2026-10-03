@@ -81,6 +81,15 @@ export const contactRouter = router({
           }),
         ),
       );
+      if (input.channels.includes("sms_whatsapp")) {
+        const user = await prisma.user.findUnique({ where: { email }, select: { id: true, metadata: true } });
+        if (user) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { metadata: { ...((user.metadata as Record<string, unknown> | null) ?? {}), waOptIn: false } },
+          });
+        }
+      }
       return { ok: true };
     }),
 

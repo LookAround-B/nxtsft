@@ -145,6 +145,7 @@ export const usersRouter = router({
       const metadata = {
         ...((user.metadata as Record<string, unknown> | null) ?? {}),
         notificationPrefs: input,
+        ...(input.whatsapp ? {} : { waOptIn: false }),
       };
 
       await prisma.user.update({
@@ -767,14 +768,40 @@ export const usersRouter = router({
       orderBy: { name: "asc" },
     });
 
+    const reviewRows = agents.length
+      ? await prisma.review.findMany({
+          where: {
+            status: "Approved",
+            property: { agentId: { in: agents.map((a) => a.id) }, deletedAt: null },
+          },
+          select: { rating: true, property: { select: { agentId: true } } },
+        })
+      : [];
+    const reviewTotals = new Map<string, { count: number; sum: number }>();
+    for (const review of reviewRows) {
+      const agentId = review.property.agentId;
+      if (!agentId) continue;
+      const totals = reviewTotals.get(agentId) ?? { count: 0, sum: 0 };
+      totals.count += 1;
+      totals.sum += review.rating;
+      reviewTotals.set(agentId, totals);
+    }
+
     return agents.map((a): {
       id: string; name: string; slug: string | null; email: string;
       avatar: string | null; city: string; verified: boolean; metadata: unknown;
-    } => ({
-      id: a.id, name: a.name, slug: a.slug, email: a.email,
-      avatar: a.avatar, city: a.city, verified: a.verified,
-      metadata: publicAgentMeta(a.metadata),
-    }));
+    } => {
+      const totals = reviewTotals.get(a.id);
+      return {
+        id: a.id, name: a.name, slug: a.slug, email: a.email,
+        avatar: a.avatar, city: a.city, verified: a.verified,
+        metadata: {
+          ...publicAgentMeta(a.metadata),
+          rating: totals ? Math.round((totals.sum / totals.count) * 10) / 10 : 0,
+          reviews: totals?.count ?? 0,
+        },
+      };
+    });
   }),
 
   // Real platform counters for the public /agents hero. Everything here is a
@@ -825,9 +852,16 @@ export const usersRouter = router({
       const meta = (agent.metadata ?? {}) as Record<string, unknown>;
       // Real count of listings this agent markets. Falls back to the static
       // metadata figure only when none are assigned yet (e.g. pre-backfill).
-      const activeListings = await prisma.property.count({
-        where: { agentId: agent.id, status: "Active", deletedAt: null },
-      });
+      const [activeListings, reviewStats] = await Promise.all([
+        prisma.property.count({
+          where: { agentId: agent.id, status: "Active", deletedAt: null },
+        }),
+        prisma.review.aggregate({
+          where: { status: "Approved", property: { agentId: agent.id, deletedAt: null } },
+          _count: { _all: true },
+          _avg: { rating: true },
+        }),
+      ]);
       return {
         id: agent.id, name: agent.name, slug: agent.slug, email: agent.email,
         // Agents are public directory professionals — their business phone is
@@ -837,8 +871,8 @@ export const usersRouter = router({
         phone: meta.callbackOnly === true ? null : agent.phone,
         avatar: agent.avatar, city: agent.city, verified: agent.verified,
         initials: meta.initials as string | undefined,
-        rating: meta.rating as number | undefined,
-        reviews: meta.reviews as number | undefined,
+        rating: reviewStats._avg.rating ? Math.round(reviewStats._avg.rating * 10) / 10 : 0,
+        reviews: reviewStats._count._all,
         deals: meta.deals as number | undefined,
         since: meta.since as number | undefined,
         listings: activeListings || (meta.listings as number | undefined),
@@ -857,7 +891,7 @@ export const usersRouter = router({
     .input(z.object({ slug: z.string().min(1).max(120).regex(/^[a-z0-9-]+$/, "Invalid slug") }))
     .query(async ({ input }) => {
       const agent = await prisma.user.findFirst({
-        where: { slug: input.slug, role: "agent" },
+        where: { slug: input.slug, role: "agent", active: true, verified: true },
         select: { id: true },
       });
       if (!agent) return [];
@@ -888,7 +922,7 @@ export const usersRouter = router({
     .input(z.object({ slug: z.string().min(1).max(120).regex(/^[a-z0-9-]+$/, "Invalid slug") }))
     .query(async ({ input }) => {
       const agent = await prisma.user.findFirst({
-        where: { slug: input.slug, role: "agent" },
+        where: { slug: input.slug, role: "agent", active: true, verified: true },
         select: { id: true },
       });
       if (!agent) return [];

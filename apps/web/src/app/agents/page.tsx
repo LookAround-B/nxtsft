@@ -238,7 +238,7 @@ export default function AgentsPage() {
             ...a,
             metadata: meta,
             initials: (meta.initials as string | undefined) || a.name.split(" ").map((n: string) => n[0]).join(""),
-            rating: (meta.rating as number | undefined) ?? 4.5,
+            rating: (meta.rating as number | undefined) ?? 0,
             reviews: (meta.reviews as number | undefined) ?? 0,
             deals: (meta.deals as number | undefined) ?? 0,
             listings: (meta.listings as number | undefined) ?? 0,

@@ -45,3 +45,19 @@ export async function createRazorpayPaymentLink(opts: {
   const link = (await res.json()) as { id: string; short_url: string };
   return { id: link.id, shortUrl: link.short_url };
 }
+
+/** A replaced link must stop accepting payment before its coupon use is freed. */
+export async function cancelRazorpayPaymentLink(id: string): Promise<void> {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) throw new Error("Razorpay not configured.");
+  const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+  const res = await fetch(`https://api.razorpay.com/v1/payment_links/${encodeURIComponent(id)}/cancel`, {
+    method: "POST",
+    headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: { description?: string } };
+    throw new Error(err?.error?.description ?? `Razorpay payment link cancellation failed (${res.status}).`);
+  }
+}

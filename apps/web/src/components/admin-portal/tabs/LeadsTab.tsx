@@ -49,7 +49,8 @@ export function LeadsTab() {
     setLoadingAll(true);
     try {
       let r = await unassignedQ.fetchNextPage();
-      for (let i = 0; i < 50 && r.hasNextPage; i++) r = await r.fetchNextPage(); // cap: 5,000 leads
+      while (r.hasNextPage && !r.isError) r = await r.fetchNextPage();
+      if (r.isError) toast.error("Could not load all unassigned leads. Try again.");
     } finally {
       setLoadingAll(false);
     }

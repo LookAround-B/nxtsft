@@ -38,7 +38,7 @@ export function CareersOpenings() {
         <div className="mb-2 text-xs font-bold uppercase tracking-widest text-gradient-accent">
           Open roles
         </div>
-        <h2 className="font-display text-3xl font-black text-navy sm:text-4xl">Current openings</h2>
+        <h2 className="font-display text-3xl font-black text-navy sm:text-4xl">NxtSft openings</h2>
       </div>
 
       {q.isLoading ? (
@@ -50,7 +50,7 @@ export function CareersOpenings() {
       ) : jobs.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-secondary/30 p-10 text-center">
           <p className="text-muted-foreground">
-            No open roles right now — but we&apos;re always keen to meet great people.
+            No NxtSft roles listed here right now. You can also browse our PyjamaHR openings below.
           </p>
           <a
             href="mailto:hr@nxtsft.com"

@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
         await liftFreeTier(userId, boughtPlanId).catch((err) => console.error("liftFreeTier", err));
       }
 
-      // Auto ₹500 commission to the attributed sales rep (self-serve channel).
+      // Current percentage commission for a qualifying first purchase.
       // Best-effort — never blocks the payment. Load the plan for its type/price;
       // any plan qualifies on a fresh sale.
       const planId = meta.planId ?? udf2;

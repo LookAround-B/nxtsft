@@ -13,8 +13,8 @@ import { TEST_LISTING_STATUS } from "@nxtsft/shared/constants";
 // RAZORPAY_WEBHOOK_SECRET. On payment: lead → Paid → auto-Listed for 10 days
 // (per the CRM V3 brief), the customer's rep-created listing is published, then
 // the sales commission rule runs (fresh sales only — 10% Sales Rep / 30%
-// Virtual Rep, see packages/trpc/src/commission.ts). Failed/cancelled/expired
-// links mark the lead Failed and tell the rep to follow up.
+// Virtual Rep, see packages/trpc/src/commission.ts). Cancelled/expired links
+// mark the lead Failed; a failed attempt leaves its link payable.
 //
 // Idempotent under Razorpay's webhook retries: a lead already marked Paid is
 // acknowledged without re-processing, and awardSaleCommission refuses a
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (failureKind) {
-    return handleFailure(failureKind, notes, event.payload?.payment?.entity?.error_description);
+    return handleFailure(failureKind, notes, entity?.id, event.payload?.payment?.entity?.error_description);
   }
 
   const leadId = notes?.lead_id;
@@ -98,6 +98,9 @@ export async function POST(req: NextRequest) {
   const lead = await prisma.lead.findUnique({ where: { id: leadId } });
   if (!lead) return NextResponse.json({ ok: true, ignored: "lead not found" });
   if (lead.paymentStatus === "Paid") return NextResponse.json({ ok: true, ignored: "already paid" });
+  if (lead.paymentId?.startsWith("plink_") && entity?.id !== lead.paymentId) {
+    return NextResponse.json({ ok: true, ignored: "superseded link" });
+  }
 
   const now = new Date();
   const expiryDate = new Date(now.getTime() + LISTED_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
@@ -114,8 +117,12 @@ export async function POST(req: NextRequest) {
   // it on the expiry sweep's clock (see sweepListingValidity).
   const isFree = property?.freeListing === true;
 
-  await prisma.lead.update({
-    where: { id: leadId },
+  const claimed = await prisma.lead.updateMany({
+    where: {
+      id: leadId,
+      paymentStatus: { not: "Paid" },
+      ...(lead.paymentId?.startsWith("plink_") ? { paymentId: lead.paymentId } : {}),
+    },
     data: {
       paymentStatus: "Paid",
       paymentId,
@@ -125,6 +132,7 @@ export async function POST(req: NextRequest) {
       ...(amountRupees > 0 ? { amount: amountRupees } : {}),
     },
   });
+  if (claimed.count === 0) return NextResponse.json({ ok: true, ignored: "already paid or superseded" });
 
   // Publish the listing the rep created for this customer. It already belongs
   // to the customer's account (properties.create → onBehalfOfLeadId), so paying
@@ -229,8 +237,9 @@ export async function POST(req: NextRequest) {
   // when a Subscription was created here, so revenue (revenue.ts) counts each
   // sale exactly once. razorpayId is unique, which also absorbs webhook retries.
   const payerId = subCustomerId ?? lead.userId;
+  let paymentRecorded = false;
   if (payerId && amountRupees > 0) {
-    await prisma.payment
+    paymentRecorded = await prisma.payment
       .create({
         data: {
           userId: payerId,
@@ -243,7 +252,11 @@ export async function POST(req: NextRequest) {
           metadata: { leadId, source: "payment_link" },
         },
       })
-      .catch((err) => console.error("[razorpay webhook] payment ledger row failed:", err instanceof Error ? err.message : err));
+      .then(() => true)
+      .catch((err) => {
+        console.error("[razorpay webhook] payment ledger row failed:", err instanceof Error ? err.message : err);
+        return false;
+      });
   }
 
   // Credited to the rep the lead is on (self-created or allotted), falling
@@ -255,7 +268,7 @@ export async function POST(req: NextRequest) {
     amountRupees: amountRupees || lead.amount || 0,
     planName: soldPlanName ?? lead.plan ?? "plan",
     saleRef: `payment ${paymentId}`,
-    saleRecorded: subCreated,
+    saleRecorded: subCreated || paymentRecorded,
   });
 
   // Panel alerts: rep, their supervisor, and lead-routing admins hear about
@@ -287,14 +300,13 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * Cancelled / expired links and failed payments: mark the lead Failed and alert
- * the rep + supervisor so they can call the customer back. The listing stays
- * Pending (unpublished) on the customer's account — re-sending a link and
- * paying publishes it.
+ * Cancelled / expired links retire the link and alert the rep + supervisor.
+ * A failed attempt only alerts them because the same link can still be paid.
  */
 async function handleFailure(
   kind: string,
   notes: Notes | undefined,
+  linkId: string | undefined,
   errorDescription: string | undefined,
 ): Promise<NextResponse> {
   const leadId = notes?.lead_id;
@@ -305,24 +317,28 @@ async function handleFailure(
   // A later failure event on an already-paid lead (e.g. a retried card that
   // failed before the successful one) must never undo the sale.
   if (lead.paymentStatus === "Paid") return NextResponse.json({ ok: true, ignored: "already paid" });
-  if (lead.paymentStatus === "Failed") return NextResponse.json({ ok: true, ignored: "already failed" });
+  if (lead.paymentId?.startsWith("plink_") && (linkId ? linkId !== lead.paymentId : kind !== "failed")) {
+    return NextResponse.json({ ok: true, ignored: "superseded link" });
+  }
 
-  await prisma.lead.update({
-    where: { id: leadId },
-    data: { paymentStatus: "Failed", status: "Payment Pending" },
-  });
-
-  // Release the coupon use this link reserved — but only for terminal, never-
-  // payable outcomes (cancelled/expired). A plain payment.failed is a retryable
-  // attempt: the link stays open and may still be paid, so we keep the hold.
-  // Guarded by the Pending→Failed short-circuit above, so this fires at most
-  // once. (A payment.failed-then-expire sequence is swallowed by "already
-  // failed" and keeps the hold — the safe direction: never over-discounts.)
-  if ((kind === "cancelled" || kind === "expired") && lead.couponCode) {
-    await prisma.coupon.updateMany({
-      where: { code: lead.couponCode, usedCount: { gt: 0 } },
-      data: { usedCount: { decrement: 1 } },
+  // A failed attempt leaves the link payable. Only a terminal link event may
+  // retire it and free its coupon; the conditional update prevents double free
+  // when cancellation and its webhook race each other.
+  if (kind !== "failed") {
+    const retired = await prisma.$transaction(async (tx) => {
+      const result = await tx.lead.updateMany({
+        where: { id: leadId, paymentStatus: { not: "Paid" }, paymentLink: { not: null }, paymentId: lead.paymentId },
+        data: { paymentStatus: "Failed", status: "Payment Pending", paymentLink: null, paymentId: null, couponCode: null, couponDiscount: null, originalAmount: null },
+      });
+      if (result.count && lead.couponCode) {
+        await tx.coupon.updateMany({
+          where: { code: lead.couponCode, usedCount: { gt: 0 } },
+          data: { usedCount: { decrement: 1 } },
+        });
+      }
+      return result.count > 0;
     });
+    if (!retired) return NextResponse.json({ ok: true, ignored: "already retired" });
   }
 
   const recipients = new Set<string>();
@@ -336,7 +352,7 @@ async function handleFailure(
       userId,
       type: "payment_failed",
       title: `Payment ${kind}`,
-      content: `${lead.name}'s payment ${kind}${reason}. Send a fresh link or call them back.`,
+      content: `${lead.name}'s payment ${kind}${reason}. ${kind === "failed" ? "Ask them to retry the same link or call them back." : "Send a fresh link or call them back."}`,
       actionUrl: "/sales-portal",
     })),
   });

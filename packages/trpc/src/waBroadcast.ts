@@ -33,9 +33,7 @@ const NOT_DUMMY: UserWhere[] = [
   { NOT: { phone: { startsWith: "98200000" } } },
   { NOT: { phone: { startsWith: "9000000" } } },
   { NOT: { name: { contains: "dummy", mode: "insensitive" } } },
-  { NOT: { name: { contains: "tester", mode: "insensitive" } } },
-  { NOT: { name: { startsWith: "pwtest", mode: "insensitive" } } },
-  { NOT: { name: { equals: "test", mode: "insensitive" } } },
+  { NOT: { name: { contains: "test", mode: "insensitive" } } },
 ];
 
 export function audienceWhere(a: Audience): UserWhere {

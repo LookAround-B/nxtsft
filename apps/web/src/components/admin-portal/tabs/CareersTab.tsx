@@ -21,13 +21,26 @@ const MAX_JOBS = 50;
 export function CareersTab() {
   return (
     <div className="space-y-6">
+      <Section title="PyjamaHR jobs">
+        <p className="mb-4 text-sm text-muted-foreground">
+          Publish and review PyjamaHR roles in PyjamaHR. They appear in the separate PyjamaHR section of the public careers page; applications for those roles stay in PyjamaHR.
+        </p>
+        <a
+          href="https://app.pyjamahr.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+        >
+          Open PyjamaHR <ExternalLink size={14} />
+        </a>
+      </Section>
       <JobsManager />
       <ApplicationsList />
     </div>
   );
 }
 
-// ── Job postings (admin-managed, stored in siteContent "careers.jobs") ─────────
+// ── Job postings (admin-managed, stored in SiteSetting "careers.jobs") ─────────
 function JobsManager() {
   const [jobs, setJobs] = useState<Job[]>([]);
 
@@ -85,10 +98,10 @@ function JobsManager() {
   };
 
   return (
-    <Section title="Job Postings">
+    <Section title="NxtSft job postings">
       <p className="mb-4 text-sm text-muted-foreground">
-        Roles shown in the &ldquo;Open positions&rdquo; section of the public careers page. With no
-        postings, that section shows a friendly &ldquo;no open roles&rdquo; message.
+        Roles shown in the NxtSft openings section of the public careers page. Applicants for these
+        roles appear below. With no postings, that section shows a &ldquo;no open roles&rdquo; message.
       </p>
 
       {jobs.length > 0 && (
@@ -207,7 +220,7 @@ function ApplicationsList() {
   const apps = q.data ?? [];
 
   return (
-    <Section title="Applications">
+    <Section title="NxtSft applications">
       <div className="mb-4 flex flex-wrap gap-2">
         {(["All", ...STATUSES] as const).map((s) => (
           <button

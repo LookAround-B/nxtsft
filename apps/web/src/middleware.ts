@@ -73,7 +73,7 @@ const r2ImgSrc = r2Host ? ` https://${r2Host}` : "";
 // the JSON-LD <script> tags on detail pages, is XSS-safe regardless of CSP
 // because jsonLdScript() escapes the payload (see src/lib/jsonLd.ts). GOL-268
 // H3 is accepted as a Low residual in exchange for keeping static generation.
-function buildCsp(): string {
+function buildCsp(pathname: string): string {
   // Vercel Analytics / Speed Insights load debug scripts from va.vercel-scripts.com
   // in dev only; in prod they load same-origin from /_vercel/* (covered by 'self').
   const devScriptSrc =
@@ -97,14 +97,15 @@ function buildCsp(): string {
     // public bucket domain. Without it the CSP blocks the upload fetch.
     "connect-src 'self' https://accounts.google.com https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https://*.razorpay.com https://lumberjack.razorpay.com https://cloudflareinsights.com https://*.r2.cloudflarestorage.com",
     // Razorpay checkout renders its payment UI (cards, UPI, 3DS/OTP) in an iframe.
-    "frame-src https://accounts.google.com https://api.razorpay.com https://checkout.razorpay.com",
+    "frame-src https://accounts.google.com https://api.razorpay.com https://checkout.razorpay.com" +
+      (pathname === "/careers" ? " https://app.pyjamahr.com" : ""),
     "frame-ancestors 'none'",
   ].join("; ");
 }
 
 function nextWithCsp(_request: NextRequest): NextResponse {
   const response = NextResponse.next();
-  response.headers.set("Content-Security-Policy", buildCsp());
+  response.headers.set("Content-Security-Policy", buildCsp(_request.nextUrl.pathname));
   return response;
 }
 
