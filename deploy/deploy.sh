@@ -36,8 +36,10 @@ pm2 startOrReload "$APP_DIR/current/deploy/ecosystem.config.cjs" --update-env
 pm2 save
 
 echo "==> Health check"
+# /api/health/db is gated on the cron bearer (same as deploy/cron.sh).
+SECRET=$(grep -E '^CRON_SECRET=' "$APP_DIR/shared/.env" | cut -d= -f2- | tr -d '"')
 for i in $(seq 1 20); do
-  if curl -fsS http://127.0.0.1:3000/api/health/db >/dev/null; then
+  if curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/health/db >/dev/null; then
     echo "OK"
     break
   fi
