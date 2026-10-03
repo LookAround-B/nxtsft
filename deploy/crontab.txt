@@ -1,0 +1,14 @@
+# Install as the deploy user: crontab /var/www/nxtsft/current/deploy/crontab.txt
+# Replaces the external scheduler the cron routes expect. Times are IST
+# because the VPS timezone is set to Asia/Kolkata (see deploy/README.md).
+# Output goes to ~/cron.log so failures are visible.
+C="/var/www/nxtsft/current/deploy/cron.sh"
+
+# Daily lead report, 09:00
+0 9 * * *            $C daily-report   >>$HOME/cron.log 2>&1
+# Rep-assisted listing validity sweep, daily 02:30
+30 2 * * *           $C listing-expiry >>$HOME/cron.log 2>&1
+# Broadcast batches, every 2 min
+*/2 * * * *          $C send-campaigns >>$HOME/cron.log 2>&1
+# WhatsApp nudges, every 30 min inside the 6-10 AM and 7-9 PM windows
+*/30 6-9,19-20 * * * $C wa-followups   >>$HOME/cron.log 2>&1
